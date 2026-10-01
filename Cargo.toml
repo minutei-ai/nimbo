@@ -10,16 +10,71 @@ publish = false
 [workspace.lints.rust]
 unsafe_code = "forbid"
 unused_must_use = "deny"
-missing_debug_implementations = "warn"
-unreachable_pub = "warn"
+missing_docs = "deny"
+missing_debug_implementations = "deny"
+missing_copy_implementations = "deny"
+unreachable_pub = "deny"
+unused_qualifications = "deny"
+unused_lifetimes = "deny"
+unfulfilled_lint_expectations = "deny"
+rust_2018_idioms = { level = "deny", priority = -1 }
+
+[workspace.lints.rustdoc]
+broken_intra_doc_links = "deny"
+private_intra_doc_links = "deny"
+invalid_html_tags = "deny"
+invalid_rust_codeblocks = "deny"
+bare_urls = "deny"
 
 [workspace.lints.clippy]
-all = { level = "warn", priority = -1 }
-pedantic = { level = "warn", priority = -1 }
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+# Nursery is intentionally curated: the full group is experimental.
+collection_is_never_read = "deny"
+derive_partial_eq_without_eq = "deny"
+fallible_impl_from = "deny"
+needless_collect = "deny"
+readonly_write_lock = "deny"
+redundant_clone = "deny"
+significant_drop_in_scrutinee = "deny"
+significant_drop_tightening = "deny"
+unused_peekable = "deny"
+# Restriction rules that protect this bounded, fallible engine.
+allow_attributes = "deny"
+allow_attributes_without_reason = "deny"
+arithmetic_side_effects = "deny"
+as_conversions = "deny"
+clone_on_ref_ptr = "deny"
 dbg_macro = "deny"
 todo = "deny"
 unimplemented = "deny"
+unreachable = "deny"
 unwrap_used = "deny"
 expect_used = "deny"
+indexing_slicing = "deny"
+let_underscore_must_use = "deny"
+lossy_float_literal = "deny"
+map_err_ignore = "deny"
+panic = "deny"
+print_stdout = "deny"
+print_stderr = "deny"
+rc_buffer = "deny"
+rc_mutex = "deny"
+large_stack_arrays = "deny"
+large_stack_frames = "deny"
+unused_result_ok = "deny"
+wildcard_dependencies = "deny"
 exit = "deny"
 mem_forget = "deny"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = "debuginfo"
+overflow-checks = true
+
+[profile.profiling]
+inherits = "release"
+debug = 1
+strip = "none"

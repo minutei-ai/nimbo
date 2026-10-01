@@ -141,7 +141,7 @@ impl Transport {
             if self.requests.get() >= self.limits.max_requests {
                 return Err(Error::Limit("request count"));
             }
-            self.requests.set(self.requests.get() + 1);
+            self.requests.set(self.requests.get().saturating_add(1));
             let mut request = self
                 .client
                 .request(method.clone(), url.clone())
@@ -194,9 +194,9 @@ impl Transport {
         if bytes.len() > remaining {
             return Err(Error::Limit("total response bytes"));
         }
-        self.bytes.set(self.bytes.get() + bytes.len());
+        self.bytes.set(self.bytes.get().saturating_add(bytes.len()));
         let body = String::from_utf8(bytes)
-            .map_err(|_| Error::Unsupported("only UTF-8 response bodies".into()))?;
+            .map_err(|error| Error::Unsupported(format!("only UTF-8 response bodies: {error}")))?;
         Ok(Response {
             url: url.to_string(),
             status,

@@ -46,7 +46,7 @@ impl Page {
             std::time::Instant::now() >= deadline
         })));
         let unhandled_rejections = Rc::new(Cell::new(0_usize));
-        let rejections = unhandled_rejections.clone();
+        let rejections = Rc::clone(&unhandled_rejections);
         runtime.set_host_promise_rejection_tracker(Some(Box::new(move |_, _, _, handled| {
             rejections.set(if handled {
                 rejections.get().saturating_sub(1)
@@ -59,7 +59,7 @@ impl Page {
         let base = parse_url(&response.url)?;
         let ready = context.with(|ctx| -> Result<_> {
             let globals = ctx.globals();
-            let dom_transport = transport.clone();
+            let dom_transport = Rc::clone(&transport);
             let dom_function = Function::new(
                 ctx.clone(),
                 move |ctx: Ctx<'_>, op: String, handle: usize, arg: String, value: String| {
@@ -70,7 +70,7 @@ impl Page {
                 },
             );
             js(&ctx, globals.set("nimboDom", js(&ctx, dom_function)?))?;
-            let request_transport = transport.clone();
+            let request_transport = Rc::clone(&transport);
             let request_base = base.clone();
             let request = Function::new(
                 ctx.clone(),
@@ -83,7 +83,10 @@ impl Page {
             );
             js(&ctx, globals.set("nimboRequest", js(&ctx, request)?))?;
             js(&ctx, globals.set("nimboUrl", response.url.clone()))?;
-            let finish = js(&ctx, ctx.eval::<Function<'_>, _>(include_str!("web.js")))?;
+            let finish = js(
+                &ctx,
+                ctx.eval::<Function<'_>, _>(include_str!(concat!(env!("OUT_DIR"), "/web.js"))),
+            )?;
             Ok(Persistent::save(&ctx, finish))
         })?;
         let mut page = Self {

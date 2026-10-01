@@ -1,3 +1,5 @@
+//! Browser integration tests against isolated local HTTP fixtures.
+
 use std::{
     io,
     process::Command,
@@ -29,7 +31,7 @@ impl Fixture {
             .to_ip()
             .ok_or_else(|| io::Error::other("missing listener address"))?;
         let stop = Arc::new(AtomicBool::new(false));
-        let worker_stop = stop.clone();
+        let worker_stop = Arc::clone(&stop);
         let thread = thread::spawn(move || {
             while !worker_stop.load(Ordering::Relaxed) {
                 match server.recv_timeout(Duration::from_millis(10)) {
@@ -62,7 +64,11 @@ impl Drop for Fixture {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Relaxed);
         if let Some(thread) = self.thread.take() {
-            let _ = thread.join();
+            #[expect(
+                clippy::expect_used,
+                reason = "A server thread panic must fail the test during fixture cleanup"
+            )]
+            thread.join().expect("fixture server thread must not panic");
         }
     }
 }
@@ -461,5 +467,14 @@ fn dom_operation_budget_and_expired_page_are_enforced() -> TestResult {
     let page = browser.navigate(&fixture.path("/static"))?;
     thread::sleep(Duration::from_millis(210));
     assert!(matches!(page.evaluate("42"), Err(Error::Limit(_))));
+    Ok(())
+}
+
+#[test]
+fn cached_selectors_observe_order_scope_and_mutations() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    assert_eq!(page.evaluate("(() => { document.body.innerHTML = '<section class=entry><i class=entry>first</i><i class=entry>second</i></section><i class=entry>outside</i>'; const scope = document.querySelector('section'); const first = scope.querySelector('.entry'); const before = first.textContent; first.remove(); const after = scope.querySelector('.entry').textContent; scope.innerHTML = ''; return { before, after, missing: scope.querySelector('.entry'), remaining: document.querySelectorAll('.entry').length, root: scope.querySelector('section') }; })()")?,
+        json!({"before":"first", "after":"second", "missing":null, "remaining":2, "root":null}));
     Ok(())
 }

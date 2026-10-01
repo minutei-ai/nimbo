@@ -1,9 +1,7 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "allowJs": true,
-    "checkJs": true,
     "types": []
   },
-  "include": ["src/web.js", "src/host.d.ts"]
+  "include": ["src/web.ts", "src/host.d.ts"]
 }

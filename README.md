@@ -2,7 +2,7 @@
 
 Um navegador para scraping em massa, pensado primeiro para Cloudflare Containers: baixo consumo de memória, partida rápida e custo medido por página extraída.
 
-**Status: primeiro MVP local implementado.** O motor Rust navega, executa um subconjunto de APIs web e extrai JSON por CLI. A infraestrutura Cloudflare, a compatibilidade ampliada e os benchmarks abaixo ainda serão implementados. Nimbo é um projeto separado do outros motores usado atualmente pela consumidores.
+**Status: primeiro MVP local implementado.** O motor Rust navega, executa um subconjunto de APIs web e extrai JSON por CLI. A infraestrutura Cloudflare, a compatibilidade ampliada e os benchmarks em produção abaixo ainda serão implementados. Nimbo é um projeto separado do outros motores usado atualmente pela consumidores.
 
 ## Desenvolvimento
 
@@ -42,12 +42,19 @@ via `mem::forget`. Novos crates devem declarar `[lints] workspace = true`.
 Exceções pontuais precisam justificar a regra no local; não desligar categorias
 inteiras para acomodar uma implementação.
 
+A política Rust inclui regras selecionadas de `restriction` e `nursery`,
+verificação de documentação e testes também em release. A pesquisa, decisões
+e medições locais estão em [docs/rust-quality.md](docs/rust-quality.md).
+
 ## Primeiro MVP
 
 O motor usa Rust para transporte e DOM, [QuickJS via rquickjs](https://docs.rs/rquickjs/0.14.0/rquickjs/)
 para JavaScript e [dom_query/html5ever](https://docs.rs/dom_query/0.28.0/dom_query/)
-para parsing e seletores. A ponte web é JavaScript com JSDoc, verificada pelo mesmo
-Oxlint/Go. Não depende de Chromium ou de um runtime Node/Bun em execução.
+para parsing e seletores. A ponte web é escrita em TypeScript, verificada pelo mesmo
+Oxlint/Go e compilada pelo build do Cargo. O JavaScript gerado fica em `target/`,
+sem arquivos `.js` escritos ou versionados. Bun e Effect são usados no build e
+nas ferramentas; o binário final executa sozinho com QuickJS. Effect permanece
+na orquestração e fora do contexto das páginas.
 
 ```sh
 bun run test:browser

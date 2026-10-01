@@ -12,11 +12,17 @@ pub use page::Page;
 /// Orçamento de uma navegação, incluindo scripts, fetch e extração.
 #[derive(Clone, Copy, Debug)]
 pub struct Limits {
+    /// Deadline total, compartilhado por transporte, scripts e extração.
     pub timeout: Duration,
+    /// Soma máxima dos bytes de resposta recebidos durante uma navegação.
     pub max_response_bytes: usize,
+    /// Requests físicos máximos, contando redirects e subrequests.
     pub max_requests: usize,
+    /// Chamadas máximas da ponte DOM, incluindo leituras.
     pub max_dom_operations: usize,
+    /// Bytes máximos acumulados em mutações de DOM.
     pub max_dom_write_bytes: usize,
+    /// Limite de heap do `QuickJS`; não representa memória total do processo.
     pub javascript_memory_bytes: usize,
 }
 
@@ -36,26 +42,37 @@ impl Default for Limits {
 /// Falhas explícitas; uma falha de navegação não vira extração vazia.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    /// URL malformada, esquema não permitido ou credenciais na URL.
     #[error("invalid URL: {0}")]
     InvalidUrl(String),
+    /// Destino fora da origem autorizada da sessão.
     #[error("origin policy: {0}")]
     Origin(String),
+    /// Orçamento excedido ou configuração de limites inválida.
     #[error("resource limit: {0}")]
     Limit(&'static str),
+    /// Operação fora da superfície implementada pelo MVP.
     #[error("unsupported: {0}")]
     Unsupported(String),
+    /// Falha no cliente HTTP/TLS.
     #[error("HTTP transport: {0}")]
     Http(#[from] reqwest::Error),
+    /// Status de navegação ou script fora da faixa de sucesso.
     #[error("HTTP status {0}")]
     HttpStatus(u16),
+    /// Falha de leitura ou escrita de bytes.
     #[error("I/O: {0}")]
     Io(#[from] std::io::Error),
+    /// Exceção, rejeição, falha de job ou inicialização do runtime.
     #[error("JavaScript: {0}")]
     JavaScript(String),
+    /// Seletor, handle ou mutação DOM inválidos.
     #[error("DOM: {0}")]
     Dom(String),
+    /// Resposta da ponte ou resultado de extração inválido como JSON.
     #[error("JSON: {0}")]
     Json(#[from] serde_json::Error),
 }
 
+/// Resultado das operações do motor, preservando a categoria da falha.
 pub type Result<T> = std::result::Result<T, Error>;

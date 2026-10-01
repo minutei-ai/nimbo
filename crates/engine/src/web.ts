@@ -1,147 +1,105 @@
-/* global nimboDom, nimboRequest, nimboUrl */
 (() => {
   "use strict";
   const nativeDom = nimboDom;
   const nativeRequest = nimboRequest;
   const href = nimboUrl;
-  // Capture native bindings and hide them from page scripts.
   Reflect.deleteProperty(globalThis, "nimboDom");
   Reflect.deleteProperty(globalThis, "nimboRequest");
   Reflect.deleteProperty(globalThis, "nimboUrl");
 
-  /** @type {WeakMap<Element, number>} */
-  const ids = new WeakMap();
-  /** @type {Map<number, Element>} */
-  const nodes = new Map();
-  /** @typedef {(this: EventTarget, event: Event) => void} Listener */
-  /** @type {WeakMap<EventTarget, Map<string, Set<Listener>>>} */
-  const listeners = new WeakMap();
+  const ids = new WeakMap<Element, number>();
+  const nodes = new Map<number, Element>();
+  type Listener = (this: EventTarget, event: Event) => void;
+  const listeners = new WeakMap<EventTarget, Map<string, Set<Listener>>>();
 
-  // The operation defines the result type, so T is intentionally return-only.
-  /* oxlint-disable typescript/no-unnecessary-type-parameters */
-  /**
-   * JSON types are determined by the operation in the Rust bridge.
-   * @template T
-   * @param {string} operation
-   * @param {number} id
-   * @param {string} [arg]
-   * @param {string} [value]
-   * @returns {T}
-   */
-  const call = (operation, id, arg = "", value = "") =>
-    // Rust serializes the response according to the requested operation.
+  // Result shapes are serialized by Rust for each native operation.
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
+  const call = <T>(operation: string, id: number, arg = "", value = ""): T => {
+    // The bridge owns this JSON contract; it is not page-supplied JSON.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    /** @type {T} */ (JSON.parse(nativeDom(operation, id, arg, value)));
-  /* oxlint-enable typescript/no-unnecessary-type-parameters */
+    return JSON.parse(nativeDom(operation, id, arg, value)) as T;
+  };
 
   class Event {
-    /** @param {string} type */
-    constructor(type) {
-      this.type = type;
-      /** @type {EventTarget | null} */
-      this.target = null;
-    }
+    target: EventTarget | null = null;
+    constructor(readonly type: string) {}
     get currentTarget() {
       return this.target;
     }
   }
   class EventTarget {
-    /** @param {string} type @param {Listener} callback */
-    addEventListener(type, callback) {
+    addEventListener(type: string, callback: Listener) {
       if (typeof callback !== "function") throw new TypeError("callback must be a function");
-      /** @type {Map<string, Set<Listener>>} */
-      const freshEvents = new Map();
-      const events = listeners.get(this) ?? freshEvents;
-      /** @type {Set<Listener>} */
-      const freshCallbacks = new Set();
-      const callbacks = events.get(type) ?? freshCallbacks;
+      const events = listeners.get(this) ?? new Map<string, Set<Listener>>();
+      const callbacks = events.get(type) ?? new Set<Listener>();
       callbacks.add(callback);
       events.set(type, callbacks);
       listeners.set(this, events);
     }
-    /** @param {string} type @param {Listener} callback */
-    removeEventListener(type, callback) {
+    removeEventListener(type: string, callback: Listener) {
       listeners.get(this)?.get(type)?.delete(callback);
     }
-    /** @param {Event} event */
-    dispatchEvent(event) {
+    dispatchEvent(event: Event) {
       event.target = this;
       const snapshot = Array.from(listeners.get(this)?.get(event.type) ?? []);
       for (const callback of snapshot) callback.call(this, event);
       return true;
     }
   }
-
-  /** @param {Element} element @returns {number} */
-  function idOf(element) {
+  function idOf(element: Element): number {
     const id = ids.get(element);
     if (id === undefined) throw new TypeError("invalid Element");
     return id;
   }
   class Element extends EventTarget {
-    /** @param {number} id */
-    constructor(id) {
+    constructor(id: number) {
       super();
       ids.set(this, id);
     }
-    /** @param {string} selector @returns {Element[]} */
-    querySelectorAll(selector) {
-      /** @type {number[]} */
-      const handles = call("query", idOf(this), selector);
-      return handles.map(node);
+    querySelectorAll(selector: string): Element[] {
+      return call<number[]>("query", idOf(this), selector).map(node);
     }
-    /** @param {string} selector */
-    querySelector(selector) {
-      return this.querySelectorAll(selector)[0] ?? null;
+    querySelector(selector: string): Element | null {
+      const id = call<number | null>("queryOne", idOf(this), selector);
+      return id === null ? null : node(id);
     }
-    /** @returns {string} */
-    get textContent() {
+    get textContent(): string {
       return call("get", idOf(this), "textContent");
     }
-    /** @param {string | number | null} value */
-    set textContent(value) {
+    set textContent(value: string | number | null) {
       call("set", idOf(this), "textContent", String(value ?? ""));
     }
-    /** @returns {string} */
-    get innerHTML() {
+    get innerHTML(): string {
       return call("get", idOf(this), "innerHTML");
     }
-    /** @param {string | number | null} value */
-    set innerHTML(value) {
+    set innerHTML(value: string | number | null) {
       call("set", idOf(this), "innerHTML", String(value));
     }
-    /** @returns {string} */
-    get outerHTML() {
+    get outerHTML(): string {
       return call("get", idOf(this), "outerHTML");
     }
-    /** @returns {string} */
-    get tagName() {
+    get tagName(): string {
       return call("get", idOf(this), "tagName");
     }
-    get id() {
+    get id(): string {
       return this.getAttribute("id") ?? "";
     }
-    /** @param {string | number | null} value */
-    set id(value) {
+    set id(value: string | number | null) {
       this.setAttribute("id", value);
     }
-    get className() {
+    get className(): string {
       return this.getAttribute("class") ?? "";
     }
-    /** @param {string | number | null} value */
-    set className(value) {
+    set className(value: string | number | null) {
       this.setAttribute("class", value);
     }
-    /** @param {string} name @returns {string | null} */
-    getAttribute(name) {
+    getAttribute(name: string): string | null {
       return call("attr", idOf(this), name);
     }
-    /** @param {string} name @param {string | number | null} value */
-    setAttribute(name, value) {
+    setAttribute(name: string, value: string | number | null) {
       call("setAttr", idOf(this), name, String(value));
     }
-    /** @param {Element} child */
-    appendChild(child) {
+    appendChild(child: Element): Element {
       call("append", idOf(this), "", String(idOf(child)));
       return child;
     }
@@ -149,8 +107,7 @@
       call("remove", idOf(this));
     }
   }
-  /** @param {number} id @returns {Element} */
-  function node(id) {
+  function node(id: number): Element {
     let element = nodes.get(id);
     if (!element) {
       element = new Element(id);
@@ -179,8 +136,7 @@
     get title() {
       return this.querySelector("title")?.textContent ?? "";
     }
-    /** @param {string | number | null} value */
-    set title(value) {
+    set title(value: string | number | null) {
       let title = this.querySelector("title");
       if (!title) {
         title = this.createElement("title");
@@ -188,12 +144,10 @@
       }
       title.textContent = value;
     }
-    /** @param {string} id */
-    getElementById(id) {
+    getElementById(id: string) {
       return this.querySelector(`[id=${JSON.stringify(id)}]`);
     }
-    /** @param {string} tag */
-    createElement(tag) {
+    createElement(tag: string) {
       return node(call("create", 0, tag));
     }
   }
@@ -201,25 +155,25 @@
   nodes.set(0, document);
   const windowEvents = new EventTarget();
 
-  /** @param {string} url @param {{method?: string, body?: string}} [options] */
-  const fetch = async (url, options = {}) => {
+  const fetch = async (url: string, options: { method?: string; body?: string } = {}) => {
     for (const key of Object.keys(options)) {
       if (!["method", "body"].includes(key)) throw new Error(`unsupported fetch option: ${key}`);
     }
     const method = (options.method ?? "GET").toUpperCase();
     if (method === "GET" && options.body !== undefined) throw new Error("GET cannot have a body");
-    // Rust owns the serialized response shape.
-    /* oxlint-disable typescript/no-unsafe-type-assertion */
-    const response = /** @type {{status: number, body: string, url: string}} */ (
-      JSON.parse(nativeRequest(url, method, options.body ?? ""))
-    );
-    /* oxlint-enable typescript/no-unsafe-type-assertion */
+    // Rust owns the serialized HTTP response shape.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const response = JSON.parse(nativeRequest(url, method, options.body ?? "")) as {
+      status: number;
+      body: string;
+      url: string;
+    };
     return {
       status: response.status,
       ok: response.status >= 200 && response.status < 300,
       url: response.url,
       text: async () => response.body,
-      json: async () => /** @type {unknown} */ (JSON.parse(response.body)),
+      json: async (): Promise<unknown> => JSON.parse(response.body),
     };
   };
   Object.assign(globalThis, {

@@ -62,7 +62,7 @@ test("type-aware lint rejects unhandled promises", async () => {
   expect(result.output).toContain("no-floating-promises");
 });
 
-test("Rust policy rejects unwrap and unsafe code", async () => {
+test("Rust policy rejects unsafe code, unchecked arithmetic, indexing, casts and discarded errors", async () => {
   const directory = await mkdtemp(join(root, ".lint-probe-"));
   try {
     const manifest = await readFile(join(root, "Cargo.toml"), "utf8");
@@ -75,7 +75,16 @@ test("Rust policy rejects unwrap and unsafe code", async () => {
     await mkdir(join(directory, "src"));
     await writeFile(
       join(directory, "src/lib.rs"),
-      "pub fn probe(value: Option<u8>) -> u8 { value.unwrap() }\npub unsafe fn forbidden() {}\n",
+      `//! Deliberate violations of the workspace policy.
+/// Invalid extraction.
+pub fn probe(value: Option<u8>, items: &[u8], index: usize) -> u16 {
+    let _ = std::fs::read("missing");
+    let sum = items[index] + value.unwrap();
+    sum as u16
+}
+/// Forbidden boundary.
+pub unsafe fn forbidden() {}
+`,
     );
     const process = Bun.spawn(
       ["cargo", "clippy", "--offline", "--all-targets", "--", "-D", "warnings"],
@@ -89,6 +98,13 @@ test("Rust policy rejects unwrap and unsafe code", async () => {
     expect(exitCode).not.toBe(0);
     expect(stdout + stderr).toContain("unwrap_used");
     expect(stdout + stderr).toContain("unsafe-code");
+    for (const rule of [
+      "arithmetic_side_effects",
+      "indexing_slicing",
+      "as_conversions",
+      "let_underscore_must_use",
+    ])
+      expect(stdout + stderr).toContain(rule);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

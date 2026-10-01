@@ -1,0 +1,74 @@
+{
+  "date": "2026-10-01",
+  "environment": {
+    "os": "Linux x86_64",
+    "cpu": "Intel Xeon E5-2680 v4 @ 2.40GHz",
+    "rust": "1.96.0 (ac68faa20 2026-05-25)",
+    "bun": "1.4.2",
+    "concurrent_compilation": false
+  },
+  "baseline": {
+    "binary": "/tmp/nimbo-perf/baseline-engine",
+    "mode": "one process per extraction; local HTTP; 5000 rows; 3 warmups",
+    "results": [
+      {
+        "scenario": "static",
+        "samples": 21,
+        "p50_ms": 123.1353350000004,
+        "p95_ms": 129.5030310000002,
+        "min_ms": 111.14720699999998,
+        "max_ms": 130.8041430000003
+      },
+      {
+        "scenario": "selectors-200",
+        "samples": 21,
+        "p50_ms": 5380.573153000005,
+        "p95_ms": 5560.104654999996,
+        "min_ms": 5123.819268000007,
+        "max_ms": 5626.500367999997
+      },
+      {
+        "scenario": "dynamic-fetch",
+        "samples": 21,
+        "p50_ms": 28.248712000000523,
+        "p95_ms": 37.71524699998554,
+        "min_ms": 25.721577000018442,
+        "max_ms": 38.86240100002033
+      }
+    ],
+    "revision": "6a176a8a954f885535036ab7b4036778835901b3",
+    "sha256": "633f63899ae12ecfd24044862eddf1eb9fa5df837a2cac3d8f594a359efdf214"
+  },
+  "optimized": {
+    "binary": "target/release/nimbo-engine",
+    "mode": "one process per extraction; local HTTP; 5000 rows; 3 warmups",
+    "results": [
+      {
+        "scenario": "static",
+        "samples": 21,
+        "p50_ms": 26.695029000000034,
+        "p95_ms": 34.661973000000046,
+        "min_ms": 22.465206000000023,
+        "max_ms": 35.79505800000004
+      },
+      {
+        "scenario": "selectors-200",
+        "samples": 21,
+        "p50_ms": 26.83891699999981,
+        "p95_ms": 31.224959000000013,
+        "min_ms": 24.285507999999936,
+        "max_ms": 33.2351299999998
+      },
+      {
+        "scenario": "dynamic-fetch",
+        "samples": 21,
+        "p50_ms": 27.715327000000116,
+        "p95_ms": 33.01895300000001,
+        "min_ms": 25.09377799999993,
+        "max_ms": 33.10624800000005
+      }
+    ],
+    "revision": "commit containing this report",
+    "sha256": "fbd541085855b43cdf836a26fa2466288cd0c86d38073894810e776dcc401a8c"
+  }
+}

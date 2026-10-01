@@ -16,7 +16,11 @@
     "test": "bun test && cargo test --workspace --all-features --locked",
     "test:browser": "cargo test -p nimbo-engine --test browser --locked",
     "browser": "cargo run -p nimbo-engine --locked --",
-    "check": "bun run format:check && bun run lint && bun run test"
+    "browser:release": "cargo run -p nimbo-engine --release --locked --",
+    "bench:browser": "bun run tooling/benchmark.ts",
+    "docs:rust": "RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features --no-deps --locked",
+    "check": "bun run format:check && bun run lint && bun run test && bun run docs:rust && bun run test:release",
+    "test:release": "cargo test --release --workspace --all-features --locked"
   },
   "devDependencies": {
     "@effect/tsgo": "0.47.2",

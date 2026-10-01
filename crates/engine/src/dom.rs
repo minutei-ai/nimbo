@@ -9,6 +9,8 @@ pub(crate) struct Dom {
     pub document: Document,
     handles: Vec<NodeId>,
     ids: HashMap<NodeId, usize>,
+    // Cache compiled selectors only; DOM results must always reflect mutations.
+    matchers: HashMap<String, Matcher>,
     operations: usize,
     writes: usize,
     limits: Limits,
@@ -22,6 +24,7 @@ impl Dom {
             document,
             handles: vec![root],
             ids: HashMap::from([(root, 0)]),
+            matchers: HashMap::new(),
             operations: 0,
             writes: 0,
             limits,
@@ -29,13 +32,7 @@ impl Dom {
     }
 
     fn handle(&mut self, id: NodeId) -> usize {
-        if let Some(handle) = self.ids.get(&id) {
-            return *handle;
-        }
-        let handle = self.handles.len();
-        self.handles.push(id);
-        self.ids.insert(id, handle);
-        handle
+        register_handle(&mut self.handles, &mut self.ids, id)
     }
 
     fn node(&self, handle: usize) -> Result<NodeRef<'_>> {
@@ -52,12 +49,13 @@ impl Dom {
         arg: &str,
         value: &str,
     ) -> Result<String> {
-        self.operations += 1;
-        if self.operations > self.limits.max_dom_operations {
+        if self.operations >= self.limits.max_dom_operations {
             return Err(Error::Limit("DOM operations"));
         }
+        self.operations = self.operations.saturating_add(1);
         let result = match operation {
             "query" => self.query(handle, arg)?,
+            "queryOne" => self.query_one(handle, arg)?,
             "create" => {
                 if arg.is_empty()
                     || !arg
@@ -115,19 +113,47 @@ impl Dom {
     }
 
     fn query(&mut self, handle: usize, selector: &str) -> Result<Value> {
+        let matcher = self.matcher(selector)?;
+        let id = self
+            .handles
+            .get(handle)
+            .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
+        let node = self
+            .document
+            .tree
+            .get(id)
+            .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
+        let handles = &mut self.handles;
+        let ids = &mut self.ids;
+        let selection = Selection::from(node);
+        let result: Vec<_> = selection
+            .select_matcher_iter(&matcher)
+            .map(|node| register_handle(handles, ids, node.id))
+            .collect();
+        Ok(json!(result))
+    }
+
+    fn query_one(&mut self, handle: usize, selector: &str) -> Result<Value> {
+        let matcher = self.matcher(selector)?;
+        let selection = Selection::from(self.node(handle)?);
+        let id = selection
+            .select_matcher_iter(&matcher)
+            .next()
+            .map(|node| node.id);
+        Ok(json!(id.map(|id| self.handle(id))))
+    }
+
+    fn matcher(&mut self, selector: &str) -> Result<Matcher> {
+        if let Some(matcher) = self.matchers.get(selector) {
+            return Ok(matcher.clone());
+        }
         let matcher = Matcher::new(selector)
             .map_err(|error| Error::Dom(format!("invalid selector: {error:?}")))?;
-        let ids: Vec<_> = Selection::from(self.node(handle)?)
-            .select_matcher(&matcher)
-            .nodes()
-            .iter()
-            .map(|node| node.id)
-            .collect();
-        Ok(json!(
-            ids.into_iter()
-                .map(|id| self.handle(id))
-                .collect::<Vec<_>>()
-        ))
+        // Bound retained keys and parser structures without restricting valid selectors.
+        if self.matchers.len() < 64 && selector.len() <= 512 {
+            self.matchers.insert(selector.to_owned(), matcher.clone());
+        }
+        Ok(matcher)
     }
 
     fn get(&self, handle: usize, property: &str) -> Result<Value> {
@@ -154,4 +180,16 @@ impl Dom {
         }
         Ok(())
     }
+}
+
+fn register_handle(
+    handles: &mut Vec<NodeId>,
+    ids: &mut HashMap<NodeId, usize>,
+    id: NodeId,
+) -> usize {
+    *ids.entry(id).or_insert_with(|| {
+        let handle = handles.len();
+        handles.push(id);
+        handle
+    })
 }

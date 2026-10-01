@@ -1,3 +1,5 @@
+//! Command-line JSON extraction from a bounded browser page.
+
 use std::{
     env,
     io::{self, Write},
@@ -29,6 +31,10 @@ fn main() -> ExitCode {
     match run() {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
+            #[expect(
+                clippy::let_underscore_must_use,
+                reason = "Failure to report an error must still return failure"
+            )]
             let _ = writeln!(io::stderr().lock(), "{error}");
             ExitCode::FAILURE
         }
