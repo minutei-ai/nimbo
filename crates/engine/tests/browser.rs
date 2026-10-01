@@ -491,3 +491,12 @@ fn ancestry_and_matching_observe_detached_nodes_and_reparenting() -> TestResult 
     assert_eq!(page.evaluate("document.body.matches('body')")?, json!(true));
     Ok(())
 }
+
+#[test]
+fn element_traversal_skips_text_and_comments_and_tracks_connectivity() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    assert_eq!(page.evaluate("(() => { document.body.innerHTML = '<section>before<!--a--><i>first</i>between<!--b--><b>last</b>after</section>'; const section = document.querySelector('section'); const first = section.firstElementChild; const last = section.lastElementChild; const before = {first: first.textContent, last: last.textContent, next: first.nextElementSibling === last, previous: last.previousElementSibling === first, boundaries: first.previousElementSibling === null && last.nextElementSibling === null, contains: document.contains(first) && first.contains(first) && !first.contains(section) && !first.contains(null), connected: first.isConnected && document.isConnected}; section.remove(); return {before, detached: !first.isConnected && section.contains(first) && !document.contains(first), identity: section.firstElementChild === first}; })()")?,
+        json!({"before":{"first":"first","last":"last","next":true,"previous":true,"boundaries":true,"contains":true,"connected":true},"detached":true,"identity":true}));
+    Ok(())
+}

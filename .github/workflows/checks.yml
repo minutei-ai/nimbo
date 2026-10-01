@@ -27,6 +27,16 @@ jobs:
       - run: cargo install wasm-bindgen-cli --version 0.2.129 --locked
       - run: bun install --frozen-lockfile
       - run: bun run check
+      - name: Compare real HTTP browser behavior with pinned Obscura
+        env:
+          NIMBO_COMPARE_OBSCURA_BINARY: /tmp/nimbo-obscura/obscura
+        run: |
+          mkdir -p /tmp/nimbo-obscura
+          curl --fail --silent --show-error --location https://github.com/h4ckf0r0day/obscura/releases/download/v0.2.3/obscura-x86_64-linux.tar.gz -o /tmp/nimbo-obscura/release.tar.gz
+          echo '1534d1e6ddaf3d080ec4091eb41d0a4d8cc042a48b607d3c410fc13b482a9eec  /tmp/nimbo-obscura/release.tar.gz' | sha256sum --check
+          tar -xzf /tmp/nimbo-obscura/release.tar.gz -C /tmp/nimbo-obscura
+          /tmp/nimbo-obscura/obscura --version
+          bun test tooling/browser-live.test.ts
 
   secrets:
     runs-on: ubuntu-latest

@@ -29,6 +29,13 @@ Obscura's `networkidle0`, and reads a completed value; it does not rely on the
 CLI awaiting a Promise returned by `--eval`. Record the binary's version
 separately; an installed release is not necessarily the audited source revision.
 
+CI downloads the public `v0.2.3` Linux render build, checks its published SHA-256,
+and runs this comparison after the complete local check. The release revision
+and artifact digest are in the contract inventory, separate from the audited
+upstream revision. An earlier `0.2.2` binary failed reflexive `contains`;
+`v0.2.3` passes that case. Nimbo keeps the standards-based expectation instead
+of reproducing a baseline defect.
+
 The existing native Rust integration suite also uses a real HTTP listener.
 The older `tooling/worker.test.ts` suite includes callback-based transport
 fixtures. Those checks remain useful for boundary failures but do not count as

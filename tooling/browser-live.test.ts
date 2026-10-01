@@ -13,20 +13,23 @@ const expressionFor = (variant: number) => `(async () => {
           const matches = first.matches('section > i.item[data-state="old"]');
           const missing = first.closest('.missing');
           const parent = first.parentElement === section;
+          const children = section.firstElementChild === first && section.lastElementChild.textContent === 'second';
+          const siblings = first.nextElementSibling.previousElementSibling === first && first.previousElementSibling === null;
+          const connected = first.isConnected && document.isConnected && document.contains(first) && first.contains(first);
           const rootParent = document.documentElement.parentElement;
           first.removeAttribute('data-state');
           const removed = !first.hasAttribute('data-state');
           first.setAttribute('data-state', '${variant}');
           const changed = first.matches('[data-state="${variant}"]');
           first.remove();
-          const detached = first.parentElement === null;
+          const detached = first.parentElement === null && !first.isConnected && !document.contains(first) && first.nextElementSibling === null;
           const after = section.querySelector('.item:first-child').textContent;
           section.appendChild(first);
-          const restored = first.parentElement === section;
+          const restored = first.parentElement === section && first.isConnected && section.lastElementChild === first && first.previousElementSibling.textContent === 'second';
           const text = section.querySelector('.item:last-child').textContent;
           const result = await fetch('/echo', {method: 'POST', body: 'payload-${variant}-α'});
           return {title: document.title, before, self, ancestor, matches, missing,
-            parent, rootParent, removed, changed, detached, after, restored, text,
+            parent, children, siblings, connected, rootParent, removed, changed, detached, after, restored, text,
             count: document.querySelectorAll('main .item').length, echo: await result.json()};
         })()`;
 
@@ -46,7 +49,7 @@ const origin = Bun.serve({
     if (!Number.isInteger(variant) || variant < 0 || variant >= 64)
       return new Response("Not found", { status: 404 });
     return new Response(
-      `<title>Document ${variant}</title><main id="root"><section class="group" data-id="${variant}"><i class="item" data-state="old">α &amp; ${variant}</i><i class="item">second</i></section><i class="item">outside</i></main><script src="/script/${variant}"></script><script>${expressionFor(variant)}.then(value => globalThis.comparison = value);</script>`,
+      `<title>Document ${variant}</title><main id="root"><section class="group" data-id="${variant}"> leading <!--before--><i class="item" data-state="old">α &amp; ${variant}</i> <!--between--><i class="item">second</i> <!--after--></section><i class="item">outside</i></main><script src="/script/${variant}"></script><script>${expressionFor(variant)}.then(value => globalThis.comparison = value);</script>`,
       { headers: { "content-type": "text/html; charset=utf-8" } },
     );
   },
@@ -90,6 +93,9 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
       matches: true,
       missing: null,
       parent: true,
+      children: true,
+      siblings: true,
+      connected: true,
       rootParent: null,
       removed: true,
       changed: true,

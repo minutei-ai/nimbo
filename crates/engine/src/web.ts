@@ -74,6 +74,28 @@
       const id = call<number | null>("parentElement", idOf(this));
       return id === null ? null : node(id);
     }
+    private relativeElement(relation: string): Element | null {
+      const id = call<number | null>("relativeElement", idOf(this), relation);
+      return id === null ? null : node(id);
+    }
+    get firstElementChild(): Element | null {
+      return this.relativeElement("first");
+    }
+    get lastElementChild(): Element | null {
+      return this.relativeElement("last");
+    }
+    get nextElementSibling(): Element | null {
+      return this.relativeElement("next");
+    }
+    get previousElementSibling(): Element | null {
+      return this.relativeElement("previous");
+    }
+    get isConnected(): boolean {
+      return call("get", idOf(this), "isConnected");
+    }
+    contains(other: Element | null): boolean {
+      return other !== null && call("contains", idOf(this), String(idOf(other)));
+    }
     get textContent(): string {
       return call("get", idOf(this), "textContent");
     }

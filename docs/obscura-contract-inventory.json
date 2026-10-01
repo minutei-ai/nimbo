@@ -1,902 +1,244 @@
 {
   "upstreamRevision": "0cdd42e63bee6c5c7702039a675579cbfd545f5d",
+  "sourceBase": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/",
   "scope": "Explicit dispatch arms in domain handle functions; handler presence does not establish functional completeness. Conditional render methods require render builds. Events and permissive domain acknowledgements require separate behavior tests.",
-  "methods": [
-    {
-      "method": "Accessibility.enable",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/accessibility.rs"
-    },
-    {
-      "method": "Accessibility.getFullAXTree",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/accessibility.rs"
-    },
-    {
-      "method": "Browser.getVersion",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/browser.rs"
-    },
-    {
-      "method": "Browser.close",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/browser.rs"
-    },
-    {
-      "method": "Browser.getWindowForTarget",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/browser.rs"
-    },
-    {
-      "method": "Browser.setDownloadBehavior",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/browser.rs"
-    },
-    {
-      "method": "Browser.getWindowBounds",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/browser.rs"
-    },
-    {
-      "method": "Browser.setWindowBounds",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/browser.rs"
-    },
-    {
-      "method": "Browser.grantPermissions",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/browser.rs"
-    },
-    {
-      "method": "Browser.resetPermissions",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/browser.rs"
-    },
-    {
-      "method": "DOM.enable",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/dom.rs"
-    },
-    {
-      "method": "DOM.getDocument",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/dom.rs"
-    },
-    {
-      "method": "DOM.querySelector",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/dom.rs"
-    },
-    {
-      "method": "DOM.querySelectorAll",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/dom.rs"
-    },
-    {
-      "method": "DOM.getOuterHTML",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/dom.rs"
-    },
-    {
-      "method": "DOM.describeNode",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/dom.rs"
-    },
-    {
-      "method": "DOM.resolveNode",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/dom.rs"
-    },
-    {
-      "method": "DOM.setAttributeValue",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/dom.rs"
-    },
-    {
-      "method": "DOM.removeNode",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/dom.rs"
-    },
-    {
-      "method": "DOM.focus",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/dom.rs"
-    },
-    {
-      "method": "DOM.scrollIntoViewIfNeeded",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/dom.rs"
-    },
-    {
-      "method": "DOM.setFileInputFiles",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/dom.rs"
-    },
-    {
-      "method": "DOM.getBoxModel",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/dom.rs"
-    },
-    {
-      "method": "DOM.getContentQuads",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/dom.rs"
-    },
-    {
-      "method": "DOMSnapshot.enable",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/domsnapshot.rs"
-    },
-    {
-      "method": "DOMSnapshot.disable",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/domsnapshot.rs"
-    },
-    {
-      "method": "DOMSnapshot.captureSnapshot",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/domsnapshot.rs"
-    },
-    {
-      "method": "Emulation.setDeviceMetricsOverride",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/emulation.rs"
-    },
-    {
-      "method": "Emulation.clearDeviceMetricsOverride",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/emulation.rs"
-    },
-    {
-      "method": "Emulation.setDefaultBackgroundColorOverride",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/emulation.rs"
-    },
-    {
-      "method": "Emulation.setUserAgentOverride",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/emulation.rs"
-    },
-    {
-      "method": "Emulation.setLocaleOverride",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/emulation.rs"
-    },
-    {
-      "method": "Emulation.setTouchEmulationEnabled",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/emulation.rs"
-    },
-    {
-      "method": "Fetch.enable",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/fetch.rs"
-    },
-    {
-      "method": "Fetch.disable",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/fetch.rs"
-    },
-    {
-      "method": "Fetch.continueRequest",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/fetch.rs"
-    },
-    {
-      "method": "Fetch.fulfillRequest",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/fetch.rs"
-    },
-    {
-      "method": "Fetch.failRequest",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/fetch.rs"
-    },
-    {
-      "method": "Fetch.getResponseBody",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/fetch.rs"
-    },
-    {
-      "method": "Fetch.takeResponseBodyAsStream",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/fetch.rs"
-    },
-    {
-      "method": "Input.dispatchMouseEvent",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/input.rs"
-    },
-    {
-      "method": "Input.insertText",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/input.rs"
-    },
-    {
-      "method": "Input.dispatchKeyEvent",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/input.rs"
-    },
-    {
-      "method": "Input.dispatchTouchEvent",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/input.rs"
-    },
-    {
-      "method": "Input.setIgnoreInputEvents",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/input.rs"
-    },
-    {
-      "method": "IO.read",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/io.rs"
-    },
-    {
-      "method": "IO.close",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/io.rs"
-    },
-    {
-      "method": "LP.getMarkdown",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/lp.rs"
-    },
-    {
-      "method": "Network.enable",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/network.rs"
-    },
-    {
-      "method": "Network.disable",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/network.rs"
-    },
-    {
-      "method": "Network.setExtraHTTPHeaders",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/network.rs"
-    },
-    {
-      "method": "Network.setUserAgentOverride",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/network.rs"
-    },
-    {
-      "method": "Network.getCookies",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/network.rs"
-    },
-    {
-      "method": "Network.getAllCookies",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/network.rs"
-    },
-    {
-      "method": "Network.setCookie",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/network.rs"
-    },
-    {
-      "method": "Network.setCookies",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/network.rs"
-    },
-    {
-      "method": "Network.deleteCookies",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/network.rs"
-    },
-    {
-      "method": "Network.clearBrowserCookies",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/network.rs"
-    },
-    {
-      "method": "Network.setCacheDisabled",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/network.rs"
-    },
-    {
-      "method": "Network.setRequestInterception",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/network.rs"
-    },
-    {
-      "method": "Network.setBlockedURLs",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/network.rs"
-    },
-    {
-      "method": "Network.getResponseBody",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/network.rs"
-    },
-    {
-      "method": "Page.enable",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/page.rs"
-    },
-    {
-      "method": "Page.navigate",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/page.rs"
-    },
-    {
-      "method": "Page.reload",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/page.rs"
-    },
-    {
-      "method": "Page.getFrameTree",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/page.rs"
-    },
-    {
-      "method": "Page.createIsolatedWorld",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/page.rs"
-    },
-    {
-      "method": "Page.setLifecycleEventsEnabled",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/page.rs"
-    },
-    {
-      "method": "Page.addScriptToEvaluateOnNewDocument",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/page.rs"
-    },
-    {
-      "method": "Page.removeScriptToEvaluateOnNewDocument",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/page.rs"
-    },
-    {
-      "method": "Page.setInterceptFileChooserDialog",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/page.rs"
-    },
-    {
-      "method": "Page.setDownloadBehavior",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/page.rs"
-    },
-    {
-      "method": "Page.getLayoutMetrics",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/page.rs"
-    },
-    {
-      "method": "Page.getNavigationHistory",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/page.rs"
-    },
-    {
-      "method": "Page.navigateToHistoryEntry",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/page.rs"
-    },
-    {
-      "method": "Page.resetNavigationHistory",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/page.rs"
-    },
-    {
-      "method": "Page.printToPDF",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/page.rs"
-    },
-    {
-      "method": "Page.startScreencast",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/page.rs"
-    },
-    {
-      "method": "Page.stopScreencast",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/page.rs"
-    },
-    {
-      "method": "Page.screencastFrameAck",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/page.rs"
-    },
-    {
-      "method": "Page.captureScreenshot",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/page.rs"
-    },
-    {
-      "method": "Page.captureSnapshot",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/page.rs"
-    },
-    {
-      "method": "Runtime.getHeapUsage",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/runtime.rs"
-    },
-    {
-      "method": "Runtime.enable",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/runtime.rs"
-    },
-    {
-      "method": "Runtime.disable",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/runtime.rs"
-    },
-    {
-      "method": "Runtime.evaluate",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/runtime.rs"
-    },
-    {
-      "method": "Runtime.callFunctionOn",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/runtime.rs"
-    },
-    {
-      "method": "Runtime.getProperties",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/runtime.rs"
-    },
-    {
-      "method": "Runtime.releaseObject",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/runtime.rs"
-    },
-    {
-      "method": "Runtime.releaseObjectGroup",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/runtime.rs"
-    },
-    {
-      "method": "Runtime.addBinding",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/runtime.rs"
-    },
-    {
-      "method": "Runtime.removeBinding",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/runtime.rs"
-    },
-    {
-      "method": "Runtime.runIfWaitingForDebugger",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/runtime.rs"
-    },
-    {
-      "method": "Runtime.getExceptionDetails",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/runtime.rs"
-    },
-    {
-      "method": "Runtime.discardConsoleEntries",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/runtime.rs"
-    },
-    {
-      "method": "Storage.getCookies",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/storage.rs"
-    },
-    {
-      "method": "Storage.setCookies",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/storage.rs"
-    },
-    {
-      "method": "Storage.clearCookies",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/storage.rs"
-    },
-    {
-      "method": "Storage.deleteCookies",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/storage.rs"
-    },
-    {
-      "method": "Target.setDiscoverTargets",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/target.rs"
-    },
-    {
-      "method": "Target.getTargets",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/target.rs"
-    },
-    {
-      "method": "Target.createTarget",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/target.rs"
-    },
-    {
-      "method": "Target.attachToBrowserTarget",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/target.rs"
-    },
-    {
-      "method": "Target.attachToTarget",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/target.rs"
-    },
-    {
-      "method": "Target.closeTarget",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/target.rs"
-    },
-    {
-      "method": "Target.setAutoAttach",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/target.rs"
-    },
-    {
-      "method": "Target.detachFromTarget",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/target.rs"
-    },
-    {
-      "method": "Target.activateTarget",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/target.rs"
-    },
-    {
-      "method": "Target.getBrowserContexts",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/target.rs"
-    },
-    {
-      "method": "Target.createBrowserContext",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/target.rs"
-    },
-    {
-      "method": "Target.disposeBrowserContext",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/target.rs"
-    },
-    {
-      "method": "Target.getTargetInfo",
-      "nimbo": "missing",
-      "upstreamEvidence": "handler-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-cdp/src/domains/target.rs"
+  "nimbo": {
+    "cdp": "missing",
+    "mcp": "missing"
+  },
+  "cdpDomains": {
+    "Accessibility": {
+      "source": "crates/obscura-cdp/src/domains/accessibility.rs",
+      "methods": ["enable", "getFullAXTree"]
+    },
+    "Browser": {
+      "source": "crates/obscura-cdp/src/domains/browser.rs",
+      "methods": [
+        "getVersion",
+        "close",
+        "getWindowForTarget",
+        "setDownloadBehavior",
+        "getWindowBounds",
+        "setWindowBounds",
+        "grantPermissions",
+        "resetPermissions"
+      ]
+    },
+    "DOM": {
+      "source": "crates/obscura-cdp/src/domains/dom.rs",
+      "methods": [
+        "enable",
+        "getDocument",
+        "querySelector",
+        "querySelectorAll",
+        "getOuterHTML",
+        "describeNode",
+        "resolveNode",
+        "setAttributeValue",
+        "removeNode",
+        "focus",
+        "scrollIntoViewIfNeeded",
+        "setFileInputFiles",
+        "getBoxModel",
+        "getContentQuads"
+      ]
+    },
+    "DOMSnapshot": {
+      "source": "crates/obscura-cdp/src/domains/domsnapshot.rs",
+      "methods": ["enable", "disable", "captureSnapshot"]
+    },
+    "Emulation": {
+      "source": "crates/obscura-cdp/src/domains/emulation.rs",
+      "methods": [
+        "setDeviceMetricsOverride",
+        "clearDeviceMetricsOverride",
+        "setDefaultBackgroundColorOverride",
+        "setUserAgentOverride",
+        "setLocaleOverride",
+        "setTouchEmulationEnabled"
+      ]
+    },
+    "Fetch": {
+      "source": "crates/obscura-cdp/src/domains/fetch.rs",
+      "methods": [
+        "enable",
+        "disable",
+        "continueRequest",
+        "fulfillRequest",
+        "failRequest",
+        "getResponseBody",
+        "takeResponseBodyAsStream"
+      ]
+    },
+    "Input": {
+      "source": "crates/obscura-cdp/src/domains/input.rs",
+      "methods": [
+        "dispatchMouseEvent",
+        "insertText",
+        "dispatchKeyEvent",
+        "dispatchTouchEvent",
+        "setIgnoreInputEvents"
+      ]
+    },
+    "IO": {
+      "source": "crates/obscura-cdp/src/domains/io.rs",
+      "methods": ["read", "close"]
+    },
+    "LP": {
+      "source": "crates/obscura-cdp/src/domains/lp.rs",
+      "methods": ["getMarkdown"]
+    },
+    "Network": {
+      "source": "crates/obscura-cdp/src/domains/network.rs",
+      "methods": [
+        "enable",
+        "disable",
+        "setExtraHTTPHeaders",
+        "setUserAgentOverride",
+        "getCookies",
+        "getAllCookies",
+        "setCookie",
+        "setCookies",
+        "deleteCookies",
+        "clearBrowserCookies",
+        "setCacheDisabled",
+        "setRequestInterception",
+        "setBlockedURLs",
+        "getResponseBody"
+      ]
+    },
+    "Page": {
+      "source": "crates/obscura-cdp/src/domains/page.rs",
+      "methods": [
+        "enable",
+        "navigate",
+        "reload",
+        "getFrameTree",
+        "createIsolatedWorld",
+        "setLifecycleEventsEnabled",
+        "addScriptToEvaluateOnNewDocument",
+        "removeScriptToEvaluateOnNewDocument",
+        "setInterceptFileChooserDialog",
+        "setDownloadBehavior",
+        "getLayoutMetrics",
+        "getNavigationHistory",
+        "navigateToHistoryEntry",
+        "resetNavigationHistory",
+        "printToPDF",
+        "startScreencast",
+        "stopScreencast",
+        "screencastFrameAck",
+        "captureScreenshot",
+        "captureSnapshot"
+      ]
+    },
+    "Runtime": {
+      "source": "crates/obscura-cdp/src/domains/runtime.rs",
+      "methods": [
+        "getHeapUsage",
+        "enable",
+        "disable",
+        "evaluate",
+        "callFunctionOn",
+        "getProperties",
+        "releaseObject",
+        "releaseObjectGroup",
+        "addBinding",
+        "removeBinding",
+        "runIfWaitingForDebugger",
+        "getExceptionDetails",
+        "discardConsoleEntries"
+      ]
+    },
+    "Storage": {
+      "source": "crates/obscura-cdp/src/domains/storage.rs",
+      "methods": ["getCookies", "setCookies", "clearCookies", "deleteCookies"]
+    },
+    "Target": {
+      "source": "crates/obscura-cdp/src/domains/target.rs",
+      "methods": [
+        "setDiscoverTargets",
+        "getTargets",
+        "createTarget",
+        "attachToBrowserTarget",
+        "attachToTarget",
+        "closeTarget",
+        "setAutoAttach",
+        "detachFromTarget",
+        "activateTarget",
+        "getBrowserContexts",
+        "createBrowserContext",
+        "disposeBrowserContext",
+        "getTargetInfo"
+      ]
+    },
+    "HeapProfiler": {
+      "source": "crates/obscura-cdp/src/dispatch.rs",
+      "methods": ["collectGarbage"]
     }
-  ],
-  "mcpTools": [
-    {
-      "tool": "browser_back",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_clear_cookies",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_click",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_close",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_console_messages",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_count",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_detect_forms",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_evaluate",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_extract",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_fill",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_fill_form",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_forward",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_get_attribute",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_get_cookies",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_interactive_elements",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_links",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_markdown",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_navigate",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_network_requests",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_pdf",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_press_key",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_reload",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_screenshot",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_scroll",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_search",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_select_option",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_set_cookie",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_set_storage_state",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_snapshot",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_storage_state",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_tab_close",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_tab_list",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_tab_new",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_tab_switch",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_type",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_wait_for",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    },
-    {
-      "tool": "browser_wait_for_text",
-      "nimbo": "missing",
-      "upstreamEvidence": "tool-name-only",
-      "source": "https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-mcp/src/lib.rs"
-    }
-  ]
+  },
+  "acknowledgementOnlyDomains": {
+    "source": "crates/obscura-cdp/src/dispatch.rs",
+    "domains": [
+      "Log",
+      "Performance",
+      "Security",
+      "CSS",
+      "ServiceWorker",
+      "Inspector",
+      "Debugger",
+      "Profiler",
+      "Overlay",
+      "Audits"
+    ],
+    "note": "HeapProfiler methods other than collectGarbage are also acknowledged without effects."
+  },
+  "mcp": {
+    "source": "crates/obscura-mcp/src/lib.rs",
+    "tools": [
+      "browser_back",
+      "browser_clear_cookies",
+      "browser_click",
+      "browser_close",
+      "browser_console_messages",
+      "browser_count",
+      "browser_detect_forms",
+      "browser_evaluate",
+      "browser_extract",
+      "browser_fill",
+      "browser_fill_form",
+      "browser_forward",
+      "browser_get_attribute",
+      "browser_get_cookies",
+      "browser_interactive_elements",
+      "browser_links",
+      "browser_markdown",
+      "browser_navigate",
+      "browser_network_requests",
+      "browser_pdf",
+      "browser_press_key",
+      "browser_reload",
+      "browser_screenshot",
+      "browser_scroll",
+      "browser_search",
+      "browser_select_option",
+      "browser_set_cookie",
+      "browser_set_storage_state",
+      "browser_snapshot",
+      "browser_storage_state",
+      "browser_tab_close",
+      "browser_tab_list",
+      "browser_tab_new",
+      "browser_tab_switch",
+      "browser_type",
+      "browser_wait_for",
+      "browser_wait_for_text"
+    ]
+  },
+  "comparisonRelease": {
+    "tag": "v0.2.3",
+    "revision": "1a3169da276d7720732c7b20535474942917fb83",
+    "asset": "obscura-x86_64-linux.tar.gz",
+    "sha256": "1534d1e6ddaf3d080ec4091eb41d0a4d8cc042a48b607d3c410fc13b482a9eec"
+  }
 }

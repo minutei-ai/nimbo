@@ -23,7 +23,7 @@
     "test:release": "cargo test --release --workspace --all-features --locked",
     "build:worker": "bun run tooling/build-worker.ts",
     "lint:wasm": "CC_wasm32_unknown_unknown=clang AR_wasm32_unknown_unknown=llvm-ar cargo clippy -p nimbo-engine --lib --target wasm32-unknown-unknown --release --locked -- -D warnings",
-    "test:worker": "bun run build:worker && bun test tooling/worker.test.ts",
+    "test:worker": "bun run build:worker && bun test tooling/worker.test.ts tooling/browser-live.test.ts",
     "dev:worker": "bun run build:worker && bun run --cwd apps/infrastructure dev",
     "plan:worker": "bun run build:worker && bun run --cwd apps/infrastructure plan",
     "deploy:worker": "bun run build:worker && bun run --cwd apps/infrastructure deploy"

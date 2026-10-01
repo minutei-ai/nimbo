@@ -77,6 +77,20 @@ impl Dom {
                     .map(|parent| parent.id);
                 json!(id.map(|id| self.handle(id)))
             }
+            "relativeElement" => self.relative_element(handle, arg)?,
+            "contains" => {
+                let descendant = arg
+                    .parse::<usize>()
+                    .map_err(|error| Error::Dom(error.to_string()))?;
+                let parent = self.node(handle)?;
+                let descendant = self.node(descendant)?;
+                json!(
+                    parent.id == descendant.id
+                        || descendant
+                            .ancestors_it(None)
+                            .any(|ancestor| ancestor.id == parent.id)
+                )
+            }
             "create" => {
                 if arg.is_empty()
                     || !arg
@@ -154,6 +168,21 @@ impl Dom {
         Ok(json!(result))
     }
 
+    fn relative_element(&mut self, handle: usize, relation: &str) -> Result<Value> {
+        let node = self.node(handle)?;
+        let relative = match relation {
+            "first" => node.children_it(false).find(NodeRef::is_element),
+            "last" => node.children_it(true).find(NodeRef::is_element),
+            "next" => std::iter::successors(node.next_sibling(), NodeRef::next_sibling)
+                .find(NodeRef::is_element),
+            "previous" => std::iter::successors(node.prev_sibling(), NodeRef::prev_sibling)
+                .find(NodeRef::is_element),
+            _ => return Err(Error::Dom("invalid element relation".into())),
+        };
+        let id = relative.map(|relative| relative.id);
+        Ok(json!(id.map(|id| self.handle(id))))
+    }
+
     fn query_one(&mut self, handle: usize, selector: &str) -> Result<Value> {
         let matcher = self.matcher(selector)?;
         let selection = Selection::from(self.node(handle)?);
@@ -184,6 +213,12 @@ impl Dom {
             "innerHTML" => json!(node.inner_html().to_string()),
             "outerHTML" => json!(node.html().to_string()),
             "tagName" => json!(node.node_name().map(|name| name.to_ascii_uppercase())),
+            "isConnected" => json!(
+                node.is_document()
+                    || node
+                        .ancestors_it(None)
+                        .any(|ancestor| ancestor.is_document())
+            ),
             _ => return Err(Error::Dom(format!("unsupported property: {property}"))),
         })
     }
