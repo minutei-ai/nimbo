@@ -1,17 +1,30 @@
 //! Primeiro núcleo de scraping do Nimbo: HTTP, DOM e JavaScript sem renderização.
 
 mod dom;
+mod machine;
+#[cfg(not(target_arch = "wasm32"))]
 mod network;
+#[cfg(not(target_arch = "wasm32"))]
 mod page;
+#[cfg(target_arch = "wasm32")]
+mod wasm;
 
 use std::time::Duration;
 
+#[cfg(not(target_arch = "wasm32"))]
 pub use network::Browser;
+#[cfg(not(target_arch = "wasm32"))]
 pub use page::Page;
 
 /// Orçamento de uma navegação, incluindo scripts, fetch e extração.
 #[derive(Clone, Copy, Debug)]
 pub struct Limits {
+    /// Chamadas máximas ao watchdog de bytecode do `QuickJS` (independente do relógio).
+    pub max_javascript_ticks: usize,
+    /// Microtasks máximas por página, cobrindo também cadeias de Promises.
+    pub max_microtasks: usize,
+    /// Bytes máximos da expressão de extração.
+    pub max_expression_bytes: usize,
     /// Deadline total, compartilhado por transporte, scripts e extração.
     pub timeout: Duration,
     /// Soma máxima dos bytes de resposta recebidos durante uma navegação.
@@ -29,6 +42,9 @@ pub struct Limits {
 impl Default for Limits {
     fn default() -> Self {
         Self {
+            max_javascript_ticks: 512,
+            max_microtasks: 10_000,
+            max_expression_bytes: 64 * 1024,
             timeout: Duration::from_secs(10),
             max_response_bytes: 2 * 1024 * 1024,
             max_requests: 32,
@@ -54,6 +70,7 @@ pub enum Error {
     /// Operação fora da superfície implementada pelo MVP.
     #[error("unsupported: {0}")]
     Unsupported(String),
+    #[cfg(not(target_arch = "wasm32"))]
     /// Falha no cliente HTTP/TLS.
     #[error("HTTP transport: {0}")]
     Http(#[from] reqwest::Error),
@@ -76,3 +93,6 @@ pub enum Error {
 
 /// Resultado das operações do motor, preservando a categoria da falha.
 pub type Result<T> = std::result::Result<T, Error>;
+
+#[cfg(target_arch = "wasm32")]
+pub use wasm::{WasmPage, engine_limits, engine_version};

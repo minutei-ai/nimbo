@@ -812,6 +812,8 @@ dependencies = [
  "serde_json",
  "thiserror",
  "tiny_http",
+ "url",
+ "wasm-bindgen",
 ]
 
 [[package]]

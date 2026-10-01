@@ -1,209 +1,85 @@
 # Nimbo
 
-Um navegador para scraping em massa, pensado primeiro para Cloudflare Containers: baixo consumo de memória, partida rápida e custo medido por página extraída.
+Browser de scraping com **Rust e QuickJS compilados para Wasm, executados dentro de um Cloudflare Worker**. TypeScript com Effect v4 controla autenticação, transporte HTTP e liberação da página. Não depende de Containers.
 
-**Status: primeiro MVP local implementado.** O motor Rust navega, executa um subconjunto de APIs web e extrai JSON por CLI. A infraestrutura Cloudflare, a compatibilidade ampliada e os benchmarks em produção abaixo ainda serão implementados. Nimbo é um projeto separado do outros motores usado atualmente pela consumidores.
+O MVP foi validado localmente no `workerd`, o runtime dos Workers, e também possui uma CLI nativa para desenvolvimento. Deploy, integração com o proxy Fly.io e medições de custo em produção ainda não foram validados.
 
-## Desenvolvimento
-
-O monorepo usa workspaces nativos do Bun para TypeScript e do Cargo para Rust:
+## Monorepo
 
 ```text
-apps/worker/      @nimbo/worker — orquestração Cloudflare com Effect v4
-crates/engine/   nimbo-engine — núcleo Rust e CLI de scraping
-packages/        pacotes TypeScript compartilhados, quando houver consumidores
-tooling/         testes da integração de lint
+apps/worker/     Worker TypeScript + Effect: API e transporte
+crates/engine/   Rust: DOM, QuickJS, máquina de execução e CLI
+tooling/        build, testes de lint, workerd e benchmark nativo
 ```
 
-`packages/` só será criado quando necessário. As versões do Bun, Rust e das ferramentas
-estão fixadas; os dois lockfiles devem ser versionados.
+Workspaces nativos Bun/Cargo, versões fixadas e lockfiles versionados. Todo código escrito no projeto é Rust ou TypeScript. O JavaScript necessário ao runtime é gerado em `target/` e `dist/`, ignorados pelo Git.
 
 ```sh
 bun install --frozen-lockfile
+# Rust instala o target wasm definido em rust-toolchain.toml.
+# Também são necessários clang, llvm-ar e wasm-ld no PATH.
+cargo install wasm-bindgen-cli --version 0.2.129 --locked
 bun run check
 ```
 
-- `bun run lint`: Oxlint com verificação de tipos pelo Go e regras oficiais de Effect; Clippy para todos os crates, targets e features, sem warnings.
-- `bun run format`: Oxfmt e rustfmt. `bun run format:check` verifica sem alterar arquivos.
-- `bun run test`: probes que comprovam aceitação de Effect v4 válido e rejeição de Effect solto, erro de tipos, Promise solta, unwrap e unsafe; depois testes Rust.
-
-O `prepare` reaplica o patch oficial `effect-tsgo patch --no-typescript --oxlint`
-após instalar dependências. A configuração usa o preset strict de Effect e regras
-contra `any`, operações inseguras e Promises sem tratamento. O mesmo comando
-`bun run check` roda no CI em pushes e pull requests.
-
-Referências: [integração oficial Effect/Oxlint](https://github.com/Effect-TS/tsgo/blob/main/docs/README.md),
-[Oxlint com tipos](https://oxc.rs/docs/guide/usage/linter/type-aware) e
-[Clippy](https://doc.rust-lang.org/stable/clippy/usage.html).
-
-Os crates herdam `[workspace.lints]` com `all` e `pedantic`, proibição de unsafe
-e regras contra unwrap/expect, TODOs executáveis, debug, saída abrupta e vazamento
-via `mem::forget`. Novos crates devem declarar `[lints] workspace = true`.
-Exceções pontuais precisam justificar a regra no local; não desligar categorias
-inteiras para acomodar uma implementação.
-
-A política Rust inclui regras selecionadas de `restriction` e `nursery`,
-verificação de documentação e testes também em release. A pesquisa, decisões
-e medições locais estão em [docs/rust-quality.md](docs/rust-quality.md).
-
-## Primeiro MVP
-
-O motor usa Rust para transporte e DOM, [QuickJS via rquickjs](https://docs.rs/rquickjs/0.14.0/rquickjs/)
-para JavaScript e [dom_query/html5ever](https://docs.rs/dom_query/0.28.0/dom_query/)
-para parsing e seletores. A ponte web é escrita em TypeScript, verificada pelo mesmo
-Oxlint/Go e compilada pelo build do Cargo. O JavaScript gerado fica em `target/`,
-sem arquivos `.js` escritos ou versionados. Bun e Effect são usados no build e
-nas ferramentas; o binário final executa sozinho com QuickJS. Effect permanece
-na orquestração e fora do contexto das páginas.
+`check` compila o Worker, verifica formatação, roda Oxlint com tipos e o preset oficial strict de Effect, Clippy nativo e Wasm sem warnings, testes Bun/workerd e Rust, documentação e testes Rust em release. Novos crates devem herdar `[lints] workspace = true`. A política e benchmarks nativos anteriores estão em [docs/rust-quality.md](docs/rust-quality.md).
 
 ```sh
-bun run test:browser
+bun run build:worker   # dist/worker/index.js + nimbo_engine_bg.wasm
+bun run test:worker    # build e testes no workerd, sem rede externa
+bun run test:browser   # testes do adaptador HTTP nativo
 bun run browser https://example.com 'document.querySelector("h1").textContent'
 ```
 
-Para experimentar sem rede externa, em um terminal:
-
-```sh
-python3 -m http.server 8080 --bind 127.0.0.1 --directory crates/engine/tests/fixtures
-```
-
-Em outro terminal:
-
-```sh
-bun run browser http://127.0.0.1:8080/static.html 'document.querySelector("h1").textContent'
-# "Nimbo & dados"
-```
-
-A CLI recebe URL e uma expressão JavaScript opcional. Sem expressão, retorna
-`{ url, title, text }`, onde `text` é `document.body.textContent`, sem limpeza de
-scripts ou estilos. A saída é JSON em stdout; falhas vão para stderr com código
-de saída diferente de zero. Resultados Promise são aguardados até o deadline.
-
-O contrato Rust é `Browser::new(origin, limits)`, `navigate(url)` e
-`Page::evaluate(expression)`. Cada Browser possui seu próprio cookie jar; cada
-navegação possui DOM e runtime novos. Drop da página libera seus recursos. O
-deadline cobre aquisição, scripts, fetch e extração; uma página expirada não pode
-ser reutilizada. A origem autorizada é fixa e também limita redirects e subrequests.
-
-| Superfície                                                                                               | Estado deste MVP                                            |
-| -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| HTTP, redirects, URL final, cookies HttpOnly e isolamento entre sessões                                  | Validados com servidor local                                |
-| HTTPS com verificação de certificados pelo transporte Rust                                               | Implementado; ainda sem corpus TLS dedicado                 |
-| Seletores CSS, entidades HTML, atributos, textContent, innerHTML, criação, append e remoção de elementos | Validados localmente                                        |
-| Scripts clássicos inline/externos, microtasks, fetch GET/POST com corpo string                           | Validados localmente, na mesma origem                       |
-| DOMContentLoaded/load com callbacks função                                                               | Ciclo simplificado validado localmente                      |
-| Limites de tempo, bytes recebidos, requests, operações/escritas de DOM e heap JS                         | Validados localmente                                        |
-| Falhas e cleanup em 20 ciclos de criar/encerrar sessões                                                  | Validados; sem medição de RSS ou prova de ausência de leaks |
-| Worker, Durable Objects, Containers e deploy Alchemy                                                     | Ainda não implementados                                     |
-| CDP, screenshots, CSS/layout, stealth, XHR, timers, storage e APIs DOM completas                         | Ainda não implementados                                     |
-| Modules, scripts async, frames e elementos base href                                                     | Rejeitados explicitamente                                   |
-
-Scripts clássicos são executados em ordem **após o parsing completo**. Não há
-execução intercalada com o parser nem agendamento completo de browser. O fetch
-implementa apenas `method`/`body`, `status`/`ok`/`url` e `text()`/`json()`; não tem
-headers customizados, streaming, CORS entre origens ou integração com AbortSignal.
-As respostas precisam ser UTF-8 e a navegação precisa retornar `text/html`.
-Recursos de estilos/imagens não são carregados.
-
-Os limites padrão são 10 segundos por navegação, 2 MiB recebidos no total, 32
-requests, 10 mil operações DOM, 4 MiB de escritas DOM acumuladas e heap JS de 32
-MiB. O heap JS não representa o RSS total; parsing e callbacks nativos têm checks
-cooperativos de deadline. A política de mesma origem não é um sandbox de processo
-nem uma proteção completa contra SSRF/DNS rebinding. A CLI é para execução local;
-antes de expor o serviço, serão necessários isolamento e política de rede no Container.
-
-As dependências reutilizadas mantêm suas licenças: rquickjs/QuickJS e dom_query
-(MIT), html5ever e reqwest (MIT ou Apache-2.0). Não há código do outros motores copiado neste MVP.
-Os testes de browser são determinísticos e não usam credenciais nem destinos externos.
-
-## Objetivo
-
-Construir um navegador especializado nas necessidades de coleta da consumidores, aproveitando a experiência e as partes adequadas do outros motores. A prioridade é executar JavaScript e extrair conteúdo corretamente com o menor trabalho possível, preservando isolamento, segurança de transporte e controle de recursos.
-
-Rust será o motor dentro do Container. Effect v4 será usado no Worker para contratos, orquestração e aquisição/liberação de sessões. As bibliotecas e os componentes reutilizados manterão suas licenças e atribuições.
-
-## Arquitetura proposta
+## Worker e arquitetura
 
 ```mermaid
 flowchart LR
-    Client[Coletor] --> Worker[Worker com Effect v4]
-    Worker --> Session[Durable Object da sessão]
-    Session --> Engine[Container com motor Rust]
-    Engine --> Runtime[JavaScript e DOM]
-    Engine --> Network[Transporte HTTP e TLS]
-    Network --> Source[Origem pública]
+    Client[Coletor] --> Worker[Worker TS + Effect]
+    Worker --> Engine[Rust Wasm: DOM + QuickJS]
+    Engine --> Actions[Ações HTTP / resultado JSON]
+    Actions --> Worker
+    Worker --> Transport[Transporte fetch / EGRESS]
+    Transport --> Source[Origem HTTP]
 ```
 
-- **Worker:** autenticação, validação de contratos, limites, cancelamento, deadlines e observabilidade.
-- **Durable Object:** um proprietário por sessão, com controle de concorrência e encerramento.
-- **Rust:** execução de JavaScript, DOM, carregamento de recursos, extração e interface de automação.
-- **Container:** imagem mínima, execução nonroot, limites explícitos e encerramento quando a sessão termina.
+O núcleo Rust é uma máquina que produz ações HTTP e recebe respostas. Não abre sockets nem inicia threads. O mesmo núcleo atende ao Worker e à CLI; apenas o adaptador de transporte muda. Tokio não é necessário para esse alvo: o Worker já fornece o executor e o I/O assíncrono. JavaScript das páginas executa no QuickJS, separado das credenciais e bindings do host.
 
-Effect não será instalado como um segundo runtime de execução dentro do motor. A comunicação deverá usar os mecanismos nativos da Cloudflare e contratos explícitos na fronteira com Rust.
+- `GET /health`: versão e identidade do motor.
+- `POST /scrape`: `Authorization: Bearer <API_TOKEN>` e JSON `{ "url": "https://example.com", "expression": "document.title" }`.
+- Sucesso: `{ "url": "URL final", "value": "resultado", "engine": "rust-wasm-quickjs" }`.
+- Falha: status HTTP e `{ "error": "motivo" }`. Sem `API_TOKEN`, scraping fica indisponível.
 
-## Cloudflare primeiro
+O artefato deve ser configurado com o módulo Wasm pré-compilado e o secret `API_TOKEN`. Não há configuração de deploy nem credenciais Cloudflare incluídas neste MVP.
 
-O ciclo inteiro será tratado como parte do produto: disponibilizar a imagem, agendar o Container, iniciar o processo, obter a primeira extração e liberar a sessão.
+O binding opcional `EGRESS` implementa `fetch(Request): Promise<Response>`, permitindo um transporte separado sem acoplar protocolos ao motor. **Ele ainda não é uma integração com o proxy Fly.io.** Precisamos localizar o hostname/configuração existente e verificar se o serviço é gateway, CONNECT ou outro protocolo. Sem binding, o transporte utiliza `fetch` do Worker diretamente.
 
-A imagem será construída e publicada antes do deploy, com revisão e digest verificáveis. O deploy consumirá esse artefato pronto. Workers, Durable Objects e Containers serão declarados com Alchemy, sem um segundo proprietário de infraestrutura.
+## Capacidades e limites
 
-Cookies, credenciais e armazenamento do browser pertencerão à sessão. Pools de conexão e assets cacheáveis terão proprietário, orçamento e validade explícitos. Sessões encerradas não poderão manter páginas, tarefas ou dados de usuários anteriores.
+| Superfície                                                                         | Estado                                              |
+| ---------------------------------------------------------------------------------- | --------------------------------------------------- |
+| HTML, seletores CSS, atributos, texto, criação/remoção de elementos                | Implementados e testados                            |
+| Scripts clássicos inline/externos, Promises, GET/POST, ciclo DOMContentLoaded/load | Implementados com ciclo simplificado                |
+| Redirects, cookies HttpOnly, isolamento entre páginas, liberação do Wasm           | Testados no workerd                                 |
+| Limites de bytes, requests, DOM, heap JS, instruções e microtasks                  | Implementados; testes locais de falha e recuperação |
+| Proxy Fly.io, deploy, custo, memória prolongada e throughput em produção           | Pendentes                                           |
+| Layout/CSS, screenshots, Chromium/CDP, XHR, timers e storage                       | Não implementados                                   |
+| Modules, scripts async, frames e base href                                         | Rejeitados explicitamente                           |
 
-## Desempenho e memória
+Scripts executam em ordem após parsing completo. Fetch suporta `method`/corpo string, `status`/`ok`/`url`, `text()` e `json()`. Não implementa headers customizados nem CORS entre origens. HTML e respostas devem ser UTF-8; imagens e estilos não são carregados. Não equivale à compatibilidade de Chromium.
 
-A otimização será guiada por comparações reproduzíveis entre revisões, com a mesma carga e extração equivalente.
+Cada extração cria uma página e cookie jar próprios. Uma página ativa por isolate, com excesso rejeitado em 429, limita sobreposição de heaps. Effect libera a página e o permit também em falhas. Os limites padrão são 10 s, 2 MiB de respostas acumuladas, 32 requests físicos incluindo redirects, 10 mil operações DOM, 4 MiB de escritas DOM, heap QuickJS de 32 MiB, expressão de 64 KiB, 512 callbacks de interrupção QuickJS e 10 mil microtasks.
 
-| Métrica             | O que será medido                                                                   |
-| ------------------- | ----------------------------------------------------------------------------------- |
-| Cold start completo | Agendamento, início do processo e primeira extração utilizável, separados por etapa |
-| Latência            | p50, p95 e p99 de navegações e extrações                                            |
-| CPU                 | Trabalho de processo e consumo observado na plataforma                              |
-| RSS                 | Memória residente do motor ao longo da sessão e após a liberação de recursos        |
-| PSS                 | Memória proporcional, reportada separadamente de RSS                                |
-| Throughput          | Páginas válidas por segundo em concorrência limitada                                |
-| Rede                | Requests físicos, bytes e reutilização de conexões/assets                           |
-| Imagem              | Tamanho publicado e dependências incluídas                                          |
-| Custo               | Custo por mil páginas válidas, incluindo falhas, retries e tempo ocioso             |
+O orçamento de interrupções mede trabalho do QuickJS, não milissegundos nem um número exato de instruções. Ele impede loops mesmo com o relógio restrito dos Workers; o timeout Effect limita I/O. Parsing e callbacks nativos têm limites de tamanho/operações, mas não podem ser preemptados pelo timeout. O heap QuickJS não representa toda a memória do isolate. Ciclos locais de criar/liberar páginas não provam ausência de leaks.
 
-Metas numéricas serão fixadas por corpus após uma baseline real. Uma página vazia não será usada para justificar o dimensionamento de páginas com scripts, documentos ou desafios. A menor instância será escolhida apenas depois de validar headroom e comportamento sob pressão de memória.
+A política de mesma origem limita redirects e subrequests. Não é proteção completa contra SSRF/DNS rebinding; a política de destinos do gateway Fly precisa ser definida antes de exposição pública em escala.
 
-As primeiras hipóteses serão evitar aquisições repetidas, cópias desnecessárias de buffers, retained heaps após navegações e trabalho em recursos que a extração não consome. Nenhuma remoção de capacidade será apresentada como ganho equivalente sem medir seu impacto.
+## Performance e stealth
 
-## Compatibilidade de scraping
+O build Wasm usa o perfil release com otimização 3 e LTO. Benchmarks nativos não comprovam desempenho nem custo no Worker. As próximas medições devem comparar CPU, memória, latência e custo por mil extrações válidas, incluindo falhas e tráfego do proxy.
 
-A primeira superfície deverá cobrir navegação HTTP/HTTPS, redirecionamentos, cookies, headers, GET/POST, scripts, DOM, fetch/XHR, páginas dinâmicas, paginação e iframes necessários às integrações.
+O transporte usa identidade explícita `Nimbo/0.1`. Challenges sinalizados pelo upstream falham explicitamente. Não há promessa de stealth: proxy muda a saída de rede, mas não cria compatibilidade de browser nem controla automaticamente o fingerprint TLS. ClientHello, APIs web e desafios precisam de provas por destino antes de qualquer alegação.
 
-CDP e clientes como Puppeteer/Playwright serão avaliados contra as operações efetivamente consumidas. A matriz de suporte distinguirá implementado, validado, parcial e não suportado. Renderização, screenshots e APIs adicionais entrarão no escopo conforme os fluxos exigirem; sua ausência será explícita.
+Referências da plataforma: [Wasm nos Workers](https://developers.cloudflare.com/workers/runtime-apis/webassembly/), [relógio e performance](https://developers.cloudflare.com/workers/runtime-apis/performance/), [limites](https://developers.cloudflare.com/workers/platform/limits/) e [preços](https://developers.cloudflare.com/workers/platform/pricing/).
 
-## Stealth e fingerprint
-
-Os testes avaliarão coerência entre identidade HTTP e JavaScript: User-Agent, locale, viewport, screen, webdriver, propriedades globais, descritores e comportamento de APIs. O transporte terá probes reais de ClientHello, ALPN e perfil TLS.
-
-Identidades não poderão variar de forma contraditória entre navegações, requests e frames da mesma sessão. Superfícies não implementadas serão documentadas. Resultados de challenges serão reportados por destino, data, configuração e saída de rede; nenhum teste isolado será tratado como invisibilidade universal.
-
-## Suíte de validação
-
-- Corpus local determinístico com HTML estático, grandes tabelas, JavaScript dinâmico, paginação, charsets, assets compartilhados e iframes.
-- Transporte real para cookies, isolamento entre sessões, headers, CORS, TLS, SSRF, redirects e limites de resposta.
-- Cancelamento e interrupção durante aquisição, navegação, requests e extração, incluindo falhas parciais e cleanup.
-- Carga prolongada com muitas navegações e ciclos de criar/encerrar sessões, acompanhando RSS, tarefas e descritores abertos.
-- Pressão de memória, limites de CPU/concorrência e comportamento de encerramento no Container.
-- Corpus público do consumidores, conferindo conteúdo principal completo e campos consumidos pelas integrações.
-- Comparações com outros motores e outros motores sob a mesma carga, identidade, configuração e critério de resultado.
-
-Testes locais não dependerão de credenciais ou de rede externa. Testes live e de Cloudflare terão comandos separados, configuração obrigatória e cleanup explícito. Testes de carga remotos usarão alvos próprios ou autorizados.
-
-## Etapas
-
-1. Inventariar capacidades do outros motores e fluxos reais; definir corpus, baseline e contratos mínimos.
-2. Selecionar e adaptar o núcleo Rust, mantendo a execução de JavaScript e a extração verificáveis.
-3. Implementar sessões e ciclo de vida no Worker com Effect v4 e recursos nativos da Cloudflare.
-4. Construir a suíte de compatibilidade, isolamento, stealth e memória antes de ampliar concorrência.
-5. Medir cold start, estabilidade e custo em Containers reais; otimizar os gargalos comprovados.
-6. Migrar consumidores apenas quando a matriz de suporte e os resultados demonstrarem que o candidato atende aos fluxos exigidos.
-
-## Critério de entrega
-
-Cada release deverá identificar código, imagem, configuração e corpus usados; publicar a matriz de checks com falhas e limitações; e apresentar extração equivalente e métricas comparáveis. CI deverá verificar contratos, segurança, licenças e regressões antes da publicação.
-
-O projeto começa pela evidência. Nenhum resultado do outros motores atual é um benchmark do Nimbo.
+Bibliotecas reutilizadas preservam suas licenças: QuickJS/rquickjs e dom_query (MIT), html5ever e reqwest (MIT ou Apache-2.0). Não há código do outros motores copiado.

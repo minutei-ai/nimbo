@@ -1,7 +1,7 @@
 use std::{cell::Cell, io::Read, rc::Rc, time::Instant};
 
+use crate::machine::{Response, parse_url};
 use reqwest::{Url, blocking::Client, header::LOCATION, redirect::Policy};
-use serde::Serialize;
 
 use crate::{Error, Limits, Page, Result};
 
@@ -20,7 +20,10 @@ impl Browser {
     /// Retorna erro para URL inválida, limites inválidos ou falha no cliente TLS.
     pub fn new(origin: &str, limits: Limits) -> Result<Self> {
         let origin = parse_url(origin)?;
-        if limits.timeout.is_zero()
+        if limits.max_javascript_ticks == 0
+            || limits.max_microtasks == 0
+            || limits.max_expression_bytes == 0
+            || limits.timeout.is_zero()
             || limits.max_response_bytes == 0
             || limits.max_requests == 0
             || limits.max_dom_operations == 0
@@ -67,28 +70,6 @@ impl Browser {
         }
         Page::load(response, transport)
     }
-}
-
-pub(crate) fn parse_url(value: &str) -> Result<Url> {
-    let url = Url::parse(value).map_err(|error| Error::InvalidUrl(error.to_string()))?;
-    if !matches!(url.scheme(), "http" | "https")
-        || url.host_str().is_none()
-        || !url.username().is_empty()
-        || url.password().is_some()
-    {
-        return Err(Error::InvalidUrl(
-            "only HTTP(S) without URL credentials".into(),
-        ));
-    }
-    Ok(url)
-}
-
-#[derive(Debug, Serialize)]
-pub(crate) struct Response {
-    pub url: String,
-    pub status: u16,
-    pub body: String,
-    pub content_type: String,
 }
 
 #[derive(Debug)]

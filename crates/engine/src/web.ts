@@ -163,7 +163,7 @@
     if (method === "GET" && options.body !== undefined) throw new Error("GET cannot have a body");
     // Rust owns the serialized HTTP response shape.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    const response = JSON.parse(nativeRequest(url, method, options.body ?? "")) as {
+    const response = JSON.parse(await nativeRequest(url, method, options.body ?? "")) as {
       status: number;
       body: string;
       url: string;

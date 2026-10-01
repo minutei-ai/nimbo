@@ -85,7 +85,7 @@ binários. A medição definitiva foi feita sem compilação concorrente.
 
 Este corpus sintético destaca consultas com muitos matches e não prova o
 máximo desempenho possível. Não mede RSS, concorrência, rede externa, DNS/TLS,
-Cloudflare Containers, compatibilidade ampla ou custo por página em produção.
+Cloudflare Workers/Wasm, compatibilidade ampla ou custo por página em produção.
 Não há limiar temporal no CI: o CI valida comportamento em debug e release;
 o benchmark é explícito para evitar testes instáveis por carga do runner.
 
@@ -93,3 +93,18 @@ PGO, otimização por CPU, outro allocator ou mudanças no runtime exigem corpus
 representativo e novas medições. `target-cpu=native` não foi aplicado a um
 artefato portátil. Miri e sanitizers não foram executados; QuickJS usa FFI/C e
 precisa de uma estratégia própria para essa validação.
+
+## Alvo Worker/Wasm
+
+O núcleo agora separa execução de transporte por uma máquina de ações HTTP.
+QuickJS e DOM compilam para `wasm32-unknown-unknown`; o transporte nativo mantém
+reqwest, enquanto o Worker usa fetch com Effect. Clippy verifica ambos os alvos.
+O teste no workerd carrega o Wasm real e cobre scripts, fetch, cookies, limites,
+isolamento e recuperação. Não usa um mock do núcleo Rust.
+
+Interrupções QuickJS e orçamento de microtasks limitam CPU independentemente
+do relógio do Worker. Uma página ativa por isolate limita sobreposição de heaps;
+Drop remove callbacks persistentes e Effect libera a instância em falhas.
+Isso não equivale a uma medição de memória prolongada ou CPU faturada. Os
+benchmarks acima são do adaptador nativo anterior a esta separação; ainda não
+foram repetidos para o novo núcleo nem representam performance Wasm.
