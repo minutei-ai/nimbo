@@ -228,6 +228,97 @@ const collectionExpressionFor = (variant: number) => `(() => {
     live, removed, renamed, reparent, cleared, fragmentLive, transferred, guarded};
 })()`;
 
+const eventExpressionFor = (variant: number) => `(() => {
+  const root = document.getElementById('event-root'); const child = document.getElementById('event-child');
+  const chain = [window, document, document.documentElement, document.body, root, child];
+  const roles = ['window','document','html','body','root','child']; const order = []; let context = true;
+  const type = 'flow-${variant}'; const detail = {variant:${variant}};
+  for (let index = 0; index < chain.length; index++) {
+    for (const capture of [true, false]) chain[index].addEventListener(type, function(event) {
+      order.push(roles[index]+':'+event.eventPhase);
+      context = context && this === chain[index] && event.currentTarget === this && event.target === child
+        && event.detail === detail && event.composedPath().length === chain.length
+        && event.composedPath()[0] === child && event.composedPath().at(-1) === window;
+    }, capture);
+  }
+  const event = new CustomEvent(type, {bubbles:true,cancelable:true,composed:true,detail});
+  const returned = child.dispatchEvent(event);
+  const phases = order.join(',') === 'window:1,document:1,html:1,body:1,root:1,child:2,child:2,root:3,body:3,html:3,document:3,window:3';
+  const reset = returned && context && event.currentTarget === null && event.target === child && event.eventPhase === Event.NONE && event.NONE === 0 && Event.CAPTURING_PHASE === 1
+    && Event.AT_TARGET === 2 && Event.BUBBLING_PHASE === 3 && Object.prototype.toString.call(event) === '[object CustomEvent]'
+    && event.composedPath().length === 0 && !event.isTrusted && !Reflect.set(event, 'isTrusted', true)
+    && event.bubbles && event.cancelable && event.composed && event.detail === detail;
+  const nonBubble = [];
+  for (const [index,target] of chain.entries()) for (const capture of [true,false])
+    target.addEventListener('non-bubble', event => nonBubble.push(roles[index]+':'+event.eventPhase), capture);
+  child.dispatchEvent(new Event('non-bubble'));
+  const captures = nonBubble.join(',') === 'window:1,document:1,html:1,body:1,root:1,child:2,child:2';
+  const generic = new EventTarget(); let count = 0; const duplicate = () => count++;
+  generic.addEventListener('dup', duplicate); generic.addEventListener('dup', duplicate, {once:true});
+  generic.addEventListener('dup', duplicate, true); generic.dispatchEvent(new Event('dup')); generic.dispatchEvent(new Event('dup'));
+  generic.removeEventListener('dup', duplicate); generic.dispatchEvent(new Event('dup'));
+  generic.removeEventListener('dup', duplicate, true); generic.dispatchEvent(new Event('dup'));
+  const duplicates = count === 5;
+  let onceCount = 0; generic.addEventListener('once', () => { onceCount++; generic.dispatchEvent(new Event('once')); }, {once:true});
+  generic.dispatchEvent(new Event('once')); generic.dispatchEvent(new Event('once')); const once = onceCount === 1;
+  const stopped = []; root.addEventListener('stop', e => {stopped.push('first'); e.stopPropagation();}, true);
+  root.addEventListener('stop', () => stopped.push('second'), true); child.addEventListener('stop', () => stopped.push('child'));
+  const stopEvent = new Event('stop', {bubbles:true}); child.dispatchEvent(stopEvent);
+  const propagation = stopped.join(',') === 'first,second' && !stopEvent.cancelBubble;
+  const immediateOrder = []; child.addEventListener('immediate', e => {immediateOrder.push('first'); e.stopImmediatePropagation();});
+  child.addEventListener('immediate', () => immediateOrder.push('second')); root.addEventListener('immediate', () => immediateOrder.push('root'));
+  child.dispatchEvent(new Event('immediate', {bubbles:true})); const immediate = immediateOrder.join(',') === 'first';
+  generic.addEventListener('cancel', e => e.preventDefault()); const cancel = new Event('cancel', {cancelable:true});
+  const cancellation = !generic.dispatchEvent(cancel) && cancel.defaultPrevented && !cancel.returnValue;
+  const fixed = new Event('cancel'); const uncancelable = generic.dispatchEvent(fixed) && !fixed.defaultPrevented;
+  let passiveIgnored = false; generic.addEventListener('passive', e => {e.preventDefault(); passiveIgnored = !e.defaultPrevented;}, {passive:true});
+  const passiveEvent = new Event('passive', {cancelable:true}); const passive = generic.dispatchEvent(passiveEvent) && passiveIgnored;
+  const wheel = e => e.preventDefault(); document.body.addEventListener('wheel', wheel);
+  const defaultIgnored = child.dispatchEvent(new Event('wheel', {bubbles:true,cancelable:true}));
+  document.body.removeEventListener('wheel', wheel); document.body.addEventListener('wheel', wheel, {passive:false,once:true});
+  const defaultPolicy = defaultIgnored && !child.dispatchEvent(new Event('wheel', {bubbles:true,cancelable:true}));
+  const mutation = []; const later = () => mutation.push('later'); const removed = () => mutation.push('removed');
+  generic.addEventListener('mutation', () => {mutation.push('first'); generic.removeEventListener('mutation', removed); generic.addEventListener('mutation', later);});
+  generic.addEventListener('mutation', removed); generic.dispatchEvent(new Event('mutation')); generic.dispatchEvent(new Event('mutation'));
+  const mutated = mutation.join(',') === 'first,first,later';
+  const handler = {handleEvent(e) {this.correct = e.currentTarget === generic;}};
+  generic.addEventListener('object', handler); generic.dispatchEvent(new Event('object')); const object = handler.correct;
+  let invalidState = false; const nested = new Event('nested');
+  generic.addEventListener('nested', e => {try {generic.dispatchEvent(e);} catch(error) {invalidState = error instanceof DOMException && error.name === 'InvalidStateError';}});
+  generic.dispatchEvent(nested); const reentry = invalidState && nested.currentTarget === null && nested.eventPhase === 0;
+  const listenerError = new Error('listener-${variant}'); let reported = false; let continued = false;
+  window.addEventListener('error', function(e) {reported = this === window && e instanceof ErrorEvent && e.error === listenerError
+    && e.message === 'listener-${variant}' && e.target === window && e.isTrusted;}, {once:true});
+  generic.addEventListener('error-source', () => {throw listenerError;}); generic.addEventListener('error-source', () => {continued = true;});
+  generic.dispatchEvent(new Event('error-source')); const errors = reported && continued;
+  const controller = new AbortController(); const reason = {variant:${variant}}; let aborted = 0; let abortEvent = false;
+  const signal = controller.signal; signal.throwIfAborted(); signal.addEventListener('abort', e => {abortEvent = e.target === signal && e.isTrusted;});
+  generic.addEventListener('abortable', () => aborted++, {signal}); generic.dispatchEvent(new Event('abortable'));
+  controller.abort(reason); controller.abort('ignored'); generic.dispatchEvent(new Event('abortable'));
+  let thrownReason = false; try {signal.throwIfAborted();} catch(error) {thrownReason = error === reason;}
+  const abort = signal === controller.signal && signal.aborted && signal.reason === reason && aborted === 1 && abortEvent && thrownReason;
+  const preaborted = AbortSignal.abort(); let preCount = 0;
+  generic.addEventListener('preaborted', () => preCount++, {signal:preaborted}); generic.dispatchEvent(new Event('preaborted'));
+  const preAbort = preCount === 0 && preaborted.aborted && preaborted.reason instanceof DOMException && preaborted.reason.name === 'AbortError';
+  const pathOrder = []; child.addEventListener('path', () => {root.remove(); pathOrder.push('child');});
+  root.addEventListener('path', () => pathOrder.push('root')); window.addEventListener('path', () => pathOrder.push('window'), {once:true});
+  child.dispatchEvent(new Event('path', {bubbles:true})); const pathStable = pathOrder.join(',') === 'child,root,window' && !child.isConnected;
+  document.body.appendChild(root);
+  const guards = [];
+  for (const action of [() => new Event(), () => new CustomEvent(), () => new ErrorEvent(), () => new AbortSignal(),
+    () => generic.addEventListener(), () => generic.removeEventListener(),
+    () => generic.addEventListener('invalid', () => {}, {signal:null}), () => EventTarget.prototype.dispatchEvent.call({}, new Event('invalid'))]) {
+    try {action(); guards.push(false);} catch(error) {guards.push(error instanceof TypeError);}
+  }
+  const guarded = guards.length === 8 && guards.every(Boolean);
+  const lifecycle = []; let lifecycleTrusted = true;
+  document.addEventListener('DOMContentLoaded', function(e) {lifecycle.push('document:'+document.readyState+':'+e.eventPhase); lifecycleTrusted = lifecycleTrusted && e.isTrusted && e.target === document && e.currentTarget === this;}, {once:true});
+  window.addEventListener('DOMContentLoaded', function(e) {lifecycle.push('window:'+document.readyState+':'+e.eventPhase); lifecycleTrusted = lifecycleTrusted && e.isTrusted && e.target === document && e.currentTarget === this;}, {once:true});
+  window.addEventListener('load', function(e) {lifecycle.push('load:'+document.readyState+':'+e.eventPhase); lifecycleTrusted = lifecycleTrusted && e.isTrusted && e.target === document && e.currentTarget === this; globalThis.comparison.lifecycleTrusted = lifecycleTrusted;}, {once:true});
+  return {phases, reset, captures, duplicates, once, propagation, immediate, cancellation, uncancelable,
+    passive, defaultPolicy, mutated, object, reentry, errors, abort, preAbort, pathStable, guarded, lifecycle, lifecycleTrusted:false};
+})()`;
+
 const origin = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,
@@ -240,6 +331,17 @@ const origin = Bun.serve({
       return new Response("document.title += ' loaded';", {
         headers: { "content-type": "text/javascript" },
       });
+    if (path.startsWith("/events/")) {
+      const variant = Number(path.slice(8));
+      if (!Number.isInteger(variant) || variant < 0 || variant >= 64)
+        return new Response("Not found", { status: 404 });
+      return new Response(
+        `<title>Events ${variant}</title><main id="event-root"><button id="event-child">Target ${variant}</button></main><script>try {globalThis.comparison = ${eventExpressionFor(variant)};} catch(error) {globalThis.comparison = {exception:error.name,message:error.message};}</script>`,
+        {
+          headers: { "content-type": "text/html; charset=utf-8" },
+        },
+      );
+    }
     if (path.startsWith("/collections/")) {
       const variant = Number(path.slice(13));
       if (!Number.isInteger(variant) || variant < 0 || variant >= 64)
@@ -468,5 +570,80 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
       });
     }
     expect(requests).toContain(`GET /collections/${variant}`);
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: DOM event dispatch and abortable listeners variant %i",
+  async (variant) => {
+    const url = new URL(`events/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "globalThis.comparison" }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    expect(result).toEqual({
+      url,
+      engine: "rust-wasm-quickjs",
+      value: {
+        phases: true,
+        reset: true,
+        captures: true,
+        duplicates: true,
+        once: true,
+        propagation: true,
+        immediate: true,
+        cancellation: true,
+        uncancelable: true,
+        passive: true,
+        defaultPolicy: true,
+        mutated: true,
+        object: true,
+        reentry: true,
+        errors: true,
+        abort: true,
+        preAbort: true,
+        pathStable: true,
+        guarded: true,
+        lifecycle: ["document:interactive:2", "window:interactive:3", "load:complete:2"],
+        lifecycleTrusted: true,
+      },
+    });
+    expect(requests).toContain(`GET /events/${variant}`);
+    if (comparisonBinary) {
+      const baseline = await comparePage(comparisonBinary, url);
+      // The pinned baseline produced both values in repeated real runs.
+      // Nimbo's phase order above remains a strict requirement.
+      const phases: unknown =
+        typeof baseline === "object" && baseline !== null
+          ? Reflect.get(baseline, "phases")
+          : undefined;
+      expect(typeof phases).toBe("boolean");
+      expect(baseline).toEqual({
+        phases,
+        reset: false,
+        captures: true,
+        duplicates: true,
+        once: true,
+        propagation: true,
+        immediate: true,
+        cancellation: true,
+        uncancelable: true,
+        passive: false,
+        defaultPolicy: false,
+        mutated: true,
+        object: true,
+        reentry: true,
+        errors: false,
+        abort: false,
+        preAbort: true,
+        pathStable: true,
+        guarded: false,
+        lifecycle: ["document:interactive:2", "window:interactive:2", "load:complete:2"],
+        lifecycleTrusted: false,
+      });
+    }
   },
 );

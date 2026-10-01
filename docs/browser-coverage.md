@@ -21,7 +21,7 @@ tests as well as integration and application tests.
 
 `tooling/browser-live.test.ts` uses a real loopback HTTP origin, actual workerd,
 and the compiled Rust/Wasm engine. It installs no transport replacements,
-service mocks, browser API stubs, or canned engine results. Its 192 data variants
+service mocks, browser API stubs, or canned engine results. Its 256 data variants
 exercise external scripts, Unicode/entity decoding, selector identity,
 ancestry, removal/reparenting, attribute mutation and POST response decoding.
 They also exercise parsed and created text/comment nodes, native node identity,
@@ -31,8 +31,13 @@ self-insertion, moving existing siblings, empty text replacement and atomic
 rejection of cycles, foreign references and invalid document/doctype structure.
 The third set exercises live child-node and element collections, static selector
 lists, identity, named lookup, read-only indices, reflection, iteration during
-mutation, reparenting and fragment transfer. These are repeated integration
-checks, not 192 independent platform features.
+mutation, reparenting and fragment transfer. The fourth set exercises capture,
+target and bubble phases, cancellation, once/passive listeners, listener mutation,
+abortable listeners, exception reporting, dispatch reentry and native lifecycle
+ordering. These are repeated integration checks, not 256 independent platform
+features. Event support remains a subset: timestamps, legacy initialization,
+shadow trees, native input, AbortSignal timeout/any and fetch cancellation are
+not covered by this implementation.
 
 To compare the same pages and expected values with an installed Obscura binary,
 set `NIMBO_COMPARE_OBSCURA_BINARY` when running
@@ -48,6 +53,15 @@ and artifact digest are in the contract inventory, separate from the audited
 upstream revision. An earlier `0.2.2` binary failed reflexive `contains`;
 `v0.2.3` passes that case. Nimbo keeps the standards-based expectation instead
 of reproducing a baseline defect.
+
+The event fixture separately records the pinned comparator's differing event
+reset, passive behavior, abort/error reporting, receiver guards and lifecycle
+trust/phase results. Nimbo must pass the standards-based expectations; these
+recorded differences are not full browser parity evidence. Its phase-order
+predicate returned both true and false across real executions, so the comparator
+checks that field's boolean shape only. This is an unresolved baseline
+instability, not a phase-order pass. Nimbo still requires the exact phase order
+in every variant.
 
 The same release has two recorded divergences from the
 [DOM textContent contract](https://dom.spec.whatwg.org/#dom-node-textcontent):

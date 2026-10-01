@@ -7,11 +7,8 @@
   Reflect.deleteProperty(globalThis, "nimboRequest");
   Reflect.deleteProperty(globalThis, "nimboUrl");
 
-  const ids = new WeakMap<Node, number>();
+  const ids = new WeakMap<object, number>();
   const nodes = new Map<number, Node>();
-  type Listener = (this: EventTarget, event: Event) => void;
-  const listeners = new WeakMap<EventTarget, Map<string, Set<Listener>>>();
-
   // Result shapes are serialized by Rust for each native operation.
   // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
   const call = <T>(operation: string, id: number, arg = "", value = ""): T => {
@@ -20,33 +17,413 @@
     return JSON.parse(nativeDom(operation, id, arg, value)) as T;
   };
 
+  type Target = EventTarget | typeof globalThis;
+  type Listener = ((this: Target, event: Event) => void) | { handleEvent(event: Event): void };
+  type EventInit = { bubbles?: unknown; cancelable?: unknown; composed?: unknown };
+  type EventState = {
+    type: string;
+    bubbles: boolean;
+    cancelable: boolean;
+    composed: boolean;
+    target: Target | null;
+    current: Target | null;
+    phase: number;
+    path: Target[];
+    dispatching: boolean;
+    stopped: boolean;
+    immediate: boolean;
+    canceled: boolean;
+    passive: boolean;
+    trusted: boolean;
+  };
+  type ListenerRecord = {
+    callback: Listener;
+    capture: boolean;
+    once: boolean;
+    passive: boolean;
+    removed: boolean;
+    signal: object | null;
+    abort: (() => void) | null;
+  };
+  const events = new WeakMap<Event, EventState>();
+  const listeners = new WeakMap<object, Map<string, ListenerRecord[]>>();
+  const targets = new WeakSet<object>();
+  const aborts = new WeakMap<
+    object,
+    { aborted: boolean; reason: unknown; algorithms: Set<() => void> }
+  >();
+  const controllers = new WeakMap<AbortController, AbortSignal>();
+  const details = new WeakMap<CustomEvent, unknown>();
+  const errorDetails = new WeakMap<ErrorEvent, { error: unknown; message: string }>();
+  function domString(value: unknown): string {
+    if (typeof value === "symbol") throw new TypeError("value must be convertible to DOMString");
+    return String(value);
+  }
+  function eventState(event: Event): EventState {
+    const state = events.get(event);
+    if (!state) throw new TypeError("Illegal invocation");
+    return state;
+  }
   class Event {
-    target: EventTarget | null = null;
-    constructor(readonly type: string) {}
+    constructor(type: unknown, init: EventInit | null = {}) {
+      if (arguments.length === 0) throw new TypeError("Event requires a type");
+      if (init !== null && typeof init !== "object" && typeof init !== "function")
+        throw new TypeError("invalid event dictionary");
+      const state: EventState = {
+        type: domString(type),
+        bubbles: Boolean(init?.bubbles),
+        cancelable: Boolean(init?.cancelable),
+        composed: Boolean(init?.composed),
+        target: null,
+        current: null,
+        phase: 0,
+        path: [],
+        dispatching: false,
+        stopped: false,
+        immediate: false,
+        canceled: false,
+        passive: false,
+        trusted: false,
+      };
+      events.set(this, state);
+      Object.defineProperty(this, "isTrusted", { get: () => state.trusted, enumerable: true });
+    }
+    get type() {
+      return eventState(this).type;
+    }
+    get bubbles() {
+      return eventState(this).bubbles;
+    }
+    get cancelable() {
+      return eventState(this).cancelable;
+    }
+    get composed() {
+      return eventState(this).composed;
+    }
+    get target() {
+      return eventState(this).target;
+    }
     get currentTarget() {
-      return this.target;
+      return eventState(this).current;
+    }
+    get eventPhase() {
+      return eventState(this).phase;
+    }
+    get defaultPrevented() {
+      return eventState(this).canceled;
+    }
+    get cancelBubble() {
+      return eventState(this).stopped;
+    }
+    set cancelBubble(value: boolean) {
+      if (value) this.stopPropagation();
+    }
+    get returnValue() {
+      return !eventState(this).canceled;
+    }
+    set returnValue(value: boolean) {
+      if (!value) this.preventDefault();
+    }
+    preventDefault() {
+      const state = eventState(this);
+      if (state.cancelable && !state.passive) state.canceled = true;
+    }
+    stopPropagation() {
+      eventState(this).stopped = true;
+    }
+    stopImmediatePropagation() {
+      const state = eventState(this);
+      state.stopped = true;
+      state.immediate = true;
+    }
+    composedPath(): Target[] {
+      return [...eventState(this).path];
+    }
+  }
+  class CustomEvent extends Event {
+    constructor(type: unknown, init: (EventInit & { detail?: unknown }) | null = {}) {
+      if (arguments.length === 0) throw new TypeError("CustomEvent requires a type");
+      super(type, init);
+      details.set(this, init?.detail ?? null);
+    }
+    get detail(): unknown {
+      if (!details.has(this)) throw new TypeError("Illegal invocation");
+      return details.get(this);
+    }
+  }
+  class ErrorEvent extends Event {
+    constructor(
+      type: unknown,
+      init: (EventInit & { error?: unknown; message?: unknown }) | null = {},
+    ) {
+      if (arguments.length === 0) throw new TypeError("ErrorEvent requires a type");
+      super(type, init);
+      errorDetails.set(this, {
+        error: init?.error ?? null,
+        message: domString(init?.message === undefined ? "" : init.message),
+      });
+    }
+    get error(): unknown {
+      const detail = errorDetails.get(this);
+      if (!detail) throw new TypeError("Illegal invocation");
+      return detail.error;
+    }
+    get message(): string {
+      const detail = errorDetails.get(this);
+      if (!detail) throw new TypeError("Illegal invocation");
+      return detail.message;
+    }
+  }
+  for (const [name, value] of [
+    ["NONE", 0],
+    ["CAPTURING_PHASE", 1],
+    ["AT_TARGET", 2],
+    ["BUBBLING_PHASE", 3],
+  ] as const) {
+    for (const object of [Event, Event.prototype])
+      Object.defineProperty(object, name, { value, enumerable: true });
+  }
+  function checkTarget(target: Target) {
+    if (!targets.has(target)) throw new TypeError("Illegal invocation");
+  }
+  function removeRecord(records: ListenerRecord[], record: ListenerRecord) {
+    record.removed = true;
+    const index = records.indexOf(record);
+    if (index !== -1) records.splice(index, 1);
+    if (record.signal && record.abort) aborts.get(record.signal)?.algorithms.delete(record.abort);
+  }
+  function eventPath(target: Target, type: string): Target[] {
+    const path = [target];
+    let id = ids.get(target);
+    if (id !== undefined) {
+      let parent = call<number | null>("relativeNode", id, "parent");
+      while (parent !== null) {
+        path.push(node(parent));
+        id = parent;
+        parent = call<number | null>("relativeNode", parent, "parent");
+      }
+      if (type !== "load" && call<number>("get", id, "nodeType") === 9) path.push(globalThis);
+    }
+    return path;
+  }
+  let reporting = false;
+  function reportListenerError(error: unknown) {
+    if (reporting) return;
+    reporting = true;
+    try {
+      let message = "uncaught event listener exception";
+      try {
+        message = error instanceof Error ? error.message : String(error);
+      } catch {
+        /* Error conversion may itself throw. */
+      }
+      const event = new ErrorEvent("error", {
+        cancelable: true,
+        error,
+        message,
+      });
+      dispatch(globalThis, event, true);
+    } finally {
+      reporting = false;
+    }
+  }
+  function invoke(target: Target, event: Event, capture: boolean, phase: number) {
+    const state = eventState(event);
+    if (state.stopped) return;
+    state.current = target;
+    state.phase = phase;
+    const records = listeners.get(target)?.get(state.type) ?? [];
+    for (const record of records.slice()) {
+      if (record.removed || record.capture !== capture) continue;
+      if (record.once) removeRecord(records, record);
+      state.passive = record.passive;
+      try {
+        if (typeof record.callback === "function") record.callback.call(target, event);
+        else record.callback.handleEvent(event);
+      } catch (error) {
+        reportListenerError(error);
+      } finally {
+        state.passive = false;
+      }
+      if (state.immediate) break;
+    }
+  }
+  function dictionary(options: unknown): object | null {
+    return options !== null && (typeof options === "object" || typeof options === "function")
+      ? options
+      : null;
+  }
+  function captureOption(options: unknown): boolean {
+    const init = dictionary(options);
+    return init ? Boolean(Reflect.get(init, "capture")) : Boolean(options);
+  }
+  function defaultPassive(type: string, target: Target): boolean {
+    if (!["touchstart", "touchmove", "wheel", "mousewheel"].includes(type)) return false;
+    if (target === globalThis || target === document) return true;
+    const id = ids.get(target);
+    return (
+      id !== undefined &&
+      (id === call<number | null>("queryOne", 0, "body") ||
+        id === call<number | null>("queryOne", 0, "html"))
+    );
+  }
+  function dispatch(target: Target, event: Event, trusted = false, legacy = false): boolean {
+    checkTarget(target);
+    const state = eventState(event);
+    if (state.dispatching)
+      throw new DOMException("event is already being dispatched", "InvalidStateError");
+    state.dispatching = true;
+    state.trusted = trusted;
+    state.target = legacy ? document : target;
+    try {
+      state.path = eventPath(target, state.type);
+      for (let index = state.path.length - 1; index > 0; index--) {
+        const current = state.path[index];
+        if (current) invoke(current, event, true, 1);
+      }
+      invoke(target, event, true, 2);
+      invoke(target, event, false, 2);
+      if (state.bubbles)
+        for (const current of state.path.slice(1)) invoke(current, event, false, 3);
+      return !state.canceled;
+    } finally {
+      state.dispatching = false;
+      state.current = null;
+      state.phase = 0;
+      state.path = [];
+      state.stopped = false;
+      state.immediate = false;
+      state.passive = false;
     }
   }
   class EventTarget {
-    addEventListener(type: string, callback: Listener) {
-      if (typeof callback !== "function") throw new TypeError("callback must be a function");
-      const events = listeners.get(this) ?? new Map<string, Set<Listener>>();
-      const callbacks = events.get(type) ?? new Set<Listener>();
-      callbacks.add(callback);
-      events.set(type, callbacks);
-      listeners.set(this, events);
+    constructor() {
+      targets.add(this);
     }
-    removeEventListener(type: string, callback: Listener) {
-      listeners.get(this)?.get(type)?.delete(callback);
+    addEventListener(
+      this: Target,
+      type: unknown,
+      callback: Listener | null,
+      options: unknown = {},
+    ) {
+      checkTarget(this);
+      if (arguments.length < 2) throw new TypeError("addEventListener requires type and callback");
+      const name = domString(type);
+      const capture = captureOption(options);
+      const init = dictionary(options);
+      const once = init ? Boolean(Reflect.get(init, "once")) : false;
+      const passive: unknown = init ? Reflect.get(init, "passive") : undefined;
+      const rawSignal: unknown = init ? Reflect.get(init, "signal") : undefined;
+      let signal: object | null = null;
+      if (rawSignal !== undefined) {
+        const value = dictionary(rawSignal);
+        if (!value || !aborts.has(value)) throw new TypeError("invalid AbortSignal");
+        signal = value;
+      }
+      if (callback === null || callback === undefined || (signal && aborts.get(signal)?.aborted))
+        return;
+      if (typeof callback !== "function" && typeof callback !== "object")
+        throw new TypeError("invalid event listener");
+      const list = listeners.get(this) ?? new Map<string, ListenerRecord[]>();
+      const records = list.get(name) ?? [];
+      if (records.some((record) => record.callback === callback && record.capture === capture))
+        return;
+      const record: ListenerRecord = {
+        callback,
+        capture,
+        once,
+        passive: passive === undefined ? defaultPassive(name, this) : Boolean(passive),
+        removed: false,
+        signal,
+        abort: null,
+      };
+      if (signal) {
+        record.abort = () => removeRecord(records, record);
+        aborts.get(signal)?.algorithms.add(record.abort);
+      }
+      records.push(record);
+      list.set(name, records);
+      listeners.set(this, list);
     }
-    dispatchEvent(event: Event) {
-      event.target = this;
-      const snapshot = Array.from(listeners.get(this)?.get(event.type) ?? []);
-      for (const callback of snapshot) callback.call(this, event);
-      return true;
+    removeEventListener(
+      this: Target,
+      type: unknown,
+      callback: Listener | null,
+      options: unknown = {},
+    ) {
+      checkTarget(this);
+      if (arguments.length < 2)
+        throw new TypeError("removeEventListener requires type and callback");
+      const records = listeners.get(this)?.get(domString(type));
+      const capture = captureOption(options);
+      const record = records?.find(
+        (candidate) => candidate.callback === callback && candidate.capture === capture,
+      );
+      if (records && record) removeRecord(records, record);
+    }
+    dispatchEvent(this: Target, event: Event): boolean {
+      return dispatch(this, event);
     }
   }
-  function idOf(candidate: Node): number {
+  const abortKey = Symbol("abort signal");
+  class AbortSignal extends EventTarget {
+    constructor(key: symbol) {
+      super();
+      if (key !== abortKey) throw new TypeError("Illegal constructor");
+      aborts.set(this, { aborted: false, reason: undefined, algorithms: new Set() });
+    }
+    get aborted(): boolean {
+      const state = aborts.get(this);
+      if (!state) throw new TypeError("Illegal invocation");
+      return state.aborted;
+    }
+    get reason(): unknown {
+      const state = aborts.get(this);
+      if (!state) throw new TypeError("Illegal invocation");
+      return state.reason;
+    }
+    throwIfAborted() {
+      const state = aborts.get(this);
+      if (!state) throw new TypeError("Illegal invocation");
+      if (state.aborted) throw state.reason;
+    }
+    static abort(reason?: unknown): AbortSignal {
+      const controller = new AbortController();
+      controller.abort(reason);
+      return controller.signal;
+    }
+  }
+  class AbortController {
+    constructor() {
+      controllers.set(this, new AbortSignal(abortKey));
+    }
+    get signal(): AbortSignal {
+      const signal = controllers.get(this);
+      if (!signal) throw new TypeError("Illegal invocation");
+      return signal;
+    }
+    abort(reason: unknown = new DOMException("operation aborted", "AbortError")) {
+      const signal = controllers.get(this);
+      const state = signal ? aborts.get(signal) : undefined;
+      if (!state || !signal) throw new TypeError("Illegal invocation");
+      if (state.aborted) return;
+      state.aborted = true;
+      state.reason = reason;
+      for (const algorithm of Array.from(state.algorithms)) algorithm();
+      state.algorithms.clear();
+      dispatch(signal, new Event("abort"), true);
+    }
+  }
+  for (const [prototype, tag] of [
+    [Event.prototype, "Event"],
+    [CustomEvent.prototype, "CustomEvent"],
+    [ErrorEvent.prototype, "ErrorEvent"],
+    [EventTarget.prototype, "EventTarget"],
+    [AbortSignal.prototype, "AbortSignal"],
+    [AbortController.prototype, "AbortController"],
+  ] as const)
+    Object.defineProperty(prototype, Symbol.toStringTag, { value: tag, configurable: true });
+  function idOf(candidate: object): number {
     const id = ids.get(candidate);
     if (id === undefined) throw new TypeError("invalid Node");
     return id;
@@ -514,7 +891,7 @@
   }
   const document = new Document(internal, 0);
   nodes.set(0, document);
-  const windowEvents = new EventTarget();
+  targets.add(globalThis);
 
   const fetch = async (url: string, options: { method?: string; body?: string } = {}) => {
     for (const key of Object.keys(options)) {
@@ -543,6 +920,11 @@
     self: globalThis,
     location: Object.freeze({ href, toString: () => href }),
     Event,
+    CustomEvent,
+    ErrorEvent,
+    EventTarget,
+    AbortSignal,
+    AbortController,
     Node,
     Element,
     Document,
@@ -553,16 +935,15 @@
     Text,
     Comment,
     fetch,
-    addEventListener: windowEvents.addEventListener.bind(windowEvents),
-    removeEventListener: windowEvents.removeEventListener.bind(windowEvents),
-    dispatchEvent: windowEvents.dispatchEvent.bind(windowEvents),
+    addEventListener: EventTarget.prototype.addEventListener.bind(globalThis),
+    removeEventListener: EventTarget.prototype.removeEventListener.bind(globalThis),
+    dispatchEvent: EventTarget.prototype.dispatchEvent.bind(globalThis),
   });
 
   return () => {
     readyState = "interactive";
-    document.dispatchEvent(new Event("DOMContentLoaded"));
-    windowEvents.dispatchEvent(new Event("DOMContentLoaded"));
+    dispatch(document, new Event("DOMContentLoaded", { bubbles: true }), true);
     readyState = "complete";
-    windowEvents.dispatchEvent(new Event("load"));
+    dispatch(globalThis, new Event("load"), true, true);
   };
 })();
