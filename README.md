@@ -2,7 +2,45 @@
 
 Um navegador para scraping em massa, pensado primeiro para Cloudflare Containers: baixo consumo de memória, partida rápida e custo medido por página extraída.
 
-**Status: proposta de projeto.** Este repositório contém apenas este README. O motor, os testes e os benchmarks descritos abaixo ainda serão implementados. Nimbo é um projeto separado do outros motores usado atualmente pela consumidores.
+**Status: base do monorepo e checks implementados.** O browser, a infraestrutura e os benchmarks descritos abaixo ainda serão implementados. Nimbo é um projeto separado do outros motores usado atualmente pela consumidores.
+
+## Desenvolvimento
+
+O monorepo usa workspaces nativos do Bun para TypeScript e do Cargo para Rust:
+
+```text
+apps/worker/      @nimbo/worker — orquestração Cloudflare com Effect v4
+crates/engine/   nimbo-engine — núcleo Rust (ainda sem implementação)
+packages/        pacotes TypeScript compartilhados, quando houver consumidores
+tooling/         testes da integração de lint
+```
+
+`packages/` só será criado quando necessário. As versões do Bun, Rust e das ferramentas
+estão fixadas; os dois lockfiles devem ser versionados.
+
+```sh
+bun install --frozen-lockfile
+bun run check
+```
+
+- `bun run lint`: Oxlint com verificação de tipos pelo Go e regras oficiais de Effect; Clippy para todos os crates, targets e features, sem warnings.
+- `bun run format`: Oxfmt e rustfmt. `bun run format:check` verifica sem alterar arquivos.
+- `bun run test`: probes que comprovam aceitação de Effect v4 válido e rejeição de Effect solto, erro de tipos, Promise solta, unwrap e unsafe; depois testes Rust.
+
+O `prepare` reaplica o patch oficial `effect-tsgo patch --no-typescript --oxlint`
+após instalar dependências. A configuração usa o preset strict de Effect e regras
+contra `any`, operações inseguras e Promises sem tratamento. O mesmo comando
+`bun run check` roda no CI em pushes e pull requests.
+
+Referências: [integração oficial Effect/Oxlint](https://github.com/Effect-TS/tsgo/blob/main/docs/README.md),
+[Oxlint com tipos](https://oxc.rs/docs/guide/usage/linter/type-aware) e
+[Clippy](https://doc.rust-lang.org/stable/clippy/usage.html).
+
+Os crates herdam `[workspace.lints]` com `all` e `pedantic`, proibição de unsafe
+e regras contra unwrap/expect, TODOs executáveis, debug, saída abrupta e vazamento
+via `mem::forget`. Novos crates devem declarar `[lints] workspace = true`.
+Exceções pontuais precisam justificar a regra no local; não desligar categorias
+inteiras para acomodar uma implementação.
 
 ## Objetivo
 

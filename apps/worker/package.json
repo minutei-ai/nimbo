@@ -1,0 +1,9 @@
+{
+  "name": "@nimbo/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "effect": "4.0.0"
+  }
+}

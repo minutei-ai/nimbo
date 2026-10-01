@@ -1,0 +1,8 @@
+node_modules/
+target/
+dist/
+coverage/
+.lint-probe-*/
+.env
+.env.*
+!.env.example
