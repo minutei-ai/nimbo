@@ -52,7 +52,6 @@ O núcleo Rust é uma máquina que produz ações HTTP e recebe respostas. Não 
 
 O artefato deve ser configurado com o módulo Wasm pré-compilado e o secret `API_TOKEN`. Não há configuração de deploy nem credenciais Cloudflare incluídas neste MVP.
 
-O binding opcional `EGRESS` implementa `fetch(Request): Promise<Response>`, permitindo um transporte separado sem acoplar protocolos ao motor. **Ele ainda não é uma integração com o proxy Fly.io.** Precisamos localizar o hostname/configuração existente e verificar se o serviço é gateway, CONNECT ou outro protocolo. Sem binding, o transporte utiliza `fetch` do Worker diretamente.
 
 ## Capacidades e limites
 
