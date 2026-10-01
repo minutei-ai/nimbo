@@ -22,6 +22,8 @@ impl Browser {
         let origin = parse_url(origin)?;
         if limits.max_javascript_ticks == 0
             || limits.max_microtasks == 0
+            || limits.max_timers == 0
+            || limits.max_timer_tasks == 0
             || limits.max_expression_bytes == 0
             || limits.timeout.is_zero()
             || limits.max_response_bytes == 0

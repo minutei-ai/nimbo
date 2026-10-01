@@ -531,3 +531,74 @@ fn element_traversal_skips_text_and_comments_and_tracks_connectivity() -> TestRe
         json!({"before":{"first":"first","last":"last","next":true,"previous":true,"boundaries":true,"contains":true,"connected":true},"detached":true,"identity":true}));
     Ok(())
 }
+
+#[test]
+fn real_clock_timers_interleave_microtasks_and_clamp_nested_tasks() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    let start = Instant::now();
+    let result = page.evaluate(r"new Promise(resolve => {
+        const order = []; let count = 0;
+        queueMicrotask(() => order.push('micro'));
+        setTimeout(() => { order.push('first'); queueMicrotask(() => order.push('between')); }, 0);
+        setTimeout(() => order.push('second'), 0);
+        const canceled = setInterval(() => order.push('canceled'), 0); clearTimeout(canceled);
+        const nested = () => { if (++count < 9) setTimeout(nested, 0); else resolve({count,order}); };
+        setTimeout(nested, 0);
+    })")?;
+    assert_eq!(
+        result,
+        json!({"count":9,"order":["micro","first","between","second"]})
+    );
+    assert!(start.elapsed() >= Duration::from_millis(10));
+    let microtask_start = Instant::now();
+    assert_eq!(page.evaluate(r"new Promise(resolve => {
+        let count = 0;
+        const nested = () => { if (++count < 9) queueMicrotask(() => setTimeout(nested, 0)); else resolve(count); };
+        setTimeout(nested, 0);
+    })")?, json!(9));
+    assert!(microtask_start.elapsed() >= Duration::from_millis(10));
+    Ok(())
+}
+
+#[test]
+fn timer_capacity_task_budget_and_deadline_are_enforced() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = Browser::new(
+        &fixture.url,
+        Limits {
+            max_timers: 2,
+            ..Limits::default()
+        },
+    )?;
+    let page = browser.navigate(&fixture.path("/static"))?;
+    assert!(
+        matches!(page.evaluate("(() => {setTimeout(() => {}, 100); setInterval(() => {}, 100); setTimeout(() => {}, 100);})()"), Err(Error::JavaScript(message)) if message.contains("timer capacity limit"))
+    );
+    let browser = Browser::new(
+        &fixture.url,
+        Limits {
+            max_timer_tasks: 2,
+            ..Limits::default()
+        },
+    )?;
+    let page = browser.navigate(&fixture.path("/static"))?;
+    assert!(
+        matches!(page.evaluate("new Promise(() => setInterval(() => {}, 0))"), Err(Error::JavaScript(message)) if message.contains("timer task limit"))
+    );
+    let browser = Browser::new(
+        &fixture.url,
+        Limits {
+            timeout: Duration::from_millis(80),
+            ..Limits::default()
+        },
+    )?;
+    let page = browser.navigate(&fixture.path("/static"))?;
+    let start = Instant::now();
+    assert!(matches!(
+        page.evaluate("new Promise(resolve => setTimeout(resolve, 60000))"),
+        Err(Error::Limit("navigation deadline"))
+    ));
+    assert!(start.elapsed() < Duration::from_secs(1));
+    Ok(())
+}

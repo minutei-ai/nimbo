@@ -62,9 +62,13 @@ const scrape = (request: Request, environment: Environment) =>
         (loaded) => Effect.sync(() => loaded.free()),
       );
       let evaluating = false;
+      const epoch = performance.now();
       while (true) {
         const action = yield* Effect.try({
-          try: () => page.step(),
+          try: () => {
+            page.advance(performance.now() - epoch);
+            return page.step();
+          },
           catch: (cause) => failure(cause),
         }).pipe(
           Effect.flatMap((raw) =>
@@ -74,6 +78,9 @@ const scrape = (request: Request, environment: Environment) =>
           ),
         );
         switch (action.type) {
+          case "wait":
+            yield* Effect.sleep(action.milliseconds);
+            break;
           case "request": {
             yield* Effect.tryPromise({
               try: (signal) => transport.request(action.url, action.method, action.body, signal),

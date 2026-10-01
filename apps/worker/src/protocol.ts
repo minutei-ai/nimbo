@@ -18,6 +18,7 @@ export const Action = Schema.Union([
     body: Schema.String,
   }),
   Schema.Struct({ type: Schema.Literal("ready") }),
+  Schema.Struct({ type: Schema.Literal("wait"), milliseconds: Schema.Finite }),
   Schema.Struct({ type: Schema.Literal("result"), json: Schema.String }),
 ]);
 export const Limits = Schema.Struct({

@@ -13,6 +13,7 @@ pub struct Page {
     machine: RefCell<Machine>,
     transport: Rc<Transport>,
     url: String,
+    epoch: std::time::Instant,
 }
 
 impl fmt::Debug for Page {
@@ -39,6 +40,7 @@ impl Page {
             machine: RefCell::new(machine),
             transport,
             url: response.url,
+            epoch: std::time::Instant::now(),
         };
         if page.drive()?.is_some() {
             return Err(Error::Unsupported("unexpected load result".into()));
@@ -56,10 +58,22 @@ impl Page {
         let base = parse_url(&self.url)?;
         loop {
             self.transport.check_deadline()?;
+            self.machine
+                .borrow()
+                .advance(self.epoch.elapsed().as_secs_f64() * 1000.0)?;
             let action = self.machine.borrow_mut().step()?;
             match action {
                 Action::Ready => return Ok(None),
                 Action::Result { json } => return Ok(Some(json)),
+                Action::Wait { milliseconds } => {
+                    let remaining = self
+                        .transport
+                        .deadline
+                        .saturating_duration_since(std::time::Instant::now());
+                    std::thread::sleep(
+                        std::time::Duration::from_secs_f64(milliseconds / 1000.0).min(remaining),
+                    );
+                }
                 Action::Request { url, method, body } => {
                     match self.transport.request(&base, &url, &method, &body) {
                         Ok(response) => self.machine.borrow_mut().respond(&response)?,

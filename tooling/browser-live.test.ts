@@ -319,6 +319,41 @@ const eventExpressionFor = (variant: number) => `(() => {
     passive, defaultPolicy, mutated, object, reentry, errors, abort, preAbort, pathStable, guarded, lifecycle, lifecycleTrusted:false};
 })()`;
 
+const timerExpressionFor = (variant: number) => `(async () => {
+  const order = []; const detail = {variant:${variant}}; let context = false; let canceled = true;
+  let intervalCount = 0; let coerced = 0; let conversion = 0; let nested = 0; let errors = 0;
+  queueMicrotask(() => order.push('micro'));
+  Promise.resolve().then(() => order.push('promise'));
+  const first = setTimeout(function(a,b) {
+    context = this === window && a === detail && b === ${variant}; order.push('a');
+    queueMicrotask(() => order.push('a-micro'));
+    setTimeout(() => order.push('c'), 0);
+  }, 0, detail, ${variant});
+  const second = setTimeout(() => order.push('b'), 0);
+  const canceledTimeout = setTimeout(() => canceled = false, 0); clearInterval(canceledTimeout);
+  const interval = setInterval(() => {intervalCount++; if (intervalCount === 3) clearTimeout(interval);}, 2);
+  const canceledInterval = setInterval(() => canceled = false, 0); clearTimeout(canceledInterval);
+  setTimeout('globalThis.timerString = ${variant}', 1);
+  setTimeout(() => coerced++, {valueOf() {conversion++; return 7;}});
+  const nest = () => {nested++; if (nested < 9) setTimeout(nest, 0);}; setTimeout(nest, 0);
+  window.addEventListener('error', event => {if (event.isTrusted && event.message.startsWith('timer-error')) errors++;});
+  setTimeout(() => {throw new Error('timer-error-task');}, 0);
+  queueMicrotask(() => {throw new Error('timer-error-microtask');});
+  const guards = [];
+  for (const action of [() => setTimeout(), () => setInterval(), () => clearTimeout(), () => clearInterval(),
+    () => queueMicrotask(), () => queueMicrotask('bad'), () => setTimeout(() => {}, 1n), () => setTimeout(() => {}, Symbol())]) {
+    try {action(); guards.push(false);} catch(error) {guards.push(error instanceof TypeError);}
+  }
+  const network = new Promise(resolve => setTimeout(() => {
+    fetch('/echo', {method:'POST',body:'timer-${variant}'}).then(response => response.json()).then(resolve);
+  }, 10));
+  const [fetched] = await Promise.all([network, new Promise(resolve => setTimeout(resolve, 35))]);
+  return {order:order.join(','),context,canceled,interval:intervalCount === 3,coercion:coerced === 1 && conversion === 1,
+    nested:nested === 9,errors:errors === 2,string:globalThis.timerString === ${variant},guarded:guards.length === 8 && guards.every(Boolean),
+    ids:Number.isInteger(first) && first > 0 && second > first && interval !== first,
+    fetched:fetched.method === 'POST' && fetched.body === 'timer-${variant}'};
+})()`;
+
 const origin = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,
@@ -327,6 +362,15 @@ const origin = Bun.serve({
     requests.push(`${request.method} ${path}`);
     if (path === "/echo")
       return Response.json({ method: request.method, body: await request.text() });
+    if (path.startsWith("/timers/")) {
+      const variant = Number(path.slice(8));
+      if (!Number.isInteger(variant) || variant < 0 || variant >= 64)
+        return new Response("Not found", { status: 404 });
+      return new Response(
+        `<title>Timers ${variant}</title><script>globalThis.comparisonPromise = ${timerExpressionFor(variant)}.then(value => globalThis.comparison = value);</script>`,
+        { headers: { "content-type": "text/html; charset=utf-8" } },
+      );
+    }
     if (path.startsWith("/script/"))
       return new Response("document.title += ' loaded';", {
         headers: { "content-type": "text/javascript" },
@@ -647,3 +691,81 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     }
   },
 );
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: real-clock timers and microtasks variant %i",
+  async (variant) => {
+    const url = new URL(`timers/${variant}`, origin.url).href;
+    const started = performance.now();
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "globalThis.comparisonPromise" }),
+    });
+    expect(response.status).toBe(200);
+    expect(performance.now() - started).toBeGreaterThanOrEqual(30);
+    expect(await response.json()).toEqual({
+      url,
+      engine: "rust-wasm-quickjs",
+      value: {
+        order: "micro,promise,a,a-micro,b,c",
+        context: true,
+        canceled: true,
+        interval: true,
+        coercion: true,
+        nested: true,
+        errors: true,
+        string: true,
+        guarded: true,
+        ids: true,
+        fetched: true,
+      },
+    });
+    expect(requests).toContain(`GET /timers/${variant}`);
+    expect(requests).toContain("POST /echo");
+    if (comparisonBinary) {
+      expect(await comparePage(comparisonBinary, url)).toEqual({
+        order: "micro,promise,a,a-micro,b,c",
+        context: true,
+        canceled: true,
+        interval: false,
+        coercion: true,
+        nested: true,
+        errors: false,
+        string: true,
+        guarded: false,
+        ids: true,
+        fetched: true,
+      });
+    }
+  },
+);
+
+test("real HTTP → workerd → Wasm: timer deadline releases page capacity", async () => {
+  const started = performance.now();
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url: new URL("tree/0", origin.url).href,
+      expression: "new Promise(resolve => setTimeout(resolve, 60000))",
+    }),
+  });
+  expect(response.status).toBe(504);
+  expect(performance.now() - started).toBeGreaterThanOrEqual(9000);
+  expect(await response.json()).toEqual({ error: "scrape deadline or invalid input" });
+  const recovered = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url: new URL("timers/63", origin.url).href,
+      expression: "globalThis.comparisonPromise.then(value => value.fetched)",
+    }),
+  });
+  expect(recovered.status).toBe(200);
+  expect(await recovered.json()).toEqual({
+    url: new URL("timers/63", origin.url).href,
+    engine: "rust-wasm-quickjs",
+    value: true,
+  });
+}, 20000);

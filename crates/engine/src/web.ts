@@ -3,9 +3,15 @@
   const nativeDom = nimboDom;
   const nativeRequest = nimboRequest;
   const href = nimboUrl;
+  const now = nimboNow;
+  const timerLimit = nimboTimerLimit;
+  const timerTaskLimit = nimboTimerTaskLimit;
   Reflect.deleteProperty(globalThis, "nimboDom");
   Reflect.deleteProperty(globalThis, "nimboRequest");
   Reflect.deleteProperty(globalThis, "nimboUrl");
+  Reflect.deleteProperty(globalThis, "nimboNow");
+  Reflect.deleteProperty(globalThis, "nimboTimerLimit");
+  Reflect.deleteProperty(globalThis, "nimboTimerTaskLimit");
 
   const ids = new WeakMap<object, number>();
   const nodes = new Map<number, Node>();
@@ -893,6 +899,97 @@
   nodes.set(0, document);
   targets.add(globalThis);
 
+  type Timer = {
+    handler: ((...args: unknown[]) => unknown) | string;
+    args: unknown[];
+    delay: number;
+    due: number;
+    level: number;
+    repeat: boolean;
+  };
+  const timers = new Map<number, Timer>();
+  // Timer strings execute as global scripts in this page's own QuickJS context.
+  // oxlint-disable-next-line eslint/no-eval
+  const executeScript = eval;
+  let nextTimer = 1;
+  let timerLevel = 0;
+  let timerTasks = 0;
+  function long(value: unknown): number {
+    if (typeof value === "bigint") throw new TypeError("BigInt is not a timer number");
+    return Number(value) | 0;
+  }
+  function schedule(handler: unknown, timeout: unknown, args: unknown[], repeat: boolean) {
+    const callback = typeof handler === "function" ? handler : domString(handler);
+    const delay = Math.max(0, long(timeout));
+    if (timers.size >= timerLimit) throw new Error("timer capacity limit");
+    const id = nextTimer++;
+    timers.set(id, {
+      // Callable values are validated above; arguments remain page-owned values.
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+      handler: callback as Timer["handler"],
+      args,
+      delay,
+      due: now() + (timerLevel > 5 ? Math.max(4, delay) : delay),
+      level: timerLevel + 1,
+      repeat,
+    });
+    return id;
+  }
+  function setTimeout(handler: unknown, timeout: unknown = 0, ...args: unknown[]) {
+    if (arguments.length === 0) throw new TypeError("setTimeout requires a handler");
+    return schedule(handler, timeout, args, false);
+  }
+  function setInterval(handler: unknown, timeout: unknown = 0, ...args: unknown[]) {
+    if (arguments.length === 0) throw new TypeError("setInterval requires a handler");
+    return schedule(handler, timeout, args, true);
+  }
+  function clearTimeout(id: unknown) {
+    if (arguments.length === 0) throw new TypeError("clearTimeout requires an id");
+    timers.delete(long(id));
+  }
+  function queueMicrotask(callback: () => unknown) {
+    if (typeof callback !== "function") throw new TypeError("queueMicrotask requires a function");
+    void Promise.resolve().then(() => {
+      try {
+        callback();
+      } catch (error) {
+        reportListenerError(error);
+      }
+    });
+  }
+  function timer(run: boolean): number | null {
+    if (!run) {
+      timerLevel = 0;
+      return null;
+    }
+    let selected: [number, Timer] | undefined;
+    for (const entry of timers) {
+      if (!selected || entry[1].due < selected[1].due) selected = entry;
+    }
+    if (!selected) return null;
+    const [id, task] = selected;
+    const delay = task.due - now();
+    if (delay > 0) return delay;
+    if (timerTasks >= timerTaskLimit) throw new Error("timer task limit");
+    timerTasks++;
+    timerLevel = task.level;
+    try {
+      if (typeof task.handler === "function") task.handler.apply(globalThis, task.args);
+      else executeScript(task.handler);
+    } catch (error) {
+      reportListenerError(error);
+    } finally {
+      if (timers.get(id) === task) {
+        if (task.repeat) {
+          task.due = now() + (timerLevel > 5 ? Math.max(4, task.delay) : task.delay);
+          task.level = timerLevel + 1;
+        } else timers.delete(id);
+      }
+      // Keep the task nesting level until its microtask checkpoint completes.
+    }
+    return 0;
+  }
+
   const fetch = async (url: string, options: { method?: string; body?: string } = {}) => {
     for (const key of Object.keys(options)) {
       if (!["method", "body"].includes(key)) throw new Error(`unsupported fetch option: ${key}`);
@@ -935,15 +1032,21 @@
     Text,
     Comment,
     fetch,
+    setTimeout,
+    setInterval,
+    clearTimeout,
+    clearInterval: clearTimeout,
+    queueMicrotask,
     addEventListener: EventTarget.prototype.addEventListener.bind(globalThis),
     removeEventListener: EventTarget.prototype.removeEventListener.bind(globalThis),
     dispatchEvent: EventTarget.prototype.dispatchEvent.bind(globalThis),
   });
 
-  return () => {
+  const ready = () => {
     readyState = "interactive";
     dispatch(document, new Event("DOMContentLoaded", { bubbles: true }), true);
     readyState = "complete";
     dispatch(globalThis, new Event("load"), true, true);
   };
+  return { ready, timer };
 })();

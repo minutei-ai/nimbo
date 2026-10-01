@@ -2,6 +2,9 @@
 declare function nimboDom(operation: string, id: number, arg: string, value: string): string;
 declare function nimboRequest(url: string, method: string, body: string): string | Promise<string>;
 declare const nimboUrl: string;
+declare function nimboNow(): number;
+declare const nimboTimerLimit: number;
+declare const nimboTimerTaskLimit: number;
 
 // QuickJS Context::full installs the native DOMException intrinsic.
 declare class DOMException extends Error {

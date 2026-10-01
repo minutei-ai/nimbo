@@ -23,6 +23,10 @@ pub struct Limits {
     pub max_javascript_ticks: usize,
     /// Microtasks máximas por página, cobrindo também cadeias de Promises.
     pub max_microtasks: usize,
+    /// Timers simultâneos máximos por página.
+    pub max_timers: usize,
+    /// Callbacks de timers máximos por página.
+    pub max_timer_tasks: usize,
     /// Bytes máximos da expressão de extração.
     pub max_expression_bytes: usize,
     /// Deadline total, compartilhado por transporte, scripts e extração.
@@ -44,6 +48,8 @@ impl Default for Limits {
         Self {
             max_javascript_ticks: 512,
             max_microtasks: 10_000,
+            max_timers: 1024,
+            max_timer_tasks: 10_000,
             max_expression_bytes: 64 * 1024,
             timeout: Duration::from_secs(10),
             max_response_bytes: 2 * 1024 * 1024,

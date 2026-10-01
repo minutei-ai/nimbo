@@ -33,6 +33,9 @@ pub(crate) enum Action {
         body: String,
     },
     Ready,
+    Wait {
+        milliseconds: f64,
+    },
     Result {
         json: String,
     },
@@ -66,6 +69,8 @@ enum Phase {
 pub(crate) struct Machine {
     // All persistent values, including callback-owned queues, must be cleared before Context.
     ready: Option<Persistent<Function<'static>>>,
+    timer: Option<Persistent<Function<'static>>>,
+    clock: Rc<Cell<f64>>,
     evaluation: Option<Persistent<Promise<'static>>>,
     active: Option<Request>,
     pending: Rc<RefCell<VecDeque<Request>>>,
@@ -129,6 +134,8 @@ impl Machine {
             Context::full(&runtime).map_err(|error| Error::JavaScript(error.to_string()))?;
         let mut machine = Self {
             ready: None,
+            timer: None,
+            clock: Rc::new(Cell::new(0.0)),
             evaluation: None,
             active: None,
             pending: Rc::default(),
@@ -154,8 +161,21 @@ impl Machine {
         let request_base = self.base.clone();
         let dom_check = Arc::clone(&self.check);
         let requests = Rc::new(Cell::new(0_usize));
-        self.ready = Some(self.context.with(|ctx| -> Result<_> {
+        let clock = Rc::clone(&self.clock);
+        let (ready, timer) = self.context.with(|ctx| -> Result<_> {
             let globals = ctx.globals();
+            js(
+                &ctx,
+                globals.set(
+                    "nimboNow",
+                    js(&ctx, Function::new(ctx.clone(), move || clock.get()))?,
+                ),
+            )?;
+            js(&ctx, globals.set("nimboTimerLimit", limits.max_timers))?;
+            js(
+                &ctx,
+                globals.set("nimboTimerTaskLimit", limits.max_timer_tasks),
+            )?;
             let dom_function = Function::new(
                 ctx.clone(),
                 move |ctx: Ctx<'_>, op: String, handle: usize, arg: String, value: String| {
@@ -202,17 +222,47 @@ impl Machine {
             );
             js(&ctx, globals.set("nimboRequest", js(&ctx, request)?))?;
             js(&ctx, globals.set("nimboUrl", url))?;
-            let ready = js(
+            let callbacks = js(
                 &ctx,
-                ctx.eval::<Function<'_>, _>(include_str!(concat!(env!("OUT_DIR"), "/web.js"))),
+                ctx.eval::<rquickjs::Object<'_>, _>(include_str!(concat!(
+                    env!("OUT_DIR"),
+                    "/web.js"
+                ))),
             )?;
-            Ok(Persistent::save(&ctx, ready))
-        })?);
+            let ready: Function<'_> = js(&ctx, callbacks.get("ready"))?;
+            let timer: Function<'_> = js(&ctx, callbacks.get("timer"))?;
+            Ok((Persistent::save(&ctx, ready), Persistent::save(&ctx, timer)))
+        })?;
+        self.ready = Some(ready);
+        self.timer = Some(timer);
         Ok(())
     }
 
+    pub(crate) fn advance(&self, milliseconds: f64) -> Result<()> {
+        if !milliseconds.is_finite() || milliseconds < self.clock.get() {
+            return Err(Error::Unsupported(
+                "clock must be finite and monotonic".into(),
+            ));
+        }
+        self.clock.set(milliseconds);
+        Ok(())
+    }
+
+    fn timer_step(&self, run: bool) -> Result<Option<f64>> {
+        let callback = self
+            .timer
+            .as_ref()
+            .ok_or_else(|| Error::JavaScript("missing timer scheduler".into()))?;
+        self.context.with(|ctx| {
+            js(
+                &ctx,
+                js(&ctx, callback.clone().restore(&ctx))?.call::<_, Option<f64>>((run,)),
+            )
+        })
+    }
+
     fn check_budget(&self) -> Result<()> {
-        if (self.check)() {
+        if (self.check)() || self.clock.get() >= self.limits.timeout.as_secs_f64() * 1000.0 {
             return Err(Error::Limit("navigation deadline"));
         }
         if self.ticks.load(Ordering::Relaxed) == 0 {
@@ -245,6 +295,7 @@ impl Machine {
                 self.check_budget()?;
                 job.map_err(|error| Error::JavaScript(format!("microtask failed: {error:?}")))?;
             }
+            self.timer_step(false)?;
             let request = self.pending.borrow_mut().pop_front();
             if let Some(request) = request {
                 return Ok(self.activate(request));
@@ -281,8 +332,28 @@ impl Machine {
                     result?;
                     self.phase = Phase::Ready;
                 }
-                Phase::Ready => return Ok(Action::Ready),
+                Phase::Ready => {
+                    if self.timer_step(true)? == Some(0.0) {
+                        continue;
+                    }
+                    return Ok(Action::Ready);
+                }
                 Phase::Evaluating => {
+                    let pending = self.context.with(|ctx| -> Result<bool> {
+                        let promise = self
+                            .evaluation
+                            .as_ref()
+                            .ok_or_else(|| Error::JavaScript("missing evaluation".into()))?;
+                        Ok(js(&ctx, promise.clone().restore(&ctx))?
+                            .result::<String>()
+                            .is_none())
+                    })?;
+                    if pending && let Some(milliseconds) = self.timer_step(true)? {
+                        if milliseconds <= 0.0 {
+                            continue;
+                        }
+                        return Ok(Action::Wait { milliseconds });
+                    }
                     let promise = self
                         .evaluation
                         .take()

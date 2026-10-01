@@ -9,7 +9,7 @@ pub fn engine_version() -> String {
     env!("CARGO_PKG_VERSION").to_owned()
 }
 
-/// Página Rust/QuickJS executada dentro do Wasm; o host atende somente ações HTTP.
+/// Página Rust/QuickJS dentro do Wasm; o host atende HTTP e esperas do relógio.
 #[wasm_bindgen]
 pub struct WasmPage {
     machine: Machine,
@@ -41,7 +41,7 @@ impl WasmPage {
         .map_err(|error| error.to_string())
     }
 
-    /// Retorna uma ação JSON: request, ready ou result. O host não executa scripts de páginas.
+    /// Retorna request, wait, ready ou result em JSON. Scripts ficam no motor.
     ///
     /// # Errors
     /// Retorna falha de protocolo, JavaScript ou limite de recursos.
@@ -49,6 +49,16 @@ impl WasmPage {
         self.machine
             .step()
             .and_then(|action| serde_json::to_string(&action).map_err(crate::Error::from))
+            .map_err(|error| error.to_string())
+    }
+
+    /// Avança o relógio monotônico da página com tempo real decorrido do host.
+    ///
+    /// # Errors
+    /// Rejeita valores não finitos ou regressões de relógio.
+    pub fn advance(&self, milliseconds: f64) -> Result<(), String> {
+        self.machine
+            .advance(milliseconds)
             .map_err(|error| error.to_string())
     }
 

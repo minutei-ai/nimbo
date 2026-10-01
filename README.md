@@ -71,14 +71,17 @@ O binding opcional `EGRESS` implementa `fetch(Request): Promise<Response>`, perm
 | ---------------------------------------------------------------------------------- | --------------------------------------------------- |
 | HTML, seletores CSS, atributos, texto, criação/remoção de elementos                | Implementados e testados                            |
 | Scripts clássicos inline/externos, Promises, GET/POST, ciclo DOMContentLoaded/load | Implementados com ciclo simplificado                |
+| setTimeout/setInterval, cancelamento e queueMicrotask                              | Testados com relógio real no nativo e workerd       |
 | Redirects, cookies HttpOnly, isolamento entre páginas, liberação do Wasm           | Testados no workerd                                 |
 | Limites de bytes, requests, DOM, heap JS, instruções e microtasks                  | Implementados; testes locais de falha e recuperação |
 | Proxy, deploy, custo, memória prolongada e throughput em produção                  | Pendentes                                           |
-| Layout/CSS, screenshots, Chromium/CDP, XHR, timers e storage                       | Não implementados                                   |
+| Layout/CSS, screenshots, Chromium/CDP, XHR, frames/idle e storage                  | Não implementados                                   |
 | Modules e scripts async                                                            | Rejeitados no modo execute; ignorados no modo skip  |
 | Frames e base href                                                                 | Rejeitados explicitamente                           |
 
 Scripts executam em ordem após parsing completo. Fetch suporta `method`/corpo string, `status`/`ok`/`url`, `text()` e `json()`. Não implementa headers customizados nem CORS entre origens. HTML e respostas devem ser UTF-8; imagens e estilos não são carregados. Não equivale à compatibilidade de Chromium.
+
+Callbacks de timers executam no QuickJS da página; o host fornece tempo monotônico e atende esperas. Uma Promise de extração pendente avança tarefas futuras; uma extração já resolvida não espera todos os timers. O transporte HTTP permanece serializado. Os limites são 1024 timers pendentes e 10 mil callbacks por página, além do deadline total.
 
 Cada extração cria uma página e cookie jar próprios. Uma página ativa por isolate, com excesso rejeitado em 429, limita sobreposição de heaps. Effect libera a página e o permit também em falhas. Os limites padrão são 10 s, 2 MiB de respostas acumuladas, 32 requests físicos incluindo redirects, 10 mil operações DOM, 4 MiB de escritas DOM, heap QuickJS de 32 MiB, expressão de 64 KiB, 512 callbacks de interrupção QuickJS e 10 mil microtasks.
 

@@ -21,7 +21,7 @@ tests as well as integration and application tests.
 
 `tooling/browser-live.test.ts` uses a real loopback HTTP origin, actual workerd,
 and the compiled Rust/Wasm engine. It installs no transport replacements,
-service mocks, browser API stubs, or canned engine results. Its 256 data variants
+service mocks, browser API stubs, or canned engine results. Its 320 data variants
 exercise external scripts, Unicode/entity decoding, selector identity,
 ancestry, removal/reparenting, attribute mutation and POST response decoding.
 They also exercise parsed and created text/comment nodes, native node identity,
@@ -34,7 +34,10 @@ lists, identity, named lookup, read-only indices, reflection, iteration during
 mutation, reparenting and fragment transfer. The fourth set exercises capture,
 target and bubble phases, cancellation, once/passive listeners, listener mutation,
 abortable listeners, exception reporting, dispatch reentry and native lifecycle
-ordering. These are repeated integration checks, not 256 independent platform
+ordering. The fifth set exercises real-clock timeouts/intervals, shared
+cancellation, timer arguments and string handlers, delay coercion, microtask
+checkpoints, nested timers, exception reporting and timer-initiated HTTP POSTs.
+These are repeated integration checks, not 320 independent platform
 features. Event support remains a subset: timestamps, legacy initialization,
 shadow trees, native input, AbortSignal timeout/any and fetch cancellation are
 not covered by this implementation.
@@ -62,6 +65,20 @@ predicate returned both true and false across real executions, so the comparator
 checks that field's boolean shape only. This is an unresolved baseline
 instability, not a phase-order pass. Nimbo still requires the exact phase order
 in every variant.
+
+Timers run inside the page's own QuickJS context. The host supplies elapsed
+monotonic time and waits for the engine's next deadline; it never executes page
+callbacks. The native integration tests verify the
+[nested timer minimum delay](https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#timers),
+pending-timer capacity, callback budget and navigation deadline. Defaults allow
+1024 pending timers and 10000 timer callbacks. A pending evaluation Promise drives
+future timer tasks; a settled extraction does not implicitly wait for all future
+timers. HTTP remains serialized, and frames/idle scheduling and complete HTML
+event-loop conformance are not implemented. The pinned comparator separately
+records different interval completion, error reporting and argument guards.
+An additional real HTTP/workerd case waits past the page deadline and then
+successfully extracts another page, checking that timeout releases isolate
+capacity and the Wasm page.
 
 The same release has two recorded divergences from the
 [DOM textContent contract](https://dom.spec.whatwg.org/#dom-node-textcontent):
@@ -103,7 +120,7 @@ evidence cannot establish it.
 | Event dispatch and lifecycle                          | Subset     | Capture/bubble, cancellation, once/passive, native input ordering                  |
 | Classic scripts and Promise jobs                      | Subset     | Source ordering, exception propagation, resource exhaustion                        |
 | Modules, import maps, JSON modules, dynamic import    | Missing    | Real dependency graphs, redirects, cycles and async evaluation                     |
-| Timers, animation frames and scheduling               | Missing    | Clock-based ordering, cancellation, idle and deadline behavior                     |
+| Timers, animation frames and scheduling               | Subset     | Real-clock timers/cancellation tested; frames, idle and full event loop missing    |
 | Custom elements and Shadow DOM                        | Missing    | Upgrade lifecycle, slots, composed paths, isolation                                |
 | Frames and independent execution worlds               | Missing    | Same/cross-origin frames, navigation, world isolation                              |
 | Fetch and HTTP navigation                             | Subset     | Real GET/POST, cookies, redirects, bodies; full headers/abort/streams              |
