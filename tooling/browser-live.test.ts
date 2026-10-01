@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { join } from "node:path";
+import { TextDecoder as ReferenceTextDecoder } from "node:util";
 import { Miniflare } from "miniflare";
 
 const storageScript = await Bun.file(
@@ -16,6 +17,9 @@ const htmlElementScript = await Bun.file(
 ).text();
 const customElementScript = await Bun.file(
   join(import.meta.dir, "../crates/engine/tests/fixtures/custom-elements.txt"),
+).text();
+const encodingScript = await Bun.file(
+  join(import.meta.dir, "../crates/engine/tests/fixtures/encoding.txt"),
 ).text();
 const requests: string[] = [];
 const comparisonBinary = process.env.NIMBO_COMPARE_OBSCURA_BINARY;
@@ -377,6 +381,12 @@ const origin = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     requests.push(`${request.method} ${path}`);
+    if (path.startsWith("/encoding/")) {
+      const variant = Number(path.split("/").at(-1));
+      return new Response(`<script>globalThis.variant=${variant};${encodingScript}</script>`, {
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
+    }
     if (path === "/custom-elements-empty")
       return new Response("<title>Empty registry</title>", {
         headers: { "content-type": "text/html; charset=utf-8" },
@@ -1342,3 +1352,144 @@ test("real HTTP → workerd → Wasm: registry quotas and fresh request recovery
     value: [true, "undefined", true],
   });
 });
+
+const encodingExpected = Object.fromEntries(
+  [
+    "unicode",
+    "defaults",
+    "into",
+    "malformed",
+    "streaming",
+    "boms",
+    "recovery",
+    "queued",
+    "views",
+    "utf16",
+    "legacy",
+    "guards",
+    "coercion",
+    "identity",
+  ].map((key) => [key, true]),
+);
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native encoding Unicode and codec variant %i",
+  async (variant) => {
+    const url = new URL(`encoding/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "comparison" }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      url,
+      engine: "rust-wasm-quickjs",
+      value: encodingExpected,
+    });
+    expect(requests).toContain(`GET /encoding/${variant}`);
+    if (comparisonBinary) {
+      expect(await comparePage(comparisonBinary, url)).toEqual({
+        ...Object.fromEntries(Object.keys(encodingExpected).map((key) => [key, false])),
+        views: true,
+        utf16: true,
+        coercion: true,
+      });
+    }
+  },
+);
+
+test("real HTTP → workerd → Wasm: encoding input and live decoder budgets recover across requests", async () => {
+  const url = new URL("custom-elements-empty", origin.url).href;
+  const expression = `(() => {
+    const fails = fn => {try {fn();return false;} catch(error) {return error.message.includes('limit');}};
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    const input = fails(() => encoder.encode('x'.repeat(65537))) && fails(() => decoder.decode(new Uint8Array(65537)));
+    const boundary = encoder.encode('x'.repeat(65536)).length === 65536 && decoder.decode(new Uint8Array(65536)).length === 65536;
+    const live = [decoder];
+    while(live.length < 128) live.push(new TextDecoder());
+    const capacity = fails(() => new TextDecoder());
+    return {input,boundary,capacity,reusable:decoder.decode(new Uint8Array([65])) === 'A'};
+  })()`;
+  for (let iteration = 0; iteration < 3; iteration++) {
+    // The Worker allows one active page; repeat failures and reuse sequentially.
+    // oxlint-disable-next-line no-await-in-loop
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression }),
+    });
+    expect(response.status).toBe(200);
+    // Read this response before starting the next page.
+    // oxlint-disable-next-line no-await-in-loop
+    expect(await response.json()).toEqual({
+      url,
+      engine: "rust-wasm-quickjs",
+      value: { input: true, boundary: true, capacity: true, reusable: true },
+    });
+  }
+});
+
+function codecResults(label: string, fatal: boolean, chunks: number[][]): string[] {
+  const decoder = new ReferenceTextDecoder(label, { fatal });
+  const results: string[] = [];
+  for (const [index, chunk] of [...chunks, []].entries()) {
+    try {
+      results.push(decoder.decode(new Uint8Array(chunk), { stream: index < chunks.length }));
+    } catch (error) {
+      results.push(error instanceof Error ? `error:${error.name}` : "error:unknown");
+      // Bun discards the remaining queue after a fatal error. Its result is an
+      // oracle only until that error; spec-based continuation is tested separately.
+      break;
+    }
+  }
+  return results;
+}
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: independent incremental codec vectors variant %i",
+  async (variant) => {
+    const labels = [
+      "utf-8",
+      "utf-16le",
+      "utf-16be",
+      "shift_jis",
+      "iso-2022-jp",
+      "gb18030",
+      "big5",
+      "euc-kr",
+      "windows-1252",
+    ] as const;
+    const chunks = Array.from({ length: 8 }, (_, chunk) =>
+      Array.from(
+        { length: 1 + ((variant + chunk) % 7) },
+        (_unusedByte, byte) => (variant * 73 + chunk * 41 + byte * 97) % 256,
+      ),
+    );
+    const cases = labels.flatMap((label) =>
+      [false, true].map((fatal) => ({ label, fatal, chunks })),
+    );
+    const expected = cases.map(({ label, fatal, chunks: inputs }) =>
+      codecResults(label, fatal, inputs),
+    );
+    const expression = `(() => {
+      const cases = ${JSON.stringify(cases)};
+      return cases.map(({label,fatal,chunks}) => {
+        const decoder = new TextDecoder(label,{fatal});
+        const results = [];
+        for (const [index,chunk] of [...chunks,[]].entries()) {
+          try {results.push(decoder.decode(new Uint8Array(chunk),{stream:index < chunks.length}));}
+          catch(error) {results.push('error:' + error.name);break;}
+        }
+        return results;
+      });
+    })()`;
+    const url = new URL("custom-elements-empty", origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: expected });
+  },
+);

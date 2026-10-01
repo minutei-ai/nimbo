@@ -82,6 +82,7 @@ fn serve(mut request: Request) -> io::Result<()> {
     let mut status = 200;
     let mut headers = Vec::new();
     let body = match request.url() {
+        "/encoding" => format!("<script>{}</script>", include_str!("fixtures/encoding.txt")),
         "/custom-elements" => format!("<x-root></x-root><x-parsed data-native=\"source\"></x-parsed><script>{}</script>", include_str!("fixtures/custom-elements.txt")),
         "/html-elements" => format!("<main></main><svg><linearGradient></linearGradient><foreignObject><div></div></foreignObject></svg><math><mi>x</mi></math><script>{}</script>", include_str!("fixtures/html-elements.txt")),
         "/tokens" => format!("<title>Tokens</title><script>{}</script>", include_str!("fixtures/tokens.txt")),
@@ -810,6 +811,20 @@ fn custom_elements_upgrade_native_nodes_and_deliver_reactions() -> TestResult {
     let result = page.evaluate("comparisonPromise")?;
     let fields = result.as_object().ok_or("missing custom element result")?;
     assert_eq!(fields.len(), 18);
+    assert!(
+        fields.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    Ok(())
+}
+
+#[test]
+fn encoding_handles_native_bytes_unicode_and_streaming_codecs() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/encoding"))?;
+    let result = page.evaluate("comparison")?;
+    let fields = result.as_object().ok_or("missing encoding result")?;
+    assert_eq!(fields.len(), 14);
     assert!(
         fields.values().all(|value| *value == json!(true)),
         "{result}"

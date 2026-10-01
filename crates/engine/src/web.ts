@@ -4,6 +4,8 @@
   const nativeRequest = nimboRequest;
   const nativeStorage = nimboStorage;
   const nativeMedia = nimboMedia;
+  const nativeEncode = nimboEncode;
+  const nativeDecoder = nimboDecoder;
   // Values are validated by Rust before installing the page bindings.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const mediaEnvironment = JSON.parse(nimboMediaEnvironment) as { width: number; height: number };
@@ -15,6 +17,8 @@
   Reflect.deleteProperty(globalThis, "nimboRequest");
   Reflect.deleteProperty(globalThis, "nimboStorage");
   Reflect.deleteProperty(globalThis, "nimboMedia");
+  Reflect.deleteProperty(globalThis, "nimboEncode");
+  Reflect.deleteProperty(globalThis, "nimboDecoder");
   Reflect.deleteProperty(globalThis, "nimboMediaEnvironment");
   Reflect.deleteProperty(globalThis, "nimboUrl");
   Reflect.deleteProperty(globalThis, "nimboNow");
@@ -76,6 +80,158 @@
     if (typeof value === "symbol") throw new TypeError("value must be convertible to DOMString");
     return String(value);
   }
+  const ByteArray = Uint8Array;
+  const typedPrototype: object = Reflect.getPrototypeOf(ByteArray.prototype) ?? ByteArray.prototype;
+  // Captured native methods are always called with their validated receiver.
+  // oxlint-disable-next-line typescript/unbound-method
+  const byteSet = ByteArray.prototype.set;
+  const isView = ArrayBuffer.isView.bind(ArrayBuffer);
+  function intrinsicGetter(prototype: object, property: PropertyKey): (value: unknown) => unknown {
+    const descriptor = Object.getOwnPropertyDescriptor(prototype, property);
+    // Intrinsic descriptors contain callable accessors.
+    // oxlint-disable-next-line typescript/unbound-method
+    const getter = descriptor?.get;
+    if (!getter) throw new Error("missing buffer intrinsic");
+    return (value): unknown => Reflect.apply(getter, value, []);
+  }
+  const typedTag = intrinsicGetter(typedPrototype, Symbol.toStringTag);
+  const typedBuffer = intrinsicGetter(typedPrototype, "buffer");
+  const typedOffset = intrinsicGetter(typedPrototype, "byteOffset");
+  const typedLength = intrinsicGetter(typedPrototype, "byteLength");
+  const dataBuffer = intrinsicGetter(DataView.prototype, "buffer");
+  const dataOffset = intrinsicGetter(DataView.prototype, "byteOffset");
+  const dataLength = intrinsicGetter(DataView.prototype, "byteLength");
+  const bufferLength = intrinsicGetter(ArrayBuffer.prototype, "byteLength");
+  const sharedLength =
+    typeof SharedArrayBuffer === "undefined"
+      ? null
+      : intrinsicGetter(SharedArrayBuffer.prototype, "byteLength");
+  const encoders = new WeakSet<object>();
+  type DecoderBinding = {
+    encoding: string;
+    fatal: boolean;
+    ignoreBOM: boolean;
+    decode(input: string, stream: boolean): string;
+  };
+  const decoders = new WeakMap<object, DecoderBinding>();
+  function encodingUnits(value: unknown): string {
+    const string = domString(value);
+    if (string.length > 65_536) throw new Error("encoding input limit");
+    return storageUnits(string);
+  }
+  function encoded(
+    input: unknown,
+    capacity: number,
+  ): { bytes: number[]; read: number; written: number } {
+    // Result shape is produced exclusively by the native UTF-8 encoder.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    return JSON.parse(nativeEncode(encodingUnits(input), capacity)) as {
+      bytes: number[];
+      read: number;
+      written: number;
+    };
+  }
+  function encodingOptions(value: unknown): Record<string, unknown> {
+    if (value === undefined || value === null) return {};
+    if (typeof value !== "object" && typeof value !== "function")
+      throw new TypeError("invalid options dictionary");
+    // Web IDL dictionary members are read from the supplied object.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    return value as Record<string, unknown>;
+  }
+  function bufferBytes(input: unknown): string {
+    if (input === undefined) return "[]";
+    let buffer: unknown = input;
+    let offset: unknown = 0;
+    let length: unknown;
+    if (isView(input)) {
+      const typed = typedTag(input) !== undefined;
+      buffer = (typed ? typedBuffer : dataBuffer)(input);
+      offset = (typed ? typedOffset : dataOffset)(input);
+      length = (typed ? typedLength : dataLength)(input);
+    } else {
+      try {
+        length = bufferLength(input);
+      } catch (error) {
+        if (!sharedLength) throw error;
+        length = sharedLength(input);
+      }
+    }
+    if (typeof length !== "number" || length > 65_536) throw new Error("encoding input limit");
+    // Native getters validate BufferSource identity; the constructor rejects detached buffers.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const bytes = new ByteArray(buffer as ArrayBuffer, offset as number, length);
+    return JSON.stringify(Array.from(bytes));
+  }
+  class TextEncoder {
+    constructor() {
+      encoders.add(this);
+    }
+    get encoding(): string {
+      if (!encoders.has(this)) throw new TypeError("Illegal invocation");
+      return "utf-8";
+    }
+    encode(input: unknown = ""): Uint8Array {
+      if (!encoders.has(this)) throw new TypeError("Illegal invocation");
+      return new ByteArray(encoded(input, 196_608).bytes);
+    }
+    encodeInto(source: unknown, destination: unknown): { read: number; written: number } {
+      if (!encoders.has(this)) throw new TypeError("Illegal invocation");
+      if (arguments.length < 2) throw new TypeError("encodeInto requires source and destination");
+      const string = domString(source);
+      if (typedTag(destination) !== "Uint8Array")
+        throw new TypeError("destination must be Uint8Array");
+      // set validates that the genuine typed array has not been detached.
+      Reflect.apply(byteSet, destination, [new ByteArray(0)]);
+      const capacity = typedLength(destination);
+      if (typeof capacity !== "number") throw new TypeError("invalid destination");
+      const result = encoded(string, capacity);
+      Reflect.apply(byteSet, destination, [new ByteArray(result.bytes)]);
+      return { read: result.read, written: result.written };
+    }
+  }
+  class TextDecoder {
+    constructor(label: unknown = "utf-8", options?: unknown) {
+      const string = domString(label);
+      const init = encodingOptions(options);
+      const fatal = Boolean(init.fatal);
+      const ignoreBOM = Boolean(init.ignoreBOM);
+      if (Array.from(string).some((character) => character.charCodeAt(0) > 127))
+        throw new RangeError("unknown encoding label");
+      decoders.set(this, { ...nativeDecoder(string, fatal, ignoreBOM), fatal, ignoreBOM });
+    }
+    get encoding(): string {
+      return decoderState(this).encoding;
+    }
+    get fatal(): boolean {
+      return decoderState(this).fatal;
+    }
+    get ignoreBOM(): boolean {
+      return decoderState(this).ignoreBOM;
+    }
+    // The optional first argument gives the Web IDL method a length of zero.
+    // oxlint-disable-next-line typescript/no-useless-default-assignment
+    decode(input: unknown = undefined, options?: unknown): string {
+      const state = decoderState(this);
+      const bytes = bufferBytes(input);
+      const stream = Boolean(encodingOptions(options).stream);
+      return state.decode(bytes, stream);
+    }
+  }
+  function decoderState(value: object): DecoderBinding {
+    const state = decoders.get(value);
+    if (!state) throw new TypeError("Illegal invocation");
+    return state;
+  }
+  Object.defineProperty(TextEncoder.prototype, Symbol.toStringTag, {
+    value: "TextEncoder",
+    configurable: true,
+  });
+  Object.defineProperty(TextDecoder.prototype, Symbol.toStringTag, {
+    value: "TextDecoder",
+    configurable: true,
+  });
+
   const storageAreas = new WeakMap<object, number>();
   // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
   function storageCall<T>(storage: object, operation: string, key = "", value = ""): T {
@@ -1932,6 +2088,8 @@
   Object.assign(globalThis, {
     document,
     Storage,
+    TextEncoder,
+    TextDecoder,
     MediaQueryList,
     MediaQueryListEvent,
     matchMedia,

@@ -1,0 +1,76 @@
+globalThis.comparison = (() => {
+  const variant = globalThis.variant ?? 0;
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+  const eq = (a,b) => JSON.stringify(a) === JSON.stringify(b);
+  const fails = (fn,name) => { try { fn(); return false; } catch(error) { return error.name === name; } };
+  const text = 'aé€😀\ud800z\udc00' + variant;
+  const bytes = encoder.encode(text);
+  const unicode = decoder.decode(bytes) === 'aé€😀�z�' + variant
+    && eq([...encoder.encode('aé€😀')], [97,195,169,226,130,172,240,159,152,128]);
+  const defaults = encoder.encoding === 'utf-8' && decoder.encoding === 'utf-8'
+    && !decoder.fatal && !decoder.ignoreBOM && encoder.encode().length === 0 && decoder.decode() === ''
+    && decoder.decode(encoder.encode(undefined)) === ''
+    && decoder.decode(encoder.encode(null)) === 'null';
+  const target = new Uint8Array([9,9,9,9,9,9,9,9]);
+  const partial = encoder.encodeInto('é😀z', target.subarray(1,6));
+  const into = eq(partial,{read:1,written:2}) && eq([...target],[9,195,169,9,9,9,9,9])
+    && eq(encoder.encodeInto('😀',new Uint8Array(4)),{read:2,written:4})
+    && eq(encoder.encodeInto('\ud800',new Uint8Array(2)),{read:0,written:0})
+    && eq(encoder.encodeInto('\ud800',new Uint8Array(3)),{read:1,written:3})
+    && eq(encoder.encodeInto(undefined,new Uint8Array(9)),{read:9,written:9});
+  const malformed = decoder.decode(new Uint8Array([0xc0,0xaf,0xe2,0x22])) === '���"'
+    && fails(() => new TextDecoder('utf-8',{fatal:true}).decode(new Uint8Array([255])), 'TypeError');
+  const stream = new TextDecoder();
+  const streaming = stream.decode(new Uint8Array([0xf0,0x9f]),{stream:true}) === ''
+    && stream.decode(new Uint8Array([0x98,0x80]),{stream:true}) === '😀' && stream.decode() === ''
+    && stream.decode(new Uint8Array([0xe2]),{stream:true}) === '' && stream.decode() === '�'
+    && stream.decode(new Uint8Array([65])) === 'A';
+  const bom = new TextDecoder();
+  const boms = bom.decode(new Uint8Array([0xef]),{stream:true}) === ''
+    && bom.decode(new Uint8Array([0xbb,0xbf,65]),{stream:true}) === 'A'
+    && bom.decode(new Uint8Array([0xef,0xbb,0xbf,66])) === '\ufeffB'
+    && bom.decode(new Uint8Array([0xef,0xbb,0xbf,67])) === 'C'
+    && new TextDecoder('utf-8',{ignoreBOM:true}).decode(new Uint8Array([0xef,0xbb,0xbf])) === '\ufeff';
+  const fatal = new TextDecoder('utf-8',{fatal:true});
+  const recovery = fails(() => fatal.decode(new Uint8Array([0xc2,65]),{stream:true}),'TypeError')
+    && fatal.decode(undefined,{stream:true}) === 'A' && fatal.decode() === ''
+    && fails(() => fatal.decode(new Uint8Array([0xe2])), 'TypeError')
+    && fatal.decode(new Uint8Array([66])) === 'B';
+  const fatalQueue = new TextDecoder('utf-8',{fatal:true});
+  const retainedInput = new Uint8Array([255,255,65]);
+  const queueFirst = fails(() => fatalQueue.decode(retainedInput,{stream:true}),'TypeError');
+  retainedInput.fill(66);
+  const queueSecond = fails(() => fatalQueue.decode(undefined,{stream:true}),'TypeError');
+  const queued = queueFirst && queueSecond && fatalQueue.decode(undefined,{stream:true}) === 'A'
+    && fatalQueue.decode() === '';
+  const viewBuffer = new Uint8Array([0,65,66,0]).buffer;
+  const views = decoder.decode(new DataView(viewBuffer,1,2)) === 'AB'
+    && decoder.decode(new Uint8Array(viewBuffer,1,2)) === 'AB'
+    && decoder.decode(new Uint16Array(new Uint8Array([65,0]).buffer)) === 'A\0'
+    && decoder.decode(new Uint8Array([65]).buffer) === 'A';
+  const utf16 = new TextDecoder('utf-16le').decode(new Uint8Array([0xff,0xfe,65,0,0x3d,0xd8,0,0xde])) === 'A😀'
+    && new TextDecoder('utf-16be').decode(new Uint8Array([0xfe,0xff,0,65,0xd8,0x3d,0xde,0])) === 'A😀';
+  const legacy = new TextDecoder('latin1').encoding === 'windows-1252'
+    && new TextDecoder('latin1').decode(new Uint8Array([0x80,0xe9])) === '€é'
+    && new TextDecoder('shift_jis').decode(new Uint8Array([0x82,0xa0])) === 'あ'
+    && new TextDecoder('iso-2022-jp').decode(new Uint8Array([27,36,66,36,34,27,40,66])) === 'あ'
+    && new TextDecoder('gbk').decode(new Uint8Array([0xd6,0xd0])) === '中'
+    && new TextDecoder('big5').decode(new Uint8Array([0xa4,0xa4])) === '中'
+    && new TextDecoder('euc-kr').decode(new Uint8Array([0xb0,0xa1])) === '가'
+    && new TextDecoder('x-user-defined').decode(new Uint8Array([0x80])) === '\uf780';
+  const guards = [() => TextEncoder.prototype.encode.call({}), () => TextDecoder.prototype.decode.call({}),
+    () => encoder.encode(Symbol()), () => encoder.encodeInto('x',new Uint8ClampedArray(1)),
+    () => encoder.encodeInto('x',new Proxy(new Uint8Array(1),{})), () => encoder.encodeInto('x'),
+    () => decoder.decode(null), () => decoder.decode([]), () => decoder.decode({buffer:new ArrayBuffer(1)}),
+    () => decoder.decode(new Proxy(new Uint8Array(1),{})), () => new TextDecoder('utf-8',1),
+    () => decoder.decode(undefined,1)].every(fn => fails(fn,'TypeError'))
+    && ['invalid','replacement','iso-2022-cn','utf-7','\ud800'].every(label => fails(() => new TextDecoder(label),'RangeError'));
+  let conversions = 0;
+  const coercion = decoder.decode(encoder.encode({toString(){conversions++;return 'x';}})) === 'x' && conversions === 1
+    && new TextDecoder(' \tUTF-8\n',null).encoding === 'utf-8';
+  const identity = Object.prototype.toString.call(encoder) === '[object TextEncoder]'
+    && Object.prototype.toString.call(decoder) === '[object TextDecoder]'
+    && typeof nimboEncode === 'undefined' && typeof nimboDecoder === 'undefined';
+  return {unicode,defaults,into,malformed,streaming,boms,recovery,queued,views,utf16,legacy,guards,coercion,identity};
+})();

@@ -14,3 +14,10 @@ declare class DOMException extends Error {
   constructor(message?: string, name?: string);
   readonly code: number;
 }
+
+declare function nimboEncode(input: string, capacity: number): string;
+declare function nimboDecoder(
+  label: string,
+  fatal: boolean,
+  ignoreBOM: boolean,
+): { encoding: string; decode(input: string, stream: boolean): string };

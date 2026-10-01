@@ -265,6 +265,7 @@ impl Machine {
             );
             js(&ctx, globals.set("nimboStorage", js(&ctx, storage_call)?))?;
             install_media(&ctx, media)?;
+            js(&ctx, crate::encoding::install(&ctx))?;
             js(&ctx, globals.set("nimboUrl", url))?;
             let callbacks = js(
                 &ctx,
