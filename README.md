@@ -2,7 +2,7 @@
 
 Um navegador para scraping em massa, pensado primeiro para Cloudflare Containers: baixo consumo de memória, partida rápida e custo medido por página extraída.
 
-**Status: base do monorepo e checks implementados.** O browser, a infraestrutura e os benchmarks descritos abaixo ainda serão implementados. Nimbo é um projeto separado do outros motores usado atualmente pela consumidores.
+**Status: primeiro MVP local implementado.** O motor Rust navega, executa um subconjunto de APIs web e extrai JSON por CLI. A infraestrutura Cloudflare, a compatibilidade ampliada e os benchmarks abaixo ainda serão implementados. Nimbo é um projeto separado do outros motores usado atualmente pela consumidores.
 
 ## Desenvolvimento
 
@@ -10,7 +10,7 @@ O monorepo usa workspaces nativos do Bun para TypeScript e do Cargo para Rust:
 
 ```text
 apps/worker/      @nimbo/worker — orquestração Cloudflare com Effect v4
-crates/engine/   nimbo-engine — núcleo Rust (ainda sem implementação)
+crates/engine/   nimbo-engine — núcleo Rust e CLI de scraping
 packages/        pacotes TypeScript compartilhados, quando houver consumidores
 tooling/         testes da integração de lint
 ```
@@ -41,6 +41,73 @@ e regras contra unwrap/expect, TODOs executáveis, debug, saída abrupta e vazam
 via `mem::forget`. Novos crates devem declarar `[lints] workspace = true`.
 Exceções pontuais precisam justificar a regra no local; não desligar categorias
 inteiras para acomodar uma implementação.
+
+## Primeiro MVP
+
+O motor usa Rust para transporte e DOM, [QuickJS via rquickjs](https://docs.rs/rquickjs/0.14.0/rquickjs/)
+para JavaScript e [dom_query/html5ever](https://docs.rs/dom_query/0.28.0/dom_query/)
+para parsing e seletores. A ponte web é JavaScript com JSDoc, verificada pelo mesmo
+Oxlint/Go. Não depende de Chromium ou de um runtime Node/Bun em execução.
+
+```sh
+bun run test:browser
+bun run browser https://example.com 'document.querySelector("h1").textContent'
+```
+
+Para experimentar sem rede externa, em um terminal:
+
+```sh
+python3 -m http.server 8080 --bind 127.0.0.1 --directory crates/engine/tests/fixtures
+```
+
+Em outro terminal:
+
+```sh
+bun run browser http://127.0.0.1:8080/static.html 'document.querySelector("h1").textContent'
+# "Nimbo & dados"
+```
+
+A CLI recebe URL e uma expressão JavaScript opcional. Sem expressão, retorna
+`{ url, title, text }`, onde `text` é `document.body.textContent`, sem limpeza de
+scripts ou estilos. A saída é JSON em stdout; falhas vão para stderr com código
+de saída diferente de zero. Resultados Promise são aguardados até o deadline.
+
+O contrato Rust é `Browser::new(origin, limits)`, `navigate(url)` e
+`Page::evaluate(expression)`. Cada Browser possui seu próprio cookie jar; cada
+navegação possui DOM e runtime novos. Drop da página libera seus recursos. O
+deadline cobre aquisição, scripts, fetch e extração; uma página expirada não pode
+ser reutilizada. A origem autorizada é fixa e também limita redirects e subrequests.
+
+| Superfície                                                                                               | Estado deste MVP                                            |
+| -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| HTTP, redirects, URL final, cookies HttpOnly e isolamento entre sessões                                  | Validados com servidor local                                |
+| HTTPS com verificação de certificados pelo transporte Rust                                               | Implementado; ainda sem corpus TLS dedicado                 |
+| Seletores CSS, entidades HTML, atributos, textContent, innerHTML, criação, append e remoção de elementos | Validados localmente                                        |
+| Scripts clássicos inline/externos, microtasks, fetch GET/POST com corpo string                           | Validados localmente, na mesma origem                       |
+| DOMContentLoaded/load com callbacks função                                                               | Ciclo simplificado validado localmente                      |
+| Limites de tempo, bytes recebidos, requests, operações/escritas de DOM e heap JS                         | Validados localmente                                        |
+| Falhas e cleanup em 20 ciclos de criar/encerrar sessões                                                  | Validados; sem medição de RSS ou prova de ausência de leaks |
+| Worker, Durable Objects, Containers e deploy Alchemy                                                     | Ainda não implementados                                     |
+| CDP, screenshots, CSS/layout, stealth, XHR, timers, storage e APIs DOM completas                         | Ainda não implementados                                     |
+| Modules, scripts async, frames e elementos base href                                                     | Rejeitados explicitamente                                   |
+
+Scripts clássicos são executados em ordem **após o parsing completo**. Não há
+execução intercalada com o parser nem agendamento completo de browser. O fetch
+implementa apenas `method`/`body`, `status`/`ok`/`url` e `text()`/`json()`; não tem
+headers customizados, streaming, CORS entre origens ou integração com AbortSignal.
+As respostas precisam ser UTF-8 e a navegação precisa retornar `text/html`.
+Recursos de estilos/imagens não são carregados.
+
+Os limites padrão são 10 segundos por navegação, 2 MiB recebidos no total, 32
+requests, 10 mil operações DOM, 4 MiB de escritas DOM acumuladas e heap JS de 32
+MiB. O heap JS não representa o RSS total; parsing e callbacks nativos têm checks
+cooperativos de deadline. A política de mesma origem não é um sandbox de processo
+nem uma proteção completa contra SSRF/DNS rebinding. A CLI é para execução local;
+antes de expor o serviço, serão necessários isolamento e política de rede no Container.
+
+As dependências reutilizadas mantêm suas licenças: rquickjs/QuickJS e dom_query
+(MIT), html5ever e reqwest (MIT ou Apache-2.0). Não há código do outros motores copiado neste MVP.
+Os testes de browser são determinísticos e não usam credenciais nem destinos externos.
 
 ## Objetivo
 

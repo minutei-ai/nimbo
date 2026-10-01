@@ -1,0 +1,7 @@
+order.push("external");
+document.title = "Depois";
+const item = document.createElement("section");
+item.id = "created";
+item.className = "output";
+item.innerHTML = "<b data-kind='value'>Criado</b>";
+document.getElementById("content").appendChild(item);

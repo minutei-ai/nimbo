@@ -1,0 +1,25 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Antes</title>
+  </head>
+  <body>
+    <main id="content"><p id="result">Antes</p></main>
+    <script>
+      globalThis.order = ["inline"];
+    </script>
+    <script src="/assets/app.js"></script>
+    <script>
+      order.push("after");
+      document.addEventListener("DOMContentLoaded", () => {
+        order.push(document.readyState);
+        fetch("/api")
+          .then((response) => response.json())
+          .then((data) => {
+            document.getElementById("result").textContent = data.value;
+          });
+      });
+      window.addEventListener("load", () => order.push(document.readyState));
+    </script>
+  </body>
+</html>

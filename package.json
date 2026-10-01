@@ -14,6 +14,8 @@
     "format": "oxfmt . && cargo fmt --all",
     "format:check": "oxfmt --check . && cargo fmt --all -- --check",
     "test": "bun test && cargo test --workspace --all-features --locked",
+    "test:browser": "cargo test -p nimbo-engine --test browser --locked",
+    "browser": "cargo run -p nimbo-engine --locked --",
     "check": "bun run format:check && bun run lint && bun run test"
   },
   "devDependencies": {

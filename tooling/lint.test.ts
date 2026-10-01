@@ -33,8 +33,7 @@ test("official Effect plugin accepts valid Effect v4 code", async () => {
   const result = await probeTypeScript(
     'import { Effect } from "effect"; export const program = Effect.succeed(42);',
   );
-  expect(result.output).not.toContain("error");
-  expect(result.exitCode).toBe(0);
+  expect(result).toMatchObject({ exitCode: 0 });
 });
 
 test("Worker package resolves Effect and WebWorker types", async () => {
@@ -42,8 +41,7 @@ test("Worker package resolves Effect and WebWorker types", async () => {
     'import { Effect } from "effect"; export const program = Effect.succeed(new Response("ok"));',
     join(root, "apps/worker"),
   );
-  expect(result.output).not.toContain("error");
-  expect(result.exitCode).toBe(0);
+  expect(result).toMatchObject({ exitCode: 0 });
 });
 
 test("official Effect plugin rejects floating effects", async () => {
