@@ -6,3 +6,7 @@ coverage/
 .env
 .env.*
 !.env.example
+
+# Local deployment/proxy configuration stays outside the public repository.
+*.private.*
+secrets/

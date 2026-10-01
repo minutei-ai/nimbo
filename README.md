@@ -2,7 +2,7 @@
 
 Browser de scraping com **Rust e QuickJS compilados para Wasm, executados dentro de um Cloudflare Worker**. TypeScript com Effect v4 controla autenticação, transporte HTTP e liberação da página. Não depende de Containers.
 
-O MVP foi validado localmente no `workerd`, o runtime dos Workers, e também possui uma CLI nativa para desenvolvimento. Deploy, integração com o proxy Fly.io e medições de custo em produção ainda não foram validados.
+O MVP foi validado localmente no `workerd`, o runtime dos Workers, e também possui uma CLI nativa para desenvolvimento. Deploy, integração com proxies e medições de custo em produção ainda não foram validados.
 
 ## Monorepo
 
@@ -52,6 +52,7 @@ O núcleo Rust é uma máquina que produz ações HTTP e recebe respostas. Não 
 
 O artefato deve ser configurado com o módulo Wasm pré-compilado e o secret `API_TOKEN`. Não há configuração de deploy nem credenciais Cloudflare incluídas neste MVP.
 
+O binding opcional `EGRESS` implementa `fetch(Request): Promise<Response>`, permitindo um transporte separado sem acoplar protocolos ao motor. Sem binding, o transporte utiliza `fetch` do Worker diretamente. Tinyproxy usa HTTP/CONNECT com autenticação configurada somente em ambiente privado; suporte HTTPS no Worker exige validação do caminho TLS.
 
 ## Capacidades e limites
 
@@ -61,7 +62,7 @@ O artefato deve ser configurado com o módulo Wasm pré-compilado e o secret `AP
 | Scripts clássicos inline/externos, Promises, GET/POST, ciclo DOMContentLoaded/load | Implementados com ciclo simplificado                |
 | Redirects, cookies HttpOnly, isolamento entre páginas, liberação do Wasm           | Testados no workerd                                 |
 | Limites de bytes, requests, DOM, heap JS, instruções e microtasks                  | Implementados; testes locais de falha e recuperação |
-| Proxy Fly.io, deploy, custo, memória prolongada e throughput em produção           | Pendentes                                           |
+| Proxy, deploy, custo, memória prolongada e throughput em produção                  | Pendentes                                           |
 | Layout/CSS, screenshots, Chromium/CDP, XHR, timers e storage                       | Não implementados                                   |
 | Modules, scripts async, frames e base href                                         | Rejeitados explicitamente                           |
 
@@ -71,7 +72,7 @@ Cada extração cria uma página e cookie jar próprios. Uma página ativa por i
 
 O orçamento de interrupções mede trabalho do QuickJS, não milissegundos nem um número exato de instruções. Ele impede loops mesmo com o relógio restrito dos Workers; o timeout Effect limita I/O. Parsing e callbacks nativos têm limites de tamanho/operações, mas não podem ser preemptados pelo timeout. O heap QuickJS não representa toda a memória do isolate. Ciclos locais de criar/liberar páginas não provam ausência de leaks.
 
-A política de mesma origem limita redirects e subrequests. Não é proteção completa contra SSRF/DNS rebinding; a política de destinos do gateway Fly precisa ser definida antes de exposição pública em escala.
+A política de mesma origem limita redirects e subrequests. Não é proteção completa contra SSRF/DNS rebinding; a política de destinos do proxy precisa ser definida antes de exposição pública em escala.
 
 ## Performance e stealth
 
@@ -81,4 +82,4 @@ O transporte usa identidade explícita `Nimbo/0.1`. Challenges sinalizados pelo 
 
 Referências da plataforma: [Wasm nos Workers](https://developers.cloudflare.com/workers/runtime-apis/webassembly/), [relógio e performance](https://developers.cloudflare.com/workers/runtime-apis/performance/), [limites](https://developers.cloudflare.com/workers/platform/limits/) e [preços](https://developers.cloudflare.com/workers/platform/pricing/).
 
-Bibliotecas reutilizadas preservam suas licenças: QuickJS/rquickjs e dom_query (MIT), html5ever e reqwest (MIT ou Apache-2.0). Não há código do outros motores copiado.
+Bibliotecas reutilizadas preservam suas licenças: QuickJS/rquickjs e dom_query (MIT), html5ever e reqwest (MIT ou Apache-2.0). Não há código de projetos privados copiado.
