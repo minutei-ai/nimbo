@@ -21,7 +21,7 @@ tests as well as integration and application tests.
 
 `tooling/browser-live.test.ts` uses a real loopback HTTP origin, actual workerd,
 and the compiled Rust/Wasm engine. It installs no transport replacements,
-service mocks, browser API stubs, or canned engine results. Its 320 data variants
+service mocks, browser API stubs, or canned engine results. Its 448 data variants
 exercise external scripts, Unicode/entity decoding, selector identity,
 ancestry, removal/reparenting, attribute mutation and POST response decoding.
 They also exercise parsed and created text/comment nodes, native node identity,
@@ -37,7 +37,11 @@ abortable listeners, exception reporting, dispatch reentry and native lifecycle
 ordering. The fifth set exercises real-clock timeouts/intervals, shared
 cancellation, timer arguments and string handlers, delay coercion, microtask
 checkpoints, nested timers, exception reporting and timer-initiated HTTP POSTs.
-These are repeated integration checks, not 320 independent platform
+The sixth set exercises native module graphs, relative imports, redirects,
+reexports, cycles, live bindings, namespace identity, top-level await, cached
+dynamic imports and deferred-script lifecycle. The seventh set checks explicit
+syntax, resolution, origin, import-attribute, MIME, HTTP, export and evaluation
+failures. These are repeated integration checks, not 448 independent platform
 features. Event support remains a subset: timestamps, legacy initialization,
 shadow trees, native input, AbortSignal timeout/any and fetch cancellation are
 not covered by this implementation.
@@ -80,6 +84,22 @@ An additional real HTTP/workerd case waits past the page deadline and then
 successfully extracts another page, checking that timeout releases isolate
 capacity and the Wasm page.
 
+Module dependencies are discovered by the actual QuickJS compiler in a
+disposable realm without evaluating source. HTTP responses populate the page's
+source cache; the page then compiles and executes the native module records.
+Failed discovery cannot leave partially resolved records in the page's module
+map. Tests verify deferred execution with interactive readyState, final response
+URLs for relative imports/import.meta, shared dependency execution and cached
+module namespaces. Native tests also verify repeated roots execute once.
+The pinned comparator returns null for the completed graph fixture; the suite
+records that separately and requires a complete result from Nimbo.
+
+Import maps and JSON modules remain missing. Dynamic import currently works for
+already loaded sources; fetching new dynamic dependencies remains missing and
+fails explicitly. Async script scheduling and full HTML module lifecycle/WPT
+conformance remain incomplete. These tests do not prove application hydration
+or production compatibility.
+
 The same release has two recorded divergences from the
 [DOM textContent contract](https://dom.spec.whatwg.org/#dom-node-textcontent):
 its document returns descendant text instead of null, and assigning comment
@@ -119,7 +139,7 @@ evidence cannot establish it.
 | Node/Text/Comment/Fragment, live collections          | Subset     | Live child collections and static selector lists; remaining Node APIs and full WPT |
 | Event dispatch and lifecycle                          | Subset     | Capture/bubble, cancellation, once/passive, native input ordering                  |
 | Classic scripts and Promise jobs                      | Subset     | Source ordering, exception propagation, resource exhaustion                        |
-| Modules, import maps, JSON modules, dynamic import    | Missing    | Real dependency graphs, redirects, cycles and async evaluation                     |
+| Modules, import maps, JSON modules, dynamic import    | Subset     | Native graphs tested; import maps, JSON and new dynamic fetching missing           |
 | Timers, animation frames and scheduling               | Subset     | Real-clock timers/cancellation tested; frames, idle and full event loop missing    |
 | Custom elements and Shadow DOM                        | Missing    | Upgrade lifecycle, slots, composed paths, isolation                                |
 | Frames and independent execution worlds               | Missing    | Same/cross-origin frames, navigation, world isolation                              |

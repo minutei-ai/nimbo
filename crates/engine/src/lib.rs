@@ -2,6 +2,7 @@
 
 mod dom;
 mod machine;
+mod modules;
 #[cfg(not(target_arch = "wasm32"))]
 mod network;
 #[cfg(not(target_arch = "wasm32"))]

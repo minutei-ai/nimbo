@@ -1,6 +1,6 @@
 use std::{
     cell::{Cell, RefCell},
-    collections::VecDeque,
+    collections::{HashMap, VecDeque},
     rc::Rc,
     sync::{
         Arc,
@@ -12,7 +12,7 @@ use rquickjs::{Context, Ctx, Exception, Function, Persistent, Promise, Runtime};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::{Error, Limits, Result, dom::Dom};
+use crate::{Error, Limits, Result, dom::Dom, modules::Modules};
 
 type Check = Arc<dyn Fn() -> bool + Send + Sync>;
 
@@ -50,12 +50,20 @@ struct Request {
     url: String,
     method: String,
     body: String,
-    resolver: Option<Resolver>,
+    purpose: RequestPurpose,
+}
+
+enum RequestPurpose {
+    Fetch(Resolver),
+    ClassicScript,
+    Module(String),
 }
 
 struct Script {
     src: Option<String>,
     source: String,
+    module: bool,
+    deferred: bool,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -75,6 +83,10 @@ pub(crate) struct Machine {
     active: Option<Request>,
     pending: Rc<RefCell<VecDeque<Request>>>,
     scripts: VecDeque<Script>,
+    modules: Modules,
+    module_root: Option<String>,
+    module_evaluations: HashMap<String, Persistent<Promise<'static>>>,
+    parsed: bool,
     context: Context,
     runtime: Runtime,
     rejections: Rc<Cell<usize>>,
@@ -108,6 +120,8 @@ impl Machine {
         let dom = Rc::new(RefCell::new(Dom::new(html, limits)));
         let scripts = collect_scripts(&dom.borrow(), execute_scripts)?;
         let runtime = Runtime::new().map_err(|error| Error::JavaScript(error.to_string()))?;
+        let modules = Modules::default();
+        modules.install(&runtime);
         runtime.set_memory_limit(limits.javascript_memory_bytes);
         runtime.set_max_stack_size(512 * 1024);
         let ticks = Arc::new(AtomicUsize::new(limits.max_javascript_ticks));
@@ -140,6 +154,10 @@ impl Machine {
             active: None,
             pending: Rc::default(),
             scripts,
+            modules,
+            module_root: None,
+            module_evaluations: HashMap::new(),
+            parsed: false,
             context,
             runtime,
             rejections,
@@ -212,7 +230,7 @@ impl Machine {
                         url: url.to_string(),
                         method,
                         body,
-                        resolver: Some(Resolver {
+                        purpose: RequestPurpose::Fetch(Resolver {
                             resolve: Persistent::save(&ctx, resolve),
                             reject: Persistent::save(&ctx, reject),
                         }),
@@ -271,11 +289,79 @@ impl Machine {
         Ok(())
     }
 
-    fn execute(&self, source: &str) -> Result<()> {
+    fn execute(&self, source: &str, filename: &str) -> Result<()> {
         self.check_budget()?;
-        let result = self.context.with(|ctx| js(&ctx, ctx.eval::<(), _>(source)));
+        let result = self.context.with(|ctx| {
+            let mut options = rquickjs::context::EvalOptions::default();
+            options.filename = Some(filename.to_owned());
+            js(&ctx, ctx.eval_with_options::<(), _>(source, options))
+        });
         self.check_budget()?;
         result
+    }
+
+    fn next_script(&mut self) -> Result<Option<Action>> {
+        if let Some(root) = self.module_root.clone() {
+            if let Some(url) = self.modules.prepare(&self.runtime, &root)? {
+                return Ok(Some(self.activate(Request {
+                    url: url.clone(),
+                    method: "GET".into(),
+                    body: String::new(),
+                    purpose: RequestPurpose::Module(url),
+                })));
+            }
+            if !self.module_evaluations.contains_key(&root) {
+                let promise = self.context.with(|ctx| -> Result<_> {
+                    Ok(Persistent::save(
+                        &ctx,
+                        js(&ctx, self.modules.evaluate(&ctx, &root))?,
+                    ))
+                })?;
+                self.module_evaluations.insert(root, promise);
+            }
+            self.module_root = None;
+            return Ok(None);
+        }
+        if let Some(script) = self.scripts.pop_front() {
+            if script.deferred && !self.parsed {
+                self.context.with(|ctx| -> Result<()> {
+                    let callback = self
+                        .ready
+                        .as_ref()
+                        .ok_or_else(|| Error::JavaScript("missing lifecycle callback".into()))?;
+                    js(
+                        &ctx,
+                        js(&ctx, callback.clone().restore(&ctx))?.call::<_, ()>((false,)),
+                    )
+                })?;
+                self.parsed = true;
+            }
+            if script.module {
+                let root = if let Some(src) = script.src {
+                    resolve(&self.base, &src)?.to_string()
+                } else {
+                    let root = format!("nimbo:inline:{}", self.scripts.len());
+                    self.modules
+                        .inline(root.clone(), script.source, self.base.to_string());
+                    root
+                };
+                self.module_root = Some(root);
+                return Ok(None);
+            }
+            if let Some(src) = script.src {
+                let url = resolve(&self.base, &src)?;
+                return Ok(Some(self.activate(Request {
+                    url: url.to_string(),
+                    method: "GET".into(),
+                    body: String::new(),
+                    purpose: RequestPurpose::ClassicScript,
+                })));
+            }
+            self.execute(&script.source, self.base.as_str())?;
+        } else {
+            self.phase = Phase::Lifecycle;
+        }
+        Ok(None)
     }
 
     pub(crate) fn step(&mut self) -> Result<Action> {
@@ -296,6 +382,15 @@ impl Machine {
                 job.map_err(|error| Error::JavaScript(format!("microtask failed: {error:?}")))?;
             }
             self.timer_step(false)?;
+            for promise in self.module_evaluations.values() {
+                self.context.with(|ctx| -> Result<()> {
+                    let promise = js(&ctx, promise.clone().restore(&ctx))?;
+                    if let Some(result) = promise.result::<()>() {
+                        js(&ctx, result)?;
+                    }
+                    Ok(())
+                })?;
+            }
             let request = self.pending.borrow_mut().pop_front();
             if let Some(request) = request {
                 return Ok(self.activate(request));
@@ -305,19 +400,8 @@ impl Machine {
             }
             match self.phase {
                 Phase::Scripts => {
-                    if let Some(script) = self.scripts.pop_front() {
-                        if let Some(src) = script.src {
-                            let url = resolve(&self.base, &src)?;
-                            return Ok(self.activate(Request {
-                                url: url.to_string(),
-                                method: "GET".into(),
-                                body: String::new(),
-                                resolver: None,
-                            }));
-                        }
-                        self.execute(&script.source)?;
-                    } else {
-                        self.phase = Phase::Lifecycle;
+                    if let Some(action) = self.next_script()? {
+                        return Ok(action);
                     }
                 }
                 Phase::Lifecycle => {
@@ -394,7 +478,9 @@ impl Machine {
         if response.body.len() > self.limits.max_response_bytes {
             return Err(Error::Limit("response bytes"));
         }
-        if let Some(resolver) = request.resolver {
+        if let RequestPurpose::Module(name) = request.purpose {
+            self.modules.respond(name, response)?;
+        } else if let RequestPurpose::Fetch(resolver) = request.purpose {
             let payload = serde_json::to_string(response)?;
             self.context.with(|ctx| {
                 js(
@@ -406,7 +492,7 @@ impl Machine {
             if !(200..300).contains(&response.status) {
                 return Err(Error::HttpStatus(response.status));
             }
-            self.execute(&response.body)?;
+            self.execute(&response.body, &response.url)?;
         }
         Ok(())
     }
@@ -416,9 +502,9 @@ impl Machine {
             .active
             .take()
             .ok_or_else(|| Error::Unsupported("no pending request".into()))?;
-        let resolver = request
-            .resolver
-            .ok_or_else(|| Error::JavaScript(message.to_owned()))?;
+        let RequestPurpose::Fetch(resolver) = request.purpose else {
+            return Err(Error::JavaScript(message.to_owned()));
+        };
         self.context.with(|ctx| {
             js(
                 &ctx,
@@ -438,7 +524,12 @@ impl Machine {
         let source =
             format!("Promise.resolve(({expression})).then(value => JSON.stringify(value ?? null))");
         let evaluation = self.context.with(|ctx| -> Result<_> {
-            let promise = js(&ctx, ctx.eval::<Promise<'_>, _>(source))?;
+            let mut options = rquickjs::context::EvalOptions::default();
+            options.filename = Some(self.base.to_string());
+            let promise = js(
+                &ctx,
+                ctx.eval_with_options::<Promise<'_>, _>(source, options),
+            )?;
             Ok(Persistent::save(&ctx, promise))
         });
         self.check_budget()?;
@@ -462,7 +553,7 @@ pub(crate) fn parse_url(value: &str) -> Result<Url> {
     Ok(url)
 }
 
-fn resolve(base: &Url, value: &str) -> Result<Url> {
+pub(crate) fn resolve(base: &Url, value: &str) -> Result<Url> {
     let url = parse_url(
         base.join(value)
             .map_err(|error| Error::InvalidUrl(error.to_string()))?
@@ -483,6 +574,7 @@ fn collect_scripts(dom: &Dom, execute_scripts: bool) -> Result<VecDeque<Script>>
         return Err(Error::Unsupported("frames and base URL elements".into()));
     }
     let mut scripts = VecDeque::new();
+    let mut modules = VecDeque::new();
     if !execute_scripts {
         return Ok(scripts);
     }
@@ -492,22 +584,32 @@ fn collect_scripts(dom: &Dom, execute_scripts: bool) -> Result<VecDeque<Script>>
             .unwrap_or_default()
             .trim()
             .to_ascii_lowercase();
-        if kind == "module" {
-            return Err(Error::Unsupported("module scripts".into()));
-        }
         if !matches!(
             kind.as_str(),
-            "" | "text/javascript" | "application/javascript"
+            "" | "text/javascript" | "application/javascript" | "module"
         ) {
+            continue;
+        }
+        if kind != "module" && node.attr("nomodule").is_some() {
             continue;
         }
         if node.attr("async").is_some() {
             return Err(Error::Unsupported("async script scheduling".into()));
         }
-        scripts.push_back(Script {
+        let deferred =
+            kind == "module" || (node.attr("src").is_some() && node.attr("defer").is_some());
+        let script = Script {
             src: node.attr("src").map(|src| src.to_string()),
             source: node.text().to_string(),
-        });
+            module: kind == "module",
+            deferred,
+        };
+        if deferred {
+            modules.push_back(script);
+        } else {
+            scripts.push_back(script);
+        }
     }
+    scripts.extend(modules);
     Ok(scripts)
 }

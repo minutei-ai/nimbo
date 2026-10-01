@@ -133,6 +133,19 @@ fn serve(mut request: Request) -> io::Result<()> {
         "/cross-script" => "<script src='http://localhost:9/blocked'></script>".into(),
         "/cross-fetch" => "<script>fetch('http://localhost:9/blocked');</script>".into(),
         "/module" => "<script type='module'>export {};</script>".into(),
+        "/module-main" => "<script>globalThis.moduleLoads = 0;</script><script type='module' src='/modules/root.js'></script><script type='module' src='/modules/root.js'></script>".into(),
+        "/modules/root.js" => {
+            content_type = "text/javascript";
+            "import value, {bump,count} from './shared.js'; import {again} from './reexport.js'; globalThis.moduleReady = new Promise(resolve => setTimeout(resolve, 12)); await moduleReady; bump(); globalThis.moduleLoads++; globalThis.moduleResult = {value:value.n,identity:value === again,count,meta:import.meta.url.endsWith('/modules/root.js')};".into()
+        }
+        "/modules/shared.js" => {
+            content_type = "text/javascript";
+            "export let count = 0; export function bump() {count++;} export default {n:42};".into()
+        }
+        "/modules/reexport.js" => {
+            content_type = "text/javascript";
+            "export {default as again} from './shared.js';".into()
+        }
         "/async" => "<script async src='/assets/app.js'></script>".into(),
         "/iframe" => "<iframe src='/static'></iframe>".into(),
         "/base" => "<base href='/other/'><script src='app.js'></script>".into(),
@@ -273,7 +286,7 @@ fn invalid_urls_http_errors_scripts_and_promises_fail_explicitly() -> TestResult
         browser.navigate(&fixture.path("/missing")),
         Err(Error::HttpStatus(404))
     ));
-    for path in ["/module", "/async", "/iframe", "/base"] {
+    for path in ["/async", "/iframe", "/base"] {
         assert!(matches!(
             browser.navigate(&fixture.path(path)),
             Err(Error::Unsupported(_))
@@ -600,5 +613,27 @@ fn timer_capacity_task_budget_and_deadline_are_enforced() -> TestResult {
         Err(Error::Limit("navigation deadline"))
     ));
     assert!(start.elapsed() < Duration::from_secs(1));
+    Ok(())
+}
+
+#[test]
+fn native_module_graphs_cache_roots_and_share_live_exports() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    let page = browser.navigate(&fixture.path("/module-main"))?;
+    assert_eq!(
+        page.evaluate("moduleReady.then(() => ({loads:moduleLoads,result:moduleResult}))")?,
+        json!({"loads":1,"result":{"value":42,"identity":true,"count":1,"meta":true}})
+    );
+    assert_eq!(
+        page.evaluate("import('./modules/shared.js').then(ns => ns.count)")?,
+        json!(1)
+    );
+    assert!(page.evaluate("import('./modules/not-loaded.js')").is_err());
+    drop(page);
+    assert_eq!(
+        browser.navigate(&fixture.path("/module"))?.evaluate("1")?,
+        json!(1)
+    );
     Ok(())
 }

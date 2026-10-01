@@ -335,7 +335,9 @@ const timerExpressionFor = (variant: number) => `(async () => {
   const canceledInterval = setInterval(() => canceled = false, 0); clearTimeout(canceledInterval);
   setTimeout('globalThis.timerString = ${variant}', 1);
   setTimeout(() => coerced++, {valueOf() {conversion++; return 7;}});
-  const nest = () => {nested++; if (nested < 9) setTimeout(nest, 0);}; setTimeout(nest, 0);
+  const nesting = new Promise(resolve => {
+    const nest = () => {nested++; if (nested < 9) setTimeout(nest, 0); else resolve();}; setTimeout(nest, 0);
+  });
   window.addEventListener('error', event => {if (event.isTrusted && event.message.startsWith('timer-error')) errors++;});
   setTimeout(() => {throw new Error('timer-error-task');}, 0);
   queueMicrotask(() => {throw new Error('timer-error-microtask');});
@@ -347,7 +349,7 @@ const timerExpressionFor = (variant: number) => `(async () => {
   const network = new Promise(resolve => setTimeout(() => {
     fetch('/echo', {method:'POST',body:'timer-${variant}'}).then(response => response.json()).then(resolve);
   }, 10));
-  const [fetched] = await Promise.all([network, new Promise(resolve => setTimeout(resolve, 35))]);
+  const [fetched] = await Promise.all([network, nesting, new Promise(resolve => setTimeout(resolve, 35))]);
   return {order:order.join(','),context,canceled,interval:intervalCount === 3,coercion:coerced === 1 && conversion === 1,
     nested:nested === 9,errors:errors === 2,string:globalThis.timerString === ${variant},guarded:guards.length === 8 && guards.every(Boolean),
     ids:Number.isInteger(first) && first > 0 && second > first && interval !== first,
@@ -362,6 +364,68 @@ const origin = Bun.serve({
     requests.push(`${request.method} ${path}`);
     if (path === "/echo")
       return Response.json({ method: request.method, body: await request.text() });
+    if (path === "/module-bad-mime.js")
+      return new Response("globalThis.invalidMimeExecuted = true;", {
+        headers: { "content-type": "text/plain" },
+      });
+    if (path.startsWith("/module-failures/")) {
+      const variant = Number(path.slice(17));
+      if (!Number.isInteger(variant) || variant < 0 || variant >= 64)
+        return new Response("Not found", { status: 404 });
+      const scripts = [
+        "<script type='module'>export const = 1;</script>",
+        "<script type='module'>import value from 'unmapped';</script>",
+        "<script type='module'>import 'http://localhost:9/blocked.js';</script>",
+        "<script type='module'>import value from './data.json' with {type:'json'};</script>",
+        "<script type='module' src='/module-bad-mime.js'></script>",
+        "<script type='module' src='/module-missing.js'></script>",
+        "<script type='module'>import {missing} from '/module-assets/0/shared.js';</script>",
+        "<script type='module'>await Promise.reject(new Error('module rejected'));</script>",
+      ];
+      return new Response(`<title>Module failure ${variant}</title>${scripts[variant % 8]}`, {
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
+    }
+    if (path.startsWith("/modules/")) {
+      const variant = Number(path.slice(9));
+      if (!Number.isInteger(variant) || variant < 0 || variant >= 64)
+        return new Response("Not found", { status: 404 });
+      return new Response(
+        `<title>Modules ${variant}</title><script>globalThis.moduleOrder = []; globalThis.moduleStates = []; globalThis.moduleDone = new Promise(resolve => globalThis.finishModule = resolve); document.addEventListener('DOMContentLoaded', () => moduleOrder.push('dcl'));</script><script type="module" src="/module-assets/${variant}/redirect.js"></script><script defer src="/module-assets/${variant}/defer.js"></script><script type="module">import {bump} from '/module-assets/${variant}/shared.js'; moduleOrder.push('inline'); moduleStates.push(document.readyState); bump(); globalThis.inlineMetaCorrect = import.meta.url.endsWith('/modules/${variant}');</script><script nomodule>globalThis.legacyRan = true;</script><script>moduleOrder.push('classic');</script>`,
+        { headers: { "content-type": "text/html; charset=utf-8" } },
+      );
+    }
+    if (path.startsWith("/module-assets/")) {
+      const match = /^\/module-assets\/(\d+)\/(.+)$/.exec(path);
+      if (!match) return new Response("Not found", { status: 404 });
+      const variant = Number(match[1]);
+      const asset = match[2];
+      if (asset === "redirect.js")
+        return new Response(null, {
+          status: 302,
+          headers: { location: `/module-assets/${variant}/nested/entry.js` },
+        });
+      const sources: Record<string, string> = {
+        "shared.js": `globalThis.sharedLoads = (globalThis.sharedLoads || 0) + 1; export let count = 0; export function bump() {count++;} export default {value:${variant}};`,
+        "reexport.js": "export {default as again} from './shared.js';",
+        "cycle-a.js":
+          "import {getB} from './cycle-b.js'; export const a = 'a'; export function readA() {return a + getB();}",
+        "cycle-b.js":
+          "import {a} from './cycle-a.js'; export function getB() {return 'b';} export function readAAgain() {return a;}",
+        "defer.js": "moduleOrder.push('defer'); moduleStates.push(document.readyState);",
+        "nested/entry.js": `import value, {count,bump} from '../shared.js'; import {again} from '../reexport.js'; import {readA} from '../cycle-a.js';
+          moduleOrder.push('entry'); moduleStates.push(document.readyState); bump(); await new Promise(resolve => setTimeout(resolve, 15));
+          const namespace = await import('../shared.js'); moduleOrder.push('after'); moduleStates.push(document.readyState);
+          globalThis.comparison = {order:moduleOrder.join(','),readyStates:moduleStates.join(','),live:count === 2,identity:namespace.default === value && again === value,
+            once:sharedLoads === 1,namespace:Object.getPrototypeOf(namespace) === null,cycle:readA() === 'ab',
+            redirectedMeta:import.meta.url.endsWith('/module-assets/${variant}/nested/entry.js'),inlineMeta:inlineMetaCorrect,
+            value:value.value === ${variant},legacy:typeof legacyRan === 'undefined'}; finishModule(globalThis.comparison);`,
+      };
+      const source = sources[asset ?? ""];
+      return source === undefined
+        ? new Response("Not found", { status: 404 })
+        : new Response(source, { headers: { "content-type": "text/javascript; charset=utf-8" } });
+    }
     if (path.startsWith("/timers/")) {
       const variant = Number(path.slice(8));
       if (!Number.isInteger(variant) || variant < 0 || variant >= 64)
@@ -769,3 +833,79 @@ test("real HTTP → workerd → Wasm: timer deadline releases page capacity", as
     value: true,
   });
 }, 20000);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native module graphs and live bindings variant %i",
+  async (variant) => {
+    const url = new URL(`modules/${variant}`, origin.url).href;
+    const before = requests.length;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "globalThis.moduleDone" }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      url,
+      engine: "rust-wasm-quickjs",
+      value: {
+        order: "classic,entry,defer,inline,dcl,after",
+        readyStates: "interactive,interactive,interactive,complete",
+        live: true,
+        identity: true,
+        once: true,
+        namespace: true,
+        cycle: true,
+        redirectedMeta: true,
+        inlineMeta: true,
+        value: true,
+        legacy: true,
+      },
+    });
+    const observed = requests.slice(before);
+    for (const asset of [
+      "shared.js",
+      "reexport.js",
+      "cycle-a.js",
+      "cycle-b.js",
+      "nested/entry.js",
+      "defer.js",
+    ])
+      expect(
+        observed.filter((request) => request === `GET /module-assets/${variant}/${asset}`).length,
+      ).toBe(1);
+    expect(observed).toContain(`GET /module-assets/${variant}/redirect.js`);
+    if (comparisonBinary) expect(await comparePage(comparisonBinary, url)).toBeNull();
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: module graph failures remain explicit variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`module-failures/${variant}`, origin.url).href,
+        expression: "'must not succeed'",
+      }),
+    });
+    expect(response.status).toBe(422);
+    const result: unknown = await response.json();
+    const error: unknown =
+      typeof result === "object" && result !== null ? Reflect.get(result, "error") : undefined;
+    expect(typeof error).toBe("string");
+    const expected = [
+      /variable name expected/,
+      /bare module specifier/,
+      /origin policy/,
+      /import attributes/,
+      /module requires JavaScript MIME/,
+      /404/,
+      /export/,
+      /module rejected/,
+    ][variant % 8];
+    if (!expected) throw new Error("missing failure expectation");
+    expect(error).toMatch(expected);
+  },
+);

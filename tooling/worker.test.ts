@@ -142,7 +142,7 @@ test("explicit script skipping extracts server HTML without running or loading p
       expect(requests).toEqual(["/"]);
       const normal = await scrape(worker, "1");
       expect(normal.status).toBe(422);
-      expect(await json(normal)).toMatchObject({ error: "unsupported: module scripts" });
+      expect(await json(normal)).toMatchObject({ error: "unsupported: async script scheduling" });
       const invalid = await worker.dispatchFetch("https://nimbo.test/scrape", {
         method: "POST",
         headers: { authorization: "Bearer test-secret" },

@@ -1042,8 +1042,9 @@
     dispatchEvent: EventTarget.prototype.dispatchEvent.bind(globalThis),
   });
 
-  const ready = () => {
+  const ready = (complete = true) => {
     readyState = "interactive";
+    if (!complete) return;
     dispatch(document, new Event("DOMContentLoaded", { bubbles: true }), true);
     readyState = "complete";
     dispatch(globalThis, new Event("load"), true, true);
