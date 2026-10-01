@@ -349,6 +349,29 @@ fn response_requests_dom_writes_and_js_memory_are_bounded() -> TestResult {
 }
 
 #[test]
+fn character_creation_and_mutation_share_the_native_write_budget() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = Browser::new(
+        &fixture.url,
+        Limits {
+            max_dom_write_bytes: 8,
+            ..Limits::default()
+        },
+    )?;
+    for expression in [
+        "document.createTextNode('x'.repeat(9))",
+        "document.createComment('x'.repeat(9))",
+        "new Text('😀😀😀')",
+        "(() => { const text = new Text('1234'); text.data = '56789'; })()",
+    ] {
+        let page = browser.navigate(&fixture.path("/static"))?;
+        assert!(page.evaluate(expression).is_err(), "{expression}");
+        assert_eq!(page.evaluate("document.isConnected")?, json!(true));
+    }
+    Ok(())
+}
+
+#[test]
 fn interrupts_infinite_js_and_slow_transport() -> TestResult {
     let fixture = Fixture::new()?;
     let browser = Browser::new(

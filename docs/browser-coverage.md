@@ -6,6 +6,11 @@ Worker/Wasm engine. Provision resources through Alchemy. A different runtime
 requires a measured reason for the particular capability; Alchemy provisions
 resources but does not change the Worker runtime's APIs.
 
+Nimbo owns its browser engine. Obscura is a public contract reference and an
+optional test comparator only. Do not use its binary, service or libraries as
+a runtime backend or fallback. Parity must be implemented and exercised through
+Nimbo's own engine.
+
 This inventory is an implementation backlog, not a parity claim. An upstream
 method name, successful protocol acknowledgement, or existing JavaScript global
 does not prove that the behavior works. Undocumented behavior is unknown rather
@@ -19,6 +24,8 @@ and the compiled Rust/Wasm engine. It installs no transport replacements,
 service mocks, browser API stubs, or canned engine results. Its 64 data variants
 exercise external scripts, Unicode/entity decoding, selector identity,
 ancestry, removal/reparenting, attribute mutation and POST response decoding.
+They also exercise parsed and created text/comment nodes, native node identity,
+parent/sibling traversal, class inheritance and character-data mutation.
 These are repeated integration checks, not 64 independent platform features.
 
 To compare the same pages and expected values with an installed Obscura binary,
@@ -36,6 +43,13 @@ upstream revision. An earlier `0.2.2` binary failed reflexive `contains`;
 `v0.2.3` passes that case. Nimbo keeps the standards-based expectation instead
 of reproducing a baseline defect.
 
+The same release has two recorded divergences from the
+[DOM textContent contract](https://dom.spec.whatwg.org/#dom-node-textcontent):
+its document returns descendant text instead of null, and assigning comment
+textContent fails to update the comment's data and serialization. The suite
+requires standards-based results from Nimbo and explicitly records those two
+failures for the pinned comparator; they are not parity claims.
+
 The existing native Rust integration suite also uses a real HTTP listener.
 The older `tooling/worker.test.ts` suite includes callback-based transport
 fixtures. Those checks remain useful for boundary failures but do not count as
@@ -48,44 +62,44 @@ TLS fingerprints, rendering or broad browser compatibility.
 implementation providing the listed behavior. `Unverified` means the current
 evidence cannot establish it.
 
-| Capability                                            | Nimbo      | Required acceptance evidence                                                      |
-| ----------------------------------------------------- | ---------- | --------------------------------------------------------------------------------- |
-| HTML parsing, entities, selector queries              | Subset     | HTML and selector WPT cases, malformed input, namespaces                          |
-| DOM mutation, identity and ancestry                   | Subset     | Live mutation results, detached nodes, tree-cycle rejection, WPT                  |
-| Node/Text/Comment/Fragment, live collections          | Missing    | Node types, insertion/replacement, collection liveness                            |
-| Event dispatch and lifecycle                          | Subset     | Capture/bubble, cancellation, once/passive, native input ordering                 |
-| Classic scripts and Promise jobs                      | Subset     | Source ordering, exception propagation, resource exhaustion                       |
-| Modules, import maps, JSON modules, dynamic import    | Missing    | Real dependency graphs, redirects, cycles and async evaluation                    |
-| Timers, animation frames and scheduling               | Missing    | Clock-based ordering, cancellation, idle and deadline behavior                    |
-| Custom elements and Shadow DOM                        | Missing    | Upgrade lifecycle, slots, composed paths, isolation                               |
-| Frames and independent execution worlds               | Missing    | Same/cross-origin frames, navigation, world isolation                             |
-| Fetch and HTTP navigation                             | Subset     | Real GET/POST, cookies, redirects, bodies; full headers/abort/streams             |
-| XMLHttpRequest, forms, files and binary responses     | Missing    | Real uploads/downloads, encodings, progress and cancellation                      |
-| CORS, CSP, mixed content and origin policy            | Subset     | Current same-origin restriction is not a browser policy implementation            |
-| Network interception, response fulfillment, blocking  | Missing    | Actual request pause/continue/fail/fulfill and event/body correlation             |
-| Cookies and per-navigation isolation                  | Subset     | Path/domain/expiry/Secure/HttpOnly/SameSite, independent contexts                 |
-| Persistent sessions, cookies and storage              | Missing    | Restart/eviction recovery and tenant isolation via durable state                  |
-| localStorage/sessionStorage/IndexedDB                 | Missing    | Origin isolation, transactions, persistence and quota failures                    |
-| URL, encoding, streams, File APIs and WebCrypto       | Missing    | Pinned WPT with actual algorithms and binary round trips                          |
-| Page WebAssembly and Web Workers                      | Missing    | Guest modules, imports, worker messages, termination and isolation                |
-| CSS cascade, CSSOM, typed styles, layout and geometry | Missing    | Computed styles and shared layout driving queries and paint                       |
-| Fonts, images, SVG and Canvas 2D                      | Missing    | Resource loading, shaping, raster output and pixel comparisons                    |
-| Screenshots, PDF and screencasts                      | Missing    | Real paint output, pagination, frame changes and backpressure                     |
-| Accessibility tree and snapshots                      | Missing    | Roles, names, hidden nodes, state changes and stable references                   |
-| Mouse, keyboard, focus, selection and scrolling       | Missing    | Hit-testing, trusted host input and resulting page behavior                       |
-| Browser/target/context lifecycle and CDP              | Missing    | Real client connections, objects, events and context isolation                    |
-| Puppeteer/Playwright/DevTools compatibility           | Missing    | Unmodified clients navigating and interacting with fixtures                       |
-| MCP navigation, reading, actions and diagnostics      | Missing    | Real MCP transports, page state and authenticated remote use                      |
-| Markdown, links, structured extraction and crawling   | Subset     | Current JS extraction only; native outputs and real crawl jobs missing            |
-| CLI batch scraping and library API                    | Subset     | Existing single-page CLI/library; bounded batches and cancellation                |
-| HTTP/CONNECT and SOCKS proxy support                  | Missing    | Generic authenticated proxy integration; no operational config in source          |
-| TLS fingerprint and transport control                 | Unverified | Capture ClientHello/ALPN and verify scripted subrequests use the same transport   |
-| WebGL and GPU-dependent pages                         | Missing    | Actual shader execution and pixels; software rendering must be labelled           |
-| Audio/video playback and codecs                       | Missing    | Decode real media, advance playback and produce frames/samples                    |
-| Challenge-dependent authentication                    | Unverified | Real authorized source behavior, with challenge failure explicit                  |
-| Browser profiles and stealth surfaces                 | Missing    | Consistency with implemented behavior and measured transport; no fake API success |
-| SSRF protections and resource budgets                 | Subset     | Resolved-address policy, private IPv4/IPv6, limits and recovery                   |
-| Metrics, concurrency, deployment and recovery         | Subset     | CPU/RAM/wall-clock on equal fixtures, live deployment, process recovery           |
+| Capability                                            | Nimbo      | Required acceptance evidence                                                                        |
+| ----------------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------------- |
+| HTML parsing, entities, selector queries              | Subset     | HTML and selector WPT cases, malformed input, namespaces                                            |
+| DOM mutation, identity and ancestry                   | Subset     | Live mutation results, detached nodes, tree-cycle rejection, WPT                                    |
+| Node/Text/Comment/Fragment, live collections          | Subset     | Text/comment creation and mutation work; fragments, replacement and live collections remain missing |
+| Event dispatch and lifecycle                          | Subset     | Capture/bubble, cancellation, once/passive, native input ordering                                   |
+| Classic scripts and Promise jobs                      | Subset     | Source ordering, exception propagation, resource exhaustion                                         |
+| Modules, import maps, JSON modules, dynamic import    | Missing    | Real dependency graphs, redirects, cycles and async evaluation                                      |
+| Timers, animation frames and scheduling               | Missing    | Clock-based ordering, cancellation, idle and deadline behavior                                      |
+| Custom elements and Shadow DOM                        | Missing    | Upgrade lifecycle, slots, composed paths, isolation                                                 |
+| Frames and independent execution worlds               | Missing    | Same/cross-origin frames, navigation, world isolation                                               |
+| Fetch and HTTP navigation                             | Subset     | Real GET/POST, cookies, redirects, bodies; full headers/abort/streams                               |
+| XMLHttpRequest, forms, files and binary responses     | Missing    | Real uploads/downloads, encodings, progress and cancellation                                        |
+| CORS, CSP, mixed content and origin policy            | Subset     | Current same-origin restriction is not a browser policy implementation                              |
+| Network interception, response fulfillment, blocking  | Missing    | Actual request pause/continue/fail/fulfill and event/body correlation                               |
+| Cookies and per-navigation isolation                  | Subset     | Path/domain/expiry/Secure/HttpOnly/SameSite, independent contexts                                   |
+| Persistent sessions, cookies and storage              | Missing    | Restart/eviction recovery and tenant isolation via durable state                                    |
+| localStorage/sessionStorage/IndexedDB                 | Missing    | Origin isolation, transactions, persistence and quota failures                                      |
+| URL, encoding, streams, File APIs and WebCrypto       | Missing    | Pinned WPT with actual algorithms and binary round trips                                            |
+| Page WebAssembly and Web Workers                      | Missing    | Guest modules, imports, worker messages, termination and isolation                                  |
+| CSS cascade, CSSOM, typed styles, layout and geometry | Missing    | Computed styles and shared layout driving queries and paint                                         |
+| Fonts, images, SVG and Canvas 2D                      | Missing    | Resource loading, shaping, raster output and pixel comparisons                                      |
+| Screenshots, PDF and screencasts                      | Missing    | Real paint output, pagination, frame changes and backpressure                                       |
+| Accessibility tree and snapshots                      | Missing    | Roles, names, hidden nodes, state changes and stable references                                     |
+| Mouse, keyboard, focus, selection and scrolling       | Missing    | Hit-testing, trusted host input and resulting page behavior                                         |
+| Browser/target/context lifecycle and CDP              | Missing    | Real client connections, objects, events and context isolation                                      |
+| Puppeteer/Playwright/DevTools compatibility           | Missing    | Unmodified clients navigating and interacting with fixtures                                         |
+| MCP navigation, reading, actions and diagnostics      | Missing    | Real MCP transports, page state and authenticated remote use                                        |
+| Markdown, links, structured extraction and crawling   | Subset     | Current JS extraction only; native outputs and real crawl jobs missing                              |
+| CLI batch scraping and library API                    | Subset     | Existing single-page CLI/library; bounded batches and cancellation                                  |
+| HTTP/CONNECT and SOCKS proxy support                  | Missing    | Generic authenticated proxy integration; no operational config in source                            |
+| TLS fingerprint and transport control                 | Unverified | Capture ClientHello/ALPN and verify scripted subrequests use the same transport                     |
+| WebGL and GPU-dependent pages                         | Missing    | Actual shader execution and pixels; software rendering must be labelled                             |
+| Audio/video playback and codecs                       | Missing    | Decode real media, advance playback and produce frames/samples                                      |
+| Challenge-dependent authentication                    | Unverified | Real authorized source behavior, with challenge failure explicit                                    |
+| Browser profiles and stealth surfaces                 | Missing    | Consistency with implemented behavior and measured transport; no fake API success                   |
+| SSRF protections and resource budgets                 | Subset     | Resolved-address policy, private IPv4/IPv6, limits and recovery                                     |
+| Metrics, concurrency, deployment and recovery         | Subset     | CPU/RAM/wall-clock on equal fixtures, live deployment, process recovery                             |
 
 ## Kitesurf references and scope
 

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use dom_query::{Document, Matcher, NodeId, NodeRef, Selection};
+use dom_query::{Document, Matcher, NodeData, NodeId, NodeRef, Selection};
 use serde_json::{Value, json};
 
 use crate::{Error, Limits, Result};
@@ -78,6 +78,8 @@ impl Dom {
                 json!(id.map(|id| self.handle(id)))
             }
             "relativeElement" => self.relative_element(handle, arg)?,
+            "relativeNode" => self.relative_node(handle, arg)?,
+            "createText" | "createComment" => self.create_character(operation, value)?,
             "contains" => {
                 let descendant = arg
                     .parse::<usize>()
@@ -115,25 +117,7 @@ impl Dom {
                 self.set(operation, handle, arg, value)?;
                 Value::Null
             }
-            "append" => {
-                let child = value
-                    .parse::<usize>()
-                    .map_err(|error| Error::Dom(error.to_string()))?;
-                let parent = self.node(handle)?;
-                let child = self.node(child)?;
-                if !parent.is_element()
-                    || !child.is_element()
-                    || parent.id == child.id
-                    || parent
-                        .ancestors(None)
-                        .iter()
-                        .any(|ancestor| ancestor.id == child.id)
-                {
-                    return Err(Error::Dom("invalid append or DOM cycle".into()));
-                }
-                parent.append_child(&child.id);
-                Value::Null
-            }
+            "append" => self.append(handle, value)?,
             "remove" => {
                 self.node(handle)?.remove_from_parent();
                 Value::Null
@@ -145,6 +129,54 @@ impl Dom {
             }
         };
         Ok(serde_json::to_string(&result)?)
+    }
+
+    fn append(&self, handle: usize, value: &str) -> Result<Value> {
+        let child = value
+            .parse::<usize>()
+            .map_err(|error| Error::Dom(error.to_string()))?;
+        let parent = self.node(handle)?;
+        let child = self.node(child)?;
+        if !parent.is_element()
+            || !(child.is_element() || child.is_text() || child.is_comment())
+            || parent.id == child.id
+            || parent
+                .ancestors_it(None)
+                .any(|ancestor| ancestor.id == child.id)
+        {
+            return Err(Error::Dom("invalid append or DOM cycle".into()));
+        }
+        parent.append_child(&child.id);
+        Ok(Value::Null)
+    }
+
+    fn create_character(&mut self, operation: &str, value: &str) -> Result<Value> {
+        self.writes = self.writes.saturating_add(value.len());
+        if self.writes > self.limits.max_dom_write_bytes {
+            return Err(Error::Limit("DOM write bytes"));
+        }
+        let id = if operation == "createText" {
+            self.document.tree.new_text(value).id
+        } else {
+            self.document.tree.create_node(NodeData::Comment {
+                contents: value.into(),
+            })
+        };
+        Ok(json!(self.handle(id)))
+    }
+
+    fn relative_node(&mut self, handle: usize, relation: &str) -> Result<Value> {
+        let node = self.node(handle)?;
+        let relative = match relation {
+            "parent" => node.parent(),
+            "first" => node.first_child(),
+            "last" => node.last_child(),
+            "next" => node.next_sibling(),
+            "previous" => node.prev_sibling(),
+            _ => return Err(Error::Dom("invalid node relation".into())),
+        };
+        let id = relative.map(|relative| relative.id);
+        Ok(json!(id.map(|id| self.handle(id))))
     }
 
     fn query(&mut self, handle: usize, selector: &str) -> Result<Value> {
@@ -209,7 +241,34 @@ impl Dom {
     fn get(&self, handle: usize, property: &str) -> Result<Value> {
         let node = self.node(handle)?;
         Ok(match property {
-            "textContent" => json!(node.text().to_string()),
+            "textContent" => {
+                if node.is_document() || node.is_doctype() {
+                    Value::Null
+                } else if node.is_comment() {
+                    character_value(node)
+                } else {
+                    json!(node.text().to_string())
+                }
+            }
+            "nodeValue" => character_value(node),
+            "nodeType" => node.query_or(Value::Null, |node| match node.data {
+                NodeData::Element(_) => json!(1),
+                NodeData::Text { .. } => json!(3),
+                NodeData::ProcessingInstruction { .. } => json!(7),
+                NodeData::Comment { .. } => json!(8),
+                NodeData::Document => json!(9),
+                NodeData::Doctype { .. } => json!(10),
+                NodeData::Fragment => json!(11),
+            }),
+            "nodeName" => node.query_or(Value::Null, |node| match &node.data {
+                NodeData::Element(element) => json!(element.node_name().to_ascii_uppercase()),
+                NodeData::Text { .. } => json!("#text"),
+                NodeData::Comment { .. } => json!("#comment"),
+                NodeData::Document => json!("#document"),
+                NodeData::Fragment => json!("#document-fragment"),
+                NodeData::Doctype { name, .. } => json!(name.to_string()),
+                NodeData::ProcessingInstruction { target, .. } => json!(target.to_string()),
+            }),
             "innerHTML" => json!(node.inner_html().to_string()),
             "outerHTML" => json!(node.html().to_string()),
             "tagName" => json!(node.node_name().map(|name| name.to_ascii_uppercase())),
@@ -225,6 +284,20 @@ impl Dom {
 
     fn set(&self, operation: &str, handle: usize, property: &str, value: &str) -> Result<()> {
         let node = self.node(handle)?;
+        if operation == "set" && matches!(property, "textContent" | "nodeValue") {
+            if node.is_text() || node.is_comment() {
+                node.update(|node| match &mut node.data {
+                    NodeData::Text { contents } | NodeData::Comment { contents } => {
+                        *contents = value.into();
+                    }
+                    _ => {}
+                });
+                return Ok(());
+            }
+            if property == "nodeValue" || node.is_document() || node.is_doctype() {
+                return Ok(());
+            }
+        }
         if !node.is_element() {
             return Err(Error::Dom("write target must be an element".into()));
         }
@@ -237,6 +310,15 @@ impl Dom {
         }
         Ok(())
     }
+}
+
+fn character_value(node: NodeRef<'_>) -> Value {
+    node.query_or(Value::Null, |node| match &node.data {
+        NodeData::Text { contents }
+        | NodeData::Comment { contents }
+        | NodeData::ProcessingInstruction { contents, .. } => json!(contents.to_string()),
+        _ => Value::Null,
+    })
 }
 
 fn register_handle(

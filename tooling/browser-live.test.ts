@@ -27,10 +27,41 @@ const expressionFor = (variant: number) => `(async () => {
           section.appendChild(first);
           const restored = first.parentElement === section && first.isConnected && section.lastElementChild === first && first.previousElementSibling.textContent === 'second';
           const text = section.querySelector('.item:last-child').textContent;
+          const leading = section.firstChild;
+          const comment = leading.nextSibling;
+          const parsedNodes = leading instanceof Text && leading.nodeType === 3 && leading.nodeName === '#text'
+            && comment instanceof Comment && comment.nodeType === 8 && comment.data === 'before'
+            && comment.previousSibling === leading && leading.parentNode === section;
+          const hierarchy = document instanceof Document && document instanceof Node && !(document instanceof Element)
+            && first instanceof Element && first instanceof Node && leading instanceof CharacterData;
+          const documentNode = document.nodeType === 9 && document.nodeName === '#document'
+            && document.textContent === null && document.nodeValue === null && document.parentNode === null;
+          const created = document.createTextNode('created-${variant}-😀');
+          const note = document.createComment('note-${variant}');
+          const constructed = new Text('constructor') instanceof Text && new Comment('constructor') instanceof Comment;
+          const fresh = created.parentNode === null && !created.isConnected && created.nodeValue === 'created-${variant}-😀'
+            && created.length === 'created-${variant}-😀'.length && created.textContent === created.data;
+          const appended = section.appendChild(created) === created && section.appendChild(note) === note
+            && section.lastChild === note && note.previousSibling === created && created.nextSibling === note
+            && created.parentElement === section && created.isConnected && document.contains(created);
+          created.data = 'changed-${variant}-α';
+          note.textContent = 'changed note';
+          const mutated = created.nodeValue === 'changed-${variant}-α' && section.textContent.endsWith(created.data)
+            && note.data === 'changed note' && !section.textContent.includes(note.data)
+            && section.innerHTML.endsWith('changed-${variant}-α<!--changed note-->');
+          first.nodeValue = 'ignored';
+          const elementValue = first.nodeValue === null && first.textContent === before;
+          created.remove();
+          const textDetached = !created.isConnected && created.parentNode === null && created.nextSibling === null
+            && note.previousSibling === first;
+          let cycle = false;
+          try { first.appendChild(section); } catch { cycle = true; }
+          const cycleSafe = cycle && first.parentNode === section && section.parentNode === document.getElementById('root');
+          const nodeChecks = {parsedNodes, hierarchy, documentNode, constructed, fresh, appended, mutated, elementValue, textDetached, cycleSafe};
           const result = await fetch('/echo', {method: 'POST', body: 'payload-${variant}-α'});
           return {title: document.title, before, self, ancestor, matches, missing,
             parent, children, siblings, connected, rootParent, removed, changed, detached, after, restored, text,
-            count: document.querySelectorAll('main .item').length, echo: await result.json()};
+            nodeChecks, count: document.querySelectorAll('main .item').length, echo: await result.json()};
         })()`;
 
 const origin = Bun.serve({
@@ -103,6 +134,18 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
       after: "second",
       restored: true,
       text: `α & ${variant}`,
+      nodeChecks: {
+        parsedNodes: true,
+        hierarchy: true,
+        documentNode: true,
+        constructed: true,
+        fresh: true,
+        appended: true,
+        mutated: true,
+        elementValue: true,
+        textDetached: true,
+        cycleSafe: true,
+      },
       count: 3,
       echo: { method: "POST", body: `payload-${variant}-α` },
     };
@@ -136,7 +179,12 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
       expect(error).toBe("");
       expect(exit).toBe(0);
       const baseline: unknown = JSON.parse(output);
-      expect(baseline).toEqual(expected);
+      // Pinned v0.2.3 has two observed DOM defects; Nimbo must still pass
+      // the standards-based expectations above, rather than inherit them.
+      expect(baseline).toEqual({
+        ...expected,
+        nodeChecks: { ...expected.nodeChecks, documentNode: false, mutated: false },
+      });
     }
     expect(requests).toContain(`GET /${variant}`);
     expect(requests).toContain("POST /echo");

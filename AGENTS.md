@@ -12,3 +12,10 @@ and public library/platform references only.
 - Review the staged diff before every push. Do not disable credential scanning.
 - Tinyproxy support must be generic HTTP/CONNECT support. Do not embed a
   deployment's configuration or substitute a new gateway without user direction.
+
+# Engine ownership
+
+Nimbo must implement browser capabilities in its own engine. Obscura may be
+used as a public reference and a test comparator, but never as a runtime
+backend, library dependency or fallback. Passing a request to Obscura does not
+count as implementing or validating a Nimbo capability.
