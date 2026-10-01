@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { join } from "node:path";
-import { Miniflare, type WorkerOptions, type Request as WorkerRequest } from "miniflare";
+import { Miniflare, type Request as WorkerRequest } from "miniflare";
 
 const root = join(import.meta.dir, "..");
 const html = (body: string, headers: Record<string, string> = {}) =>
@@ -9,7 +9,7 @@ const html = (body: string, headers: Record<string, string> = {}) =>
 async function fixture(
   outbound: (request: WorkerRequest) => Response | Promise<Response>,
   run: (worker: Miniflare) => Promise<void>,
-  serviceBindings: WorkerOptions["serviceBindings"] = {},
+  serviceBindings: Record<string, (request: WorkerRequest) => Response | Promise<Response>> = {},
 ) {
   const worker = new Miniflare({
     modules: [
