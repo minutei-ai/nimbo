@@ -164,6 +164,70 @@ const treeExpressionFor = (variant: number) => `(() => {
     fragmentAtomic, fragmentText, emptyText, emptyElement, documentReplace};
 })()`;
 
+const collectionExpressionFor = (variant: number) => `(() => {
+  const host = document.createElement('section'); document.body.appendChild(host);
+  host.innerHTML = 'lead<!--marker--><i id="first-${variant}" name="shared">first</i><b id="second-${variant}" name="shared">second</b>';
+  const all = host.childNodes; const elements = host.children; const snapshot = host.querySelectorAll('i,b');
+  const first = host.querySelector('i'); const second = host.querySelector('b');
+  const kinds = all instanceof NodeList && snapshot instanceof NodeList && elements instanceof HTMLCollection
+    && !Array.isArray(all) && !Array.isArray(snapshot) && !Array.isArray(elements)
+    && Object.prototype.toString.call(all) === '[object NodeList]' && Object.prototype.toString.call(elements) === '[object HTMLCollection]';
+  const identity = all === host.childNodes && elements === host.children && snapshot !== host.querySelectorAll('i,b');
+  const index = all.length === 4 && elements.length === 2 && host.childElementCount === 2
+    && all[2] === first && all.item(2) === first && elements[0] === first && snapshot[1] === second
+    && all[100] === undefined && all.item(100) === null && all.item(-1) === null
+    && all.item(4294967296) === all[0] && all.item(1.8) === all[1] && elements.item(100) === null;
+  const names = elements.namedItem('shared') === first && elements.shared === first
+    && elements.namedItem('first-${variant}') === first && elements['first-${variant}'] === first
+    && elements.namedItem('') === null && elements.namedItem('missing') === null;
+  const reflection = Object.keys(all).join(',') === '0,1,2,3' && Object.keys(elements).join(',') === '0,1'
+    && Object.hasOwn(elements, 'shared') && 'shared' in elements && '2' in all && !('100' in all)
+    && Object.getOwnPropertyDescriptor(all, '2').value === first
+    && Object.getOwnPropertyDescriptor(all, '2').writable === false
+    && Object.getOwnPropertyDescriptor(elements, 'shared').enumerable === false;
+  const readonly = !Reflect.set(all, '0', second) && !Reflect.defineProperty(all, '100', {value: second})
+    && !Reflect.deleteProperty(all, '0') && Reflect.deleteProperty(all, '100') && !Reflect.preventExtensions(all)
+    && !Reflect.set(elements, 'shared', second) && elements.shared === first && all[0].nodeType === 3;
+  const entries = Array.from(snapshot.entries());
+  const iteration = Array.from(snapshot).map(n => n.textContent).join(',') === 'first,second'
+    && Array.from(snapshot.keys()).join(',') === '0,1' && entries[0][0] === 0 && entries[0][1] === first
+    && Array.from(elements).length === 2 && snapshot[Symbol.iterator] === snapshot.values;
+  const context = {}; const calls = [];
+  snapshot.forEach(function(value, index, list) { calls.push(this === context && list === snapshot && list[index] === value); }, context);
+  const callback = calls.length === 2 && calls.every(Boolean);
+  const liveIterator = elements[Symbol.iterator](); const iteratorFirst = liveIterator.next().value;
+  const added = document.createElement('u'); added.textContent = 'new-${variant}'; host.appendChild(added);
+  const live = all.length === 5 && elements.length === 3 && all[4] === added && elements[2] === added
+    && snapshot.length === 2 && snapshot[2] === undefined && iteratorFirst === first
+    && liveIterator.next().value === second && liveIterator.next().value === added && liveIterator.next().done;
+  first.remove();
+  const removed = all.length === 4 && elements.length === 2 && elements[0] === second
+    && elements.namedItem('shared') === second && elements['first-${variant}'] === undefined
+    && snapshot[0] === first && !snapshot[0].isConnected;
+  second.setAttribute('name', 'changed'); second.id = 'length';
+  const renamed = elements.shared === undefined && elements.namedItem('changed') === second
+    && elements.changed === second && elements.length === 2 && elements.namedItem('length') === second;
+  const foreign = document.createElement('aside'); foreign.appendChild(added);
+  const reparent = elements.length === 1 && all.length === 3 && foreign.children[0] === added;
+  host.textContent = '';
+  const cleared = all.length === 0 && elements.length === 0 && snapshot.length === 2
+    && snapshot[1] === second && second.parentNode === null;
+  const fragment = new DocumentFragment(); const fragmentNodes = fragment.childNodes; const fragmentElements = fragment.children;
+  fragment.appendChild(first); fragment.appendChild(document.createElement('em'));
+  const fragmentLive = fragmentNodes.length === 2 && fragmentElements.length === 2 && fragmentElements[0] === first;
+  host.appendChild(fragment);
+  const transferred = fragmentNodes.length === 0 && fragmentElements.length === 0 && all.length === 2 && elements[0] === first;
+  const errors = [];
+  for (const action of [() => new NodeList(), () => new HTMLCollection(), () => all.item(),
+    () => elements.namedItem(), () => NodeList.prototype.item.call({}, 0),
+    () => NodeList.prototype.entries.call({}), () => elements.namedItem(Symbol('invalid'))]) {
+    try { action(); errors.push(false); } catch (error) { errors.push(error instanceof TypeError); }
+  }
+  const guarded = errors.length === 7 && errors.every(Boolean);
+  return {kinds, identity, index, names, reflection, readonly, iteration, callback,
+    live, removed, renamed, reparent, cleared, fragmentLive, transferred, guarded};
+})()`;
+
 const origin = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,
@@ -176,6 +240,17 @@ const origin = Bun.serve({
       return new Response("document.title += ' loaded';", {
         headers: { "content-type": "text/javascript" },
       });
+    if (path.startsWith("/collections/")) {
+      const variant = Number(path.slice(13));
+      if (!Number.isInteger(variant) || variant < 0 || variant >= 64)
+        return new Response("Not found", { status: 404 });
+      return new Response(
+        `<title>Collections ${variant}</title><script>try { globalThis.comparison = ${collectionExpressionFor(variant)}; } catch (error) { globalThis.comparison = {exception: error.name, message: error.message}; }</script>`,
+        {
+          headers: { "content-type": "text/html; charset=utf-8" },
+        },
+      );
+    }
     if (path.startsWith("/tree/")) {
       const variant = Number(path.slice(6));
       if (!Number.isInteger(variant) || variant < 0 || variant >= 64)
@@ -334,5 +409,64 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
       });
     }
     expect(requests).toContain(`GET /tree/${variant}`);
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: live and static DOM collections variant %i",
+  async (variant) => {
+    const url = new URL(`collections/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "globalThis.comparison" }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    expect(result).toEqual({
+      url,
+      engine: "rust-wasm-quickjs",
+      value: {
+        kinds: true,
+        identity: true,
+        index: true,
+        names: true,
+        reflection: true,
+        readonly: true,
+        iteration: true,
+        callback: true,
+        live: true,
+        removed: true,
+        renamed: true,
+        reparent: true,
+        cleared: true,
+        fragmentLive: true,
+        transferred: true,
+        guarded: true,
+      },
+    });
+    if (comparisonBinary) {
+      // Record the pinned release's actual collection behavior separately;
+      // Nimbo must pass every standards-based expectation above.
+      expect(await comparePage(comparisonBinary, url)).toEqual({
+        kinds: false,
+        identity: false,
+        index: true,
+        names: true,
+        reflection: false,
+        readonly: false,
+        iteration: false,
+        callback: true,
+        live: false,
+        removed: false,
+        renamed: false,
+        reparent: false,
+        cleared: false,
+        fragmentLive: false,
+        transferred: false,
+        guarded: false,
+      });
+    }
+    expect(requests).toContain(`GET /collections/${variant}`);
   },
 );

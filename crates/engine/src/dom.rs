@@ -56,6 +56,7 @@ impl Dom {
         let result = match operation {
             "query" => self.query(handle, arg)?,
             "queryOne" => self.query_one(handle, arg)?,
+            "children" => self.children(handle, arg)?,
             "matches" => {
                 let matcher = self.matcher(arg)?;
                 json!(self.node(handle)?.is_match(&matcher))
@@ -268,6 +269,30 @@ impl Dom {
         Ok(json!(result))
     }
 
+    fn children(&mut self, handle: usize, kind: &str) -> Result<Value> {
+        if !matches!(kind, "nodes" | "elements") {
+            return Err(Error::Dom("invalid child collection".into()));
+        }
+        let id = self
+            .handles
+            .get(handle)
+            .copied()
+            .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
+        let node = self
+            .document
+            .tree
+            .get(&id)
+            .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
+        let handles = &mut self.handles;
+        let ids = &mut self.ids;
+        let result: Vec<_> = node
+            .children_it(false)
+            .filter(|node| kind == "nodes" || node.is_element())
+            .map(|node| register_handle(handles, ids, node.id))
+            .collect();
+        Ok(json!(result))
+    }
+
     fn relative_element(&mut self, handle: usize, relation: &str) -> Result<Value> {
         let node = self.node(handle)?;
         let relative = match relation {
@@ -340,6 +365,10 @@ impl Dom {
             "innerHTML" => json!(node.inner_html().to_string()),
             "outerHTML" => json!(node.html().to_string()),
             "tagName" => json!(node.node_name().map(|name| name.to_ascii_uppercase())),
+            "namespaceURI" => node.query_or(Value::Null, |node| match &node.data {
+                NodeData::Element(element) => json!(element.name.ns.to_string()),
+                _ => Value::Null,
+            }),
             "isConnected" => json!(
                 node.is_document()
                     || node
