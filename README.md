@@ -2,6 +2,8 @@
 
 Browser de scraping com **Rust e QuickJS compilados para Wasm, executados dentro de um Cloudflare Worker**. TypeScript com Effect v4 controla autenticação, transporte HTTP e liberação da página. Não depende de Containers.
 
+O motor é independente: Obscura não é backend, dependência de runtime nem fallback. Seu executável pode ser usado separadamente como comparador opcional nos testes.
+
 O MVP foi validado localmente no `workerd`, o runtime dos Workers, e também possui uma CLI nativa para desenvolvimento. Deploy, integração com proxies e medições de custo em produção ainda não foram validados.
 
 ## Monorepo
@@ -80,6 +82,7 @@ O binding opcional `EGRESS` implementa `fetch(Request): Promise<Response>`, perm
 | Import maps, JSON modules e carregamento de novos imports dinâmicos                | Não implementados; scripts async rejeitados         |
 | localStorage/sessionStorage, cota UTF-16 e persistência entre navegações nativas   | Testados; Worker inicia áreas vazias por request    |
 | IndexedDB, storage events e sessões duráveis                                       | Não implementados                                   |
+| classList/DOMTokenList, mutações ordenadas e atributos vivos                       | Testados no nativo e workerd; cobertura parcial     |
 | matchMedia, viewport lógico e preferências explícitas                              | Testados; layout e eventos automáticos pendentes    |
 | Frames e base href                                                                 | Rejeitados explicitamente                           |
 

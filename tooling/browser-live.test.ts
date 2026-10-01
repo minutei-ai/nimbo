@@ -8,6 +8,9 @@ const storageScript = await Bun.file(
 const mediaScript = await Bun.file(
   join(import.meta.dir, "../crates/engine/tests/fixtures/media.txt"),
 ).text();
+const tokenScript = await Bun.file(
+  join(import.meta.dir, "../crates/engine/tests/fixtures/tokens.txt"),
+).text();
 const requests: string[] = [];
 const comparisonBinary = process.env.NIMBO_COMPARE_OBSCURA_BINARY;
 async function comparePage(binary: string, url: string): Promise<unknown> {
@@ -368,6 +371,10 @@ const origin = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     requests.push(`${request.method} ${path}`);
+    if (path.startsWith("/tokens/"))
+      return new Response(`<title>Tokens</title><script>${tokenScript}</script>`, {
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
     if (path.startsWith("/media/"))
       return new Response(`<title>Media</title><script>${mediaScript}</script>`, {
         headers: { "content-type": "text/html; charset=utf-8" },
@@ -1150,3 +1157,42 @@ test("real HTTP → workerd → Wasm: media parser budgets and isolate recovery"
     value: [1024, 768, "undefined", "undefined", true],
   });
 });
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: live class lists and atomic token mutation variant %i",
+  async (variant) => {
+    const url = new URL(`tokens/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "comparison" }),
+    });
+    expect(response.status).toBe(200);
+    const expected = Object.fromEntries(
+      [
+        "identity",
+        "absent",
+        "absentNoop",
+        "parsed",
+        "indices",
+        "contains",
+        "noNormalize",
+        "add",
+        "remove",
+        "toggled",
+        "replace",
+        "external",
+        "forwarded",
+        "unicode",
+        "live",
+        "iteration",
+        "atomic",
+        "guarded",
+        "removed",
+        "detached",
+      ].map((key) => [key, true]),
+    );
+    expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: expected });
+    expect(requests).toContain(`GET /tokens/${variant}`);
+  },
+);

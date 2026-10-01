@@ -1,0 +1,61 @@
+globalThis.comparison = (() => {
+  const node = document.createElement('div'); document.body.appendChild(node);
+  const list = node.classList;
+  const identity = list === node.classList && list instanceof DOMTokenList && Object.getPrototypeOf(list) === DOMTokenList.prototype
+    && Object.prototype.toString.call(list) === '[object DOMTokenList]';
+  const absent = list.value === '' && list.length === 0 && !node.hasAttribute('class') && list.item(0) === null && list[0] === undefined;
+  list.add(); list.remove(); list.toggle('x',false);
+  const absentNoop = !node.hasAttribute('class');
+  node.setAttribute('class','  a\t b\n a\r\fc  ');
+  const parsed = list.length === 3 && [...list].join(',') === 'a,b,c' && list.value === '  a\t b\n a\r\fc  ';
+  const descriptor = Object.getOwnPropertyDescriptor(list,'0');
+  const indices = list[0] === 'a' && list.item(1) === 'b' && list.item(-1) === null && list.item(4294967296) === 'a'
+    && Object.keys(list).join(',') === '0,1,2' && descriptor.enumerable && descriptor.configurable && !descriptor.writable
+    && !Reflect.set(list,'0','changed') && !Reflect.deleteProperty(list,'0') && !Reflect.defineProperty(list,'8',{value:'wrong'});
+  const contains = list.contains('a') && !list.contains('') && !list.contains('a b') && !list.contains('A');
+  list.toggle('a',true); list.replace('missing','z');
+  const noNormalize = list.value === '  a\t b\n a\r\fc  ';
+  list.add('d','a','d');
+  const add = list.value === 'a b c d' && node.matches('.a.b.c.d') && node.className === list.value;
+  list.remove('b','missing','b');
+  const remove = list.value === 'a c d' && !node.matches('.b');
+  const toggled = list.toggle('a') === false && list.toggle('x') === true && list.toggle('x',0) === false
+    && list.toggle('c',1) === true && list.toggle('absent',false) === false && list.toggle('new',undefined) === true;
+  list.value = ' a a b c b ';
+  const replace = list.replace('a','c') && list.value === 'c b' && list.replace('b','c') && list.value === 'c'
+    && list.replace('c','c') && !list.replace('missing','x');
+  node.className = 'external';
+  const external = list[0] === 'external' && list.length === 1;
+  node.classList = 'assigned  assigned value';
+  const forwarded = list.value === 'assigned  assigned value' && list.length === 2;
+  const unicodeToken = 'α😀\u00a0part'; list.value = unicodeToken;
+  const unicode = list.length === 1 && list.contains(unicodeToken) && list.value === unicodeToken;
+  list.value = 'a b'; const iterator = list.values();
+  const first = iterator.next().value; list.add('c');
+  const live = first === 'a' && iterator.next().value === 'b' && iterator.next().value === 'c' && iterator.next().done;
+  const ctx = {}; const visited = [];
+  list.forEach(function(value,index,owner) {visited.push(this === ctx && owner === list && value === list.item(index)); if(index === 0) list.add('d');},ctx);
+  const iteration = visited.length === 4 && visited.every(Boolean) && [...list.keys()].join(',') === '0,1,2,3'
+    && JSON.stringify([...list.entries()]) === '[ [0,"a"],[1,"b"],[2,"c"],[3,"d"] ]'.replaceAll(' ','');
+  const errors=[];
+  for (const action of [() => list.add('safe',''), () => list.remove('a','bad token'), () => list.toggle(''),
+    () => list.replace('bad token',''), () => list.add('bad\tword')]) {
+    const before = node.className;
+    try {action();errors.push(false);} catch(error) {errors.push(error instanceof DOMException && node.className === before);}
+  }
+  const atomic = errors.length === 5 && errors.every(Boolean) && !list.contains('safe');
+  const guards = [];
+  for (const action of [() => new DOMTokenList(), () => DOMTokenList.prototype.add.call({},'x'), () => list.item(),
+    () => list.item(1n), () => list.contains(), () => list.toggle(), () => list.replace('a'), () => list.add(Symbol()),
+    () => list.forEach(null), () => list.supports('a'),
+    () => Object.getOwnPropertyDescriptor(Element.prototype,'classList').get.call(document),
+    () => Object.getOwnPropertyDescriptor(Element.prototype,'classList').get.call(new Text('x'))]) {
+    try {action();guards.push(false);} catch(error) {guards.push(error instanceof TypeError);}
+  }
+  const guarded = guards.length === 12 && guards.every(Boolean);
+  node.removeAttribute('class');
+  const removed = list.length === 0 && list.value === '';
+  node.remove(); list.add('detached');
+  const detached = !node.isConnected && list === node.classList && node.className === 'detached' && node.outerHTML.includes('class="detached"');
+  return {identity,absent,absentNoop,parsed,indices,contains,noNormalize,add,remove,toggled,replace,external,forwarded,unicode,live,iteration,atomic,guarded,removed,detached};
+})();

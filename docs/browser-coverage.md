@@ -21,7 +21,7 @@ tests as well as integration and application tests.
 
 `tooling/browser-live.test.ts` uses a real loopback HTTP origin, actual workerd,
 and the compiled Rust/Wasm engine. It installs no transport replacements,
-service mocks, browser API stubs, or canned engine results. Its 640 data variants
+service mocks, browser API stubs, or canned engine results. Its 704 data variants
 exercise external scripts, Unicode/entity decoding, selector identity,
 ancestry, removal/reparenting, attribute mutation and POST response decoding.
 They also exercise parsed and created text/comment nodes, native node identity,
@@ -45,11 +45,15 @@ failures. The eighth set exercises native Web Storage across inline, external
 and module scripts, UTF-16 including lone surrogates, coercion/receiver guards,
 named properties, reflection, removal, clearing and fresh Worker request areas.
 An additional case exercises actual quota exhaustion, atomic failure, independent
-local/session quotas and reuse. These are repeated integration checks, not 640 independent platform
+local/session quotas and reuse. These are repeated integration checks, not 704 independent platform
 features. The ninth set checks native media queries against 64 explicit viewport
 and preference configurations, including ranges, three-valued conditions,
 serialization, CSS escapes, receiver guards and synthetic MediaQueryList events.
 The tenth set rejects 64 invalid environment variants before any HTTP navigation.
+The eleventh set repeats the same DOMTokenList fixture at 64 distinct URLs,
+checking live attribute reads, ordered token mutations, identity, indices,
+iteration, receiver guards and atomic invalid-token rejection. Including three
+resource/deadline recovery cases, the real browser suite has 707 tests.
 Event support remains a subset: timestamps, legacy initialization,
 shadow trees, native input, AbortSignal timeout/any and fetch cancellation are
 not covered by this implementation.
@@ -128,6 +132,22 @@ In particular the JavaScript Proxy cannot reproduce the legacy object's
 non-configurable named-property descriptor behavior; such definitions are
 rejected. Configurable data descriptors are covered. No browser-wide persistence
 or complete WPT conformance is claimed.
+
+`Element.classList` returns a same-object DOMTokenList backed directly by the
+native class attribute. It parses ordered unique tokens using ASCII whitespace,
+keeps `value` raw until mutation, and supports add/remove/toggle/replace,
+contains/item, indexed reads, iteration and assignment through classList.
+No-op toggle and missing-token replacement avoid normalization. Invalid tokens
+are checked before writes; writes consume the existing native DOM budget.
+A native quota test verifies failed mutation preserves the attribute and checks
+an exact-budget write on a fresh page. The budget includes the attribute name;
+failed oversized writes exhaust that page's remaining write budget.
+Detached elements retain their live list.
+
+This is a subset of the [DOMTokenList contract](https://dom.spec.whatwg.org/#interface-domtokenlist).
+Full Web IDL property/prototype conformance, lone-surrogate class attributes,
+other token-list attributes and complete WPT coverage remain unverified.
+The 64 HTTP repetitions exercise the same behavior, not distinct platform features.
 
 Media queries use the engine's own parser and the existing public `cssparser`
 tokenizer. Native `Browser::with_media` and optional Worker input `media` set

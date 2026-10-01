@@ -82,6 +82,7 @@ fn serve(mut request: Request) -> io::Result<()> {
     let mut status = 200;
     let mut headers = Vec::new();
     let body = match request.url() {
+        "/tokens" => format!("<title>Tokens</title><script>{}</script>", include_str!("fixtures/tokens.txt")),
         "/media" => format!("<title>Media</title><script>{}</script>", include_str!("fixtures/media.txt")),
         "/storage" => format!("<title>Storage</title><script>{}</script>", include_str!("fixtures/storage.txt")),
         "/static" => include_str!("fixtures/static.html").to_owned(),
@@ -742,5 +743,42 @@ fn media_queries_use_the_native_configured_environment() -> TestResult {
             assert_eq!(*value, expected, "variant {variant}: {name}");
         }
     }
+    Ok(())
+}
+
+#[test]
+fn class_lists_are_live_and_mutate_the_native_attribute() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/tokens"))?;
+    let result = page.evaluate("comparison")?;
+    let fields = result.as_object().ok_or("missing token result")?;
+    assert_eq!(fields.len(), 20);
+    assert!(
+        fields.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    let limited = Browser::new(
+        &fixture.url,
+        Limits {
+            max_dom_write_bytes: 8,
+            ..Limits::default()
+        },
+    )?;
+    let page = limited.navigate(&fixture.path("/static"))?;
+    assert!(
+        page.evaluate("document.body.classList.add('x'.repeat(9))")
+            .is_err()
+    );
+    assert_eq!(
+        page.evaluate("document.body.hasAttribute('class')")?,
+        json!(false)
+    );
+    let page = limited.navigate(&fixture.path("/static"))?;
+    assert_eq!(
+        page.evaluate(
+            "(() => { document.body.classList.add('123'); return document.body.className; })()"
+        )?,
+        json!("123")
+    );
     Ok(())
 }

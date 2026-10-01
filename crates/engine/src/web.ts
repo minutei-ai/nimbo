@@ -972,7 +972,217 @@
       return id === null ? null : element(id);
     }
   }
+  const tokenElements = new WeakMap<object, number>();
+  const classLists = new WeakMap<Element, DOMTokenList>();
+  function tokenElement(list: object): number {
+    const id = tokenElements.get(list);
+    if (id === undefined) throw new TypeError("Illegal invocation");
+    return id;
+  }
+  function tokenValue(list: object): string | null {
+    return call("attr", tokenElement(list), "class");
+  }
+  function tokenValues(list: object): string[] {
+    return Array.from(new Set((tokenValue(list) ?? "").split(/[\t\n\f\r ]+/).filter(Boolean)));
+  }
+  function validateToken(token: string): void {
+    if (token === "") throw new DOMException("empty token", "SyntaxError");
+    if (/[\t\n\f\r ]/.test(token))
+      throw new DOMException("token contains ASCII whitespace", "InvalidCharacterError");
+  }
+  function updateTokens(list: object, values: string[]): void {
+    const id = tokenElement(list);
+    if (values.length === 0 && tokenValue(list) === null) return;
+    call("setAttr", id, "class", values.join(" "));
+  }
+  class DOMTokenList {
+    constructor() {
+      throw new TypeError("Illegal constructor");
+    }
+    get length(): number {
+      return tokenValues(this).length;
+    }
+    get value(): string {
+      return tokenValue(this) ?? "";
+    }
+    set value(value: unknown) {
+      call("setAttr", tokenElement(this), "class", domString(value));
+    }
+    item(index: unknown): string | null {
+      tokenElement(this);
+      if (arguments.length === 0) throw new TypeError("item requires an index");
+      // Web IDL ToNumber must reject BigInt and Symbol.
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion, typescript/no-unnecessary-type-conversion
+      const integer = +(index as number) >>> 0;
+      return tokenValues(this)[integer] ?? null;
+    }
+    contains(token: unknown): boolean {
+      tokenElement(this);
+      if (arguments.length === 0) throw new TypeError("contains requires a token");
+      const value = domString(token);
+      return tokenValues(this).includes(value);
+    }
+    add(...tokens: unknown[]): void {
+      tokenElement(this);
+      const values = tokens.map(domString);
+      values.forEach(validateToken);
+      updateTokens(this, Array.from(new Set([...tokenValues(this), ...values])));
+    }
+    remove(...tokens: unknown[]): void {
+      tokenElement(this);
+      const values = tokens.map(domString);
+      values.forEach(validateToken);
+      updateTokens(
+        this,
+        tokenValues(this).filter((token) => !values.includes(token)),
+      );
+    }
+    toggle(token: unknown, force?: unknown): boolean {
+      tokenElement(this);
+      if (arguments.length === 0) throw new TypeError("toggle requires a token");
+      const value = domString(token);
+      validateToken(value);
+      const values = tokenValues(this),
+        present = values.includes(value);
+      if (present) {
+        if (force === undefined || !force) {
+          updateTokens(
+            this,
+            values.filter((candidate) => candidate !== value),
+          );
+          return false;
+        }
+        return true;
+      }
+      if (force === undefined || force) {
+        updateTokens(this, [...values, value]);
+        return true;
+      }
+      return false;
+    }
+    replace(token: unknown, replacement: unknown): boolean {
+      tokenElement(this);
+      if (arguments.length < 2) throw new TypeError("replace requires two tokens");
+      const old = domString(token),
+        next = domString(replacement);
+      if (old === "" || next === "") throw new DOMException("empty token", "SyntaxError");
+      validateToken(old);
+      validateToken(next);
+      const values = tokenValues(this);
+      if (!values.includes(old)) return false;
+      updateTokens(
+        this,
+        Array.from(new Set(values.map((value) => (value === old ? next : value)))),
+      );
+      return true;
+    }
+    supports(token: unknown): boolean {
+      tokenElement(this);
+      if (arguments.length === 0) throw new TypeError("supports requires a token");
+      domString(token);
+      throw new TypeError("class has no supported-token vocabulary");
+    }
+    toString(): string {
+      return tokenValue(this) ?? "";
+    }
+    forEach(
+      callback: (this: unknown, value: string, index: number, list: DOMTokenList) => void,
+      thisArg?: unknown,
+    ): void {
+      tokenElement(this);
+      if (typeof callback !== "function") throw new TypeError("callback must be callable");
+      let index = 0;
+      for (const value of this) callback.call(thisArg, value, index++, this);
+    }
+    entries(): Generator<[number, string]> {
+      tokenElement(this);
+      return tokenEntries(this);
+    }
+    values(): Generator<string> {
+      tokenElement(this);
+      return tokenIterator(this);
+    }
+    keys(): Generator<number> {
+      tokenElement(this);
+      return tokenKeys(this);
+    }
+    [Symbol.iterator](): Generator<string> {
+      return this.values();
+    }
+  }
+  function* tokenEntries(list: DOMTokenList): Generator<[number, string]> {
+    for (let index = 0; index < tokenValues(list).length; index++) {
+      const value = tokenValues(list)[index];
+      if (value !== undefined) yield [index, value];
+    }
+  }
+  function* tokenKeys(list: DOMTokenList): Generator<number> {
+    for (const [index] of tokenEntries(list)) yield index;
+  }
+  function* tokenIterator(list: DOMTokenList): Generator<string> {
+    for (const [, value] of tokenEntries(list)) yield value;
+  }
+  Object.defineProperty(DOMTokenList.prototype, Symbol.toStringTag, {
+    value: "DOMTokenList",
+    configurable: true,
+  });
+  function classList(owner: Element): DOMTokenList {
+    const cached = classLists.get(owner);
+    if (cached) return cached;
+    const id = idOf(owner);
+    if (call<number>("get", id, "nodeType") !== 1) throw new TypeError("Illegal invocation");
+    // Only the Element getter manufactures a branded list.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const target = Object.create(DOMTokenList.prototype) as DOMTokenList;
+    tokenElements.set(target, id);
+    const proxy = new Proxy(target, {
+      get(object, key, receiver): unknown {
+        const index = propertyIndex(key);
+        return index === null ? Reflect.get(object, key, receiver) : tokenValues(object)[index];
+      },
+      has(object, key) {
+        const index = propertyIndex(key);
+        return index === null ? Reflect.has(object, key) : index < tokenValues(object).length;
+      },
+      ownKeys(object) {
+        return [
+          ...tokenValues(object).map((_, index) => String(index)),
+          ...Reflect.ownKeys(object),
+        ];
+      },
+      getOwnPropertyDescriptor(object, key) {
+        const index = propertyIndex(key);
+        if (index === null) return Reflect.getOwnPropertyDescriptor(object, key);
+        const value = tokenValues(object)[index];
+        return value === undefined
+          ? undefined
+          : { value, writable: false, enumerable: true, configurable: true };
+      },
+      defineProperty(object, key, descriptor) {
+        return propertyIndex(key) === null && Reflect.defineProperty(object, key, descriptor);
+      },
+      deleteProperty(object, key) {
+        const index = propertyIndex(key);
+        return index === null
+          ? Reflect.deleteProperty(object, key)
+          : index >= tokenValues(object).length;
+      },
+      preventExtensions() {
+        return false;
+      },
+    });
+    tokenElements.set(proxy, id);
+    classLists.set(owner, proxy);
+    return proxy;
+  }
   class Element extends ParentNode {
+    get classList(): DOMTokenList {
+      return classList(this);
+    }
+    set classList(value: unknown) {
+      classList(this).value = value;
+    }
+
     matches(selector: string): boolean {
       return call("matches", idOf(this), selector);
     }
@@ -1272,6 +1482,7 @@
     DocumentFragment,
     NodeList,
     HTMLCollection,
+    DOMTokenList,
     CharacterData,
     Text,
     Comment,
