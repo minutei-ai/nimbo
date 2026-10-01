@@ -14,6 +14,9 @@ const tokenScript = await Bun.file(
 const htmlElementScript = await Bun.file(
   join(import.meta.dir, "../crates/engine/tests/fixtures/html-elements.txt"),
 ).text();
+const customElementScript = await Bun.file(
+  join(import.meta.dir, "../crates/engine/tests/fixtures/custom-elements.txt"),
+).text();
 const requests: string[] = [];
 const comparisonBinary = process.env.NIMBO_COMPARE_OBSCURA_BINARY;
 async function comparePage(binary: string, url: string): Promise<unknown> {
@@ -374,6 +377,19 @@ const origin = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     requests.push(`${request.method} ${path}`);
+    if (path === "/custom-elements-empty")
+      return new Response("<title>Empty registry</title>", {
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
+    if (path.startsWith("/custom-elements/")) {
+      const variant = Number(path.split("/").at(-1));
+      return new Response(
+        `<x-root></x-root><x-parsed data-native="source"></x-parsed><script>globalThis.variant=${variant};${customElementScript}</script>`,
+        {
+          headers: { "content-type": "text/html; charset=utf-8" },
+        },
+      );
+    }
     if (path.startsWith("/html-elements/")) {
       const variant = Number(path.split("/").at(-1));
       return new Response(
@@ -1247,3 +1263,82 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     }
   },
 );
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native custom element upgrades and reactions variant %i",
+  async (variant) => {
+    const url = new URL(`custom-elements/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "comparisonPromise" }),
+    });
+    expect(response.status).toBe(200);
+    const expected = Object.fromEntries(
+      [
+        "registered",
+        "upgrade",
+        "once",
+        "attributes",
+        "lifecycle",
+        "construction",
+        "explicit",
+        "insertion",
+        "fragments",
+        "replacement",
+        "failure",
+        "guards",
+        "promise",
+        "detachedHTML",
+        "constructorValidation",
+        "unicode",
+        "documentNoop",
+        "parsedHTML",
+      ].map((key) => [key, true]),
+    );
+    expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: expected });
+    expect(requests).toContain(`GET /custom-elements/${variant}`);
+    if (comparisonBinary) expect(await comparePage(comparisonBinary, url)).toBeNull();
+  },
+);
+
+test("real HTTP → workerd → Wasm: registry quotas and fresh request recovery", async () => {
+  const url = new URL("custom-elements-empty", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression: `(async () => {
+      for (let i=0;i<1024;i++) customElements.define('x-limit-'+i,class extends HTMLElement{});
+      let definitionLimit=false;
+      try {customElements.define('x-overflow',class extends HTMLElement{})} catch(error) {definitionLimit=error.message==='custom element definition limit'}
+      for (let i=0;i<1024;i++) customElements.whenDefined('x-pending-'+i);
+      let promiseLimit=false;
+      try {await customElements.whenDefined('x-pending-overflow')} catch(error) {promiseLimit=error.message==='when-defined promise limit'}
+      return [definitionLimit,promiseLimit,customElements.get('x-overflow')===undefined];
+    })()`,
+    }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({
+    url,
+    engine: "rust-wasm-quickjs",
+    value: [true, true, true],
+  });
+  const recovery = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression:
+        "[customElements.get('x-limit-0')===undefined,typeof nimboDom,customElements instanceof CustomElementRegistry]",
+    }),
+  });
+  expect(recovery.status).toBe(200);
+  expect(await recovery.json()).toEqual({
+    url,
+    engine: "rust-wasm-quickjs",
+    value: [true, "undefined", true],
+  });
+});

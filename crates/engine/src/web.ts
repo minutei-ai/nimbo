@@ -25,11 +25,14 @@
   const nodes = new Map<number, Node>();
   // Result shapes are serialized by Rust for each native operation.
   // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
-  const call = <T>(operation: string, id: number, arg = "", value = ""): T => {
+  const raw = <T>(operation: string, id: number, arg = "", value = ""): T => {
     // The bridge owns this JSON contract; it is not page-supplied JSON.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     return JSON.parse(nativeDom(operation, id, arg, value)) as T;
   };
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
+  const call = <T>(operation: string, id: number, arg = "", value = ""): T =>
+    customMutation<T>(operation, id, arg, value);
 
   type Target = EventTarget | typeof globalThis;
   type Listener = ((this: Target, event: Event) => void) | { handleEvent(event: Event): void };
@@ -1250,6 +1253,9 @@
     }
   }
   const htmlElements = new WeakSet<object>();
+  function isHTML(candidate: Node): candidate is HTMLElement {
+    return htmlElements.has(candidate);
+  }
   function htmlId(owner: object): number {
     if (!htmlElements.has(owner)) throw new TypeError("Illegal invocation");
     return idOf(owner);
@@ -1266,9 +1272,10 @@
   }
   class HTMLElement extends Element {
     constructor(key?: symbol, id?: number) {
-      if (key !== internal || id === undefined) throw new TypeError("Illegal constructor");
+      if (key !== internal || id === undefined) return constructHTML(new.target);
       super(internal, id);
       htmlElements.add(this);
+      return this;
     }
     get title(): string {
       return htmlAttribute(this, "title") ?? "";
@@ -1331,6 +1338,351 @@
     value: "HTMLElement",
     configurable: true,
   });
+  type CustomConstructor = new () => HTMLElement;
+  type CustomCallback = (this: HTMLElement, ...args: unknown[]) => unknown;
+  type Definition = {
+    name: string;
+    constructor: CustomConstructor;
+    prototype: object;
+    observed: string[];
+    callbacks: Map<string, CustomCallback>;
+    stack: { element: HTMLElement; consumed: boolean }[];
+  };
+  type CustomState = { definition: Definition; status: "constructing" | "custom" | "failed" };
+  const definitions = new Map<string, Definition>();
+  const constructorDefinitions = new Map<Function, Definition>();
+  const customStates = new WeakMap<HTMLElement, CustomState>();
+  const reactionQueues = new WeakMap<HTMLElement, (() => void)[]>();
+  const reactionFrames: Set<HTMLElement>[] = [];
+  const pendingDefinitions = new Map<
+    string,
+    { promise: Promise<CustomConstructor>; resolve: (constructor: CustomConstructor) => void }
+  >();
+  const registryBrands = new WeakSet<object>();
+  let defining = false;
+  function validCustomName(name: string): boolean {
+    return (
+      /^[a-z]/.test(name) &&
+      name.includes("-") &&
+      !/[A-Z\t\n\f\r \0/>]/.test(name) &&
+      ![
+        "annotation-xml",
+        "color-profile",
+        "font-face",
+        "font-face-src",
+        "font-face-uri",
+        "font-face-format",
+        "font-face-name",
+        "missing-glyph",
+      ].includes(name)
+    );
+  }
+  function registryBrand(registry: object): void {
+    if (!registryBrands.has(registry)) throw new TypeError("Illegal invocation");
+  }
+  function reactions<T>(work: () => T): T {
+    const frame = new Set<HTMLElement>();
+    reactionFrames.push(frame);
+    try {
+      return work();
+    } finally {
+      reactionFrames.pop();
+      for (const target of frame) {
+        const queue = reactionQueues.get(target);
+        for (let reaction = queue?.shift(); reaction; reaction = queue?.shift()) {
+          try {
+            reaction();
+          } catch (error) {
+            reportListenerError(error);
+          }
+        }
+      }
+    }
+  }
+  function enqueue(target: HTMLElement, reaction: () => void): void {
+    let queue = reactionQueues.get(target);
+    if (!queue) {
+      queue = [];
+      reactionQueues.set(target, queue);
+    }
+    queue.push(reaction);
+    const frame = reactionFrames.at(-1);
+    if (!frame) throw new Error("missing custom-element reaction frame");
+    frame.add(target);
+  }
+  function customCallback(target: HTMLElement, name: string, args: unknown[] = []): void {
+    const state = customStates.get(target);
+    const handler = state?.definition.callbacks.get(name);
+    if (!state || state.status === "failed" || !handler) return;
+    if (name === "attributeChangedCallback" && !state.definition.observed.includes(String(args[0])))
+      return;
+    enqueue(target, () => {
+      if (state.status !== "failed") handler.apply(target, args);
+    });
+  }
+  function customTree(root: number, inclusive = true, name = ""): HTMLElement[] {
+    return raw<number[]>("customCandidates", root, name)
+      .filter((id) => inclusive || id !== root)
+      .map(element)
+      .filter(isHTML);
+  }
+  function upgrade(target: HTMLElement): void {
+    reactions(() => upgradeElement(target));
+  }
+  function upgradeElement(target: HTMLElement): void {
+    if (customStates.has(target)) return;
+    const definition = definitions.get(raw<string>("get", idOf(target), "localName"));
+    if (!definition) return;
+    const state: CustomState = { definition, status: "constructing" };
+    customStates.set(target, state);
+    for (const [name, value, namespace] of raw<[string, string, string | null][]>(
+      "attributes",
+      idOf(target),
+    ))
+      customCallback(target, "attributeChangedCallback", [name, null, value, namespace]);
+    if (raw<boolean>("get", idOf(target), "isConnected"))
+      customCallback(target, "connectedCallback");
+    const entry = { element: target, consumed: false };
+    definition.stack.push(entry);
+    try {
+      const result = Reflect.construct(definition.constructor, []);
+      if (result !== target || !entry.consumed)
+        throw new TypeError("custom constructor did not return its native element");
+      state.status = "custom";
+    } catch (error) {
+      state.status = "failed";
+      reactionQueues.get(target)?.splice(0);
+      reportListenerError(error);
+    } finally {
+      definition.stack.pop();
+    }
+  }
+  function constructHTML(constructor: Function): HTMLElement {
+    const definition = constructorDefinitions.get(constructor);
+    if (!definition || constructor === HTMLElement) throw new TypeError("Illegal constructor");
+    const entry = definition.stack.at(-1);
+    if (entry) {
+      if (entry.consumed)
+        throw new DOMException("element already constructed", "InvalidStateError");
+      entry.consumed = true;
+      Object.setPrototypeOf(entry.element, definition.prototype);
+      return entry.element;
+    }
+    const target = new HTMLElement(internal, raw<number>("create", 0, definition.name));
+    Object.setPrototypeOf(target, definition.prototype);
+    customStates.set(target, { definition, status: "custom" });
+    return target;
+  }
+  function stringSequence(value: unknown): string[] {
+    if (value === undefined) return [];
+    if (value === null || (typeof value !== "object" && typeof value !== "function"))
+      throw new TypeError("expected an iterable object");
+    // The iterable conversion is checked by Array.from's iterator handling.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const iterable = value as Iterable<unknown>;
+    if (typeof iterable[Symbol.iterator] !== "function")
+      throw new TypeError("expected an iterable object");
+    return Array.from(iterable, domString);
+  }
+  class CustomElementRegistry {
+    constructor(key?: symbol) {
+      if (key !== internal)
+        throw new DOMException("scoped registries are not implemented", "NotSupportedError");
+      registryBrands.add(this);
+    }
+    define(
+      name: unknown,
+      constructor: unknown,
+      options: { extends?: unknown } | null = null,
+    ): void {
+      registryBrand(this);
+      if (arguments.length < 2) throw new TypeError("define requires a name and constructor");
+      const localName = domString(name);
+      if (typeof constructor !== "function")
+        throw new TypeError("constructor must be constructable");
+      try {
+        Reflect.construct(new Proxy(constructor, { construct: () => ({}) }), []);
+      } catch {
+        throw new TypeError("constructor must be constructable");
+      }
+      if (!validCustomName(localName))
+        throw new DOMException("invalid custom element name", "SyntaxError");
+      if (definitions.has(localName) || constructorDefinitions.has(constructor))
+        throw new DOMException("duplicate custom element definition", "NotSupportedError");
+      const extended = options?.extends;
+      if (extended !== undefined) {
+        domString(extended);
+        throw new DOMException(
+          "customized built-in elements are not implemented",
+          "NotSupportedError",
+        );
+      }
+      if (defining) throw new DOMException("definition is running", "NotSupportedError");
+      if (definitions.size >= 1024) throw new Error("custom element definition limit");
+      defining = true;
+      let prototype: object;
+      const callbacks = new Map<string, CustomCallback>();
+      let observed: string[];
+      try {
+        const candidate: unknown = constructor.prototype;
+        if (
+          candidate === null ||
+          (typeof candidate !== "object" && typeof candidate !== "function")
+        )
+          throw new TypeError("constructor prototype must be an object");
+        prototype = candidate;
+        for (const callbackName of [
+          "connectedCallback",
+          "disconnectedCallback",
+          "connectedMoveCallback",
+          "adoptedCallback",
+          "attributeChangedCallback",
+        ]) {
+          const handler: unknown = Reflect.get(prototype, callbackName);
+          if (handler !== undefined) {
+            if (typeof handler !== "function")
+              throw new TypeError("lifecycle callback must be callable");
+            // Callability was checked above; callbacks execute only in the page realm.
+            // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+            callbacks.set(callbackName, handler as CustomCallback);
+          }
+        }
+        observed = callbacks.has("attributeChangedCallback")
+          ? stringSequence(Reflect.get(constructor, "observedAttributes"))
+          : [];
+        stringSequence(Reflect.get(constructor, "disabledFeatures"));
+        if (Reflect.get(constructor, "formAssociated"))
+          throw new DOMException(
+            "form-associated custom elements are not implemented",
+            "NotSupportedError",
+          );
+      } finally {
+        defining = false;
+      }
+      // Constructability and prototype shape were checked without invoking user construction.
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+      const customConstructor = constructor as CustomConstructor;
+      const definition: Definition = {
+        name: localName,
+        constructor: customConstructor,
+        prototype,
+        callbacks,
+        observed,
+        stack: [],
+      };
+      reactions(() => {
+        definitions.set(localName, definition);
+        constructorDefinitions.set(constructor, definition);
+        for (const target of customTree(0, true, localName)) enqueue(target, () => upgrade(target));
+        pendingDefinitions.get(localName)?.resolve(definition.constructor);
+        pendingDefinitions.delete(localName);
+      });
+    }
+    get(name: unknown): CustomConstructor | undefined {
+      registryBrand(this);
+      if (arguments.length === 0) throw new TypeError("get requires a name");
+      return definitions.get(domString(name))?.constructor;
+    }
+    getName(constructor: unknown): string | null {
+      registryBrand(this);
+      if (typeof constructor !== "function") throw new TypeError("getName requires a constructor");
+      return constructorDefinitions.get(constructor)?.name ?? null;
+    }
+    whenDefined(name: unknown): Promise<CustomConstructor> {
+      try {
+        registryBrand(this);
+        if (arguments.length === 0) throw new TypeError("whenDefined requires a name");
+        const localName = domString(name);
+        if (!validCustomName(localName))
+          throw new DOMException("invalid custom element name", "SyntaxError");
+        const defined = definitions.get(localName);
+        if (defined) return Promise.resolve(defined.constructor);
+        const pending = pendingDefinitions.get(localName);
+        if (pending) return pending.promise;
+        if (pendingDefinitions.size >= 1024) throw new Error("when-defined promise limit");
+        let resolve!: (constructor: CustomConstructor) => void;
+        const promise = new Promise<CustomConstructor>((done) => {
+          resolve = done;
+        });
+        pendingDefinitions.set(localName, { promise, resolve });
+        return promise;
+      } catch (error) {
+        return Promise.reject(error);
+      }
+    }
+    upgrade(root: Node): void {
+      registryBrand(this);
+      const id = idOf(root);
+      reactions(() => {
+        for (const target of customTree(id)) enqueue(target, () => upgrade(target));
+      });
+    }
+  }
+  Object.defineProperty(CustomElementRegistry.prototype, Symbol.toStringTag, {
+    value: "CustomElementRegistry",
+    configurable: true,
+  });
+  const customElements = new CustomElementRegistry(internal);
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
+  function customMutation<T>(operation: string, id: number, arg: string, value: string): T {
+    if (
+      definitions.size === 0 ||
+      ![
+        "setAttr",
+        "removeAttr",
+        "set",
+        "append",
+        "insert",
+        "replace",
+        "remove",
+        "removeChild",
+      ].includes(operation)
+    )
+      return raw<T>(operation, id, arg, value);
+    return reactions(() => {
+      if (operation === "setAttr" || operation === "removeAttr") {
+        const target = nodes.get(id);
+        const old = raw<string | null>("attr", id, arg);
+        const result = raw<T>(operation, id, arg, value);
+        if (target && isHTML(target) && (operation === "setAttr" || old !== null)) {
+          customCallback(target, "attributeChangedCallback", [
+            arg,
+            old,
+            operation === "removeAttr" ? null : value,
+            null,
+          ]);
+        }
+        return result;
+      }
+      if (operation === "set" && !["innerHTML", "textContent"].includes(arg))
+        return raw<T>(operation, id, arg, value);
+      if (operation === "set" && ![1, 11].includes(raw<number>("get", id, "nodeType")))
+        return raw<T>(operation, id, arg, value);
+      const insertion = ["append", "insert", "replace"].includes(operation);
+      const replacedContents = operation === "set";
+      const source = insertion || operation === "removeChild" ? Number(value) : id;
+      let before = replacedContents ? customTree(id, false) : customTree(source);
+      if (operation === "replace" && Number(arg) !== source)
+        before.push(...customTree(Number(arg)));
+      before = Array.from(new Set(before));
+      const connected = before.filter(
+        (target) =>
+          raw<boolean>("get", idOf(target), "isConnected") &&
+          customStates.get(target)?.status === "custom",
+      );
+      const result = raw<T>(operation, id, arg, value);
+      for (const target of connected) customCallback(target, "disconnectedCallback");
+      const after = replacedContents ? customTree(id, false) : before;
+      for (const target of after) {
+        if (customStates.get(target)?.status === "custom") {
+          if (raw<boolean>("get", idOf(target), "isConnected"))
+            customCallback(target, "connectedCallback");
+        } else if (replacedContents || raw<boolean>("get", idOf(target), "isConnected"))
+          enqueue(target, () => upgrade(target));
+      }
+      return result;
+    });
+  }
   class CharacterData extends Node {
     get data(): string {
       return this.nodeValue ?? "";
@@ -1429,7 +1781,36 @@
       return new DocumentFragment();
     }
     createElement(tag: string) {
-      return element(call("create", 0, tag));
+      if (arguments.length === 0) throw new TypeError("createElement requires a name");
+      const localName = domString(tag);
+      const target = element(call("create", 0, localName));
+      if (isHTML(target) && definitions.size > 0) {
+        const definition = definitions.get(raw<string>("get", idOf(target), "localName"));
+        if (definition) {
+          reactions(() => upgrade(target));
+          const state = customStates.get(target);
+          if (
+            state?.status !== "custom" ||
+            raw<unknown[]>("attributes", idOf(target)).length > 0 ||
+            raw<number[]>("children", idOf(target), "nodes").length > 0 ||
+            raw<number | null>("relativeNode", idOf(target), "parent") !== null
+          ) {
+            if (state?.status === "custom") {
+              state.status = "failed";
+              reportListenerError(
+                new DOMException(
+                  "custom constructor changed initial DOM structure",
+                  "NotSupportedError",
+                ),
+              );
+            }
+            const fallback = new HTMLElement(internal, call<number>("create", 0, localName));
+            customStates.set(fallback, { definition, status: "failed" });
+            return fallback;
+          }
+        }
+      }
+      return target;
     }
   }
   const document = new Document(internal, 0);
@@ -1566,6 +1947,7 @@
     Node,
     Element,
     HTMLElement,
+    CustomElementRegistry,
     Document,
     DocumentFragment,
     NodeList,
@@ -1586,6 +1968,7 @@
   });
 
   Object.defineProperties(globalThis, {
+    customElements: { get: () => customElements, enumerable: true, configurable: true },
     innerWidth: { get: () => mediaEnvironment.width, enumerable: true, configurable: true },
     innerHeight: { get: () => mediaEnvironment.height, enumerable: true, configurable: true },
     localStorage: { get: () => localStorage, enumerable: true, configurable: true },

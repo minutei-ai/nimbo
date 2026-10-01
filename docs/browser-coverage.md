@@ -21,7 +21,7 @@ tests as well as integration and application tests.
 
 `tooling/browser-live.test.ts` uses a real loopback HTTP origin, actual workerd,
 and the compiled Rust/Wasm engine. It installs no transport replacements,
-service mocks, browser API stubs, or canned engine results. Its 768 data variants
+service mocks, browser API stubs, or canned engine results. Its 832 data variants
 exercise external scripts, Unicode/entity decoding, selector identity,
 ancestry, removal/reparenting, attribute mutation and POST response decoding.
 They also exercise parsed and created text/comment nodes, native node identity,
@@ -45,18 +45,23 @@ failures. The eighth set exercises native Web Storage across inline, external
 and module scripts, UTF-16 including lone surrogates, coercion/receiver guards,
 named properties, reflection, removal, clearing and fresh Worker request areas.
 An additional case exercises actual quota exhaustion, atomic failure, independent
-local/session quotas and reuse. These are repeated integration checks, not 768 independent platform
+local/session quotas and reuse. These are repeated integration checks, not 832 independent platform
 features. The ninth set checks native media queries against 64 explicit viewport
 and preference configurations, including ranges, three-valued conditions,
 serialization, CSS escapes, receiver guards and synthetic MediaQueryList events.
 The tenth set rejects 64 invalid environment variants before any HTTP navigation.
 The eleventh set repeats the same DOMTokenList fixture at 64 distinct URLs,
 checking live attribute reads, ordered token mutations, identity, indices,
-iteration, receiver guards and atomic invalid-token rejection. Including three
-resource/deadline recovery cases, the real browser suite has 771 tests.
+iteration, receiver guards and atomic invalid-token rejection. Including four
+resource/deadline recovery cases, the real browser suite has 836 tests.
 The twelfth set checks HTML namespace identity and reflected attributes with
 64 distinct synthetic strings. It includes parsed SVG/MathML and an HTML
 subtree inside SVG foreignObject.
+The thirteenth set checks autonomous custom elements at 64 distinct synthetic
+names: registration, parsed/detached upgrades, native node identity, observed
+attributes, construction, connection/disconnection, fragments, innerHTML,
+failed constructors and when-defined Promises. A separate resource case reaches
+the 1024-definition and 1024-pending-Promise caps and verifies fresh-page recovery.
 Event support remains a subset: timestamps, legacy initialization,
 shadow trees, native input, AbortSignal timeout/any and fetch cancellation are
 not covered by this implementation.
@@ -148,16 +153,42 @@ until-found keyword. Attribute writes retain the shared native write budget.
 This implements part of the [HTMLElement interface](https://html.spec.whatwg.org/multipage/dom.html#htmlelement)
 and the [hidden IDL contract](https://html.spec.whatwg.org/multipage/interaction.html#dom-hidden).
 It does not implement rendering, inert input suppression, find-in-page revealing,
-HTMLUnknownElement or specialized tag interfaces, custom-element registration,
-upgrades, construction or lifecycle callbacks. Bare and unregistered subclass
-construction throw TypeError. HTML constructor/custom-element work remains in
-scope; exposing HTMLElement alone does not prove application hydration.
+HTMLUnknownElement or specialized tag interfaces. Bare and unregistered subclass
+construction throw TypeError. Exposing HTMLElement alone does not prove
+application hydration.
 
 The pinned comparator completes this synthetic fixture: string reflection,
 direction, detached writes and custom-name inheritance checks pass. Its composite
 identity, foreign-namespace, inert, hidden and receiver-guard checks return false.
 The comparison records those results separately and keeps every Nimbo check true;
 these grouped checks do not identify every individual upstream divergence.
+
+The page's own CustomElementRegistry implements autonomous definitions,
+get/getName, whenDefined and explicit upgrade. Native candidate traversal filters
+HTML-namespace custom names in tree order without manufacturing wrappers for
+unrelated nodes. Upgrades preserve existing native identity, execute real page
+constructors and share per-element reaction queues. Attribute and structural
+writes trigger saved lifecycle callbacks; fragments, reparenting, innerHTML and
+reflected attributes use those same native mutations. Failed upgrades are not
+retried, and callback exceptions report window errors. Synchronous createElement
+checks attributes/children/parent after construction and returns a fresh failed
+native fallback for invalid constructors. Pending whenDefined calls share a
+Promise until registration resolves them. Names accept Unicode under the current
+[custom-element name contract](https://html.spec.whatwg.org/multipage/custom-elements.html#valid-custom-element-name)
+and [DOM name validation](https://dom.spec.whatwg.org/#valid-element-local-name).
+
+This is not complete custom-element/WPT conformance. Customized built-ins,
+scoped registries, shadow roots, ElementInternals, form association, adoption,
+state-preserving moves, :defined matching and parser-interleaved construction
+remain missing. Unsupported scoped registry construction and built-in/form
+registration fail explicitly. Full Web IDL coercion/prototype reflection and
+constructor edge cases remain unverified. The existing parser still completes
+HTML before scripts execute. Registry/upgrade evidence does not prove that an
+application's dynamic modules or hydration complete.
+
+The pinned comparator returns null for this completed custom-element fixture.
+The suite records its failed fixture separately from Nimbo's positive assertions;
+that result does not establish that every upstream custom-element API is absent.
 
 `Element.classList` returns a same-object DOMTokenList backed directly by the
 native class attribute. It parses ordered unique tokens using ASCII whitespace,
@@ -242,7 +273,8 @@ evidence cannot establish it.
 | Classic scripts and Promise jobs                      | Subset     | Source ordering, exception propagation, resource exhaustion                        |
 | Modules, import maps, JSON modules, dynamic import    | Subset     | Native graphs tested; import maps, JSON and new dynamic fetching missing           |
 | Timers, animation frames and scheduling               | Subset     | Real-clock timers/cancellation tested; frames, idle and full event loop missing    |
-| Custom elements and Shadow DOM                        | Missing    | Upgrade lifecycle, slots, composed paths, isolation                                |
+| Custom elements autônomos                             | Subset     | Native upgrades, lifecycle and failed construction; scoped/built-in/form gaps      |
+| Shadow DOM                                            | Missing    | Slots, composed paths, shadow boundaries and isolation                             |
 | Frames and independent execution worlds               | Missing    | Same/cross-origin frames, navigation, world isolation                              |
 | Fetch and HTTP navigation                             | Subset     | Real GET/POST, cookies, redirects, bodies; full headers/abort/streams              |
 | XMLHttpRequest, forms, files and binary responses     | Missing    | Real uploads/downloads, encodings, progress and cancellation                       |

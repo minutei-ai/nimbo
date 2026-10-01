@@ -1,0 +1,98 @@
+globalThis.comparisonPromise = (async () => {
+  const variant = globalThis.variant ?? 0;
+  const name = `x-probe-${variant}`;
+  const root = document.querySelector('x-root');
+  const parsed = document.createElement(name); parsed.setAttribute('data-value','parsed');
+  root.appendChild(parsed);
+  const events=[]; const errors=[];
+  addEventListener('error',event=>{errors.push(event.message);event.preventDefault()});
+  const pending = customElements.whenDefined(name);
+  const samePromise = pending === customElements.whenDefined(name);
+  class Probe extends HTMLElement {
+    static observedAttributes = ['data-value','class','title'];
+    constructor() {super(); this.created = true; events.push('ctor')}
+    connectedCallback() {events.push('connected')}
+    disconnectedCallback() {events.push('disconnected')}
+    attributeChangedCallback(name,old,value,namespace) {events.push(`${name}:${old}:${value}:${namespace}`)}
+  }
+  customElements.define(name,Probe);
+  const registered = customElements instanceof CustomElementRegistry && customElements === window.customElements
+    && customElements.get(name) === Probe && customElements.getName(Probe) === name && customElements.get('missing') === undefined;
+  const upgrade = parsed instanceof Probe && parsed.created && document.querySelector(name) === parsed
+    && events.join(',') === 'ctor,data-value:null:parsed:null,connected';
+  const snapshot = events.length; customElements.upgrade(document);
+  const once = events.length === snapshot;
+  events.length=0;
+  parsed.setAttribute('data-value','changed'); parsed.setAttribute('data-value','changed'); parsed.removeAttribute('data-value'); parsed.removeAttribute('data-value');
+  parsed.classList.add('one'); parsed.title = 'reflected'; parsed.setAttribute('unobserved','ignored');
+  const attributes = events.join(',') === 'data-value:parsed:changed:null,data-value:changed:changed:null,data-value:changed:null:null,class:null:one:null,title:null:reflected:null';
+  events.length=0; const container = document.createElement('section'); document.body.appendChild(container);
+  container.appendChild(parsed); parsed.remove(); parsed.remove(); container.appendChild(parsed);
+  const lifecycle = events.join(',') === 'disconnected,connected,disconnected,connected';
+  events.length=0;
+  const direct = new Probe(); const created = document.createElement(name);
+  const construction = direct instanceof Probe && direct.localName === name && created instanceof Probe
+    && !direct.isConnected && !created.isConnected && events.join(',') === 'ctor,ctor';
+  const otherName = `x-detached-${variant}`; const detached = document.createElement(otherName);
+  class Detached extends HTMLElement {constructor(){super();this.upgraded = true}}
+  customElements.define(otherName,Detached);
+  const notAutomatic = !(detached instanceof Detached); customElements.upgrade(detached);
+  const explicit = notAutomatic && detached instanceof Detached && detached.upgraded;
+  const lateName = `x-late-${variant}`; const late = document.createElement(lateName);
+  class Late extends HTMLElement {constructor(){super();this.upgraded = true}}
+  customElements.define(lateName,Late); container.appendChild(late);
+  const insertion = late instanceof Late && late.upgraded && late.isConnected;
+  events.length=0;
+  const fragment = document.createDocumentFragment(); fragment.appendChild(direct); fragment.appendChild(created); container.appendChild(fragment);
+  const fragments = fragment.children.length === 0 && direct.parentElement === container && events.join(',') === 'connected,connected';
+  events.length=0; container.innerHTML = `<${name} data-value="html"></${name}>`;
+  const html = container.querySelector(name);
+  const replacement = html instanceof Probe && html.created && html.getAttribute('data-value') === 'html'
+    && events.includes('disconnected') && events.slice(-3).join(',') === 'ctor,data-value:null:html:null,connected';
+  const detachedContainer = document.createElement('aside');
+  detachedContainer.innerHTML = `<${name}></${name}>`;
+  const detachedHTML = detachedContainer.querySelector(name) instanceof Probe;
+  const badName = `x-invalid-constructor-${variant}`;
+  class InvalidConstructor extends HTMLElement {constructor(){super();this.setAttribute('illegal','attribute')}}
+  customElements.define(badName,InvalidConstructor);
+  const bad = document.createElement(badName);
+  const constructorValidation = !(bad instanceof InvalidConstructor) && !bad.hasAttribute('illegal') && !bad.isConnected
+    && new InvalidConstructor().hasAttribute('illegal');
+  const unicodeName = `x-α😀-${variant}`;
+  class Unicode extends HTMLElement {}
+  customElements.define(unicodeName,Unicode);
+  const unicode = document.createElement(unicodeName) instanceof Unicode;
+  events.length=0; document.textContent = 'ignored';
+  const documentNoop = events.length === 0 && document.querySelector(name) === html;
+  const parseEvents = [];
+  class Parsed extends HTMLElement {
+    static observedAttributes = ['data-native'];
+    constructor(){super();this.created = true;parseEvents.push('ctor')}
+    attributeChangedCallback(name,old,value){parseEvents.push(`${name}:${old}:${value}`)}
+    connectedCallback(){parseEvents.push('connected')}
+  }
+  customElements.define('x-parsed',Parsed);
+  const nativeParsed = document.querySelector('x-parsed');
+  const parsedHTML = nativeParsed instanceof Parsed && nativeParsed.created && nativeParsed.getAttribute('data-native') === 'source'
+    && parseEvents.join(',') === 'ctor,data-native:null:source,connected';
+  const failureName = `x-fail-${variant}`; const failed = document.createElement(failureName); root.appendChild(failed);
+  let attempts=0;
+  class Failed extends HTMLElement {constructor(){super();attempts++;throw new Error('synthetic constructor failure')}}
+  customElements.define(failureName,Failed); customElements.upgrade(failed); failed.remove(); root.appendChild(failed);
+  const failure = attempts === 1 && errors.some(message=>message.includes('synthetic constructor failure'));
+  const invalid=[];
+  for (const action of [()=>customElements.define('bad',class extends HTMLElement{}),
+    ()=>customElements.define(name,class extends HTMLElement{}), ()=>customElements.define(`x-alias-${variant}`,Probe),
+    ()=>customElements.define(`x-arrow-${variant}`,()=>{}), ()=>new HTMLElement(),
+    ()=>CustomElementRegistry.prototype.get.call({},name), ()=>customElements.get(),
+    ()=>customElements.define(`x-built-${variant}`,class extends HTMLElement{},{extends:'button'}),
+    ()=>customElements.define('font-face',class extends HTMLElement{})]) {
+    try {action();invalid.push(false)}catch(error){invalid.push(error instanceof TypeError || error instanceof DOMException)}
+  }
+  const guards = invalid.length === 9 && invalid.every(Boolean);
+  let rejected=false; try{await customElements.whenDefined('invalid')}catch(error){rejected=error instanceof DOMException && error.name === 'SyntaxError'}
+  const promise = samePromise && await pending === Probe && await customElements.whenDefined(name) === Probe && rejected;
+  const result = {registered,upgrade,once,attributes,lifecycle,construction,explicit,insertion,fragments,replacement,failure,guards,promise,detachedHTML,constructorValidation,unicode,documentNoop,parsedHTML};
+  globalThis.comparison = result;
+  return result;
+})();

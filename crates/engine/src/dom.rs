@@ -55,6 +55,7 @@ impl Dom {
         self.operations = self.operations.saturating_add(1);
         let result = match operation {
             "query" => self.query(handle, arg)?,
+            "customCandidates" => self.custom_candidates(handle, arg)?,
             "queryOne" => self.query_one(handle, arg)?,
             "children" => self.children(handle, arg)?,
             "matches" => {
@@ -99,18 +100,32 @@ impl Dom {
                 )
             }
             "create" => {
-                if arg.is_empty()
-                    || !arg
-                        .bytes()
-                        .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
-                {
-                    return Err(Error::Dom("invalid element name".into()));
+                if !valid_element_name(arg) {
+                    return Err(Error::DomException {
+                        name: "InvalidCharacterError",
+                        message: "invalid element name",
+                    });
                 }
                 self.charge_write(arg.len())?;
                 let id = self.document.tree.new_element(&arg.to_ascii_lowercase()).id;
                 json!(self.handle(id))
             }
             "get" => self.get(handle, arg)?,
+            "attributes" => json!(
+                self.node(handle)?
+                    .attrs()
+                    .into_iter()
+                    .map(|attribute| (
+                        attribute.name.local.to_string(),
+                        attribute.value.to_string(),
+                        if attribute.name.ns.is_empty() {
+                            None
+                        } else {
+                            Some(attribute.name.ns.to_string())
+                        }
+                    ))
+                    .collect::<Vec<_>>()
+            ),
             "attr" => json!(self.node(handle)?.attr(arg).map(|text| text.to_string())),
             "set" | "setAttr" | "removeAttr" => {
                 let attribute_bytes = if operation == "setAttr" { arg.len() } else { 0 };
@@ -246,6 +261,31 @@ impl Dom {
         };
         let id = relative.map(|relative| relative.id);
         Ok(json!(id.map(|id| self.handle(id))))
+    }
+
+    fn custom_candidates(&mut self, handle: usize, name: &str) -> Result<Value> {
+        let root = self.node(handle)?;
+        let candidates: Vec<_> = std::iter::once(root)
+            .chain(root.descendants_it())
+            .filter_map(|node| {
+                node.query_or(None, |node| match &node.data {
+                    NodeData::Element(element)
+                        if element.name.ns.as_ref() == "http://www.w3.org/1999/xhtml"
+                            && element.name.local.contains('-')
+                            && (name.is_empty() || element.name.local.as_ref() == name) =>
+                    {
+                        Some(node.id)
+                    }
+                    _ => None,
+                })
+            })
+            .collect();
+        Ok(json!(
+            candidates
+                .into_iter()
+                .map(|id| self.handle(id))
+                .collect::<Vec<_>>()
+        ))
     }
 
     fn query(&mut self, handle: usize, selector: &str) -> Result<Value> {
@@ -516,4 +556,25 @@ fn register_handle(
         handles.push(id);
         handle
     })
+}
+
+fn valid_element_name(name: &str) -> bool {
+    let mut chars = name.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    if first.is_ascii_alphabetic() {
+        return !chars.any(|character| {
+            matches!(
+                character,
+                '\t' | '\n' | '\r' | '\u{c}' | ' ' | '\0' | '/' | '>'
+            )
+        });
+    }
+    (matches!(first, ':' | '_') || first >= '\u{80}')
+        && chars.all(|character| {
+            character.is_ascii_alphanumeric()
+                || matches!(character, '-' | '.' | ':' | '_')
+                || character >= '\u{80}'
+        })
 }

@@ -82,6 +82,7 @@ fn serve(mut request: Request) -> io::Result<()> {
     let mut status = 200;
     let mut headers = Vec::new();
     let body = match request.url() {
+        "/custom-elements" => format!("<x-root></x-root><x-parsed data-native=\"source\"></x-parsed><script>{}</script>", include_str!("fixtures/custom-elements.txt")),
         "/html-elements" => format!("<main></main><svg><linearGradient></linearGradient><foreignObject><div></div></foreignObject></svg><math><mi>x</mi></math><script>{}</script>", include_str!("fixtures/html-elements.txt")),
         "/tokens" => format!("<title>Tokens</title><script>{}</script>", include_str!("fixtures/tokens.txt")),
         "/media" => format!("<title>Media</title><script>{}</script>", include_str!("fixtures/media.txt")),
@@ -793,6 +794,22 @@ fn html_elements_use_native_namespaces_and_reflected_attributes() -> TestResult 
     let result = page.evaluate("comparison")?;
     let fields = result.as_object().ok_or("missing HTML element result")?;
     assert_eq!(fields.len(), 12);
+    assert!(
+        fields.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    Ok(())
+}
+
+#[test]
+fn custom_elements_upgrade_native_nodes_and_deliver_reactions() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/custom-elements"))?;
+    let result = page.evaluate("comparisonPromise")?;
+    let fields = result.as_object().ok_or("missing custom element result")?;
+    assert_eq!(fields.len(), 18);
     assert!(
         fields.values().all(|value| *value == json!(true)),
         "{result}"
