@@ -3,6 +3,10 @@
   const nativeDom = nimboDom;
   const nativeRequest = nimboRequest;
   const nativeStorage = nimboStorage;
+  const nativeMedia = nimboMedia;
+  // Values are validated by Rust before installing the page bindings.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  const mediaEnvironment = JSON.parse(nimboMediaEnvironment) as { width: number; height: number };
   const href = nimboUrl;
   const now = nimboNow;
   const timerLimit = nimboTimerLimit;
@@ -10,6 +14,8 @@
   Reflect.deleteProperty(globalThis, "nimboDom");
   Reflect.deleteProperty(globalThis, "nimboRequest");
   Reflect.deleteProperty(globalThis, "nimboStorage");
+  Reflect.deleteProperty(globalThis, "nimboMedia");
+  Reflect.deleteProperty(globalThis, "nimboMediaEnvironment");
   Reflect.deleteProperty(globalThis, "nimboUrl");
   Reflect.deleteProperty(globalThis, "nimboNow");
   Reflect.deleteProperty(globalThis, "nimboTimerLimit");
@@ -507,6 +513,105 @@
     }
   }
   const abortKey = Symbol("abort signal");
+  type MediaState = {
+    media: string;
+    matches: boolean;
+    callback: Listener | null;
+    handler: Listener | null;
+  };
+  const mediaLists = new WeakMap<object, MediaState>();
+  function mediaState(list: object): MediaState {
+    const state = mediaLists.get(list);
+    if (!state) throw new TypeError("Illegal invocation");
+    return state;
+  }
+  const mediaEvents = new WeakMap<object, { media: string; matches: boolean }>();
+  class MediaQueryListEvent extends Event {
+    constructor(
+      type: unknown,
+      init: {
+        media?: unknown;
+        matches?: unknown;
+        bubbles?: unknown;
+        cancelable?: unknown;
+        composed?: unknown;
+      } | null = {},
+    ) {
+      if (arguments.length === 0) throw new TypeError("MediaQueryListEvent requires a type");
+      super(type, init);
+      mediaEvents.set(this, {
+        media: domString(init?.media === undefined ? "" : init.media),
+        matches: Boolean(init?.matches),
+      });
+    }
+    get media(): string {
+      const state = mediaEvents.get(this);
+      if (!state) throw new TypeError("Illegal invocation");
+      return state.media;
+    }
+    get matches(): boolean {
+      const state = mediaEvents.get(this);
+      if (!state) throw new TypeError("Illegal invocation");
+      return state.matches;
+    }
+  }
+  function isMediaHandler(value: unknown): value is (this: Target, event: Event) => void {
+    return typeof value === "function";
+  }
+  class MediaQueryList extends EventTarget {
+    constructor() {
+      super();
+      throw new TypeError("Illegal constructor");
+    }
+    get media(): string {
+      return mediaState(this).media;
+    }
+    get matches(): boolean {
+      return mediaState(this).matches;
+    }
+    get onchange(): Listener | null {
+      return mediaState(this).callback;
+    }
+    set onchange(value: unknown) {
+      const state = mediaState(this);
+      state.callback = isMediaHandler(value) ? value : null;
+      if (state.callback && !state.handler) {
+        state.handler = (event: Event) => {
+          const callback = state.callback;
+          if (typeof callback === "function") callback.call(this, event);
+        };
+        this.addEventListener("change", state.handler);
+      } else if (!state.callback && state.handler) {
+        this.removeEventListener("change", state.handler);
+        state.handler = null;
+      }
+    }
+    addListener(callback: Listener | null): void {
+      mediaState(this);
+      if (arguments.length === 0) throw new TypeError("addListener requires a callback");
+      this.addEventListener("change", callback);
+    }
+    removeListener(callback: Listener | null): void {
+      mediaState(this);
+      if (arguments.length === 0) throw new TypeError("removeListener requires a callback");
+      this.removeEventListener("change", callback);
+    }
+  }
+  Object.defineProperty(MediaQueryList.prototype, Symbol.toStringTag, {
+    value: "MediaQueryList",
+    configurable: true,
+  });
+  function matchMedia(query: unknown): MediaQueryList {
+    if (arguments.length === 0) throw new TypeError("matchMedia requires a query");
+    // Native CSS tokenization/evaluation returns the parsed media and its result.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const state = JSON.parse(nativeMedia(domString(query))) as MediaState;
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const list = Object.create(MediaQueryList.prototype) as MediaQueryList;
+    targets.add(list);
+    mediaLists.set(list, { ...state, callback: null, handler: null });
+    return list;
+  }
   class AbortSignal extends EventTarget {
     constructor(key: symbol) {
       super();
@@ -1149,6 +1254,9 @@
   Object.assign(globalThis, {
     document,
     Storage,
+    MediaQueryList,
+    MediaQueryListEvent,
+    matchMedia,
     window: globalThis,
     self: globalThis,
     location: Object.freeze({ href, toString: () => href }),
@@ -1179,6 +1287,8 @@
   });
 
   Object.defineProperties(globalThis, {
+    innerWidth: { get: () => mediaEnvironment.width, enumerable: true, configurable: true },
+    innerHeight: { get: () => mediaEnvironment.height, enumerable: true, configurable: true },
     localStorage: { get: () => localStorage, enumerable: true, configurable: true },
     sessionStorage: { get: () => sessionStorage, enumerable: true, configurable: true },
   });

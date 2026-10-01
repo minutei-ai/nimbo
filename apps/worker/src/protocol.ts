@@ -5,9 +5,18 @@ export class ScrapeError extends Data.TaggedError("ScrapeError")<{
   readonly reason: string;
 }> {}
 
+const Dimension = Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 16384 }));
+export const Media = Schema.Struct({
+  width: Schema.optional(Dimension),
+  height: Schema.optional(Dimension),
+  colorScheme: Schema.optional(Schema.Literals(["light", "dark"])),
+  reducedMotion: Schema.optional(Schema.Boolean),
+});
+
 export const Input = Schema.Struct({
   url: Schema.String,
   expression: Schema.String,
+  media: Schema.optional(Media),
   scripts: Schema.optional(Schema.Literals(["execute", "skip"])),
 });
 export const Action = Schema.Union([

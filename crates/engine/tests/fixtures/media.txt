@@ -1,0 +1,60 @@
+globalThis.comparison = (() => {
+  const width = innerWidth, height = innerHeight;
+  const list = matchMedia('(MIN-WIDTH: 1PX)');
+  const identity = list instanceof MediaQueryList && list instanceof EventTarget
+    && Object.getPrototypeOf(list) === MediaQueryList.prototype
+    && Object.prototype.toString.call(list) === '[object MediaQueryList]'
+    && list !== matchMedia('(MIN-WIDTH: 1PX)');
+  const serialized = list.media === '(min-width: 1px)' && list.matches;
+  const sizes = matchMedia('(width: ' + width + 'px)').matches && matchMedia('(height: ' + height + 'px)').matches
+    && !matchMedia('(width > ' + width + 'px)').matches && !matchMedia('(height < ' + height + 'px)').matches;
+  const ranges = matchMedia('(1px <= width <= 16384px)').matches && matchMedia('(16384px > height > 0px)').matches
+    && matchMedia('(min-width: 1in)').matches && matchMedia('(max-height: 200pc)').matches;
+  const negative = matchMedia('(width > -100px)').matches && matchMedia('not (width <= -100px)').matches;
+  const orientation = matchMedia('(orientation:landscape)').matches === (width > height)
+    && matchMedia('(orientation:portrait)').matches === (width <= height);
+  const ratio = matchMedia('(aspect-ratio: ' + width + '/' + height + ')').matches;
+  const logical = matchMedia('(width > 0px) and (height > 0px)').matches
+    && matchMedia('(width < 0px) or (height > 0px)').matches
+    && matchMedia('not ((width < 0px) and (unknown))').matches;
+  const unknown = !matchMedia('(unknown)').matches && !matchMedia('not (unknown)').matches
+    && matchMedia('(unknown)').media === 'not all'
+    && matchMedia('(width > 0px) or (unknown)').matches
+    && !matchMedia('(width < 0px) and (unknown)').matches
+    && !matchMedia('not (color-gamut: p3)').matches
+    && matchMedia('(future syntax) or (width > 0px)').matches
+    && !matchMedia('not (orientation:invalid)').matches
+    && !matchMedia('not (prefers-color-scheme:invalid)').matches
+    && !matchMedia('not (pointer:invalid)').matches;
+  const types = matchMedia('screen').matches && matchMedia('all').matches && !matchMedia('print').matches
+    && matchMedia('not print').matches && matchMedia('only screen and (width > 0px)').matches
+    && !matchMedia('not screen and (width > 0px)').matches && matchMedia('not unknown-media').matches;
+  const malformed = matchMedia('(width > 0px) and (height > 0px) or (width)').media === 'not all'
+    && matchMedia('only (width)').media === 'not all' && !matchMedia('()').matches
+    && matchMedia(') , all').matches && matchMedia('all,').media === 'all, not all';
+  const escaped = matchMedia('(w\\69 dth: ' + width + 'px)').matches
+    && matchMedia('SCREEN/**/and (WIDTH:' + width + 'px)').media === 'screen and (width: ' + width + 'px)';
+  const empty = matchMedia('').matches && matchMedia(' /* comment */ ').matches
+    && matchMedia(undefined).media === 'undefined' && !matchMedia(null).matches;
+  const input = matchMedia('(pointer:none)').matches && matchMedia('(hover:none)').matches
+    && !matchMedia('(pointer:fine)').matches && matchMedia('(scripting:enabled)').matches;
+  const listeners = [];
+  function listener(event) {listeners.push(this === list && event.target === list && !event.isTrusted);}
+  list.addListener(listener); list.addEventListener('change',listener);
+  list.onchange = event => listeners.push(event.media === 'changed' && event.matches);
+  const event = new MediaQueryListEvent('change',{media:'changed',matches:1});
+  list.dispatchEvent(event); list.removeListener(listener); list.onchange = null;
+  list.dispatchEvent(new MediaQueryListEvent('change'));
+  const events = listeners.length === 2 && listeners.every(Boolean) && event instanceof Event
+    && event.media === 'changed' && event.matches && !event.bubbles && !event.cancelable && list.matches;
+  const guards = [];
+  for (const action of [() => matchMedia(), () => matchMedia(Symbol()), () => new MediaQueryList(),
+    () => Object.getOwnPropertyDescriptor(MediaQueryList.prototype,'matches').get.call({}),
+    () => MediaQueryList.prototype.addListener.call({},listener), () => list.addListener(),
+    () => new MediaQueryListEvent(), () => new MediaQueryListEvent('change',{media:Symbol()})]) {
+    try {action(); guards.push(false);} catch(error) {guards.push(error instanceof TypeError);}
+  }
+  return {width,height,identity,serialized,sizes,ranges,negative,orientation,ratio,logical,unknown,types,malformed,escaped,empty,input,events,
+    guards:guards.length === 8 && guards.every(Boolean),dark:matchMedia('(prefers-color-scheme:dark)').matches,
+    reduced:matchMedia('(prefers-reduced-motion:reduce)').matches};
+})();

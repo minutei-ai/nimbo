@@ -21,7 +21,7 @@ tests as well as integration and application tests.
 
 `tooling/browser-live.test.ts` uses a real loopback HTTP origin, actual workerd,
 and the compiled Rust/Wasm engine. It installs no transport replacements,
-service mocks, browser API stubs, or canned engine results. Its 512 data variants
+service mocks, browser API stubs, or canned engine results. Its 640 data variants
 exercise external scripts, Unicode/entity decoding, selector identity,
 ancestry, removal/reparenting, attribute mutation and POST response decoding.
 They also exercise parsed and created text/comment nodes, native node identity,
@@ -45,8 +45,12 @@ failures. The eighth set exercises native Web Storage across inline, external
 and module scripts, UTF-16 including lone surrogates, coercion/receiver guards,
 named properties, reflection, removal, clearing and fresh Worker request areas.
 An additional case exercises actual quota exhaustion, atomic failure, independent
-local/session quotas and reuse. These are repeated integration checks, not 512 independent platform
-features. Event support remains a subset: timestamps, legacy initialization,
+local/session quotas and reuse. These are repeated integration checks, not 640 independent platform
+features. The ninth set checks native media queries against 64 explicit viewport
+and preference configurations, including ranges, three-valued conditions,
+serialization, CSS escapes, receiver guards and synthetic MediaQueryList events.
+The tenth set rejects 64 invalid environment variants before any HTTP navigation.
+Event support remains a subset: timestamps, legacy initialization,
 shadow trees, native input, AbortSignal timeout/any and fetch cancellation are
 not covered by this implementation.
 
@@ -125,6 +129,32 @@ non-configurable named-property descriptor behavior; such definitions are
 rejected. Configurable data descriptors are covered. No browser-wide persistence
 or complete WPT conformance is claimed.
 
+Media queries use the engine's own parser and the existing public `cssparser`
+tokenizer. Native `Browser::with_media` and optional Worker input `media` set
+logical CSS-pixel width/height, `colorScheme` and `reducedMotion`. Defaults are
+1024×768, light, and no reduced-motion preference. The same dimensions back
+`innerWidth`/`innerHeight`. Dimensions must be integers in 1..16384. This is an
+explicit logical viewport, not layout, paint or a measured hardware display.
+
+`matchMedia` supports screen/all/print selection, lists, not/only, homogeneous
+and/or conditions, width/height ranges and absolute CSS length units,
+aspect-ratio, orientation, configured preferences, the engine's absent pointing
+input, and enabled scripting. Unsupported features/values stay unknown under
+[Media Queries three-valued evaluation](https://drafts.csswg.org/mediaqueries-5/#evaluating).
+Negating an unknown feature does not invent a match. Parsing has a 64 KiB input
+budget and a nesting bound. The interface covers fresh MediaQueryList identity,
+read-only media/matches, legacy listeners, onchange and synthetic event fields.
+
+The pinned comparator produces null for this completed media fixture; the suite
+records that independently of Nimbo's environment-specific positive assertions.
+This is a fixture failure, not proof that every upstream media API is absent.
+
+Media support remains a subset. Host resize/emulation updates, automatic trusted
+change events, relative font units, calc expressions, rendering-dependent
+features and complete CSSOM View/MQ WPT conformance are missing. The tests verify
+synthetic event delivery only; they do not prove resize-driven event scheduling
+or responsive CSS layout. Existing CSS/layout/rendering gaps remain in scope.
+
 The same release has two recorded divergences from the
 [DOM textContent contract](https://dom.spec.whatwg.org/#dom-node-textcontent):
 its document returns descendant text instead of null, and assigning comment
@@ -177,6 +207,7 @@ evidence cannot establish it.
 | localStorage/sessionStorage/IndexedDB                 | Subset     | Web Storage/quota tested; IndexedDB, durable state and storage events missing      |
 | URL, encoding, streams, File APIs and WebCrypto       | Missing    | Pinned WPT with actual algorithms and binary round trips                           |
 | Page WebAssembly and Web Workers                      | Missing    | Guest modules, imports, worker messages, termination and isolation                 |
+| Media queries and logical viewport                    | Subset     | Native queries/configuration tested; live updates and full CSSOM/MQ WPT missing    |
 | CSS cascade, CSSOM, typed styles, layout and geometry | Missing    | Computed styles and shared layout driving queries and paint                        |
 | Fonts, images, SVG and Canvas 2D                      | Missing    | Resource loading, shaping, raster output and pixel comparisons                     |
 | Screenshots, PDF and screencasts                      | Missing    | Real paint output, pagination, frame changes and backpressure                      |

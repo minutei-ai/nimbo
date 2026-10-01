@@ -80,6 +80,7 @@ O binding opcional `EGRESS` implementa `fetch(Request): Promise<Response>`, perm
 | Import maps, JSON modules e carregamento de novos imports dinâmicos                | Não implementados; scripts async rejeitados         |
 | localStorage/sessionStorage, cota UTF-16 e persistência entre navegações nativas   | Testados; Worker inicia áreas vazias por request    |
 | IndexedDB, storage events e sessões duráveis                                       | Não implementados                                   |
+| matchMedia, viewport lógico e preferências explícitas                              | Testados; layout e eventos automáticos pendentes    |
 | Frames e base href                                                                 | Rejeitados explicitamente                           |
 
 Scripts executam em ordem após parsing completo. Fetch suporta `method`/corpo string, `status`/`ok`/`url`, `text()` e `json()`. Não implementa headers customizados nem CORS entre origens. HTML e respostas devem ser UTF-8; imagens e estilos não são carregados. Não equivale à compatibilidade de Chromium.

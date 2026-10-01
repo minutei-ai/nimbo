@@ -12,7 +12,9 @@ use rquickjs::{Context, Ctx, Exception, Function, Persistent, Promise, Runtime};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::{Error, Limits, Result, dom::Dom, modules::Modules, storage::Storage};
+use crate::{
+    Error, Limits, MediaEnvironment, Result, dom::Dom, modules::Modules, storage::Storage,
+};
 
 type Check = Arc<dyn Fn() -> bool + Send + Sync>;
 
@@ -113,6 +115,7 @@ impl Machine {
         check: Check,
         execute_scripts: bool,
         storage: Rc<RefCell<Storage>>,
+        media: MediaEnvironment,
     ) -> Result<Self> {
         if html.len() > limits.max_response_bytes {
             return Err(Error::Limit("HTML bytes"));
@@ -169,7 +172,7 @@ impl Machine {
             phase: Phase::Scripts,
             base,
         };
-        machine.bootstrap(dom, url, storage)?;
+        machine.bootstrap(dom, url, storage, media)?;
         machine.check_budget()?;
         Ok(machine)
     }
@@ -179,6 +182,7 @@ impl Machine {
         dom: Rc<RefCell<Dom>>,
         url: &str,
         storage: Rc<RefCell<Storage>>,
+        media: MediaEnvironment,
     ) -> Result<()> {
         let limits = self.limits;
         let pending = Rc::clone(&self.pending);
@@ -260,6 +264,7 @@ impl Machine {
                 },
             );
             js(&ctx, globals.set("nimboStorage", js(&ctx, storage_call)?))?;
+            install_media(&ctx, media)?;
             js(&ctx, globals.set("nimboUrl", url))?;
             let callbacks = js(
                 &ctx,
@@ -584,6 +589,21 @@ pub(crate) fn resolve(base: &Url, value: &str) -> Result<Url> {
         return Err(Error::Origin(url.to_string()));
     }
     Ok(url)
+}
+
+fn install_media(ctx: &Ctx<'_>, media: MediaEnvironment) -> Result<()> {
+    let globals = ctx.globals();
+    js(
+        ctx,
+        globals.set("nimboMediaEnvironment", serde_json::to_string(&media)?),
+    )?;
+    let media_query = Function::new(ctx.clone(), move |ctx: Ctx<'_>, source: String| {
+        media
+            .query(&source)
+            .map_err(|error| Exception::throw_message(&ctx, &error.to_string()))
+    });
+    js(ctx, globals.set("nimboMedia", js(ctx, media_query)?))?;
+    Ok(())
 }
 
 fn js<T>(ctx: &Ctx<'_>, result: rquickjs::Result<T>) -> Result<T> {

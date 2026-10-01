@@ -1,4 +1,4 @@
-use crate::{Limits, machine::Machine};
+use crate::{Limits, MediaEnvironment, machine::Machine};
 use std::{fmt, sync::Arc};
 use wasm_bindgen::prelude::*;
 
@@ -29,7 +29,19 @@ impl WasmPage {
     /// # Errors
     /// Retorna falha de URL, HTML, scripts, alocação ou inicialização do motor.
     #[wasm_bindgen(constructor)]
-    pub fn new(html: &str, url: &str, execute_scripts: Option<bool>) -> Result<Self, String> {
+    pub fn new(
+        html: &str,
+        url: &str,
+        execute_scripts: Option<bool>,
+        media: Option<String>,
+    ) -> Result<Self, String> {
+        let media: MediaEnvironment = media
+            .map_or_else(
+                || Ok(MediaEnvironment::default()),
+                |media| serde_json::from_str(&media),
+            )
+            .map_err(|error| error.to_string())?;
+        media.validate().map_err(|error| error.to_string())?;
         Machine::new(
             html,
             url,
@@ -37,6 +49,7 @@ impl WasmPage {
             Arc::new(|| false),
             execute_scripts.unwrap_or(true),
             std::rc::Rc::default(),
+            media,
         )
         .map(|machine| Self { machine })
         .map_err(|error| error.to_string())

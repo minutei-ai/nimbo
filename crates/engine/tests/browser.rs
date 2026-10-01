@@ -11,7 +11,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use nimbo_engine::{Browser, Error, Limits};
+use nimbo_engine::{Browser, Error, Limits, MediaEnvironment};
 use serde_json::json;
 use tiny_http::{Header, Request, Response, Server};
 
@@ -82,6 +82,7 @@ fn serve(mut request: Request) -> io::Result<()> {
     let mut status = 200;
     let mut headers = Vec::new();
     let body = match request.url() {
+        "/media" => format!("<title>Media</title><script>{}</script>", include_str!("fixtures/media.txt")),
         "/storage" => format!("<title>Storage</title><script>{}</script>", include_str!("fixtures/storage.txt")),
         "/static" => include_str!("fixtures/static.html").to_owned(),
         "/dynamic" => include_str!("fixtures/dynamic.html").to_owned(),
@@ -708,5 +709,38 @@ fn web_storage_quota_is_atomic_and_counts_utf16_bytes() -> TestResult {
     );
     let primitive = page.evaluate("(() => {throw 'sentinel';})()");
     assert!(matches!(primitive, Err(Error::JavaScript(message)) if message.contains("sentinel")));
+    Ok(())
+}
+
+#[test]
+fn media_queries_use_the_native_configured_environment() -> TestResult {
+    let fixture = Fixture::new()?;
+    for variant in 0..64 {
+        let media = MediaEnvironment {
+            width: 800 + variant,
+            height: 600 + (variant % 2) * 300,
+            color_scheme: if variant % 2 == 0 {
+                "dark".into()
+            } else {
+                "light".into()
+            },
+            reduced_motion: variant % 3 == 0,
+        };
+        let browser = Browser::with_media(&fixture.url, Limits::default(), media.clone())?;
+        let page = browser.navigate(&fixture.path("/media"))?;
+        let result = page.evaluate("comparison")?;
+        let fields = result.as_object().ok_or("missing media result")?;
+        assert_eq!(fields.len(), 20);
+        for (name, value) in fields {
+            let expected = match name.as_str() {
+                "width" => json!(media.width),
+                "height" => json!(media.height),
+                "dark" => json!(media.color_scheme == "dark"),
+                "reduced" => json!(media.reduced_motion),
+                _ => json!(true),
+            };
+            assert_eq!(*value, expected, "variant {variant}: {name}");
+        }
+    }
     Ok(())
 }

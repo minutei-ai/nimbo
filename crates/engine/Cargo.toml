@@ -9,6 +9,7 @@ publish.workspace = true
 crate-type = ["rlib", "cdylib"]
 
 [dependencies]
+cssparser = "=0.37.0"
 dom_query = { version = "=0.28.0", default-features = false }
 rquickjs = { version = "=0.14.0", features = ["loader"] }
 serde = { version = "1", features = ["derive"] }

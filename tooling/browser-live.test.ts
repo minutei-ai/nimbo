@@ -5,6 +5,9 @@ import { Miniflare } from "miniflare";
 const storageScript = await Bun.file(
   join(import.meta.dir, "../crates/engine/tests/fixtures/storage.txt"),
 ).text();
+const mediaScript = await Bun.file(
+  join(import.meta.dir, "../crates/engine/tests/fixtures/media.txt"),
+).text();
 const requests: string[] = [];
 const comparisonBinary = process.env.NIMBO_COMPARE_OBSCURA_BINARY;
 async function comparePage(binary: string, url: string): Promise<unknown> {
@@ -365,6 +368,10 @@ const origin = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     requests.push(`${request.method} ${path}`);
+    if (path.startsWith("/media/"))
+      return new Response(`<title>Media</title><script>${mediaScript}</script>`, {
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
     if (path.startsWith("/storage/")) {
       const variant = Number(path.slice(9));
       return new Response(
@@ -1025,5 +1032,121 @@ test("real HTTP → workerd → Wasm: atomic storage quota, reuse and recovery",
     url,
     engine: "rust-wasm-quickjs",
     value: [0, 0, "undefined"],
+  });
+});
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native media queries and explicit preferences variant %i",
+  async (variant) => {
+    const url = new URL(`media/${variant}`, origin.url).href;
+    const media = {
+      width: 800 + variant,
+      height: 600 + (variant % 2) * 300,
+      colorScheme: variant % 2 === 0 ? "dark" : "light",
+      reducedMotion: variant % 3 === 0,
+    };
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, media, expression: "comparison" }),
+    });
+    expect(response.status).toBe(200);
+    const expected = Object.fromEntries(
+      [
+        "identity",
+        "serialized",
+        "sizes",
+        "ranges",
+        "negative",
+        "orientation",
+        "ratio",
+        "logical",
+        "unknown",
+        "types",
+        "malformed",
+        "escaped",
+        "empty",
+        "input",
+        "events",
+        "guards",
+      ].map((key) => [key, true]),
+    );
+    expect(await response.json()).toEqual({
+      url,
+      engine: "rust-wasm-quickjs",
+      value: {
+        ...expected,
+        width: media.width,
+        height: media.height,
+        dark: media.colorScheme === "dark",
+        reduced: media.reducedMotion,
+      },
+    });
+    // The pinned comparator does not produce a completed value for this fixture.
+    if (comparisonBinary) expect(await comparePage(comparisonBinary, url)).toBeNull();
+    expect(requests).toContain(`GET /media/${variant}`);
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd: invalid media environments are rejected before navigation variant %i",
+  async (variant) => {
+    const invalid = [
+      { width: 0 },
+      { height: 0 },
+      { width: 16385 },
+      { height: 16385 },
+      { width: 1.5 },
+      { height: "600" },
+      { colorScheme: "invalid" },
+      { reducedMotion: 1 },
+    ][variant % 8];
+    const url = new URL(`media/invalid-${variant}`, origin.url).href;
+    const before = requests.length;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, media: invalid, expression: "1" }),
+    });
+    expect(response.status).toBe(400);
+    expect(requests.slice(before)).not.toContain(`GET /media/invalid-${variant}`);
+  },
+);
+
+test("real HTTP → workerd → Wasm: media parser budgets and isolate recovery", async () => {
+  const url = new URL("media/budget", origin.url).href;
+  // One active page is permitted; each failed request must finish before the next.
+  for (const expression of [
+    "matchMedia('x'.repeat(65537))",
+    "matchMedia('('.repeat(40) + 'width' + ')'.repeat(40))",
+  ]) {
+    // oxlint-disable-next-line eslint/no-await-in-loop
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, scripts: "skip", expression }),
+    });
+    expect(response.status).toBe(422);
+    // oxlint-disable-next-line eslint/no-await-in-loop
+    const result: unknown = await response.json();
+    const error: unknown =
+      typeof result === "object" && result !== null ? Reflect.get(result, "error") : undefined;
+    expect(error).toMatch(/media query (bytes|nesting)/);
+  }
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      scripts: "skip",
+      expression:
+        "[innerWidth, innerHeight, typeof nimboMedia, typeof nimboMediaEnvironment, matchMedia('(width:1024px)').matches]",
+    }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({
+    url,
+    engine: "rust-wasm-quickjs",
+    value: [1024, 768, "undefined", "undefined", true],
   });
 });

@@ -3,7 +3,7 @@ use std::{cell::RefCell, fmt, rc::Rc, sync::Arc};
 use serde_json::Value;
 
 use crate::{
-    Error, Result,
+    Error, MediaEnvironment, Result,
     machine::{Action, Machine, Response, parse_url},
     network::Transport,
     storage::Storage,
@@ -31,6 +31,7 @@ impl Page {
         response: Response,
         transport: Rc<Transport>,
         storage: Rc<RefCell<Storage>>,
+        media: MediaEnvironment,
     ) -> Result<Self> {
         transport.check_deadline()?;
         let deadline = transport.deadline;
@@ -41,6 +42,7 @@ impl Page {
             Arc::new(move || std::time::Instant::now() >= deadline),
             true,
             storage,
+            media,
         )?;
         let page = Self {
             machine: RefCell::new(machine),

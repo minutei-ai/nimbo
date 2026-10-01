@@ -8,7 +8,7 @@ use std::{
 use crate::machine::{Response, parse_url};
 use reqwest::{Url, blocking::Client, header::LOCATION, redirect::Policy};
 
-use crate::{Error, Limits, Page, Result, storage::Storage};
+use crate::{Error, Limits, MediaEnvironment, Page, Result, storage::Storage};
 
 /// Uma sessão HTTP com cookies próprios e uma única origem autorizada.
 #[derive(Debug)]
@@ -16,6 +16,7 @@ pub struct Browser {
     client: Client,
     origin: Url,
     limits: Limits,
+    media: MediaEnvironment,
     storage: Rc<RefCell<Storage>>,
 }
 
@@ -25,6 +26,15 @@ impl Browser {
     /// # Errors
     /// Retorna erro para URL inválida, limites inválidos ou falha no cliente TLS.
     pub fn new(origin: &str, limits: Limits) -> Result<Self> {
+        Self::with_media(origin, limits, MediaEnvironment::default())
+    }
+
+    /// Creates a browser with an explicit logical viewport and media preferences.
+    ///
+    /// # Errors
+    /// Rejects invalid dimensions/preferences, origins, limits or TLS initialization.
+    pub fn with_media(origin: &str, limits: Limits, media: MediaEnvironment) -> Result<Self> {
+        media.validate()?;
         let origin = parse_url(origin)?;
         if limits.max_javascript_ticks == 0
             || limits.max_microtasks == 0
@@ -51,6 +61,7 @@ impl Browser {
             client,
             origin,
             limits,
+            media,
             storage: Rc::default(),
         })
     }
@@ -78,7 +89,12 @@ impl Browser {
         if !response.content_type.starts_with("text/html") {
             return Err(Error::Unsupported("navigation requires text/html".into()));
         }
-        Page::load(response, transport, Rc::clone(&self.storage))
+        Page::load(
+            response,
+            transport,
+            Rc::clone(&self.storage),
+            self.media.clone(),
+        )
     }
 }
 

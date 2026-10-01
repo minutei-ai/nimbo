@@ -2,6 +2,7 @@
 
 mod dom;
 mod machine;
+mod media;
 mod modules;
 #[cfg(not(target_arch = "wasm32"))]
 mod network;
@@ -110,7 +111,9 @@ pub enum Error {
     Json(#[from] serde_json::Error),
 }
 
-/// Resultado das operações do motor, preservando a categoria da falha.
+pub use media::MediaEnvironment;
+
+/// Resultado das operações do motor.
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[cfg(target_arch = "wasm32")]
