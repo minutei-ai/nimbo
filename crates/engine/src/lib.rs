@@ -86,6 +86,14 @@ pub enum Error {
     /// Seletor, handle ou mutação DOM inválidos.
     #[error("DOM: {0}")]
     Dom(String),
+    /// Exceção DOM definida pelo contrato de uma operação de árvore.
+    #[error("{name}: {message}")]
+    DomException {
+        /// Nome padronizado da exceção DOM.
+        name: &'static str,
+        /// Motivo da falha de validação, antes de qualquer mutação.
+        message: &'static str,
+    },
     /// Resposta da ponte ou resultado de extração inválido como JSON.
     #[error("JSON: {0}")]
     Json(#[from] serde_json::Error),

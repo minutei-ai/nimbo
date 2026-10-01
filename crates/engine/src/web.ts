@@ -84,6 +84,9 @@
     get nodeName(): string {
       return call("get", idOf(this), "nodeName");
     }
+    get ownerDocument(): Document | null {
+      return this.nodeType === 9 ? null : document;
+    }
     get nodeValue(): string | null {
       return call("get", idOf(this), "nodeValue");
     }
@@ -108,6 +111,23 @@
     }
     appendChild<T extends Node>(child: T): T {
       call("append", idOf(this), "", String(idOf(child)));
+      return child;
+    }
+    insertBefore<T extends Node>(child: T, reference: Node | null): T {
+      call(
+        "insert",
+        idOf(this),
+        reference === null ? "" : String(idOf(reference)),
+        String(idOf(child)),
+      );
+      return child;
+    }
+    replaceChild<T extends Node>(child: Node, replaced: T): T {
+      call("replace", idOf(this), String(idOf(replaced)), String(idOf(child)));
+      return replaced;
+    }
+    removeChild<T extends Node>(child: T): T {
+      call("removeChild", idOf(this), "", String(idOf(child)));
       return child;
     }
     remove() {
@@ -221,8 +241,16 @@
         return new Text("", internal, id);
       case 8:
         return new Comment("", internal, id);
+      case 11:
+        return new DocumentFragment(internal, id);
       default:
         return new Node(internal, id);
+    }
+  }
+
+  class DocumentFragment extends ParentNode {
+    constructor(key?: symbol, id?: number) {
+      super(internal, key === internal && id !== undefined ? id : call("createFragment", 0));
     }
   }
   function element(id: number): Element {
@@ -268,6 +296,9 @@
     createComment(data: string) {
       return new Comment(data);
     }
+    createDocumentFragment() {
+      return new DocumentFragment();
+    }
     createElement(tag: string) {
       return element(call("create", 0, tag));
     }
@@ -306,6 +337,7 @@
     Node,
     Element,
     Document,
+    DocumentFragment,
     CharacterData,
     Text,
     Comment,

@@ -80,6 +80,10 @@ impl Dom {
             "relativeElement" => self.relative_element(handle, arg)?,
             "relativeNode" => self.relative_node(handle, arg)?,
             "createText" | "createComment" => self.create_character(operation, value)?,
+            "createFragment" => {
+                let id = self.document.tree.create_node(NodeData::Fragment);
+                json!(self.handle(id))
+            }
             "contains" => {
                 let descendant = arg
                     .parse::<usize>()
@@ -101,23 +105,20 @@ impl Dom {
                 {
                     return Err(Error::Dom("invalid element name".into()));
                 }
+                self.charge_write(arg.len())?;
                 let id = self.document.tree.new_element(&arg.to_ascii_lowercase()).id;
                 json!(self.handle(id))
             }
             "get" => self.get(handle, arg)?,
             "attr" => json!(self.node(handle)?.attr(arg).map(|text| text.to_string())),
             "set" | "setAttr" | "removeAttr" => {
-                self.writes = self
-                    .writes
-                    .saturating_add(arg.len())
-                    .saturating_add(value.len());
-                if self.writes > self.limits.max_dom_write_bytes {
-                    return Err(Error::Limit("DOM write bytes"));
-                }
+                let attribute_bytes = if operation == "setAttr" { arg.len() } else { 0 };
+                self.charge_write(attribute_bytes.saturating_add(value.len()))?;
                 self.set(operation, handle, arg, value)?;
                 Value::Null
             }
-            "append" => self.append(handle, value)?,
+            "append" | "insert" | "replace" => self.insert(operation, handle, arg, value)?,
+            "removeChild" => self.remove_child(handle, value)?,
             "remove" => {
                 self.node(handle)?.remove_from_parent();
                 Value::Null
@@ -131,30 +132,89 @@ impl Dom {
         Ok(serde_json::to_string(&result)?)
     }
 
-    fn append(&self, handle: usize, value: &str) -> Result<Value> {
+    fn remove_child(&self, handle: usize, value: &str) -> Result<Value> {
         let child = value
             .parse::<usize>()
             .map_err(|error| Error::Dom(error.to_string()))?;
         let parent = self.node(handle)?;
         let child = self.node(child)?;
-        if !parent.is_element()
-            || !(child.is_element() || child.is_text() || child.is_comment())
+        if child.parent().map(|node| node.id) != Some(parent.id) {
+            return Err(not_found());
+        }
+        child.remove_from_parent();
+        Ok(Value::Null)
+    }
+
+    fn insert(&self, operation: &str, handle: usize, arg: &str, value: &str) -> Result<Value> {
+        let child = self.node(
+            value
+                .parse()
+                .map_err(|error: std::num::ParseIntError| Error::Dom(error.to_string()))?,
+        )?;
+        let parent = self.node(handle)?;
+        if !(parent.is_element() || parent.is_fragment() || parent.is_document())
+            || !(child.is_element()
+                || child.is_text()
+                || child.is_comment()
+                || child.is_fragment()
+                || child.is_doctype())
             || parent.id == child.id
             || parent
                 .ancestors_it(None)
                 .any(|ancestor| ancestor.id == child.id)
         {
-            return Err(Error::Dom("invalid append or DOM cycle".into()));
+            return Err(hierarchy_error());
         }
-        parent.append_child(&child.id);
+        let reference = if arg.is_empty() {
+            None
+        } else {
+            Some(
+                self.node(
+                    arg.parse()
+                        .map_err(|error: std::num::ParseIntError| Error::Dom(error.to_string()))?,
+                )?,
+            )
+        };
+        if reference.is_some_and(|node| node.parent().map(|node| node.id) != Some(parent.id)) {
+            return Err(not_found());
+        }
+        let removed = if operation == "replace" {
+            reference
+        } else {
+            None
+        };
+        if operation == "replace" && removed.is_none() {
+            return Err(not_found());
+        }
+        let mut reference = if operation == "replace" {
+            reference.and_then(|node| node.next_sibling())
+        } else {
+            reference
+        };
+        if reference.is_some_and(|node| node.id == child.id) {
+            reference = child.next_sibling();
+        }
+        let inserted = if child.is_fragment() {
+            child.children()
+        } else {
+            vec![child]
+        };
+        validate_insertion(parent, &inserted, reference, removed)?;
+        for node in inserted {
+            if let Some(reference) = reference {
+                reference.insert_before(&node.id);
+            } else {
+                parent.append_child(&node.id);
+            }
+        }
+        if let Some(removed) = removed.filter(|node| node.id != child.id) {
+            removed.remove_from_parent();
+        }
         Ok(Value::Null)
     }
 
     fn create_character(&mut self, operation: &str, value: &str) -> Result<Value> {
-        self.writes = self.writes.saturating_add(value.len());
-        if self.writes > self.limits.max_dom_write_bytes {
-            return Err(Error::Limit("DOM write bytes"));
-        }
+        self.charge_write(value.len())?;
         let id = if operation == "createText" {
             self.document.tree.new_text(value).id
         } else {
@@ -163,6 +223,14 @@ impl Dom {
             })
         };
         Ok(json!(self.handle(id)))
+    }
+
+    fn charge_write(&mut self, bytes: usize) -> Result<()> {
+        self.writes = self.writes.saturating_add(bytes);
+        if self.writes > self.limits.max_dom_write_bytes {
+            return Err(Error::Limit("DOM write bytes"));
+        }
+        Ok(())
     }
 
     fn relative_node(&mut self, handle: usize, relation: &str) -> Result<Value> {
@@ -298,11 +366,21 @@ impl Dom {
                 return Ok(());
             }
         }
+        if operation == "set"
+            && property == "textContent"
+            && (node.is_element() || node.is_fragment())
+        {
+            node.remove_children();
+            if !value.is_empty() {
+                let text = self.document.tree.new_text(value);
+                node.append_child(&text.id);
+            }
+            return Ok(());
+        }
         if !node.is_element() {
             return Err(Error::Dom("write target must be an element".into()));
         }
         match (operation, property) {
-            ("set", "textContent") => node.set_text(value),
             ("set", "innerHTML") => node.set_html(value),
             ("setAttr", _) => node.set_attr(property, value),
             ("removeAttr", _) => node.remove_attr(property),
@@ -310,6 +388,65 @@ impl Dom {
         }
         Ok(())
     }
+}
+
+fn hierarchy_error() -> Error {
+    Error::DomException {
+        name: "HierarchyRequestError",
+        message: "invalid child type, document structure or DOM cycle",
+    }
+}
+
+fn not_found() -> Error {
+    Error::DomException {
+        name: "NotFoundError",
+        message: "reference node is not a child of this parent",
+    }
+}
+
+fn validate_insertion(
+    parent: NodeRef<'_>,
+    inserted: &[NodeRef<'_>],
+    reference: Option<NodeRef<'_>>,
+    removed: Option<NodeRef<'_>>,
+) -> Result<()> {
+    if !parent.is_document() {
+        if inserted.iter().any(NodeRef::is_doctype) {
+            return Err(hierarchy_error());
+        }
+        return Ok(());
+    }
+    let mut children: Vec<_> = parent
+        .children_it(false)
+        .filter(|node| {
+            !inserted.iter().any(|child| child.id == node.id)
+                && removed.is_none_or(|removed| removed.id != node.id)
+        })
+        .collect();
+    let index = reference
+        .and_then(|reference| children.iter().position(|node| node.id == reference.id))
+        .unwrap_or(children.len());
+    children.splice(index..index, inserted.iter().copied());
+    let mut element = false;
+    let mut doctype = false;
+    for node in children {
+        if node.is_text() || node.is_fragment() || node.is_document() {
+            return Err(hierarchy_error());
+        }
+        if node.is_element() {
+            if element {
+                return Err(hierarchy_error());
+            }
+            element = true;
+        }
+        if node.is_doctype() {
+            if element || doctype {
+                return Err(hierarchy_error());
+            }
+            doctype = true;
+        }
+    }
+    Ok(())
 }
 
 fn character_value(node: NodeRef<'_>) -> Value {

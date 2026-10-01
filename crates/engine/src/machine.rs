@@ -164,7 +164,12 @@ impl Machine {
                     }
                     dom.borrow_mut()
                         .call(&op, handle, &arg, &value)
-                        .map_err(|error| Exception::throw_message(&ctx, &error.to_string()))
+                        .map_err(|error| match error {
+                            Error::DomException { name, message } => {
+                                Exception::throw_dom(&ctx, name, message)
+                            }
+                            error => Exception::throw_message(&ctx, &error.to_string()),
+                        })
                 },
             );
             js(&ctx, globals.set("nimboDom", js(&ctx, dom_function)?))?;

@@ -361,6 +361,7 @@ fn character_creation_and_mutation_share_the_native_write_budget() -> TestResult
     for expression in [
         "document.createTextNode('x'.repeat(9))",
         "document.createComment('x'.repeat(9))",
+        "document.createElement('x'.repeat(9))",
         "new Text('😀😀😀')",
         "(() => { const text = new Text('1234'); text.data = '56789'; })()",
     ] {
@@ -368,6 +369,13 @@ fn character_creation_and_mutation_share_the_native_write_budget() -> TestResult
         assert!(page.evaluate(expression).is_err(), "{expression}");
         assert_eq!(page.evaluate("document.isConnected")?, json!(true));
     }
+    let page = browser.navigate(&fixture.path("/static"))?;
+    assert_eq!(
+        page.evaluate(
+            "(() => { const text = new Text('1234'); text.data = '5678'; return text.data; })()"
+        )?,
+        json!("5678")
+    );
     Ok(())
 }
 
