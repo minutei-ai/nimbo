@@ -1218,6 +1218,9 @@
     get namespaceURI(): string {
       return call("get", idOf(this), "namespaceURI");
     }
+    get localName(): string {
+      return call("get", idOf(this), "localName");
+    }
     get tagName(): string {
       return call("get", idOf(this), "tagName");
     }
@@ -1246,6 +1249,88 @@
       call("removeAttr", idOf(this), name);
     }
   }
+  const htmlElements = new WeakSet<object>();
+  function htmlId(owner: object): number {
+    if (!htmlElements.has(owner)) throw new TypeError("Illegal invocation");
+    return idOf(owner);
+  }
+  function htmlAttribute(owner: object, name: string): string | null {
+    return call("attr", htmlId(owner), name);
+  }
+  function reflectString(owner: object, name: string, value: unknown): void {
+    call("setAttr", htmlId(owner), name, domString(value));
+  }
+  function reflectBoolean(owner: object, name: string, value: unknown): void {
+    const id = htmlId(owner);
+    call(value ? "setAttr" : "removeAttr", id, name);
+  }
+  class HTMLElement extends Element {
+    constructor(key?: symbol, id?: number) {
+      if (key !== internal || id === undefined) throw new TypeError("Illegal constructor");
+      super(internal, id);
+      htmlElements.add(this);
+    }
+    get title(): string {
+      return htmlAttribute(this, "title") ?? "";
+    }
+    set title(value: unknown) {
+      reflectString(this, "title", value);
+    }
+    get lang(): string {
+      return htmlAttribute(this, "lang") ?? "";
+    }
+    set lang(value: unknown) {
+      reflectString(this, "lang", value);
+    }
+    get accessKey(): string {
+      return htmlAttribute(this, "accesskey") ?? "";
+    }
+    set accessKey(value: unknown) {
+      reflectString(this, "accesskey", value);
+    }
+    get dir(): string {
+      const value = (htmlAttribute(this, "dir") ?? "").replace(/[A-Z]/g, (char) =>
+        char.toLowerCase(),
+      );
+      return ["ltr", "rtl", "auto"].includes(value) ? value : "";
+    }
+    set dir(value: unknown) {
+      reflectString(this, "dir", value);
+    }
+    get inert(): boolean {
+      return htmlAttribute(this, "inert") !== null;
+    }
+    set inert(value: unknown) {
+      reflectBoolean(this, "inert", value);
+    }
+    get hidden(): boolean | string {
+      const value = htmlAttribute(this, "hidden");
+      return value === null
+        ? false
+        : value.replace(/[A-Z]/g, (char) => char.toLowerCase()) === "until-found"
+          ? "until-found"
+          : true;
+    }
+    set hidden(value: unknown) {
+      htmlId(this);
+      const converted =
+        value === null || value === undefined
+          ? null
+          : typeof value === "boolean" || typeof value === "number" || typeof value === "string"
+            ? value
+            : domString(value);
+      if (
+        typeof converted === "string" &&
+        converted.replace(/[A-Z]/g, (char) => char.toLowerCase()) === "until-found"
+      )
+        reflectString(this, "hidden", "until-found");
+      else reflectBoolean(this, "hidden", converted);
+    }
+  }
+  Object.defineProperty(HTMLElement.prototype, Symbol.toStringTag, {
+    value: "HTMLElement",
+    configurable: true,
+  });
   class CharacterData extends Node {
     get data(): string {
       return this.nodeValue ?? "";
@@ -1278,7 +1363,9 @@
     if (existing) return existing;
     switch (call<number>("get", id, "nodeType")) {
       case 1:
-        return new Element(internal, id);
+        return call<string>("get", id, "namespaceURI") === "http://www.w3.org/1999/xhtml"
+          ? new HTMLElement(internal, id)
+          : new Element(internal, id);
       case 3:
         return new Text("", internal, id);
       case 8:
@@ -1478,6 +1565,7 @@
     AbortController,
     Node,
     Element,
+    HTMLElement,
     Document,
     DocumentFragment,
     NodeList,

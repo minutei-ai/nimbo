@@ -21,7 +21,7 @@ tests as well as integration and application tests.
 
 `tooling/browser-live.test.ts` uses a real loopback HTTP origin, actual workerd,
 and the compiled Rust/Wasm engine. It installs no transport replacements,
-service mocks, browser API stubs, or canned engine results. Its 704 data variants
+service mocks, browser API stubs, or canned engine results. Its 768 data variants
 exercise external scripts, Unicode/entity decoding, selector identity,
 ancestry, removal/reparenting, attribute mutation and POST response decoding.
 They also exercise parsed and created text/comment nodes, native node identity,
@@ -45,7 +45,7 @@ failures. The eighth set exercises native Web Storage across inline, external
 and module scripts, UTF-16 including lone surrogates, coercion/receiver guards,
 named properties, reflection, removal, clearing and fresh Worker request areas.
 An additional case exercises actual quota exhaustion, atomic failure, independent
-local/session quotas and reuse. These are repeated integration checks, not 704 independent platform
+local/session quotas and reuse. These are repeated integration checks, not 768 independent platform
 features. The ninth set checks native media queries against 64 explicit viewport
 and preference configurations, including ranges, three-valued conditions,
 serialization, CSS escapes, receiver guards and synthetic MediaQueryList events.
@@ -53,7 +53,10 @@ The tenth set rejects 64 invalid environment variants before any HTTP navigation
 The eleventh set repeats the same DOMTokenList fixture at 64 distinct URLs,
 checking live attribute reads, ordered token mutations, identity, indices,
 iteration, receiver guards and atomic invalid-token rejection. Including three
-resource/deadline recovery cases, the real browser suite has 707 tests.
+resource/deadline recovery cases, the real browser suite has 771 tests.
+The twelfth set checks HTML namespace identity and reflected attributes with
+64 distinct synthetic strings. It includes parsed SVG/MathML and an HTML
+subtree inside SVG foreignObject.
 Event support remains a subset: timestamps, legacy initialization,
 shadow trees, native input, AbortSignal timeout/any and fetch cancellation are
 not covered by this implementation.
@@ -132,6 +135,29 @@ In particular the JavaScript Proxy cannot reproduce the legacy object's
 non-configurable named-property descriptor behavior; such definitions are
 rejected. Configurable data descriptors are covered. No browser-wide persistence
 or complete WPT conformance is claimed.
+
+HTML-namespace nodes now use a distinct `HTMLElement` class inheriting from
+Element, with stable native node identity for both parsed and created elements.
+Parsed SVG/MathML remain Element wrappers. Native `localName`, `tagName` and
+`nodeName` preserve foreign element case; HTML names expose the expected
+uppercase tag/node names and lowercase local names. Reflected title, lang,
+accessKey, dir, inert and hidden read/write actual DOM attributes, including
+known-value direction handling, nullable hidden union conversion and the
+until-found keyword. Attribute writes retain the shared native write budget.
+
+This implements part of the [HTMLElement interface](https://html.spec.whatwg.org/multipage/dom.html#htmlelement)
+and the [hidden IDL contract](https://html.spec.whatwg.org/multipage/interaction.html#dom-hidden).
+It does not implement rendering, inert input suppression, find-in-page revealing,
+HTMLUnknownElement or specialized tag interfaces, custom-element registration,
+upgrades, construction or lifecycle callbacks. Bare and unregistered subclass
+construction throw TypeError. HTML constructor/custom-element work remains in
+scope; exposing HTMLElement alone does not prove application hydration.
+
+The pinned comparator completes this synthetic fixture: string reflection,
+direction, detached writes and custom-name inheritance checks pass. Its composite
+identity, foreign-namespace, inert, hidden and receiver-guard checks return false.
+The comparison records those results separately and keeps every Nimbo check true;
+these grouped checks do not identify every individual upstream divergence.
 
 `Element.classList` returns a same-object DOMTokenList backed directly by the
 native class attribute. It parses ordered unique tokens using ASCII whitespace,

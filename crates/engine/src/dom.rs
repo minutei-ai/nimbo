@@ -354,7 +354,13 @@ impl Dom {
                 NodeData::Fragment => json!(11),
             }),
             "nodeName" => node.query_or(Value::Null, |node| match &node.data {
-                NodeData::Element(element) => json!(element.node_name().to_ascii_uppercase()),
+                NodeData::Element(element) => json!(if element.name.ns.as_ref()
+                    == "http://www.w3.org/1999/xhtml"
+                {
+                    element.node_name().to_ascii_uppercase()
+                } else {
+                    element.node_name().to_string()
+                }),
                 NodeData::Text { .. } => json!("#text"),
                 NodeData::Comment { .. } => json!("#comment"),
                 NodeData::Document => json!("#document"),
@@ -364,7 +370,20 @@ impl Dom {
             }),
             "innerHTML" => json!(node.inner_html().to_string()),
             "outerHTML" => json!(node.html().to_string()),
-            "tagName" => json!(node.node_name().map(|name| name.to_ascii_uppercase())),
+            "tagName" => node.query_or(Value::Null, |node| match &node.data {
+                NodeData::Element(element) => json!(if element.name.ns.as_ref()
+                    == "http://www.w3.org/1999/xhtml"
+                {
+                    element.node_name().to_ascii_uppercase()
+                } else {
+                    element.node_name().to_string()
+                }),
+                _ => Value::Null,
+            }),
+            "localName" => node.query_or(Value::Null, |node| match &node.data {
+                NodeData::Element(element) => json!(element.name.local.to_string()),
+                _ => Value::Null,
+            }),
             "namespaceURI" => node.query_or(Value::Null, |node| match &node.data {
                 NodeData::Element(element) => json!(element.name.ns.to_string()),
                 _ => Value::Null,

@@ -82,6 +82,7 @@ fn serve(mut request: Request) -> io::Result<()> {
     let mut status = 200;
     let mut headers = Vec::new();
     let body = match request.url() {
+        "/html-elements" => format!("<main></main><svg><linearGradient></linearGradient><foreignObject><div></div></foreignObject></svg><math><mi>x</mi></math><script>{}</script>", include_str!("fixtures/html-elements.txt")),
         "/tokens" => format!("<title>Tokens</title><script>{}</script>", include_str!("fixtures/tokens.txt")),
         "/media" => format!("<title>Media</title><script>{}</script>", include_str!("fixtures/media.txt")),
         "/storage" => format!("<title>Storage</title><script>{}</script>", include_str!("fixtures/storage.txt")),
@@ -779,6 +780,22 @@ fn class_lists_are_live_and_mutate_the_native_attribute() -> TestResult {
             "(() => { document.body.classList.add('123'); return document.body.className; })()"
         )?,
         json!("123")
+    );
+    Ok(())
+}
+
+#[test]
+fn html_elements_use_native_namespaces_and_reflected_attributes() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/html-elements"))?;
+    let result = page.evaluate("comparison")?;
+    let fields = result.as_object().ok_or("missing HTML element result")?;
+    assert_eq!(fields.len(), 12);
+    assert!(
+        fields.values().all(|value| *value == json!(true)),
+        "{result}"
     );
     Ok(())
 }

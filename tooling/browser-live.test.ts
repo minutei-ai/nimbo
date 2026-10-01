@@ -11,6 +11,9 @@ const mediaScript = await Bun.file(
 const tokenScript = await Bun.file(
   join(import.meta.dir, "../crates/engine/tests/fixtures/tokens.txt"),
 ).text();
+const htmlElementScript = await Bun.file(
+  join(import.meta.dir, "../crates/engine/tests/fixtures/html-elements.txt"),
+).text();
 const requests: string[] = [];
 const comparisonBinary = process.env.NIMBO_COMPARE_OBSCURA_BINARY;
 async function comparePage(binary: string, url: string): Promise<unknown> {
@@ -371,6 +374,13 @@ const origin = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     requests.push(`${request.method} ${path}`);
+    if (path.startsWith("/html-elements/")) {
+      const variant = Number(path.split("/").at(-1));
+      return new Response(
+        `<main></main><svg><linearGradient></linearGradient><foreignObject><div></div></foreignObject></svg><math><mi>x</mi></math><script>globalThis.variant=${variant};${htmlElementScript}</script>`,
+        { headers: { "content-type": "text/html; charset=utf-8" } },
+      );
+    }
     if (path.startsWith("/tokens/"))
       return new Response(`<title>Tokens</title><script>${tokenScript}</script>`, {
         headers: { "content-type": "text/html; charset=utf-8" },
@@ -1194,5 +1204,46 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     );
     expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: expected });
     expect(requests).toContain(`GET /tokens/${variant}`);
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native HTML identity and attribute reflection variant %i",
+  async (variant) => {
+    const url = new URL(`html-elements/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "comparison" }),
+    });
+    expect(response.status).toBe(200);
+    const expected = Object.fromEntries(
+      [
+        "identity",
+        "namespaces",
+        "defaults",
+        "strings",
+        "live",
+        "coercion",
+        "direction",
+        "inert",
+        "hidden",
+        "guarded",
+        "detached",
+        "customName",
+      ].map((key) => [key, true]),
+    );
+    expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: expected });
+    expect(requests).toContain(`GET /html-elements/${variant}`);
+    if (comparisonBinary) {
+      expect(await comparePage(comparisonBinary, url)).toEqual({
+        ...expected,
+        identity: false,
+        namespaces: false,
+        inert: false,
+        hidden: false,
+        guarded: false,
+      });
+    }
   },
 );

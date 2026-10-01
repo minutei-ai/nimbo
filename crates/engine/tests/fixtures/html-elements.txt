@@ -1,0 +1,56 @@
+globalThis.comparison = (() => {
+  const variant = globalThis.variant ?? 0;
+  const main = document.querySelector('main');
+  const created = document.createElement('article');
+  const identity = main instanceof HTMLElement && main instanceof Element && main instanceof Node
+    && document.body instanceof HTMLElement && created instanceof HTMLElement
+    && main === document.querySelector('main') && Object.getPrototypeOf(main) === HTMLElement.prototype
+    && Object.getPrototypeOf(HTMLElement.prototype) === Element.prototype
+    && Object.prototype.toString.call(main) === '[object HTMLElement]';
+  const foreign = ['svg','linearGradient','math','mi'].map(name => document.querySelector(name));
+  const namespaces = foreign.every(node => node instanceof Element && !(node instanceof HTMLElement))
+    && document.querySelector('foreignObject div') instanceof HTMLElement
+    && document.querySelector('linearGradient').localName === 'linearGradient'
+    && document.querySelector('linearGradient').tagName === 'linearGradient'
+    && document.querySelector('linearGradient').nodeName === 'linearGradient'
+    && created.localName === 'article' && created.tagName === 'ARTICLE';
+  const defaults = created.title === '' && created.lang === '' && created.accessKey === ''
+    && created.dir === '' && !created.inert && !created.hidden;
+  const text = `title-${variant}-α😀`;
+  created.title = text; created.lang = 'pt-BR'; created.accessKey = String(variant);
+  const strings = created.getAttribute('title') === text && created.lang === 'pt-BR'
+    && created.getAttribute('lang') === 'pt-BR' && created.getAttribute('accesskey') === String(variant);
+  created.setAttribute('title','external');
+  const live = created.title === 'external';
+  created.title = null; created.lang = undefined; created.accessKey = {toString:()=>'z'};
+  const coercion = created.title === 'null' && created.lang === 'undefined' && created.accessKey === 'z';
+  created.dir = 'RTL'; const rtl = created.dir === 'rtl' && created.getAttribute('dir') === 'RTL';
+  created.dir = ' auto '; const invalid = created.dir === '' && created.getAttribute('dir') === ' auto ';
+  created.setAttribute('dir','AUTO'); const direction = rtl && invalid && created.dir === 'auto';
+  created.inert = 'false'; const inertPresent = created.inert && created.getAttribute('inert') === '';
+  created.inert = 0; const inertRemoved = !created.inert && !created.hasAttribute('inert');
+  created.setAttribute('inert','false'); const inert = inertPresent && inertRemoved && created.inert;
+  created.hidden = 'UNTIL-FOUND'; const until = created.hidden === 'until-found' && created.getAttribute('hidden') === 'until-found';
+  const hiddenCases = [];
+  for (const value of [false,'',null,undefined,0,NaN,{toString:()=>''}]) {
+    created.hidden = value; hiddenCases.push(!created.hidden && !created.hasAttribute('hidden'));
+  }
+  for (const value of [true,1,-1,Infinity,'false',{},0n]) {
+    created.hidden = value; hiddenCases.push(created.hidden === true && created.getAttribute('hidden') === '');
+  }
+  created.setAttribute('hidden','UnTiL-FoUnD');
+  const hidden = until && hiddenCases.every(Boolean) && created.hidden === 'until-found';
+  const guards = [];
+  for (const action of [() => new HTMLElement(), () => new (class extends HTMLElement {})(),
+    () => Object.getOwnPropertyDescriptor(HTMLElement.prototype,'title').get.call({}),
+    () => Object.getOwnPropertyDescriptor(HTMLElement.prototype,'hidden').set.call(document.querySelector('svg'),true),
+    () => {created.title = Symbol()}, () => {created.hidden = Symbol()}]) {
+    try {action(); guards.push(false);} catch(error) {guards.push(error instanceof TypeError);}
+  }
+  const guarded = guards.length === 6 && guards.every(Boolean);
+  document.body.appendChild(created); const connected = created.isConnected && created.parentElement === document.body;
+  created.remove(); created.title = text;
+  const detached = connected && !created.isConnected && created.title === text && created.outerHTML.includes(text);
+  const customName = document.createElement('x-native-probe') instanceof HTMLElement;
+  return {identity,namespaces,defaults,strings,live,coercion,direction,inert,hidden,guarded,detached,customName};
+})();
