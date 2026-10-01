@@ -478,3 +478,16 @@ fn cached_selectors_observe_order_scope_and_mutations() -> TestResult {
         json!({"before":"first", "after":"second", "missing":null, "remaining":2, "root":null}));
     Ok(())
 }
+
+#[test]
+fn ancestry_and_matching_observe_detached_nodes_and_reparenting() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    assert_eq!(page.evaluate("(() => { const main = document.querySelector('main'); const item = document.createElement('i'); item.setAttribute('data-state', 'old'); main.appendChild(item); const before = item.closest('main') === main && item.matches('main > i[data-state=old]'); item.removeAttribute('data-state'); item.removeAttribute('missing'); const removed = !item.hasAttribute('data-state') && !item.matches('[data-state]'); item.remove(); const detached = item.parentElement === null && item.closest('i') === item && item.closest('main') === null; document.body.appendChild(item); return {before, removed, detached, parent: item.parentElement === document.body, reparented: item.matches('body > i'), root: document.documentElement.parentElement, missing: document.body.closest('.missing')}; })()")?,
+        json!({"before":true,"removed":true,"detached":true,"parent":true,"reparented":true,"root":null,"missing":null}));
+    for expression in ["document.body.matches('[')", "document.body.closest('[')"] {
+        assert!(page.evaluate(expression).is_err());
+    }
+    assert_eq!(page.evaluate("document.body.matches('body')")?, json!(true));
+    Ok(())
+}

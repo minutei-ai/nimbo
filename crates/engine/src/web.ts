@@ -63,6 +63,17 @@
       const id = call<number | null>("queryOne", idOf(this), selector);
       return id === null ? null : node(id);
     }
+    matches(selector: string): boolean {
+      return call("matches", idOf(this), selector);
+    }
+    closest(selector: string): Element | null {
+      const id = call<number | null>("closest", idOf(this), selector);
+      return id === null ? null : node(id);
+    }
+    get parentElement(): Element | null {
+      const id = call<number | null>("parentElement", idOf(this));
+      return id === null ? null : node(id);
+    }
     get textContent(): string {
       return call("get", idOf(this), "textContent");
     }
@@ -98,6 +109,12 @@
     }
     setAttribute(name: string, value: string | number | null) {
       call("setAttr", idOf(this), name, String(value));
+    }
+    hasAttribute(name: string): boolean {
+      return this.getAttribute(name) !== null;
+    }
+    removeAttribute(name: string) {
+      call("removeAttr", idOf(this), name);
     }
     appendChild(child: Element): Element {
       call("append", idOf(this), "", String(idOf(child)));

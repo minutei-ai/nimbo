@@ -56,6 +56,27 @@ impl Dom {
         let result = match operation {
             "query" => self.query(handle, arg)?,
             "queryOne" => self.query_one(handle, arg)?,
+            "matches" => {
+                let matcher = self.matcher(arg)?;
+                json!(self.node(handle)?.is_match(&matcher))
+            }
+            "closest" => {
+                let matcher = self.matcher(arg)?;
+                let node = self.node(handle)?;
+                let id = std::iter::once(node)
+                    .chain(node.ancestors_it(None))
+                    .find(|candidate| candidate.is_element() && candidate.is_match(&matcher))
+                    .map(|candidate| candidate.id);
+                json!(id.map(|id| self.handle(id)))
+            }
+            "parentElement" => {
+                let id = self
+                    .node(handle)?
+                    .parent()
+                    .filter(NodeRef::is_element)
+                    .map(|parent| parent.id);
+                json!(id.map(|id| self.handle(id)))
+            }
             "create" => {
                 if arg.is_empty()
                     || !arg
@@ -69,7 +90,7 @@ impl Dom {
             }
             "get" => self.get(handle, arg)?,
             "attr" => json!(self.node(handle)?.attr(arg).map(|text| text.to_string())),
-            "set" | "setAttr" => {
+            "set" | "setAttr" | "removeAttr" => {
                 self.writes = self
                     .writes
                     .saturating_add(arg.len())
@@ -176,6 +197,7 @@ impl Dom {
             ("set", "textContent") => node.set_text(value),
             ("set", "innerHTML") => node.set_html(value),
             ("setAttr", _) => node.set_attr(property, value),
+            ("removeAttr", _) => node.remove_attr(property),
             _ => return Err(Error::Dom(format!("unsupported write: {property}"))),
         }
         Ok(())
