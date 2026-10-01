@@ -5,7 +5,11 @@ export class ScrapeError extends Data.TaggedError("ScrapeError")<{
   readonly reason: string;
 }> {}
 
-export const Input = Schema.Struct({ url: Schema.String, expression: Schema.String });
+export const Input = Schema.Struct({
+  url: Schema.String,
+  expression: Schema.String,
+  scripts: Schema.optional(Schema.Literals(["execute", "skip"])),
+});
 export const Action = Schema.Union([
   Schema.Struct({
     type: Schema.Literal("request"),

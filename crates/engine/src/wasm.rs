@@ -24,14 +24,21 @@ impl fmt::Debug for WasmPage {
 #[wasm_bindgen]
 impl WasmPage {
     /// Cria uma página com os limites padrão e sem acesso direto ao runtime do Worker.
+    /// `execute_scripts` omitido executa scripts; false extrai somente o HTML recebido.
     ///
     /// # Errors
     /// Retorna falha de URL, HTML, scripts, alocação ou inicialização do motor.
     #[wasm_bindgen(constructor)]
-    pub fn new(html: &str, url: &str) -> Result<Self, String> {
-        Machine::new(html, url, Limits::default(), Arc::new(|| false))
-            .map(|machine| Self { machine })
-            .map_err(|error| error.to_string())
+    pub fn new(html: &str, url: &str, execute_scripts: Option<bool>) -> Result<Self, String> {
+        Machine::new(
+            html,
+            url,
+            Limits::default(),
+            Arc::new(|| false),
+            execute_scripts.unwrap_or(true),
+        )
+        .map(|machine| Self { machine })
+        .map_err(|error| error.to_string())
     }
 
     /// Retorna uma ação JSON: request, ready ou result. O host não executa scripts de páginas.

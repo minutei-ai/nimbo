@@ -89,13 +89,19 @@ impl Drop for Machine {
 }
 
 impl Machine {
-    pub(crate) fn new(html: &str, url: &str, limits: Limits, check: Check) -> Result<Self> {
+    pub(crate) fn new(
+        html: &str,
+        url: &str,
+        limits: Limits,
+        check: Check,
+        execute_scripts: bool,
+    ) -> Result<Self> {
         if html.len() > limits.max_response_bytes {
             return Err(Error::Limit("HTML bytes"));
         }
         let base = parse_url(url)?;
         let dom = Rc::new(RefCell::new(Dom::new(html, limits)));
-        let scripts = collect_scripts(&dom.borrow())?;
+        let scripts = collect_scripts(&dom.borrow(), execute_scripts)?;
         let runtime = Runtime::new().map_err(|error| Error::JavaScript(error.to_string()))?;
         runtime.set_memory_limit(limits.javascript_memory_bytes);
         runtime.set_max_stack_size(512 * 1024);
@@ -396,11 +402,14 @@ fn js<T>(ctx: &Ctx<'_>, result: rquickjs::Result<T>) -> Result<T> {
     rquickjs::CaughtError::catch(ctx, result).map_err(|error| Error::JavaScript(error.to_string()))
 }
 
-fn collect_scripts(dom: &Dom) -> Result<VecDeque<Script>> {
+fn collect_scripts(dom: &Dom, execute_scripts: bool) -> Result<VecDeque<Script>> {
     if dom.document.select("iframe, frame, base[href]").exists() {
         return Err(Error::Unsupported("frames and base URL elements".into()));
     }
     let mut scripts = VecDeque::new();
+    if !execute_scripts {
+        return Ok(scripts);
+    }
     for node in dom.document.select("script").nodes() {
         let kind = node
             .attr("type")

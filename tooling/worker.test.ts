@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { join } from "node:path";
-import { Miniflare, type Request as WorkerRequest } from "miniflare";
+import { Miniflare, type WorkerOptions, type Request as WorkerRequest } from "miniflare";
 
 const root = join(import.meta.dir, "..");
 const html = (body: string, headers: Record<string, string> = {}) =>
@@ -9,6 +9,7 @@ const html = (body: string, headers: Record<string, string> = {}) =>
 async function fixture(
   outbound: (request: WorkerRequest) => Response | Promise<Response>,
   run: (worker: Miniflare) => Promise<void>,
+  serviceBindings: WorkerOptions["serviceBindings"] = {},
 ) {
   const worker = new Miniflare({
     modules: [
@@ -18,6 +19,7 @@ async function fixture(
     compatibilityDate: "2026-07-30",
     bindings: { API_TOKEN: "test-secret" },
     outboundService: outbound,
+    serviceBindings,
   });
   try {
     await run(worker);
@@ -108,6 +110,77 @@ test("guest JS cannot access Worker credentials or host bindings", async () => {
           ),
         ),
       ).toMatchObject({ value: ["undefined", "undefined", "undefined", "undefined", "undefined"] });
+    },
+  );
+});
+
+test("explicit script skipping extracts server HTML without running or loading page scripts", async () => {
+  const requests: string[] = [];
+  await fixture(
+    (request) => {
+      requests.push(new URL(request.url).pathname);
+      return html(`<h1>Published document</h1><a href="/documents/one">Read document</a>
+        <script type="module" src="/app.js"></script>
+        <script async src="/tracking.js"></script>
+        <script>document.querySelector('h1').textContent = 'changed'; fetch('/side-effect');</script>`);
+    },
+    async (worker) => {
+      const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+        method: "POST",
+        headers: { authorization: "Bearer test-secret" },
+        body: JSON.stringify({
+          url: "https://source.test/",
+          scripts: "skip",
+          expression:
+            "({heading: document.querySelector('h1').textContent, href: document.querySelector('a').getAttribute('href'), guest: typeof API_TOKEN})",
+        }),
+      });
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({
+        value: { heading: "Published document", href: "/documents/one", guest: "undefined" },
+      });
+      expect(requests).toEqual(["/"]);
+      const normal = await scrape(worker, "1");
+      expect(normal.status).toBe(422);
+      expect(await json(normal)).toMatchObject({ error: "unsupported: module scripts" });
+      const invalid = await worker.dispatchFetch("https://nimbo.test/scrape", {
+        method: "POST",
+        headers: { authorization: "Bearer test-secret" },
+        body: JSON.stringify({ url: "https://source.test/", expression: "1", scripts: "auto" }),
+      });
+      expect(invalid.status).toBe(400);
+      expect(requests).toEqual(["/", "/"]);
+    },
+  );
+});
+
+test("EGRESS delivers server HTML to Wasm without falling back to direct fetch", async () => {
+  await fixture(
+    () => new Response("Direct transport must not be used", { status: 502 }),
+    async (worker) => {
+      const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+        method: "POST",
+        headers: { authorization: "Bearer test-secret" },
+        body: JSON.stringify({
+          url: "https://source.test/document",
+          scripts: "skip",
+          expression: "document.querySelector('article').textContent",
+        }),
+      });
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({
+        value: "Published through egress",
+        engine: "rust-wasm-quickjs",
+      });
+    },
+    {
+      EGRESS: (request) => {
+        if (new URL(request.url).pathname !== "/document" || request.method !== "GET")
+          return new Response("Unexpected egress request", { status: 400 });
+        return html(
+          '<article>Published through egress</article><script type="module" src="/app.js"></script>',
+        );
+      },
     },
   );
 });

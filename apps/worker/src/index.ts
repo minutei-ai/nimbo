@@ -56,7 +56,7 @@ const scrape = (request: Request, environment: Environment) =>
         return yield* new ScrapeError({ status: 422, reason: "navigation requires text/html" });
       const page = yield* Effect.acquireRelease(
         Effect.try({
-          try: () => new WasmPage(response.body, response.url),
+          try: () => new WasmPage(response.body, response.url, input.scripts !== "skip"),
           catch: (cause) => failure(cause),
         }),
         (loaded) => Effect.sync(() => loaded.free()),

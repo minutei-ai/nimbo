@@ -33,6 +33,7 @@ impl Page {
             &response.url,
             transport.limits,
             Arc::new(move || std::time::Instant::now() >= deadline),
+            true,
         )?;
         let page = Self {
             machine: RefCell::new(machine),

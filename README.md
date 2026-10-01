@@ -50,6 +50,8 @@ O núcleo Rust é uma máquina que produz ações HTTP e recebe respostas. Não 
 - Sucesso: `{ "url": "URL final", "value": "resultado", "engine": "rust-wasm-quickjs" }`.
 - Falha: status HTTP e `{ "error": "motivo" }`. Sem `API_TOKEN`, scraping fica indisponível.
 
+Para HTML renderizado no servidor, envie `"scripts": "skip"`: scripts inline, externos, modules e async não executam nem são carregados. A expressão de extração continua usando o DOM recebido e QuickJS. O padrão `"scripts": "execute"` mantém a execução e as rejeições de scripts não suportados; não há fallback automático para conteúdo estático. Esse modo não hidrata aplicações nem produz conteúdo que depende de JavaScript.
+
 O artefato deve ser configurado com o módulo Wasm pré-compilado e o secret `API_TOKEN`. Não há configuração de deploy nem credenciais Cloudflare incluídas neste MVP.
 
 O binding opcional `EGRESS` implementa `fetch(Request): Promise<Response>`, permitindo um transporte separado sem acoplar protocolos ao motor. Sem binding, o transporte utiliza `fetch` do Worker diretamente. Tinyproxy usa HTTP/CONNECT com autenticação configurada somente em ambiente privado; suporte HTTPS no Worker exige validação do caminho TLS.
@@ -64,7 +66,8 @@ O binding opcional `EGRESS` implementa `fetch(Request): Promise<Response>`, perm
 | Limites de bytes, requests, DOM, heap JS, instruções e microtasks                  | Implementados; testes locais de falha e recuperação |
 | Proxy, deploy, custo, memória prolongada e throughput em produção                  | Pendentes                                           |
 | Layout/CSS, screenshots, Chromium/CDP, XHR, timers e storage                       | Não implementados                                   |
-| Modules, scripts async, frames e base href                                         | Rejeitados explicitamente                           |
+| Modules e scripts async                                                            | Rejeitados no modo execute; ignorados no modo skip  |
+| Frames e base href                                                                 | Rejeitados explicitamente                           |
 
 Scripts executam em ordem após parsing completo. Fetch suporta `method`/corpo string, `status`/`ok`/`url`, `text()` e `json()`. Não implementa headers customizados nem CORS entre origens. HTML e respostas devem ser UTF-8; imagens e estilos não são carregados. Não equivale à compatibilidade de Chromium.
 
