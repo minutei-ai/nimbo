@@ -27,3 +27,15 @@ jobs:
       - run: cargo install wasm-bindgen-cli --version 0.2.129 --locked
       - run: bun install --frozen-lockfile
       - run: bun run check
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Scan reachable history for credentials
+        run: |
+          curl --fail --silent --show-error --location https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz -o /tmp/gitleaks.tar.gz
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          /tmp/gitleaks git --redact --no-banner
