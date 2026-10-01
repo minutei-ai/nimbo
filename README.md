@@ -10,6 +10,7 @@ O MVP foi validado localmente no `workerd`, o runtime dos Workers, e também pos
 apps/worker/     Worker TypeScript + Effect: API e transporte
 crates/engine/   Rust: DOM, QuickJS, máquina de execução e CLI
 tooling/        build, testes de lint, workerd e benchmark nativo
+apps/infrastructure/  stack nativa Alchemy para o Worker e seu secret
 ```
 
 Workspaces nativos Bun/Cargo, versões fixadas e lockfiles versionados. Todo código escrito no projeto é Rust ou TypeScript. O JavaScript necessário ao runtime é gerado em `target/` e `dist/`, ignorados pelo Git.
@@ -52,7 +53,15 @@ O núcleo Rust é uma máquina que produz ações HTTP e recebe respostas. Não 
 
 Para HTML renderizado no servidor, envie `"scripts": "skip"`: scripts inline, externos, modules e async não executam nem são carregados. A expressão de extração continua usando o DOM recebido e QuickJS. O padrão `"scripts": "execute"` mantém a execução e as rejeições de scripts não suportados; não há fallback automático para conteúdo estático. Esse modo não hidrata aplicações nem produz conteúdo que depende de JavaScript.
 
-O artefato deve ser configurado com o módulo Wasm pré-compilado e o secret `API_TOKEN`. Não há configuração de deploy nem credenciais Cloudflare incluídas neste MVP.
+O artefato inclui o módulo Wasm pré-compilado e o secret `API_TOKEN`. A stack em `apps/infrastructure/alchemy.run.ts` usa o recurso nativo Worker do Alchemy com `bundle: false`, preservando o JavaScript e o módulo Wasm produzidos pelo build. `NIMBO_API_TOKEN` vem do ambiente privado e é declarado como secret via `Config.Redacted`; autenticação Cloudflare usa o fluxo nativo do Alchemy. Nenhuma credencial acompanha o projeto.
+
+```sh
+bun run dev:worker
+bun run plan:worker
+bun run deploy:worker
+```
+
+A stack usa o estado local nativo do Alchemy, em `.alchemy/`, ignorado pelo Git. Mantenha esse estado entre operações de deploy. O workspace de infraestrutura fixa Effect `4.0.0-rc.115`, compatível com os imports do Alchemy `2.0.0-beta.79`; o runtime do Worker continua no Effect `4.0.0`. Os overrides dos pacotes auxiliares mantêm essa compatibilidade na instalação reproduzível. O plano local não comprova deploy nem funcionamento no ambiente Cloudflare.
 
 O binding opcional `EGRESS` implementa `fetch(Request): Promise<Response>`, permitindo um transporte separado sem acoplar protocolos ao motor. Sem binding, o transporte utiliza `fetch` do Worker diretamente. Tinyproxy usa HTTP/CONNECT com autenticação configurada somente em ambiente privado; suporte HTTPS no Worker exige validação do caminho TLS.
 

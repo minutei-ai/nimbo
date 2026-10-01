@@ -2,6 +2,7 @@ node_modules/
 target/
 dist/
 coverage/
+.alchemy/
 .lint-probe-*/
 .env
 .env.*

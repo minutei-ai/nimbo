@@ -120,6 +120,12 @@ The [CLI contract](https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7
 adds fetch/serve/scrape/MCP modes, output formats and batching. Those contracts
 must work through the actual engine, not only an adapter returning success.
 
+At the audited revision, the public
+[browser API implementation](https://github.com/h4ckf0r0day/obscura/blob/0cdd42e63bee6c5c7702039a675579cbfd545f5d/crates/obscura-js/js/bootstrap.js)
+returns `null` for WebGL contexts and rejects media playback without a decoder.
+WebGL/media classes alone do not mean those workloads are supported. Nimbo's
+target includes actual graphics and decoding beyond these upstream gaps.
+
 The upstream dispatcher also accepts several domains with empty acknowledgements
 (including CSS, Debugger and Profiler). Treat these as compatibility responses,
 not evidence of implemented domain behavior. Nimbo's acceptance requires the

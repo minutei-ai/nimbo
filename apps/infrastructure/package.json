@@ -1,0 +1,16 @@
+{
+  "name": "@nimbo/infrastructure",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "alchemy dev",
+    "plan": "alchemy plan",
+    "deploy": "alchemy deploy"
+  },
+  "dependencies": {
+    "@effect/platform-bun": "4.0.0-rc.115",
+    "@effect/platform-node": "4.0.0-rc.115",
+    "alchemy": "2.0.0-beta.79",
+    "effect": "4.0.0-rc.115"
+  }
+}
