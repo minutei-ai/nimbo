@@ -82,6 +82,7 @@ fn serve(mut request: Request) -> io::Result<()> {
     let mut status = 200;
     let mut headers = Vec::new();
     let body = match request.url() {
+        "/storage" => format!("<title>Storage</title><script>{}</script>", include_str!("fixtures/storage.txt")),
         "/static" => include_str!("fixtures/static.html").to_owned(),
         "/dynamic" => include_str!("fixtures/dynamic.html").to_owned(),
         "/assets/app.js" => {
@@ -635,5 +636,77 @@ fn native_module_graphs_cache_roots_and_share_live_exports() -> TestResult {
         browser.navigate(&fixture.path("/module"))?.evaluate("1")?,
         json!(1)
     );
+    Ok(())
+}
+
+#[test]
+fn web_storage_preserves_strings_and_native_navigation_state() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    let page = browser.navigate(&fixture.path("/storage"))?;
+    let result = page.evaluate("comparison")?;
+    let fields = result.as_object().ok_or("missing storage object")?;
+    assert_eq!(fields.len(), 18);
+    assert!(
+        fields.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    let next = browser.navigate(&fixture.path("/static"))?;
+    assert_eq!(
+        next.evaluate("[localStorage.persist,sessionStorage.persist]")?,
+        json!(["Storage", "Storage"])
+    );
+    assert_eq!(
+        next.evaluate(
+            "(localStorage.setItem('persist', 'changed'), sessionStorage.clear(), true)"
+        )?,
+        json!(true)
+    );
+    assert_eq!(
+        page.evaluate("[localStorage.persist,sessionStorage.length]")?,
+        json!(["changed", 0])
+    );
+    let isolated = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    assert_eq!(
+        isolated.evaluate("[localStorage.length,sessionStorage.length]")?,
+        json!([0, 0])
+    );
+    let other = Fixture::new()?;
+    assert!(browser.navigate(&other.path("/static")).is_err());
+    Ok(())
+}
+
+#[test]
+fn web_storage_quota_is_atomic_and_counts_utf16_bytes() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = Browser::new(
+        &fixture.url,
+        Limits {
+            max_storage_bytes: 16,
+            ..Limits::default()
+        },
+    )?;
+    let page = browser.navigate(&fixture.path("/static"))?;
+    assert_eq!(
+        page.evaluate("(localStorage.setItem('q', '😀😀😀x'), localStorage.q)")?,
+        json!("😀😀😀x")
+    );
+    assert_eq!(page.evaluate(r"(() => {
+      const errors = [];
+      for (const action of [() => localStorage.setItem('q', '😀😀😀xx'), () => localStorage.setItem('new', 'v')]) {
+        try {action(); errors.push(false);} catch(error) {errors.push(error instanceof DOMException && error.name === 'QuotaExceededError');}
+      }
+      const atomic = localStorage.q === '😀😀😀x' && localStorage.length === 1 && localStorage.new === undefined;
+      sessionStorage.setItem('q', '😀😀😀x');
+      localStorage.removeItem('q'); localStorage.setItem('q', '😀😀😀x');
+      localStorage.setItem('q', ''); localStorage.setItem('r', 'reused');
+      return {errors,atomic,independent:sessionStorage.q === '😀😀😀x',reuse:localStorage.r === 'reused'};
+    })()")?, json!({"errors":[true,true],"atomic":true,"independent":true,"reuse":true}));
+    let failure = page.evaluate("localStorage.setItem('new', 'v')");
+    assert!(
+        matches!(failure, Err(Error::JavaScript(message)) if message.contains("QuotaExceededError"))
+    );
+    let primitive = page.evaluate("(() => {throw 'sentinel';})()");
+    assert!(matches!(primitive, Err(Error::JavaScript(message)) if message.contains("sentinel")));
     Ok(())
 }

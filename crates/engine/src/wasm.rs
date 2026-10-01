@@ -36,6 +36,7 @@ impl WasmPage {
             Limits::default(),
             Arc::new(|| false),
             execute_scripts.unwrap_or(true),
+            std::rc::Rc::default(),
         )
         .map(|machine| Self { machine })
         .map_err(|error| error.to_string())

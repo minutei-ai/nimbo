@@ -2,12 +2,14 @@
   "use strict";
   const nativeDom = nimboDom;
   const nativeRequest = nimboRequest;
+  const nativeStorage = nimboStorage;
   const href = nimboUrl;
   const now = nimboNow;
   const timerLimit = nimboTimerLimit;
   const timerTaskLimit = nimboTimerTaskLimit;
   Reflect.deleteProperty(globalThis, "nimboDom");
   Reflect.deleteProperty(globalThis, "nimboRequest");
+  Reflect.deleteProperty(globalThis, "nimboStorage");
   Reflect.deleteProperty(globalThis, "nimboUrl");
   Reflect.deleteProperty(globalThis, "nimboNow");
   Reflect.deleteProperty(globalThis, "nimboTimerLimit");
@@ -65,6 +67,139 @@
     if (typeof value === "symbol") throw new TypeError("value must be convertible to DOMString");
     return String(value);
   }
+  const storageAreas = new WeakMap<object, number>();
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
+  function storageCall<T>(storage: object, operation: string, key = "", value = ""): T {
+    const area = storageAreas.get(storage);
+    if (area === undefined) throw new TypeError("Illegal invocation");
+    // The private bridge returns values produced by Rust, never page-supplied JSON.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    return JSON.parse(nativeStorage(area, operation, key, value)) as T;
+  }
+  function storageUnits(value: unknown): string {
+    const string = domString(value);
+    const units: number[] = [];
+    for (let index = 0; index < string.length; index++) units.push(string.charCodeAt(index));
+    return JSON.stringify(units);
+  }
+  function storageString(units: number[] | null): string | null {
+    if (units === null) return null;
+    let result = "";
+    for (let index = 0; index < units.length; index += 1024)
+      result += String.fromCharCode(...units.slice(index, index + 1024));
+    return result;
+  }
+  class Storage {
+    constructor() {
+      throw new TypeError("Illegal constructor");
+    }
+    get length(): number {
+      return storageCall(this, "length");
+    }
+    key(index: unknown): string | null {
+      if (!storageAreas.has(this)) throw new TypeError("Illegal invocation");
+      if (arguments.length === 0) throw new TypeError("key requires an index");
+      // Unary plus performs Web IDL's ToNumber and rejects BigInt/Symbol.
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion, typescript/no-unnecessary-type-conversion
+      const integer = +(index as number) >>> 0;
+      return storageString(storageCall(this, "key", JSON.stringify(integer)));
+    }
+    getItem(key: unknown): string | null {
+      if (!storageAreas.has(this)) throw new TypeError("Illegal invocation");
+      if (arguments.length === 0) throw new TypeError("getItem requires a key");
+      return storageString(storageCall(this, "get", storageUnits(key)));
+    }
+    setItem(key: unknown, value: unknown): void {
+      if (!storageAreas.has(this)) throw new TypeError("Illegal invocation");
+      if (arguments.length < 2) throw new TypeError("setItem requires a key and value");
+      storageCall(this, "set", storageUnits(key), storageUnits(value));
+    }
+    removeItem(key: unknown): void {
+      if (!storageAreas.has(this)) throw new TypeError("Illegal invocation");
+      if (arguments.length === 0) throw new TypeError("removeItem requires a key");
+      storageCall(this, "remove", storageUnits(key));
+    }
+    clear(): void {
+      storageCall(this, "clear");
+    }
+  }
+  Object.defineProperty(Storage.prototype, Symbol.toStringTag, {
+    value: "Storage",
+    configurable: true,
+  });
+  // Captured methods always run with an explicit branded receiver via call().
+  // oxlint-disable-next-line typescript/unbound-method
+  const storageGet = Storage.prototype.getItem;
+  // oxlint-disable-next-line typescript/unbound-method
+  const storageSet = Storage.prototype.setItem;
+  // oxlint-disable-next-line typescript/unbound-method
+  const storageRemove = Storage.prototype.removeItem;
+  function createStorage(area: number): Storage {
+    // Construction is reserved for Window; page code cannot manufacture a branded area.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const storageTarget = Object.create(Storage.prototype) as Storage;
+    storageAreas.set(storageTarget, area);
+    const visible = (key: PropertyKey) =>
+      typeof key === "string" &&
+      !Reflect.has(storageTarget, key) &&
+      storageGet.call(storageTarget, key) !== null;
+    const proxy = new Proxy(storageTarget, {
+      get(target, key, receiver) {
+        if (visible(key)) return storageGet.call(target, key);
+        const value: unknown = Reflect.get(target, key, receiver);
+        return value;
+      },
+      has(target, key) {
+        return visible(key) || Reflect.has(target, key);
+      },
+      set(target, key, value: unknown, receiver) {
+        if (typeof key === "string" && receiver === proxy) {
+          storageSet.call(target, key, value);
+          return true;
+        }
+        return Reflect.set(target, key, value, receiver);
+      },
+      deleteProperty(target, key) {
+        if (visible(key)) {
+          storageRemove.call(target, key);
+          return true;
+        }
+        return Reflect.deleteProperty(target, key);
+      },
+      ownKeys(target) {
+        const keys = storageCall<number[][]>(target, "keys").map(
+          (units) => storageString(units) ?? "",
+        );
+        return [...keys.filter(visible), ...Reflect.ownKeys(target)];
+      },
+      getOwnPropertyDescriptor(target, key) {
+        if (visible(key))
+          return {
+            value: storageGet.call(target, key),
+            writable: true,
+            enumerable: true,
+            configurable: true,
+          };
+        return Reflect.getOwnPropertyDescriptor(target, key);
+      },
+      defineProperty(target, key, descriptor) {
+        if (typeof key === "string") {
+          // Proxy invariants prevent the full legacy exotic non-configurable descriptor behavior.
+          if (!("value" in descriptor) || descriptor.configurable === false) return false;
+          storageSet.call(target, key, descriptor.value);
+          return true;
+        }
+        return Reflect.defineProperty(target, key, descriptor);
+      },
+      preventExtensions() {
+        return false;
+      },
+    });
+    storageAreas.set(proxy, area);
+    return proxy;
+  }
+  const localStorage = createStorage(0);
+  const sessionStorage = createStorage(1);
   function eventState(event: Event): EventState {
     const state = events.get(event);
     if (!state) throw new TypeError("Illegal invocation");
@@ -1013,6 +1148,7 @@
   };
   Object.assign(globalThis, {
     document,
+    Storage,
     window: globalThis,
     self: globalThis,
     location: Object.freeze({ href, toString: () => href }),
@@ -1040,6 +1176,11 @@
     addEventListener: EventTarget.prototype.addEventListener.bind(globalThis),
     removeEventListener: EventTarget.prototype.removeEventListener.bind(globalThis),
     dispatchEvent: EventTarget.prototype.dispatchEvent.bind(globalThis),
+  });
+
+  Object.defineProperties(globalThis, {
+    localStorage: { get: () => localStorage, enumerable: true, configurable: true },
+    sessionStorage: { get: () => sessionStorage, enumerable: true, configurable: true },
   });
 
   const ready = (complete = true) => {

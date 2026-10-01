@@ -12,7 +12,7 @@ use rquickjs::{Context, Ctx, Exception, Function, Persistent, Promise, Runtime};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::{Error, Limits, Result, dom::Dom, modules::Modules};
+use crate::{Error, Limits, Result, dom::Dom, modules::Modules, storage::Storage};
 
 type Check = Arc<dyn Fn() -> bool + Send + Sync>;
 
@@ -112,6 +112,7 @@ impl Machine {
         limits: Limits,
         check: Check,
         execute_scripts: bool,
+        storage: Rc<RefCell<Storage>>,
     ) -> Result<Self> {
         if html.len() > limits.max_response_bytes {
             return Err(Error::Limit("HTML bytes"));
@@ -168,12 +169,17 @@ impl Machine {
             phase: Phase::Scripts,
             base,
         };
-        machine.bootstrap(dom, url)?;
+        machine.bootstrap(dom, url, storage)?;
         machine.check_budget()?;
         Ok(machine)
     }
 
-    fn bootstrap(&mut self, dom: Rc<RefCell<Dom>>, url: &str) -> Result<()> {
+    fn bootstrap(
+        &mut self,
+        dom: Rc<RefCell<Dom>>,
+        url: &str,
+        storage: Rc<RefCell<Storage>>,
+    ) -> Result<()> {
         let limits = self.limits;
         let pending = Rc::clone(&self.pending);
         let request_base = self.base.clone();
@@ -239,6 +245,21 @@ impl Machine {
                 },
             );
             js(&ctx, globals.set("nimboRequest", js(&ctx, request)?))?;
+            let storage_call = Function::new(
+                ctx.clone(),
+                move |ctx: Ctx<'_>, area: usize, operation: String, key: String, value: String| {
+                    storage
+                        .borrow_mut()
+                        .call(area, &operation, &key, &value, limits.max_storage_bytes)
+                        .map_err(|error| match error {
+                            Error::DomException { name, message } => {
+                                Exception::throw_dom(&ctx, name, message)
+                            }
+                            error => Exception::throw_message(&ctx, &error.to_string()),
+                        })
+                },
+            );
+            js(&ctx, globals.set("nimboStorage", js(&ctx, storage_call)?))?;
             js(&ctx, globals.set("nimboUrl", url))?;
             let callbacks = js(
                 &ctx,
@@ -566,7 +587,25 @@ pub(crate) fn resolve(base: &Url, value: &str) -> Result<Url> {
 }
 
 fn js<T>(ctx: &Ctx<'_>, result: rquickjs::Result<T>) -> Result<T> {
-    rquickjs::CaughtError::catch(ctx, result).map_err(|error| Error::JavaScript(error.to_string()))
+    rquickjs::CaughtError::catch(ctx, result).map_err(|error| {
+        // QuickJS DOMException is not an Error subclass. Preserve its diagnostics
+        // instead of returning the library's opaque Object(pointer) display.
+        let message = match &error {
+            rquickjs::CaughtError::Value(value) => value
+                .as_object()
+                .and_then(|object| {
+                    let name =
+                        rquickjs::CaughtError::catch(ctx, object.get::<_, String>("name")).ok()?;
+                    let message =
+                        rquickjs::CaughtError::catch(ctx, object.get::<_, String>("message"))
+                            .ok()?;
+                    Some(format!("{name}: {message}"))
+                })
+                .unwrap_or_else(|| error.to_string()),
+            _ => error.to_string(),
+        };
+        Error::JavaScript(message)
+    })
 }
 
 fn collect_scripts(dom: &Dom, execute_scripts: bool) -> Result<VecDeque<Script>> {

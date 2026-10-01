@@ -1,0 +1,61 @@
+globalThis.comparison = (() => {
+  const local = localStorage;
+  const session = sessionStorage;
+  const empty = local.length === 0 && session.length === 0 && local.getItem('absent') === null
+    && local.absent === undefined && !('absent' in local);
+  const identity = local === window.localStorage && session === window.sessionStorage && local !== session;
+  const brand = local instanceof Storage && session instanceof Storage
+    && Object.getPrototypeOf(local) === Storage.prototype && Object.prototype.toString.call(local) === '[object Storage]';
+  local.setItem('value', document.title);
+  session.setItem('value', 'session');
+  const areas = local.getItem('value') === document.title && session.getItem('value') === 'session';
+  let conversions = 0;
+  local.setItem({toString() {conversions++; return 'converted';}}, {toString() {conversions++; return 'α-😀';}});
+  local.setItem(null, undefined);
+  local.setItem(12, 42);
+  const coercion = conversions === 2 && local.converted === 'α-😀' && local.null === 'undefined' && local[12] === '42';
+  const lone = String.fromCharCode(0xd800);
+  local.setItem(lone, lone + '😀' + String.fromCharCode(0xdc00));
+  const unicode = local.getItem(lone) === lone + '😀' + String.fromCharCode(0xdc00);
+  local.setItem('', '');
+  const emptyString = local[''] === '' && local.getItem('') === '' && '' in local;
+  local.named = 'first';
+  const descriptor = Object.getOwnPropertyDescriptor(local, 'named');
+  const reflection = descriptor.value === 'first' && descriptor.writable && descriptor.enumerable && descriptor.configurable
+    && Object.keys(local).includes('named') && 'named' in local;
+  local.named = 'changed';
+  const replacement = local.named === 'changed' && local.length === 7;
+  const keyNames = Array.from({length:local.length}, (_, index) => local.key(index));
+  const keys = new Set(keyNames).size === local.length && keyNames.includes('') && keyNames.includes(lone)
+    && local.key(-1) === null && local.key(0x100000000) === local.key(0) && local.key(NaN) === local.key(0);
+  local.setItem('getItem', 'hidden');
+  local.setItem('length', 'also hidden');
+  const reserved = typeof local.getItem === 'function' && local.getItem('getItem') === 'hidden'
+    && local.getItem('length') === 'also hidden' && typeof local.length === 'number'
+    && !Object.keys(local).includes('getItem') && !Object.hasOwn(local, 'length');
+  delete local.getItem;
+  const hiddenDelete = local.getItem('getItem') === 'hidden';
+  const symbol = Symbol('expando'); local[symbol] = 23;
+  const symbolProperty = local[symbol] === 23 && local.getItem(String(symbol)) === null;
+  Object.defineProperty(local, 'defined', {value: 55, configurable:true});
+  const defined = local.defined === '55' && local.getItem('defined') === '55';
+  const deleted = delete local.named;
+  local.removeItem('absent'); local.removeItem(12);
+  const removal = deleted && local.named === undefined && !('named' in local) && local.getItem(12) === null;
+  const guarded = [];
+  for (const action of [
+    () => new Storage(), () => Storage.prototype.getItem.call({}, 'x'),
+    () => Object.getOwnPropertyDescriptor(Storage.prototype, 'length').get.call({}),
+    () => local.getItem(), () => local.setItem('x'), () => local.removeItem(), () => local.key(),
+    () => local.getItem(Symbol()), () => local.setItem('x', Symbol()), () => local.key(1n),
+    () => local.setItem('x', {toString() {throw new TypeError('conversion');}}),
+  ]) {try { action(); guarded.push(false); } catch(error) {guarded.push(error instanceof TypeError);}}
+  const guards = guarded.length === 11 && guarded.every(Boolean) && local.getItem('x') === null;
+  const extensible = Object.isExtensible(local) && !Reflect.preventExtensions(local) && Object.isExtensible(local);
+  local.clear(); local.clear();
+  const clear = local.length === 0 && Object.keys(local).length === 0 && session.value === 'session' && local[symbol] === 23;
+  local.setItem('persist', document.title);
+  session.setItem('persist', document.title);
+  return {empty,identity,brand,areas,coercion,unicode,emptyString,reflection,replacement,keys,reserved,hiddenDelete,
+    symbolProperty,defined,removal,guards,extensible,clear};
+})();

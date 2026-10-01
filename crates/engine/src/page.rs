@@ -6,6 +6,7 @@ use crate::{
     Error, Result,
     machine::{Action, Machine, Response, parse_url},
     network::Transport,
+    storage::Storage,
 };
 
 /// Documento carregado. Drop libera DOM, contexto JS e recursos da página.
@@ -26,7 +27,11 @@ impl fmt::Debug for Page {
 }
 
 impl Page {
-    pub(crate) fn load(response: Response, transport: Rc<Transport>) -> Result<Self> {
+    pub(crate) fn load(
+        response: Response,
+        transport: Rc<Transport>,
+        storage: Rc<RefCell<Storage>>,
+    ) -> Result<Self> {
         transport.check_deadline()?;
         let deadline = transport.deadline;
         let machine = Machine::new(
@@ -35,6 +40,7 @@ impl Page {
             transport.limits,
             Arc::new(move || std::time::Instant::now() >= deadline),
             true,
+            storage,
         )?;
         let page = Self {
             machine: RefCell::new(machine),

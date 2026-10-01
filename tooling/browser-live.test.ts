@@ -2,6 +2,9 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import { join } from "node:path";
 import { Miniflare } from "miniflare";
 
+const storageScript = await Bun.file(
+  join(import.meta.dir, "../crates/engine/tests/fixtures/storage.txt"),
+).text();
 const requests: string[] = [];
 const comparisonBinary = process.env.NIMBO_COMPARE_OBSCURA_BINARY;
 async function comparePage(binary: string, url: string): Promise<unknown> {
@@ -362,6 +365,22 @@ const origin = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     requests.push(`${request.method} ${path}`);
+    if (path.startsWith("/storage/")) {
+      const variant = Number(path.slice(9));
+      return new Response(
+        `<title>Storage ${variant}</title><script>${storageScript}</script><script src="/storage-external.js"></script><script type="module">comparison.module = localStorage.persist === document.title && sessionStorage.persist === document.title;</script>`,
+        {
+          headers: { "content-type": "text/html; charset=utf-8" },
+        },
+      );
+    }
+    if (path === "/storage-external.js")
+      return new Response(
+        "comparison.external = localStorage.persist === document.title && sessionStorage.persist === document.title;",
+        {
+          headers: { "content-type": "text/javascript" },
+        },
+      );
     if (path === "/echo")
       return Response.json({ method: request.method, body: await request.text() });
     if (path === "/module-bad-mime.js")
@@ -909,3 +928,102 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     expect(error).toMatch(expected);
   },
 );
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native Web Storage and request isolation variant %i",
+  async (variant) => {
+    const url = new URL(`storage/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "globalThis.comparison" }),
+    });
+    expect(response.status).toBe(200);
+    const expected = Object.fromEntries(
+      [
+        "empty",
+        "identity",
+        "brand",
+        "areas",
+        "coercion",
+        "unicode",
+        "emptyString",
+        "reflection",
+        "replacement",
+        "keys",
+        "reserved",
+        "hiddenDelete",
+        "symbolProperty",
+        "defined",
+        "removal",
+        "guards",
+        "extensible",
+        "clear",
+        "external",
+        "module",
+      ].map((key) => [key, true]),
+    );
+    expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: expected });
+    // The pinned comparator does not produce a completed value for this fixture.
+    // Keep Nimbo's standards-based assertions above independent of that failure.
+    if (comparisonBinary) expect(await comparePage(comparisonBinary, url)).toBeNull();
+    expect(requests).toContain(`GET /storage/${variant}`);
+    expect(requests).toContain("GET /storage-external.js");
+  },
+);
+
+test("real HTTP → workerd → Wasm: atomic storage quota, reuse and recovery", async () => {
+  const url = new URL("storage/0", origin.url).href;
+  const expression = `(() => {
+    localStorage.clear(); sessionStorage.clear();
+    const full = 'x'.repeat(32767); localStorage.setItem('q', full);
+    const errors = [];
+    for (const action of [() => localStorage.setItem('q', full + 'x'), () => localStorage.setItem('new', 'v')]) {
+      try {action(); errors.push(false);} catch(error) {errors.push(error instanceof DOMException && error.name === 'QuotaExceededError');}
+    }
+    const atomic = localStorage.q === full && localStorage.length === 1 && localStorage.new === undefined;
+    sessionStorage.setItem('q', full); localStorage.removeItem('q'); localStorage.setItem('q', full);
+    localStorage.clear(); localStorage.setItem('after', 'works');
+    return {errors,atomic,independent:sessionStorage.q === full,reuse:localStorage.after === 'works'};
+  })()`;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({
+    url,
+    engine: "rust-wasm-quickjs",
+    value: { errors: [true, true], atomic: true, independent: true, reuse: true },
+  });
+  const failure = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression:
+        "(() => {localStorage.clear(); localStorage.setItem('q', 'x'.repeat(32767)); localStorage.setItem('new', 'v');})()",
+    }),
+  });
+  expect(failure.status).toBe(422);
+  const result: unknown = await failure.json();
+  const error: unknown =
+    typeof result === "object" && result !== null ? Reflect.get(result, "error") : undefined;
+  expect(error).toMatch(/QuotaExceededError/);
+  const recovered = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      scripts: "skip",
+      expression: "[localStorage.length,sessionStorage.length,typeof nimboStorage]",
+    }),
+  });
+  expect(recovered.status).toBe(200);
+  expect(await recovered.json()).toEqual({
+    url,
+    engine: "rust-wasm-quickjs",
+    value: [0, 0, "undefined"],
+  });
+});

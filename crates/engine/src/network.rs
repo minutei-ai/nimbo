@@ -1,9 +1,14 @@
-use std::{cell::Cell, io::Read, rc::Rc, time::Instant};
+use std::{
+    cell::{Cell, RefCell},
+    io::Read,
+    rc::Rc,
+    time::Instant,
+};
 
 use crate::machine::{Response, parse_url};
 use reqwest::{Url, blocking::Client, header::LOCATION, redirect::Policy};
 
-use crate::{Error, Limits, Page, Result};
+use crate::{Error, Limits, Page, Result, storage::Storage};
 
 /// Uma sessão HTTP com cookies próprios e uma única origem autorizada.
 #[derive(Debug)]
@@ -11,6 +16,7 @@ pub struct Browser {
     client: Client,
     origin: Url,
     limits: Limits,
+    storage: Rc<RefCell<Storage>>,
 }
 
 impl Browser {
@@ -30,6 +36,7 @@ impl Browser {
             || limits.max_requests == 0
             || limits.max_dom_operations == 0
             || limits.max_dom_write_bytes == 0
+            || limits.max_storage_bytes == 0
             || limits.javascript_memory_bytes < 1024 * 1024
         {
             return Err(Error::Limit("invalid configuration"));
@@ -44,6 +51,7 @@ impl Browser {
             client,
             origin,
             limits,
+            storage: Rc::default(),
         })
     }
 
@@ -70,7 +78,7 @@ impl Browser {
         if !response.content_type.starts_with("text/html") {
             return Err(Error::Unsupported("navigation requires text/html".into()));
         }
-        Page::load(response, transport)
+        Page::load(response, transport, Rc::clone(&self.storage))
     }
 }
 

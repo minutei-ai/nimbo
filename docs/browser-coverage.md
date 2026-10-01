@@ -21,7 +21,7 @@ tests as well as integration and application tests.
 
 `tooling/browser-live.test.ts` uses a real loopback HTTP origin, actual workerd,
 and the compiled Rust/Wasm engine. It installs no transport replacements,
-service mocks, browser API stubs, or canned engine results. Its 448 data variants
+service mocks, browser API stubs, or canned engine results. Its 512 data variants
 exercise external scripts, Unicode/entity decoding, selector identity,
 ancestry, removal/reparenting, attribute mutation and POST response decoding.
 They also exercise parsed and created text/comment nodes, native node identity,
@@ -41,7 +41,11 @@ The sixth set exercises native module graphs, relative imports, redirects,
 reexports, cycles, live bindings, namespace identity, top-level await, cached
 dynamic imports and deferred-script lifecycle. The seventh set checks explicit
 syntax, resolution, origin, import-attribute, MIME, HTTP, export and evaluation
-failures. These are repeated integration checks, not 448 independent platform
+failures. The eighth set exercises native Web Storage across inline, external
+and module scripts, UTF-16 including lone surrogates, coercion/receiver guards,
+named properties, reflection, removal, clearing and fresh Worker request areas.
+An additional case exercises actual quota exhaustion, atomic failure, independent
+local/session quotas and reuse. These are repeated integration checks, not 512 independent platform
 features. Event support remains a subset: timestamps, legacy initialization,
 shadow trees, native input, AbortSignal timeout/any and fetch cancellation are
 not covered by this implementation.
@@ -100,6 +104,27 @@ fails explicitly. Async script scheduling and full HTML module lifecycle/WPT
 conformance remain incomplete. These tests do not prove application hydration
 or production compatibility.
 
+Web Storage values live in Rust and preserve UTF-16 code units. The default
+quota is 64 KiB per area, counting keys and values as two bytes per code unit.
+Writes validate the new total before mutating state and throw a native
+`QuotaExceededError`; deletion and clear reclaim quota. Native `Browser`
+navigations share local and session areas within its single permitted origin;
+a separate Browser owns fresh areas. The Worker currently creates fresh areas
+per request, so this does not provide durable sessions or cross-request storage.
+The public boundary exposes neither the private native bridge nor host storage.
+These behaviors follow the [Web Storage interface](https://html.spec.whatwg.org/multipage/webstorage.html#the-storage-interface).
+
+The pinned comparator returns null for the completed Web Storage fixture. This
+records a failed fixture, not proof that every upstream storage API is absent.
+Nimbo's positive results and quota failures are asserted independently.
+
+Storage remains a subset. IndexedDB, disk/durable recovery, separate tab/session
+cloning, storage events to other windows and full Web IDL reflection are missing.
+In particular the JavaScript Proxy cannot reproduce the legacy object's
+non-configurable named-property descriptor behavior; such definitions are
+rejected. Configurable data descriptors are covered. No browser-wide persistence
+or complete WPT conformance is claimed.
+
 The same release has two recorded divergences from the
 [DOM textContent contract](https://dom.spec.whatwg.org/#dom-node-textcontent):
 its document returns descendant text instead of null, and assigning comment
@@ -149,7 +174,7 @@ evidence cannot establish it.
 | Network interception, response fulfillment, blocking  | Missing    | Actual request pause/continue/fail/fulfill and event/body correlation              |
 | Cookies and per-navigation isolation                  | Subset     | Path/domain/expiry/Secure/HttpOnly/SameSite, independent contexts                  |
 | Persistent sessions, cookies and storage              | Missing    | Restart/eviction recovery and tenant isolation via durable state                   |
-| localStorage/sessionStorage/IndexedDB                 | Missing    | Origin isolation, transactions, persistence and quota failures                     |
+| localStorage/sessionStorage/IndexedDB                 | Subset     | Web Storage/quota tested; IndexedDB, durable state and storage events missing      |
 | URL, encoding, streams, File APIs and WebCrypto       | Missing    | Pinned WPT with actual algorithms and binary round trips                           |
 | Page WebAssembly and Web Workers                      | Missing    | Guest modules, imports, worker messages, termination and isolation                 |
 | CSS cascade, CSSOM, typed styles, layout and geometry | Missing    | Computed styles and shared layout driving queries and paint                        |
