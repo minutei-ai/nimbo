@@ -1,0 +1,15 @@
+(() => {
+  const initial=16+Number(globalThis.variant||0);
+  const sheet=document.createElement('style');
+  sheet.textContent='html{font-size:2rem}.container{container-type:inline-size;width:'+initial*6+'px}.target{width:11px;height:0}@container (width:3rem) and (width:3em){.target{width:31px}}';
+  document.head.appendChild(sheet);
+  const container=document.createElement('div');container.className='container';
+  const target=document.createElement('div');target.className='target';
+  container.appendChild(target);document.body.appendChild(container);
+  const result={initialRem:target.getBoundingClientRect().width===31,
+    mediaRem:matchMedia('(width:10rem)').matches,
+    mediaEm:matchMedia('(width:10em)').matches,
+    mediaRootIndependent:!matchMedia('(width:5rem)').matches};
+  sheet.remove();target.style.width='11px';result.recovery=target.getBoundingClientRect().width===11;
+  return result;
+})()

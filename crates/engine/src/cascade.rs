@@ -155,6 +155,16 @@ fn consume<'i>(
     Ok(curly)
 }
 
+fn unknown_at_rule(name: &str) -> &'static str {
+    if name.eq_ignore_ascii_case("font-face") {
+        "stylesheet at-rule: font-face"
+    } else if name.eq_ignore_ascii_case("property") {
+        "stylesheet at-rule: property"
+    } else {
+        "stylesheet at-rule"
+    }
+}
+
 enum ParsedRule {
     Style(Rule),
     Group(Vec<Rule>),
@@ -209,7 +219,7 @@ impl<'i> AtRuleParser<'i> for Rules<'_> {
             return crate::supports::condition(input, 0).map(Prelude::Media);
         }
         if !name.eq_ignore_ascii_case("media") {
-            return Err(input.new_custom_error("stylesheet at-rule"));
+            return Err(input.new_custom_error(unknown_at_rule(&name)));
         }
         let start = input.position();
         consume(input, 0)?;

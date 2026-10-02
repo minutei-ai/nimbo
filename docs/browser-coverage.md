@@ -21,7 +21,7 @@ tests as well as integration and application tests.
 
 `tooling/browser-live.test.ts` uses a real loopback HTTP origin, actual workerd,
 and the compiled Rust/Wasm engine. It installs no transport replacements,
-service mocks, browser API stubs, or canned engine results. Its 2304 data variants
+service mocks, browser API stubs, or canned engine results. Its 2432 data variants
 exercise external scripts, Unicode/entity decoding, selector identity,
 ancestry, removal/reparenting, attribute mutation and POST response decoding.
 They also exercise parsed and created text/comment nodes, native node identity,
@@ -45,15 +45,15 @@ failures. The eighth set exercises native Web Storage across inline, external
 and module scripts, UTF-16 including lone surrogates, coercion/receiver guards,
 named properties, reflection, removal, clearing and fresh Worker request areas.
 An additional case exercises actual quota exhaustion, atomic failure, independent
-local/session quotas and reuse. These are repeated integration checks, not 2304 independent platform
+local/session quotas and reuse. These are repeated integration checks, not 2432 independent platform
 features. The ninth set checks native media queries against 64 explicit viewport
 and preference configurations, including ranges, three-valued conditions,
 serialization, CSS escapes, receiver guards and synthetic MediaQueryList events.
 The tenth set rejects 64 invalid environment variants before any HTTP navigation.
 The eleventh set repeats the same DOMTokenList fixture at 64 distinct URLs,
 checking live attribute reads, ordered token mutations, identity, indices,
-iteration, receiver guards and atomic invalid-token rejection. Including ninety-one
-resource/deadline/origin and explicit-capability checks, the real browser suite has 2395 tests.
+iteration, receiver guards and atomic invalid-token rejection. Including ninety-seven
+resource/deadline/origin and explicit-capability checks, the real browser suite has 2529 tests.
 The twelfth set checks HTML namespace identity and reflected attributes with
 64 distinct synthetic strings. It includes parsed SVG/MathML and an HTML
 subtree inside SVG foreignObject.
@@ -320,8 +320,8 @@ the forwarded request reaches the origin. These checks cover redirects,
 HTTP cookies, POST bodies, response errors, script skipping, isolation,
 resource limits and recovery. The HTTP cookie fixture does not test TLS or
 Secure cookie delivery. The seven lint/infrastructure checks spawn the actual
-pinned tools rather than replacing their behavior. All 2414 Bun tests therefore
-run without transport, browser or tool mocks; 2407 exercise the browser engine
+pinned tools rather than replacing their behavior. All 2548 Bun tests therefore
+run without transport, browser or tool mocks; 2541 exercise the browser engine
 and seven exercise tooling. Neither local suite proves deployed performance,
 TLS fingerprints, rendering or broad browser compatibility.
 
@@ -1039,7 +1039,7 @@ verifies same-page recovery. These are engine limits, not process CPU limits.
 Size containers currently require definite pixel lengths on their contained
 axes, and intrinsic flex/grid item containment fails explicitly. The contained
 formatting context uses Taffy's layout containment. Automatic/percentage and
-intrinsic sizing, font/viewport/container-relative query lengths, query value
+intrinsic sizing, glyph/line-height/container-relative query lengths, query value
 substitution, vertical writing modes, style/scroll-state queries, comma-separated
 queries, invalid-rule recovery, CSS-wide name/type inheritance and complete
 pseudo-element selection remain required work. Seven real Worker cases verify
@@ -1051,3 +1051,43 @@ For an exact 8/5 ratio with fractional container heights, the separate diagnosti
 matches 64/64 in Nimbo and 32/64 in the tested Chromium. This disagreement is
 preserved in the evidence and excluded from the shared parity checks. Broader
 fractional ratio compatibility remains unproven.
+
+## Contextual font and query lengths
+
+The native scene now computes font-size metadata through the author cascade
+and inherited parent context. Size queries resolve `em` against the selected
+container and `rem` against the computed root font size, following
+[CSS font-relative lengths](https://drafts.csswg.org/css-values-4/#font-relative-lengths).
+Font-size accepts supported absolute lengths, `em/rem`, percentages,
+`inherit/unset/initial/medium`, variables and `calc/min/max/clamp` combinations.
+Root font-relative font-size values use the initial font-size basis. The
+metadata is included in container snapshots, so a conditional font change can
+trigger another native scene pass. This does not provide glyph metrics, text
+shaping, font loading, rasterization or getComputedStyle.
+
+The `media.defaultFontSize` input configures the initial medium font size from
+1 through 512 integral CSS pixels, defaulting to 16. Native media queries use
+this initial basis for `em/rem`, independently of author root font changes.
+The existing explicit logical viewport provides contextual viewport lengths;
+small, large and dynamic viewport units share that configured viewport, without
+mobile browser-chrome or dynamic viewport emulation. Vertical writing modes
+remain unsupported.
+
+`font-queries.txt` adds 64 real HTTP/workerd/Wasm variants with 78 checks.
+They cover contextual units, exact viewport-unit dimensions, mixed math,
+parent/percentage/root inheritance, zero font size, variables, mutations and
+conditional fonts. All 78 checks pass in Nimbo. Of these, 72 match Chromium
+152.0.7977.130 in all 64 variants; six immediate font-update checks differ
+in the synchronous parser-time fixture. Their counts remain in the
+[evidence](evidence/contextual-font-queries-chromium.json), rather than being
+reported as parity. Further invalidation and WPT investigation is required.
+
+Another 64 actual Worker variants and a native HTTP test exercise configurable
+initial sizes from 16 through 79. Two Worker cases accept the 1/512 endpoints;
+four reject invalid settings before navigation. No transport or API behavior
+is replaced. Glyph/line-height/container metrics, remaining font-size keywords,
+math functions, invalid-value recovery/defaulting, ordinary relative layout
+lengths, full font-size rounding/zoom/preferences, lifecycle invalidation and
+font/WPT conformance remain required work. Known unsupported font-face and
+property at-rules now identify their public rule category in diagnostics;
+unknown extension names retain the generic diagnostic.

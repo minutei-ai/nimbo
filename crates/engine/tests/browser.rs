@@ -84,6 +84,12 @@ fn script_fixture(script: &str) -> String {
 fn layout_fixture(path: &str) -> String {
     let script = match path {
         "/empty-layout" => return "<!doctype html><body></body>".into(),
+        "/font-queries" => {
+            return format!(
+                "<!doctype html><body>{}",
+                script_fixture(include_str!("fixtures/font-queries.txt"))
+            );
+        }
         "/containers" => {
             return format!(
                 "<!doctype html><body>{}",
@@ -194,7 +200,7 @@ fn serve(mut request: Request) -> io::Result<()> {
     let mut status = 200;
     let mut headers = Vec::new();
     let body = match request.url() {
-        "/cascade" | "/variables" | "/node-insertion" | "/intersections" | "/geometry" | "/external-styles" | "/layers" | "/supports" | "/dataset" | "/group-errors" | "/document-host" | "/generated-boxes" | "/selector-ast" | "/animations" | "/cascade-index" | "/containers" | "/empty-layout" => layout_fixture(request.url()),
+        "/cascade" | "/variables" | "/node-insertion" | "/intersections" | "/geometry" | "/external-styles" | "/layers" | "/supports" | "/dataset" | "/group-errors" | "/document-host" | "/generated-boxes" | "/selector-ast" | "/animations" | "/cascade-index" | "/containers" | "/empty-layout" | "/font-queries" => layout_fixture(request.url()),
         "/style-variables" => script_fixture(include_str!("fixtures/style-variables.txt")),
         "/styles" => script_fixture(include_str!("fixtures/styles.txt")),
         "/anchors" => format!("<base href=\"https://example.com/root/\"><a id=\"link\" href=\"../doc?q=1#fragment\">link</a><svg><a></a></svg><script>{}</script>", include_str!("fixtures/anchors.txt")),
@@ -871,6 +877,7 @@ fn media_queries_use_the_native_configured_environment() -> TestResult {
                 "light".into()
             },
             reduced_motion: variant % 3 == 0,
+            default_font_size: 16,
         };
         let browser = Browser::with_media(&fixture.url, Limits::default(), media.clone())?;
         let page = browser.navigate(&fixture.path("/media"))?;
@@ -1307,5 +1314,55 @@ fn container_layout_pass_limit_is_independent_of_the_dom_budget() -> TestResult 
         "{failure}"
     );
     assert_eq!(page.evaluate("(()=>{document.querySelector('style').remove();document.body.innerHTML='';const node=document.createElement('div');node.style.width='11px';document.body.appendChild(node);return node.getBoundingClientRect().width;})()")?, json!(11));
+    Ok(())
+}
+
+#[test]
+fn contextual_font_sizes_and_query_lengths_follow_native_cascade() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/font-queries"))?;
+    let result = page.evaluate("comparison")?;
+    let fields = result.as_object().ok_or("missing font query result")?;
+    assert_eq!(fields.len(), 78);
+    assert!(
+        fields.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    Ok(())
+}
+
+#[test]
+fn configured_initial_font_sizes_control_root_units_and_media_queries() -> TestResult {
+    let fixture = Fixture::new()?;
+    for initial in 16_u16..80 {
+        let width = u32::from(initial)
+            .checked_mul(10)
+            .ok_or("viewport overflow")?;
+        let height = u32::from(initial)
+            .checked_mul(8)
+            .ok_or("viewport overflow")?;
+        let browser = Browser::with_media(
+            &fixture.url,
+            Limits::default(),
+            MediaEnvironment {
+                width,
+                height,
+                default_font_size: initial,
+                ..MediaEnvironment::default()
+            },
+        )?;
+        let page = browser.navigate(&fixture.path("/empty-layout"))?;
+        let variant = initial.checked_sub(16).ok_or("variant overflow")?;
+        let result = page.evaluate(&format!(
+            "(()=>{{globalThis.variant={variant};return {};}})()",
+            include_str!("fixtures/font-config.txt")
+        ))?;
+        assert_eq!(
+            result,
+            json!({"initialRem":true,"mediaRem":true,"mediaEm":true,"mediaRootIndependent":true,"recovery":true})
+        );
+    }
     Ok(())
 }

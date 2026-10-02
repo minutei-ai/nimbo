@@ -9,6 +9,9 @@ const Dimension = Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 16384
 export const Media = Schema.Struct({
   width: Schema.optional(Dimension),
   height: Schema.optional(Dimension),
+  defaultFontSize: Schema.optional(
+    Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 512 })),
+  ),
   colorScheme: Schema.optional(Schema.Literals(["light", "dark"])),
   reducedMotion: Schema.optional(Schema.Boolean),
 });

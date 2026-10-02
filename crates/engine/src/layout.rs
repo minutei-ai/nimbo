@@ -130,6 +130,14 @@ pub(crate) fn supports(declarations: &Declarations) -> bool {
     {
         return false;
     }
+    let mut operations = 0;
+    let mut work = Work::new(&mut operations, 10_000);
+    if crate::fonts::Context::new(&MediaEnvironment::default())
+        .compute(declarations, false, &mut work)
+        .is_err()
+    {
+        return false;
+    }
     let document = Document::from("<div></div>");
     document
         .root()
@@ -151,6 +159,7 @@ fn non_layout(name: &str) -> bool {
             | "visibility"
             | "container-name"
             | "container-type"
+            | "font-size"
     )
 }
 
@@ -392,6 +401,7 @@ impl Tree<'_, '_> {
         depth: usize,
         parent: &Variables,
         parent_display: Display,
+        fonts: &crate::fonts::Context,
     ) -> Result<Option<taffy::NodeId>> {
         self.work.charge()?;
         self.visited = self.visited.saturating_add(1);
@@ -433,8 +443,9 @@ impl Tree<'_, '_> {
         if style.display == Display::None {
             return Ok(None);
         }
+        let fonts = fonts.compute(&declarations, depth == 0, self.work)?;
         let container =
-            crate::containers::Container::apply(&declarations, &mut style, parent_display)?;
+            crate::containers::Container::apply(&declarations, &mut style, parent_display, fonts)?;
         if ![
             "html", "body", "div", "main", "section", "article", "aside", "header", "footer", "nav",
         ]
@@ -459,8 +470,14 @@ impl Tree<'_, '_> {
         children.extend(
             node.children_it(false)
                 .filter_map(|child| {
-                    self.build(child, depth.saturating_add(1), &variables, style.display)
-                        .transpose()
+                    self.build(
+                        child,
+                        depth.saturating_add(1),
+                        &variables,
+                        style.display,
+                        &fonts,
+                    )
+                    .transpose()
                 })
                 .collect::<Result<Vec<_>>>()?,
         );
@@ -539,7 +556,13 @@ fn scene<T>(
             work,
         };
         tree.boxes.disable_rounding();
-        let root_id = tree.build(root, 0, &Variables::default(), Display::Block)?;
+        let root_id = tree.build(
+            root,
+            0,
+            &Variables::default(),
+            Display::Block,
+            &crate::fonts::Context::new(media),
+        )?;
         if let Some(root_id) = root_id {
             tree.boxes
                 .compute_layout(

@@ -13,6 +13,8 @@ pub struct MediaEnvironment {
     pub width: u32,
     /// Logical viewport height in CSS pixels.
     pub height: u32,
+    /// Initial medium font size in CSS pixels, before author font-size declarations.
+    pub default_font_size: u16,
     /// Explicit preferred color scheme (light or dark).
     pub color_scheme: String,
     /// Explicit reduced-motion preference.
@@ -24,6 +26,7 @@ impl Default for MediaEnvironment {
         Self {
             width: 1024,
             height: 768,
+            default_font_size: 16,
             color_scheme: "light".into(),
             reduced_motion: false,
         }
@@ -34,6 +37,8 @@ impl MediaEnvironment {
     pub(crate) fn validate(&self) -> Result<()> {
         if self.width == 0
             || self.height == 0
+            || self.default_font_size == 0
+            || self.default_font_size > 512
             || self.width > 16_384
             || self.height > 16_384
             || !matches!(self.color_scheme.as_str(), "light" | "dark")
@@ -271,7 +276,7 @@ fn feature(tokens: &[Lex], environment: &MediaEnvironment) -> Option<Truth> {
         };
         if let Some(actual) = numeric_feature(name, environment) {
             return Some(
-                number(values, name)
+                number(values, name, environment)
                     .map_or(Truth::Unknown, |value| compare(actual, value, operator)),
             );
         }
@@ -359,7 +364,7 @@ fn range_feature(tokens: &[Lex], environment: &MediaEnvironment) -> Option<Truth
             if matches!(segment.as_slice(), [Lex::Word(_)]) {
                 actual
             } else {
-                number(segment, name)
+                number(segment, name, environment)
             }
         })
         .collect::<Option<Vec<_>>>();
@@ -393,7 +398,7 @@ fn numeric_feature(name: &str, environment: &MediaEnvironment) -> Option<f64> {
         _ => None,
     }
 }
-fn number(tokens: &[Lex], feature: &str) -> Option<f64> {
+fn number(tokens: &[Lex], feature: &str, environment: &MediaEnvironment) -> Option<f64> {
     if let [
         Lex::Number(a, unit, _),
         Lex::Op('/'),
@@ -415,6 +420,7 @@ fn number(tokens: &[Lex], feature: &str) -> Option<f64> {
     }
     let scale = match unit.as_str() {
         "px" => 1.0,
+        "em" | "rem" => f64::from(environment.default_font_size),
         "in" => 96.0,
         "cm" => 96.0 / 2.54,
         "mm" => 96.0 / 25.4,

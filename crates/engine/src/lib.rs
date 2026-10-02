@@ -5,6 +5,7 @@ mod cascade;
 mod containers;
 mod dom;
 mod encoding;
+mod fonts;
 mod layers;
 mod layout;
 mod links;

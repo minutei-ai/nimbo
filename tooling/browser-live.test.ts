@@ -415,6 +415,16 @@ const origin = Bun.serve({
         headers: { "content-type": "text/html" },
       });
     }
+    if (path.startsWith("/font-queries/")) {
+      const variant = Number(path.split("/").at(-1));
+      const source = await Bun.file(
+        join(import.meta.dir, "../crates/engine/tests/fixtures/font-queries.txt"),
+      ).text();
+      return new Response(
+        `<!doctype html><body><script>globalThis.variant=${variant};${source}</script>`,
+        { headers: { "content-type": "text/html" } },
+      );
+    }
     if (path.startsWith("/containers/")) {
       const variant = Number(path.split("/").at(-1));
       const source = await Bun.file(
@@ -3534,8 +3544,8 @@ for (const [name, css, reason] of [
     "container scroll-state query",
   ],
   [
-    "font-relative conditions",
-    "@container (width > 1em){.target{width:1px}}",
+    "glyph-relative conditions",
+    "@container (width > 1ex){.target{width:1px}}",
     "container relative query length",
   ],
   ["name inheritance", ".target{container-name:inherit}", "container name inheritance"],
@@ -3583,3 +3593,100 @@ test("real HTTP → workerd → Wasm: container layout work is bounded and fresh
   expect(healthy.status).toBe(200);
   expect(await healthy.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: 11 });
 });
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: contextual native font and query lengths variant %i",
+  async (variant) => {
+    const url = new URL(`font-queries/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "comparison" }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    expect(result).toMatchObject({ url, engine: "rust-wasm-quickjs" });
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing comparison");
+    expect(Object.keys(value)).toHaveLength(78);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: configured initial font size variant %i",
+  async (variant) => {
+    const initial = 16 + variant;
+    const url = new URL("geometry-empty", origin.url).href;
+    const script = await Bun.file(
+      join(import.meta.dir, "../crates/engine/tests/fixtures/font-config.txt"),
+    ).text();
+    const expression = `(()=>{globalThis.variant=${variant};return ${script};})()`;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url,
+        media: { width: initial * 10, height: initial * 8, defaultFontSize: initial },
+        expression,
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      url,
+      engine: "rust-wasm-quickjs",
+      value: {
+        initialRem: true,
+        mediaRem: true,
+        mediaEm: true,
+        mediaRootIndependent: true,
+        recovery: true,
+      },
+    });
+  },
+);
+for (const defaultFontSize of [0, 513, 1.5, "16"]) {
+  test(`real HTTP → workerd: invalid initial font size ${defaultFontSize} is rejected before navigation`, async () => {
+    const url = new URL("geometry-empty", origin.url).href;
+    const before = requests.length;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, media: { defaultFontSize }, expression: "1" }),
+    });
+    expect(response.status).toBe(400);
+    expect(requests.length).toBe(before);
+  });
+}
+
+for (const initial of [1, 512]) {
+  test(`real HTTP → workerd → Wasm: configured font endpoint ${initial} remains usable`, async () => {
+    const url = new URL("geometry-empty", origin.url).href;
+    const script = await Bun.file(
+      join(import.meta.dir, "../crates/engine/tests/fixtures/font-config.txt"),
+    ).text();
+    const expression = `(()=>{globalThis.variant=${initial - 16};return ${script};})()`;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url,
+        media: { width: initial * 10, height: initial * 8, defaultFontSize: initial },
+        expression,
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      url,
+      engine: "rust-wasm-quickjs",
+      value: {
+        initialRem: true,
+        mediaRem: true,
+        mediaEm: true,
+        mediaRootIndependent: true,
+        recovery: true,
+      },
+    });
+  });
+}

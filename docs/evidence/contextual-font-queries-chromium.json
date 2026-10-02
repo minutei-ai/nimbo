@@ -1,0 +1,324 @@
+{
+  "checks": {
+    "absolute": {
+      "failed": 0,
+      "passed": 64
+    },
+    "absoluteRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "calcDivision": {
+      "failed": 0,
+      "passed": 64
+    },
+    "calcDivisionRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "calcNegative": {
+      "failed": 0,
+      "passed": 64
+    },
+    "calcNegativeRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "calcProduct": {
+      "failed": 0,
+      "passed": 64
+    },
+    "calcProductRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "clamp": {
+      "failed": 0,
+      "passed": 64
+    },
+    "clampMinimum": {
+      "failed": 0,
+      "passed": 64
+    },
+    "clampMinimumRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "clampRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "conditionalFont": {
+      "failed": 64,
+      "passed": 0
+    },
+    "em": {
+      "failed": 0,
+      "passed": 64
+    },
+    "emFalse": {
+      "failed": 0,
+      "passed": 64
+    },
+    "emFalseRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "emRange": {
+      "failed": 0,
+      "passed": 64
+    },
+    "emRangeRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "emRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "finalRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "fontCalc": {
+      "failed": 0,
+      "passed": 64
+    },
+    "fontClamp": {
+      "failed": 0,
+      "passed": 64
+    },
+    "fontMax": {
+      "failed": 0,
+      "passed": 64
+    },
+    "fontMin": {
+      "failed": 0,
+      "passed": 64
+    },
+    "fontPercentageCalc": {
+      "failed": 0,
+      "passed": 64
+    },
+    "fontRem": {
+      "failed": 0,
+      "passed": 64
+    },
+    "inherit": {
+      "failed": 0,
+      "passed": 64
+    },
+    "initial": {
+      "failed": 0,
+      "passed": 64
+    },
+    "max": {
+      "failed": 0,
+      "passed": 64
+    },
+    "maxRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "medium": {
+      "failed": 0,
+      "passed": 64
+    },
+    "min": {
+      "failed": 0,
+      "passed": 64
+    },
+    "minRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "mixedCalc": {
+      "failed": 0,
+      "passed": 64
+    },
+    "mixedCalcRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "outerEm": {
+      "failed": 0,
+      "passed": 64
+    },
+    "outerEmRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "outerRem": {
+      "failed": 0,
+      "passed": 64
+    },
+    "outerRemRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "parentEm": {
+      "failed": 64,
+      "passed": 0
+    },
+    "parentMutation": {
+      "failed": 0,
+      "passed": 64
+    },
+    "parentPercentage": {
+      "failed": 0,
+      "passed": 64
+    },
+    "parentRestore": {
+      "failed": 0,
+      "passed": 64
+    },
+    "rem": {
+      "failed": 0,
+      "passed": 64
+    },
+    "remFalse": {
+      "failed": 0,
+      "passed": 64
+    },
+    "remFalseRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "remInterval": {
+      "failed": 0,
+      "passed": 64
+    },
+    "remIntervalRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "remRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "rootEm": {
+      "failed": 63,
+      "passed": 1
+    },
+    "rootMutation": {
+      "failed": 64,
+      "passed": 0
+    },
+    "rootPercentage": {
+      "failed": 63,
+      "passed": 1
+    },
+    "rootRem": {
+      "failed": 63,
+      "passed": 1
+    },
+    "rootRestore": {
+      "failed": 0,
+      "passed": 64
+    },
+    "unset": {
+      "failed": 0,
+      "passed": 64
+    },
+    "variable": {
+      "failed": 0,
+      "passed": 64
+    },
+    "viewportBlock": {
+      "failed": 0,
+      "passed": 64
+    },
+    "viewportBlockRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "viewportCalc": {
+      "failed": 0,
+      "passed": 64
+    },
+    "viewportCalcRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "viewportDynamic": {
+      "failed": 0,
+      "passed": 64
+    },
+    "viewportDynamicRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "viewportHeight": {
+      "failed": 0,
+      "passed": 64
+    },
+    "viewportHeightRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "viewportInline": {
+      "failed": 0,
+      "passed": 64
+    },
+    "viewportInlineRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "viewportLarge": {
+      "failed": 0,
+      "passed": 64
+    },
+    "viewportLargeRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "viewportMaximum": {
+      "failed": 0,
+      "passed": 64
+    },
+    "viewportMaximumRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "viewportMinimum": {
+      "failed": 0,
+      "passed": 64
+    },
+    "viewportMinimumRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "viewportSmall": {
+      "failed": 0,
+      "passed": 64
+    },
+    "viewportSmallRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "viewportWidth": {
+      "failed": 0,
+      "passed": 64
+    },
+    "viewportWidthRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "zeroFont": {
+      "failed": 0,
+      "passed": 64
+    },
+    "zeroRecovery": {
+      "failed": 0,
+      "passed": 64
+    }
+  },
+  "fixture": "crates/engine/tests/fixtures/font-queries.txt",
+  "frameViewport": {
+    "height": 768,
+    "width": 1024
+  },
+  "variants": 64,
+  "browser": "Chromium 152.0.7977.130",
+  "description": "72 invariant checks match on all 64 variants. Six immediate font-update checks differ during the fixture's synchronous parser-time mutations; their actual counts are preserved. This is not complete font or invalidation parity."
+}

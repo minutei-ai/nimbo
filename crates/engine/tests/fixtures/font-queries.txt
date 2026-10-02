@@ -1,0 +1,77 @@
+globalThis.comparison = (() => {
+  const scale=.75+Number(globalThis.variant||0)/16;
+  const root=document.documentElement;
+  root.style.fontSize=16*scale+'px';
+  const outer=document.createElement('section');outer.className='outer';
+  const inner=document.createElement('div');inner.className='inner';
+  const target=document.createElement('div');target.className='target';
+  outer.appendChild(inner);inner.appendChild(target);document.body.appendChild(outer);
+  const base=document.createElement('style');
+  base.textContent='.outer{container:outer / size;width:'+160*scale+'px;height:'+80*scale+'px;font-size:'+20*scale+'px}.inner{container:inner / inline-size;width:'+80*scale+'px;font-size:'+10*scale+'px}.target{width:11px;height:0}';
+  document.head.appendChild(base);
+  const sheet=document.createElement('style');document.head.appendChild(sheet);
+  const query=(condition)=>'@container '+condition+'{.target{width:31px}}';
+  const cases=[
+    ['em','(width:8em)',true],
+    ['emFalse','(width:5em)',false],
+    ['rem','(width:5rem)',true],
+    ['remFalse','(width:8rem)',false],
+    ['outerEm','outer (width:8em)',true],
+    ['outerRem','outer (width:10rem)',true],
+    ['emRange','(width > 7em)',true],
+    ['remInterval','(4rem < width <= 5rem)',true],
+    ['mixedCalc','(width < calc(4rem + 2em))',true],
+    ['calcNegative','(width > calc(4rem - 2em))',true],
+    ['calcProduct','(width:calc(2 * 4em))',true],
+    ['calcDivision','(width:calc(16em / 2))',true],
+    ['min','(width:min(8em, 10rem))',true],
+    ['max','(width:max(8em, 1rem))',true],
+    ['clamp','(width:clamp(1rem, 8em, 10rem))',true],
+    ['clampMinimum','(width:clamp(8em, 1rem, 2rem))',true],
+    ['viewportWidth','(width:12.5vw)',true,128],
+    ['viewportHeight','(width:12.5vh)',true,96],
+    ['viewportInline','(width:12.5vi)',true,128],
+    ['viewportBlock','(width:12.5vb)',true,96],
+    ['viewportMinimum','(width:12.5vmin)',true,96],
+    ['viewportMaximum','(width:12.5vmax)',true,128],
+    ['viewportSmall','(width:12.5svw)',true,128],
+    ['viewportLarge','(width:12.5lvh)',true,96],
+    ['viewportDynamic','(width:12.5dvw)',true,128],
+    ['absolute','(width < 10in)',true],
+    ['viewportCalc','(width:calc(6.25vw + 8em))',true,64+80*scale],
+  ];
+  const result={};
+  for(const [name,condition,active,width] of cases){if(width!==undefined)inner.style.width=width+'px';sheet.textContent=query(condition);result[name]=target.getBoundingClientRect().width===(active?31:11);sheet.textContent='';inner.style.width='';result[name+'Recovery']=target.getBoundingClientRect().width===11;}
+  inner.style.width='0px';inner.style.fontSize='0';sheet.textContent=query('(width:8em)');result.zeroFont=target.getBoundingClientRect().width===31;inner.style.width='';inner.style.fontSize='';sheet.textContent='';result.zeroRecovery=target.getBoundingClientRect().width===11;
+  const setFont=(value,condition)=>{inner.style.fontSize=value;sheet.textContent=query(condition);return target.getBoundingClientRect().width===31;};
+  result.parentEm=setFont('1em','(width:4em)');
+  result.parentPercentage=setFont('50%','(width:8em)');
+  result.fontRem=setFont('1rem','(width:5em)');
+  result.fontCalc=setFont('calc(.5em + '+10*scale+'px)','(width:4em)');
+  result.fontPercentageCalc=setFont('calc(50% + '+10*scale+'px)','(width:4em)');
+  result.fontMin=setFont('min(1rem,1em)','(width:5em)');
+  result.fontMax=setFont('max(1rem,1em)','(width:4em)');
+  result.fontClamp=setFont('clamp(.5rem,1em,2rem)','(width:4em)');
+  result.inherit=setFont('inherit','(width:4em)');
+  result.unset=setFont('unset','(width:4em)');
+  result.initial=setFont('initial','(width:'+(80*scale/16)+'em)');
+  result.medium=setFont('medium','(width:'+(80*scale/16)+'em)');
+  inner.style.setProperty('--font',10*scale+'px');
+  result.variable=setFont('var(--font)','(width:8em)');
+  inner.style.fontSize='';
+  sheet.textContent=query('(width:5rem)');
+  root.style.fontSize=32*scale+'px';result.rootMutation=target.getBoundingClientRect().width===11;
+  root.style.fontSize=16*scale+'px';result.rootRestore=target.getBoundingClientRect().width===31;
+  sheet.textContent=query('(width:8em)');
+  outer.style.fontSize=40*scale+'px';inner.style.fontSize='50%';result.parentMutation=target.getBoundingClientRect().width===11;
+  outer.style.fontSize='';result.parentRestore=target.getBoundingClientRect().width===31;
+  inner.style.fontSize='';
+  root.style.fontSize='2rem';sheet.textContent=query('(width:'+(80*scale/32)+'rem)');result.rootRem=target.getBoundingClientRect().width===31;
+  root.style.fontSize='2em';result.rootEm=target.getBoundingClientRect().width===31;
+  root.style.fontSize='200%';result.rootPercentage=target.getBoundingClientRect().width===31;
+  root.style.fontSize=16*scale+'px';
+  sheet.textContent='@container outer (width:8em){.inner{font-size:'+20*scale+'px}}'+query('inner (width:4em)');
+  result.conditionalFont=target.getBoundingClientRect().width===31;
+  sheet.textContent='';result.finalRecovery=target.getBoundingClientRect().width===11;
+  return result;
+})();

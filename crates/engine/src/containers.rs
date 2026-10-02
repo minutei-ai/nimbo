@@ -12,6 +12,7 @@ use lightningcss::{
         container::{ContainerCondition, ContainerSizeFeature, ContainerSizeFeatureId as Feature},
     },
     stylesheet::{ParserOptions, StyleSheet},
+    values::length::Length,
 };
 use taffy::prelude::*;
 
@@ -22,8 +23,21 @@ fn unsupported(detail: &str) -> Error {
 }
 
 #[derive(Clone)]
+enum Value {
+    Number(f64),
+    Length(Length),
+}
+impl Value {
+    fn resolve(&self, container: &Container, work: &mut Work<'_>) -> Result<f64> {
+        match self {
+            Self::Number(value) => Ok(*value),
+            Self::Length(value) => container.fonts.length(value, work),
+        }
+    }
+}
+#[derive(Clone)]
 enum Condition {
-    Test(Feature, Option<Compare>, f64),
+    Test(Feature, Option<Compare>, Value),
     Not(Box<Self>),
     Operation(Operator, Vec<Self>),
     Unknown,
@@ -42,6 +56,7 @@ pub(crate) struct Container {
     axes: u8,
     width: f32,
     height: f32,
+    fonts: crate::fonts::Context,
 }
 pub(crate) type Snapshot = HashMap<NodeId, Container>;
 
@@ -52,20 +67,37 @@ fn axes(feature: Feature) -> u8 {
         Feature::AspectRatio | Feature::Orientation => 3,
     }
 }
-fn number(value: &MediaFeatureValue<'_>) -> Result<f64> {
+fn number(value: &MediaFeatureValue<'_>) -> Result<Value> {
     match value {
-        MediaFeatureValue::Length(value) => value
-            .to_px()
-            .map(f64::from)
-            .ok_or_else(|| unsupported("relative query length")),
-        MediaFeatureValue::Number(value) => Ok(f64::from(*value)),
-        MediaFeatureValue::Ratio(value) => Ok(f64::from(value.0) / f64::from(value.1)),
-        MediaFeatureValue::Ident(value) if value.0.eq_ignore_ascii_case("portrait") => Ok(0.0),
-        MediaFeatureValue::Ident(value) if value.0.eq_ignore_ascii_case("landscape") => Ok(1.0),
+        MediaFeatureValue::Length(value) => {
+            crate::fonts::validate(value).map_err(|error| match error {
+                Error::Dom(message) => Error::Dom(message.replacen(
+                    "layout unsupported: ",
+                    "layout unsupported: container ",
+                    1,
+                )),
+                other => other,
+            })?;
+            Ok(Value::Length(value.clone()))
+        }
+        MediaFeatureValue::Number(value) => Ok(Value::Number(f64::from(*value))),
+        MediaFeatureValue::Ratio(value) => {
+            Ok(Value::Number(f64::from(value.0) / f64::from(value.1)))
+        }
+        MediaFeatureValue::Ident(value) if value.0.eq_ignore_ascii_case("portrait") => {
+            Ok(Value::Number(0.0))
+        }
+        MediaFeatureValue::Ident(value) if value.0.eq_ignore_ascii_case("landscape") => {
+            Ok(Value::Number(1.0))
+        }
         _ => Err(unsupported("query value")),
     }
 }
-fn test(name: &MediaFeatureName<'_, Feature>, operator: Option<Compare>, value: f64) -> Condition {
+fn test(
+    name: &MediaFeatureName<'_, Feature>,
+    operator: Option<Compare>,
+    value: Value,
+) -> Condition {
     match name {
         MediaFeatureName::Standard(feature) => Condition::Test(*feature, operator, value),
         _ => Condition::Unsupported,
@@ -82,7 +114,7 @@ fn feature(value: &ContainerSizeFeature<'_>) -> Result<Condition> {
         return Ok(Condition::Unsupported);
     }
     match value {
-        QueryFeature::Boolean { name } => Ok(test(name, None, 0.0)),
+        QueryFeature::Boolean { name } => Ok(test(name, None, Value::Number(0.0))),
         QueryFeature::Plain { name, value } => Ok(test(name, Some(Compare::Equal), number(value)?)),
         QueryFeature::Range {
             name,
@@ -155,17 +187,17 @@ impl Condition {
             _ => true,
         }
     }
-    fn evaluate(&self, container: &Container) -> Option<bool> {
-        match self {
+    fn evaluate(&self, container: &Container, work: &mut Work<'_>) -> Result<Option<bool>> {
+        Ok(match self {
             Self::Always => Some(true),
             Self::Unknown | Self::Unsupported => None,
-            Self::Not(value) => value.evaluate(container).map(|value| !value),
+            Self::Not(value) => value.evaluate(container, work)?.map(|value| !value),
             Self::Operation(operator, values) => {
                 let mut unknown = false;
                 for value in values {
-                    match (operator, value.evaluate(container)) {
-                        (Operator::And, Some(false)) => return Some(false),
-                        (Operator::Or, Some(true)) => return Some(true),
+                    match (operator, value.evaluate(container, work)?) {
+                        (Operator::And, Some(false)) => return Ok(Some(false)),
+                        (Operator::Or, Some(true)) => return Ok(Some(true)),
                         (_, None) => unknown = true,
                         _ => {}
                     }
@@ -177,6 +209,7 @@ impl Condition {
                 }
             }
             Self::Test(feature, operator, expected) => {
+                let expected = expected.resolve(container, work)?;
                 let width = f64::from(container.width);
                 let height = f64::from(container.height);
                 let actual = match feature {
@@ -193,14 +226,14 @@ impl Condition {
                 };
                 Some(match operator {
                     None => actual > 0.0,
-                    Some(Compare::Equal) => actual.total_cmp(expected).is_eq(),
-                    Some(Compare::GreaterThan) => actual > *expected,
-                    Some(Compare::GreaterThanEqual) => actual >= *expected,
-                    Some(Compare::LessThan) => actual < *expected,
-                    Some(Compare::LessThanEqual) => actual <= *expected,
+                    Some(Compare::Equal) => actual.total_cmp(&expected).is_eq(),
+                    Some(Compare::GreaterThan) => actual > expected,
+                    Some(Compare::GreaterThanEqual) => actual >= expected,
+                    Some(Compare::LessThan) => actual < expected,
+                    Some(Compare::LessThanEqual) => actual <= expected,
                 })
             }
-        }
+        })
     }
 }
 impl Query {
@@ -243,7 +276,7 @@ impl Query {
                     .as_ref()
                     .is_none_or(|name| container.names.contains(name))
             {
-                return Ok(self.condition.evaluate(container) == Some(true));
+                return Ok(self.condition.evaluate(container, work)? == Some(true));
             }
         }
         Ok(false)
@@ -254,6 +287,7 @@ impl Container {
         declarations: &Declarations,
         style: &mut Style,
         parent_display: Display,
+        fonts: crate::fonts::Context,
     ) -> Result<Option<Self>> {
         let (kind, _) = declarations.value("container-type");
         let axes = match kind.as_str() {
@@ -301,6 +335,7 @@ impl Container {
             axes,
             width: 0.0,
             height: 0.0,
+            fonts,
         }))
     }
     pub(crate) fn measure(&mut self, layout: &Layout) {
