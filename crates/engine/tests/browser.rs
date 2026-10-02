@@ -1390,6 +1390,11 @@ fn registered_custom_properties_validate_before_substitution() -> TestResult {
 }
 
 fn serve_resource(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/background-size/")
+        || request.url().starts_with("/background-size-assets/")
+    {
+        return serve_background_size(request);
+    }
     if request.url().starts_with("/background-repeat/")
         || request.url().starts_with("/background-repeat-assets/")
     {
@@ -1576,6 +1581,8 @@ fn is_resource(path: &str) -> bool {
         "/background-position-assets/",
         "/background-repeat/",
         "/background-repeat-assets/",
+        "/background-size/",
+        "/background-size-assets/",
         "/background-images-assets/",
         "/line-height-assets/",
         "/tabs-assets/",
@@ -2187,6 +2194,45 @@ fn serve_background_repeat(request: Request) -> io::Result<()> {
     let source = format!(
         "<!doctype html><meta charset=utf-8><link rel=stylesheet href=/background-repeat-assets/{variant}><script>{}</script>",
         include_str!("fixtures/background-repeat.txt")
+    );
+    request.respond(Response::from_string(source).with_header(header("Content-Type", "text/html")?))
+}
+
+#[test]
+fn native_background_size_real_http() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/background-size/{variant}")))?;
+        let result = page.evaluate(&format!("backgroundSizeCase({variant})"))?;
+        let fields = result.as_object().ok_or("missing background size result")?;
+        assert_eq!(fields.len(), 71);
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+
+fn serve_background_size(request: Request) -> io::Result<()> {
+    if let Some(value) = request.url().strip_prefix("/background-size-assets/") {
+        let variant = value.parse::<u32>().map_err(io::Error::other)?;
+        return request.respond(
+            Response::from_string(format!(
+                "#external{{background-size:{}px}}",
+                variant.saturating_add(3)
+            ))
+            .with_header(header("Content-Type", "text/css")?),
+        );
+    }
+    let variant = request
+        .url()
+        .strip_prefix("/background-size/")
+        .unwrap_or("0");
+    let source = format!(
+        "<!doctype html><meta charset=utf-8><link rel=stylesheet href=/background-size-assets/{variant}><script>{}</script>",
+        include_str!("fixtures/background-size.txt")
     );
     request.respond(Response::from_string(source).with_header(header("Content-Type", "text/html")?))
 }

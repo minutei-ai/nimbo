@@ -139,7 +139,12 @@ pub(crate) fn supports(declarations: &Declarations) -> bool {
     if declarations.layout_entries().any(|(name, _, _)| {
         matches!(
             name,
-            "color" | "background-color" | "background-image" | "background-repeat" | "opacity"
+            "color"
+                | "background-color"
+                | "background-image"
+                | "background-repeat"
+                | "background-size"
+                | "opacity"
         ) || crate::outlines::property(name)
             || crate::background_position::property(name)
     }) {
@@ -182,6 +187,7 @@ fn non_layout(name: &str) -> bool {
             | "background-position-x"
             | "background-position-y"
             | "background-repeat"
+            | "background-size"
             | "opacity"
             | "visibility"
             | "container-name"
@@ -363,6 +369,7 @@ struct BoxContext {
     images: crate::backgrounds::Images,
     positions: crate::background_position::Positions,
     repeats: crate::background_repeat::Repeats,
+    sizes: crate::background_size::Sizes,
 }
 
 impl BoxContext {
@@ -380,6 +387,10 @@ impl BoxContext {
         let positions = self.positions.compute(declarations, &fonts, work)?;
         positions.validate()?;
         let repeats = self.repeats.compute(declarations, images.count(), work)?;
+        let sizes = self
+            .sizes
+            .compute(declarations, images.count(), &fonts, work)?;
+        sizes.validate()?;
         Ok(Self {
             fonts,
             borders,
@@ -387,6 +398,7 @@ impl BoxContext {
             images,
             positions,
             repeats,
+            sizes,
         })
     }
 }
@@ -661,6 +673,7 @@ fn scene<T>(
                 images: crate::backgrounds::Images::default(),
                 positions: crate::background_position::Positions::default(),
                 repeats: crate::background_repeat::Repeats::default(),
+                sizes: crate::background_size::Sizes::default(),
             },
         )?;
         if let Some(root_id) = root_id {

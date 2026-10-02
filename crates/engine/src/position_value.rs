@@ -15,6 +15,36 @@ pub(crate) enum Value {
 }
 
 impl Value {
+    pub(crate) fn nonnegative(mut self) -> Self {
+        if let Self::Linear { percent, pixels } = &mut self {
+            if percent.is_none() {
+                *pixels = pixels.max(0.0);
+            } else if *pixels == 0.0
+                && let Some(value) = percent
+            {
+                *value = value.max(0.0);
+            }
+        }
+        self
+    }
+
+    pub(crate) fn charge(&self, work: &mut Work<'_>) -> Result<()> {
+        work.charge()?;
+        match self {
+            Self::Function(_, values) => {
+                for value in values {
+                    value.charge(work)?;
+                }
+            }
+            Self::Sum(a, b) => {
+                a.charge(work)?;
+                b.charge(work)?;
+            }
+            Self::Product(_, value) => value.charge(work)?,
+            Self::Linear { .. } => {}
+        }
+        Ok(())
+    }
     pub(crate) fn percent(value: f64) -> Self {
         Self::Linear {
             percent: Some(value),

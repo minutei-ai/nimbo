@@ -40,7 +40,7 @@ pub(crate) fn specified(value: &str) -> Option<(String, String)> {
     Some((x.join(", "), y.join(", ")))
 }
 
-fn parts(value: &str) -> Option<Vec<Vec<String>>> {
+pub(crate) fn parts(value: &str) -> Option<Vec<Vec<String>>> {
     let mut source = ParserInput::new(value);
     let input = &mut Parser::new(&mut source);
     let mut layers = Vec::new();

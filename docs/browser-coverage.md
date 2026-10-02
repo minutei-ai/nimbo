@@ -1978,3 +1978,44 @@ CSS.supports continues to return false for background-repeat because tiling and
 painting are unavailable. The checks prove the tested computed state only.
 
 Public reference: [CSS Backgrounds repeat](https://drafts.csswg.org/css-backgrounds/#background-repeat).
+
+## Native computed background image sizing
+
+The native engine now computes background-size as auto, cover, contain or explicit
+width/height values per image layer. Non-auto explicit dimensions serialize as a
+pair, retaining a trailing auto height. Absolute and contextual lengths resolve
+through the existing font/viewport context; percentages retain their image sizing
+basis. Shared native calc/min/max/clamp expressions preserve mixed bases, while
+negative single-basis calculated results clamp to zero. Negative literal lengths
+and percentages are invalid declarations and preserve the preceding valid value.
+
+Computed size lists expand or truncate to the image count before inheritance.
+This differs from repeat-axis list inheritance: an inherited size list cycles the
+parent's already expanded sequence, including repeated entries. Relative lengths
+inside inherited math retain the parent's resolved font context. Live mutations
+of parent/child image counts, fonts and style resources recompute this state.
+Each expression node copied into an expanded/inherited layer consumes shared work
+before allocation; the common 32-level expression and 2 MiB serialization bounds
+remain enforced. Unsupported sizing expressions fail when the size scalar or
+geometry is requested, while unrelated scalar reads remain available. Limit
+errors propagate instead of being hidden in lazy state.
+
+The live getComputedStyle facade exposes background-size as its thirteenth
+enumerated property. The shared real-HTTP fixture executes 64 variants with 71
+checks each in native Rust, actual workerd/Wasm and Chromium. Chromium passed all
+4,544 checks; [the aggregate records the scope](evidence/background-size-chromium.json).
+Checks cover keywords, paired dimensions, units/math, negative calculated ranges,
+layer lists and inherited expressions, author cascade, variables/registration,
+shorthand resets and live style/resource/DOM mutations. Viewport comparisons use
+each runtime's own dimensions. Worker checks also exercise unavailable metric
+lengths, non-finite expressions, depth and expression-copy budgets, independent
+scalar reads and conservative CSS.supports behavior.
+
+This retains computed sizing state without decoding or painting images. Intrinsic
+image metrics and used cover/contain scaling, non-finite browser-specific clamping,
+complete CSSOM/math serialization, additional math functions and cascade layer
+rollback remain pending. CSS.supports still returns false for background-size
+because image sizing/painting is unavailable. Empty box geometry checks prove
+only that the stored computed state does not distort the box dimensions.
+
+Public reference: [CSS Backgrounds sizing](https://drafts.csswg.org/css-backgrounds/#background-size).

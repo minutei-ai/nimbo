@@ -376,6 +376,7 @@ fn native_property(name: &str, value: &str, important: bool) -> Option<Vec<Entry
         "tab-size" => crate::tabs::specified(value)?,
         "line-height" => crate::line_height::specified(value)?,
         "background-image" => crate::backgrounds::specified(value)?,
+        "background-size" => crate::background_size::specified(value)?,
         "background-position-x" | "background-position-y" => {
             crate::background_position::specified_axis(name, value)?
         }
@@ -397,6 +398,7 @@ fn native_declaration(name: &str, value: &str) -> bool {
             | "tab-size"
             | "line-height"
             | "background-image"
+            | "background-size"
             | "background-position"
             | "background-position-x"
             | "background-position-y"

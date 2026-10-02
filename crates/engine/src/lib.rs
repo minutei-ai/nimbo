@@ -3,6 +3,7 @@
 mod animations;
 mod background_position;
 mod background_repeat;
+mod background_size;
 mod backgrounds;
 mod borders;
 mod canvas;

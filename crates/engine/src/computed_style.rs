@@ -6,10 +6,11 @@ use crate::{
     styles::{Declarations, Variables},
 };
 
-pub(crate) const PROPERTIES: [&str; 12] = [
+pub(crate) const PROPERTIES: [&str; 13] = [
     "background-image",
     "background-position",
     "background-repeat",
+    "background-size",
     "color",
     "font-size",
     "line-height",
@@ -27,6 +28,7 @@ pub(crate) struct Computed {
     images: crate::backgrounds::Images,
     positions: crate::background_position::Positions,
     repeats: crate::background_repeat::Repeats,
+    sizes: crate::background_size::Sizes,
 }
 
 pub(crate) fn property(name: &str) -> bool {
@@ -40,6 +42,8 @@ impl Computed {
             self.positions.value(name, self.images.count())
         } else if name == "background-repeat" {
             self.repeats.value(self.images.count())
+        } else if name == "background-size" {
+            self.sizes.value()
         } else if name == "line-height" {
             self.fonts.line_height()
         } else if name == "tab-size" {
@@ -86,6 +90,7 @@ pub(crate) fn resolve(
     let mut images = crate::backgrounds::Images::default();
     let mut positions = crate::background_position::Positions::default();
     let mut repeats = crate::background_repeat::Repeats::default();
+    let mut sizes = crate::background_size::Sizes::default();
     for (depth, node) in ancestors.into_iter().enumerate() {
         work.charge()?;
         let inline = sources.inline.get(&node.id).cloned().map_or_else(
@@ -111,6 +116,7 @@ pub(crate) fn resolve(
         images = images.compute(&declarations, &fonts, work)?;
         positions = positions.compute(&declarations, &fonts, work)?;
         repeats = repeats.compute(&declarations, images.count(), work)?;
+        sizes = sizes.compute(&declarations, images.count(), &fonts, work)?;
     }
     Ok(Computed {
         fonts,
@@ -118,5 +124,6 @@ pub(crate) fn resolve(
         images,
         positions,
         repeats,
+        sizes,
     })
 }

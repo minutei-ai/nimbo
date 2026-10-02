@@ -1,3 +1,4 @@
+import { backgroundSizeFixture } from "./background-size-fixture";
 import { backgroundRepeatFixture } from "./background-repeat-fixture";
 import { backgroundPositionFixture } from "./background-position-fixture";
 import { backgroundImagesFixture } from "./background-images-fixture";
@@ -420,6 +421,8 @@ const origin = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     requests.push(`${request.method} ${path}`);
+    const backgroundSize = await backgroundSizeFixture(path);
+    if (backgroundSize) return backgroundSize;
     const backgroundRepeat = await backgroundRepeatFixture(path);
     if (backgroundRepeat) return backgroundRepeat;
     const backgroundPosition = await backgroundPositionFixture(path);
@@ -4731,11 +4734,12 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
   expect(await response.json()).toMatchObject({
     value: {
       font: "18px",
-      count: 12,
+      count: 13,
       names: [
         "background-image",
         "background-position",
         "background-repeat",
+        "background-size",
         "color",
         "font-size",
         "line-height",
@@ -5110,3 +5114,103 @@ test.each([
     expect(healthy.status).toBe(200);
   },
 );
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native background sizing variant %i",
+  async (variant) => {
+    const url = new URL(`background-size/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: `backgroundSizeCase(${variant})` }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null)
+      throw new Error("Missing background size values");
+    expect(Object.keys(value)).toHaveLength(71);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each([
+  ["2ex", "relative query length"],
+  ["calc(infinity * 1px)", "non-finite value"],
+  [`calc(${Array(40).fill("min(10%, 2px)").join(" + ")})`, "background position nesting"],
+] as const)(
+  "real HTTP → workerd → Wasm: unsupported sizing %s fails explicitly",
+  async (size, detail) => {
+    const url = new URL("background-size/0", origin.url).href;
+    const failed = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url,
+        expression: `(()=>{document.body.style.backgroundSize=${JSON.stringify(size)};return getComputedStyle(document.body).backgroundSize})()`,
+      }),
+    });
+    expect(failed.status).toBe(422);
+    expect(await failed.text()).toContain(detail);
+    const healthy = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "backgroundSizeCase(0)" }),
+    });
+    expect(healthy.status).toBe(200);
+  },
+);
+
+test("real HTTP → workerd → Wasm: sizing preserves independent scalar reads and image layer counts", async () => {
+  const url = new URL("background-size/0", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression:
+        "(()=>{const e=document.body;e.style.cssText='font-size:18px;background-size:2ex';const s=getComputedStyle(e),font=s.fontSize;e.style.cssText='background-image:url(https://example.test/a),url(https://example.test/b);background-size:cover';return {font,size:s.backgroundSize,paint:CSS.supports('background-size','cover')}})()",
+    }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
+    value: { font: "18px", size: "cover, cover", paint: false },
+  });
+});
+
+test("real HTTP → workerd → Wasm: expanded sizing expression copies consume work", async () => {
+  const url = new URL("background-size/0", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression:
+        "(()=>{const e=document.body;e.style.backgroundImage=Array(512).fill('none').join(',');e.style.backgroundSize='min('+Array(32).fill('10%,2px').join(',')+')';return getComputedStyle(e).backgroundSize})()",
+    }),
+  });
+  expect(response.status).toBe(422);
+  expect(await response.text()).toContain("DOM operations");
+  const healthy = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: "backgroundSizeCase(0)" }),
+  });
+  expect(healthy.status).toBe(200);
+});
+
+test("real HTTP → workerd → Wasm: unsupported sizing geometry stays explicit", async () => {
+  const url = new URL("background-size/0", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression:
+        "(()=>{document.body.style.backgroundSize='2ex';return document.body.getBoundingClientRect()})()",
+    }),
+  });
+  expect(response.status).toBe(422);
+  expect(await response.text()).toContain("relative query length");
+});
