@@ -32,6 +32,7 @@ struct Rule {
     selectors: Vec<Selector>,
     declarations: Declarations,
     layer: Vec<usize>,
+    containers: Vec<std::rc::Rc<crate::containers::Query>>,
 }
 pub(crate) struct Cascade {
     rules: Vec<Rule>,
@@ -162,12 +163,14 @@ enum Prelude {
     Media(bool),
     Layers(Vec<Vec<String>>),
     Keyframes(String),
+    Container(std::rc::Rc<crate::containers::Query>),
 }
 struct Rules<'a> {
     media: &'a MediaEnvironment,
     layers: &'a mut crate::layers::Layers,
     animations: &'a mut crate::animations::Definitions,
     parent: &'a [usize],
+    containers: &'a [std::rc::Rc<crate::containers::Query>],
     failure: Option<Error>,
 }
 impl<'i> AtRuleParser<'i> for Rules<'_> {
@@ -188,6 +191,16 @@ impl<'i> AtRuleParser<'i> for Rules<'_> {
                 input.new_error(cssparser::BasicParseErrorKind::QualifiedRuleInvalid)
             })?;
             return Ok(Prelude::Keyframes(source.to_owned()));
+        }
+        if name.eq_ignore_ascii_case("container") {
+            let start = input.position();
+            consume(input, 0)?;
+            return crate::containers::Query::parse(input.slice_from(start))
+                .map(Prelude::Container)
+                .map_err(|error| {
+                    self.failure = Some(error);
+                    input.new_custom_error("stylesheet container query")
+                });
         }
         if name.eq_ignore_ascii_case("layer") {
             return crate::layers::names(input).map(Prelude::Layers);
@@ -212,7 +225,12 @@ impl<'i> AtRuleParser<'i> for Rules<'_> {
     ) -> std::result::Result<ParsedRule, ParseError<'i, Self::Error>> {
         let start = input.position();
         consume(input, 0)?;
+        let mut containers = self.containers.to_vec();
         let parent = match prelude {
+            Prelude::Container(query) => {
+                containers.push(query);
+                self.parent.to_vec()
+            }
             Prelude::Keyframes(name) => {
                 self.animations
                     .register(&name, input.slice_from(start), self.parent)
@@ -241,6 +259,7 @@ impl<'i> AtRuleParser<'i> for Rules<'_> {
             self.layers,
             self.animations,
             &parent,
+            &containers,
         )
         .map_err(|error| {
             // Keep the original engine error across cssparser's static
@@ -358,6 +377,7 @@ impl<'i> QualifiedRuleParser<'i> for Rules<'_> {
         Ok(ParsedRule::Style(Rule {
             selectors,
             declarations,
+            containers: self.containers.to_vec(),
             layer: self
                 .parent
                 .iter()
@@ -374,6 +394,7 @@ fn sheet(
     layers: &mut crate::layers::Layers,
     animations: &mut crate::animations::Definitions,
     parent: &[usize],
+    containers: &[std::rc::Rc<crate::containers::Query>],
 ) -> Result<Vec<Rule>> {
     if source.len() > 262_144 {
         return Err(Error::Limit("stylesheet bytes"));
@@ -389,6 +410,7 @@ fn sheet(
         layers,
         animations,
         parent,
+        containers,
         failure: None,
     };
     let mut failure = None;
@@ -478,7 +500,7 @@ impl Cascade {
             if bytes > 262_144 {
                 return Err(Error::Limit("stylesheet total bytes"));
             }
-            let parsed = sheet(&source, media, &mut layers, &mut animations, &[])?;
+            let parsed = sheet(&source, media, &mut layers, &mut animations, &[], &[])?;
             selectors = selectors.saturating_add(
                 parsed
                     .iter()
@@ -497,11 +519,16 @@ impl Cascade {
         })
     }
 
+    pub(crate) fn has_containers(&self) -> bool {
+        self.rules.iter().any(|rule| !rule.containers.is_empty())
+    }
+
     pub(crate) fn resolve(
         &self,
         node: NodeRef<'_>,
         inline: &Declarations,
         generated: Option<Generated>,
+        containers: &crate::containers::Snapshot,
         work: &mut Work<'_>,
     ) -> Result<Declarations> {
         let mut sources = Vec::new();
@@ -519,7 +546,14 @@ impl Cascade {
                 continue;
             }
             work.charge()?;
-            if selector.matcher.matches(node) {
+            let mut active = true;
+            for query in &rule.containers {
+                if !query.matches(node, generated.is_some(), containers, work)? {
+                    active = false;
+                    break;
+                }
+            }
+            if active && selector.matcher.matches(node) {
                 matching
                     .entry(rule_index)
                     .and_modify(|specificity| {

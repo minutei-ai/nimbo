@@ -21,7 +21,7 @@ tests as well as integration and application tests.
 
 `tooling/browser-live.test.ts` uses a real loopback HTTP origin, actual workerd,
 and the compiled Rust/Wasm engine. It installs no transport replacements,
-service mocks, browser API stubs, or canned engine results. Its 2240 data variants
+service mocks, browser API stubs, or canned engine results. Its 2304 data variants
 exercise external scripts, Unicode/entity decoding, selector identity,
 ancestry, removal/reparenting, attribute mutation and POST response decoding.
 They also exercise parsed and created text/comment nodes, native node identity,
@@ -45,15 +45,15 @@ failures. The eighth set exercises native Web Storage across inline, external
 and module scripts, UTF-16 including lone surrogates, coercion/receiver guards,
 named properties, reflection, removal, clearing and fresh Worker request areas.
 An additional case exercises actual quota exhaustion, atomic failure, independent
-local/session quotas and reuse. These are repeated integration checks, not 2240 independent platform
+local/session quotas and reuse. These are repeated integration checks, not 2304 independent platform
 features. The ninth set checks native media queries against 64 explicit viewport
 and preference configurations, including ranges, three-valued conditions,
 serialization, CSS escapes, receiver guards and synthetic MediaQueryList events.
 The tenth set rejects 64 invalid environment variants before any HTTP navigation.
 The eleventh set repeats the same DOMTokenList fixture at 64 distinct URLs,
 checking live attribute reads, ordered token mutations, identity, indices,
-iteration, receiver guards and atomic invalid-token rejection. Including eighty-three
-resource/deadline/origin and explicit-capability checks, the real browser suite has 2323 tests.
+iteration, receiver guards and atomic invalid-token rejection. Including ninety-one
+resource/deadline/origin and explicit-capability checks, the real browser suite has 2395 tests.
 The twelfth set checks HTML namespace identity and reflected attributes with
 64 distinct synthetic strings. It includes parsed SVG/MathML and an HTML
 subtree inside SVG foreignObject.
@@ -320,8 +320,8 @@ the forwarded request reaches the origin. These checks cover redirects,
 HTTP cookies, POST bodies, response errors, script skipping, isolation,
 resource limits and recovery. The HTTP cookie fixture does not test TLS or
 Secure cookie delivery. The seven lint/infrastructure checks spawn the actual
-pinned tools rather than replacing their behavior. All 2342 Bun tests therefore
-run without transport, browser or tool mocks; 2335 exercise the browser engine
+pinned tools rather than replacing their behavior. All 2414 Bun tests therefore
+run without transport, browser or tool mocks; 2407 exercise the browser engine
 and seven exercise tooling. Neither local suite proves deployed performance,
 TLS fingerprints, rendering or broad browser compatibility.
 
@@ -403,7 +403,7 @@ Neither aggregate fixtures nor a layout library establish full CSSOM View/WPT
 parity or rendering support.
 
 Eight real Worker cases require explicit failure for text needing shaping,
-unsupported container rules and stylesheet sets, transforms, environment substitution,
+unsupported scope rules and stylesheet sets, transforms, environment substitution,
 absolute positioning, unsupported element formatting and relative font units.
 Two more reach the 1024-node and 128-depth limits, and one exhausts the shared
 DOM operation budget through actual repeated layout. Every failure case verifies
@@ -471,7 +471,7 @@ listed input/tree limits; this is not a total-process CPU or memory claim.
 
 This is author style-rule ordering for supported box properties, not a complete
 cascade/computed-style implementation. Missing: stylesheet imports, origins
-and stylesheet sets, full style/link/sheet interfaces, scope/container groups, nesting, full selector state/scope/WPT behavior, defaulting and
+and stylesheet sets, full style/link/sheet interfaces, scope/full container groups, nesting, full selector state/scope/WPT behavior, defaulting and
 inheritance for ordinary properties, complete variable semantics, registered properties, presentational hints,
 full UA defaults, getComputedStyle, animations/transitions and paint. Font/text
 and all remaining layout/observer gaps stay in scope.
@@ -1013,3 +1013,41 @@ No Obscura runtime dependency or fallback is involved.
 5. Use [Alchemy resources](https://alchemy.run/cloudflare/compute/workers/) for
    provisioning. If a capability needs another runtime, document the failed
    Worker experiment and the actual alternative's tests before claiming support.
+
+## Native container size queries
+
+The `containers.txt` fixture adds 64 real HTTP/workerd/Wasm variants of 79
+shared checks, plus a separate fractional aspect-ratio equality diagnostic.
+The shared checks match Chromium 152.0.7977.130 in all 64 variants; see
+[evidence](evidence/container-queries-chromium.json). Queries select the
+nearest ancestor eligible for every queried axis and the optional case-sensitive
+name. Unknown feature names prevent selection even inside `or`, following the
+[container selection rules](https://drafts.csswg.org/css-conditional-5/#container-rule).
+The fixture exercises physical/logical horizontal dimensions, ranges and
+intervals, min/max syntax, ratio/orientation, Boolean conditions, nested groups,
+variables, source priority, name/type/width mutations, border-box padding,
+conditional container sizing and absence of an eligible ancestor. Global
+keyframe definitions inside inactive container queries remain available.
+
+The scene uses measured content boxes from native Taffy layout and rebuilds
+until the container snapshots stabilize. The scene permits at most 33 layout
+passes and charges repeated work to the existing cumulative DOM-operation
+budget. Actual Worker exhaustion verifies fresh-page recovery. A separate
+native HTTP test with a larger DOM budget reaches the layout-pass limit and
+verifies same-page recovery. These are engine limits, not process CPU limits.
+
+Size containers currently require definite pixel lengths on their contained
+axes, and intrinsic flex/grid item containment fails explicitly. The contained
+formatting context uses Taffy's layout containment. Automatic/percentage and
+intrinsic sizing, font/viewport/container-relative query lengths, query value
+substitution, vertical writing modes, style/scroll-state queries, comma-separated
+queries, invalid-rule recovery, CSS-wide name/type inheritance and complete
+pseudo-element selection remain required work. Seven real Worker cases verify
+explicit failures and recovery for representative missing capabilities. The
+existing layout restrictions still apply; this is not complete containment,
+CSSOM, style-change event or browser conformance.
+
+For an exact 8/5 ratio with fractional container heights, the separate diagnostic
+matches 64/64 in Nimbo and 32/64 in the tested Chromium. This disagreement is
+preserved in the evidence and excluded from the shared parity checks. Broader
+fractional ratio compatibility remains unproven.

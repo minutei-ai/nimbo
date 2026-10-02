@@ -2,6 +2,7 @@
 
 mod animations;
 mod cascade;
+mod containers;
 mod dom;
 mod encoding;
 mod layers;

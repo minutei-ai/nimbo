@@ -1,0 +1,15 @@
+(() => {
+  const sheet = document.createElement('style');
+  document.head.appendChild(sheet);
+  let parent = document.body;
+  const rules = [];
+  for (let i=0;i<34;i++) {
+    const node=document.createElement('div');node.className='node_'+i;
+    parent.appendChild(node);parent=node;
+    rules.push('.node_'+i+'{container:level_'+i+' / inline-size;width:'+(i===0?20:10)+'px;height:0}');
+    if(i>0)rules.push('@container level_'+(i-1)+' (width:20px){.node_'+i+'{width:20px}}');
+  }
+  sheet.textContent=rules.join('');
+  try { parent.getBoundingClientRect(); return ''; }
+  catch(error) { return String(error); }
+})()

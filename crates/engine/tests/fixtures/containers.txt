@@ -1,0 +1,90 @@
+globalThis.comparison = (() => {
+  const scale = .75 + Number(globalThis.variant || 0)/16;
+  const outer = document.createElement('section');
+  const inner = document.createElement('div');
+  const target = document.createElement('div');
+  outer.className='outer'; inner.className='inner'; target.className='target';
+  outer.appendChild(inner); inner.appendChild(target); document.body.appendChild(outer);
+  const base = document.createElement('style');
+  base.textContent='.outer{container:outer / size;width:'+320*scale+'px;height:'+200*scale+'px}.inner{container:inner alternate / inline-size;width:'+160*scale+'px}.target{width:11px;height:0}';
+  document.head.appendChild(base);
+  const sheet = document.createElement('style'); document.head.appendChild(sheet);
+  const query = (condition, value=31) => '@container '+condition+'{.target{width:'+value+'px}}';
+  const n = value => value*scale+'px';
+  const cases = [
+    ['width', '('+'width > '+n(159)+')', true],
+    ['widthFalse', '(width > '+n(160)+')', false],
+    ['widthEqual', '(width = '+n(160)+')', true],
+    ['reverseRange', '('+n(159)+' < width)', true],
+    ['interval', '('+n(100)+' < width <= '+n(160)+')', true],
+    ['reverseInterval', '('+n(180)+' > width >= '+n(160)+')', true],
+    ['minWidth', '(min-width:'+n(160)+')', true],
+    ['maxWidth', '(max-width:'+n(160)+')', true],
+    ['maxWidthFalse', '(max-width:'+n(159)+')', false],
+    ['inline', '(inline-size:'+n(160)+')', true],
+    ['height', '(height:'+n(200)+')', true],
+    ['block', '(block-size:'+n(200)+')', true],
+    ['ratio', '(aspect-ratio:2/1)', true],
+    ['ratioRange', '(aspect-ratio > 1)', true],
+    ['landscape', '(orientation:landscape)', true],
+    ['portrait', '(orientation:portrait)', false],
+    ['boolean', '(width)', true],
+    ['booleanHeight', '(height)', true],
+    ['named', 'outer (width:'+n(320)+')', true],
+    ['caseName', 'Outer (width)', false],
+    ['alternateName', 'alternate (width:'+n(160)+')', true],
+    ['missing', 'missing (width)', false],
+    ['not', 'not (width:'+n(160)+')', false],
+    ['notTrue', 'not (width:'+n(159)+')', true],
+    ['and', '(width:'+n(160)+') and (inline-size > '+n(100)+')', true],
+    ['or', '(width:1px) or (width:'+n(160)+')', true],
+    ['allAxes', '(width:'+n(320)+') and (height:'+n(200)+')', true],
+    ['unknown', '(future-feature:future-value)', false],
+    ['unknownNot', 'not (future-feature:future-value)', false],
+    ['unknownOr', '(future-feature:future-value) or (width:'+n(160)+')', false],
+    ['unknownAnd', '(future-feature:future-value) and (width:'+n(160)+')', false],
+  ];
+  const result = {};
+  sheet.textContent=query('(aspect-ratio:8/5)');
+  globalThis.containerRatioPrecision=target.getBoundingClientRect().width===31;
+  sheet.textContent='';
+  for (const [name, condition, active] of cases) {
+    if (name==='ratio') outer.style.height=n(160);
+    sheet.textContent=query(condition);
+    result[name]=Math.abs(target.getBoundingClientRect().width-(active?31:11))<.02;
+    sheet.textContent='';
+    if (name==='ratio') outer.style.height='';
+    result[name+'Recovery']=target.getBoundingClientRect().width===11;
+  }
+  sheet.textContent='@container outer (width){@container inner (width){.target{width:39px}}}';
+  result.nested=target.getBoundingClientRect().width===39;
+  sheet.textContent='@container outer (width:1px){@container inner (width){.target{width:39px}}}';
+  result.nestedFalse=target.getBoundingClientRect().width===11;
+  sheet.textContent='@media all{@supports (width:1px){'+query('(width)',41)+'}}';
+  result.groups=target.getBoundingClientRect().width===41;
+  sheet.textContent=query('(width)',31)+'.target{width:43px!important}';
+  result.important=target.getBoundingClientRect().width===43;
+  sheet.textContent='@container (width){.target{--chosen:47px;width:var(--chosen)}}';
+  result.variables=target.getBoundingClientRect().width===47;
+  sheet.textContent=query('(width:'+n(160)+')');
+  inner.style.width=n(120); result.mutation=target.getBoundingClientRect().width===11;
+  inner.style.width=''; result.restore=target.getBoundingClientRect().width===31;
+  inner.style.containerType='normal'; result.typeMutation=target.getBoundingClientRect().width===11;
+  inner.style.containerType=''; result.typeRestore=target.getBoundingClientRect().width===31;
+  inner.style.containerName='other'; sheet.textContent=query('inner (width)');
+  result.nameMutation=target.getBoundingClientRect().width===11;
+  inner.style.containerName=''; result.nameRestore=target.getBoundingClientRect().width===31;
+  inner.style.padding='10px'; inner.style.boxSizing='border-box';
+  sheet.textContent=query('(width:'+n(160)+')'); result.contentBox=target.getBoundingClientRect().width===11;
+  sheet.textContent=query('(width:'+(160*scale-20)+'px)'); result.contentBoxMatch=target.getBoundingClientRect().width===31;
+  inner.style.padding=''; inner.style.boxSizing='';
+  inner.style.containerType='normal'; outer.style.containerType='normal';
+  sheet.textContent=query('not (width:1px)'); result.noContainer=target.getBoundingClientRect().width===11;
+  inner.style.containerType=''; outer.style.containerType='';
+  sheet.textContent='@container (width){.inner{width:100px}}@container inner (width:100px){.target{width:53px}}';
+  result.conditionalContainer=target.getBoundingClientRect().width===53;
+  sheet.textContent='@container (width:1px){@keyframes globallyDefined{from{width:65px}to{width:65px}}}.target{animation:globallyDefined 1s linear paused both}';
+  result.globalKeyframes=target.getBoundingClientRect().width===65;
+  sheet.textContent=''; result.finalRecovery=target.getBoundingClientRect().width===11;
+  return result;
+})();

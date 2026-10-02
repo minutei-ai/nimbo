@@ -142,6 +142,18 @@ fn style(node: NodeRef<'_>, declarations: &Declarations) -> Result<Style> {
     style_for(node, declarations, false, false)
 }
 
+fn non_layout(name: &str) -> bool {
+    matches!(
+        name,
+        "color"
+            | "background-color"
+            | "opacity"
+            | "visibility"
+            | "container-name"
+            | "container-type"
+    )
+}
+
 fn style_for(
     node: NodeRef<'_>,
     declarations: &Declarations,
@@ -167,14 +179,10 @@ fn style_for(
         if name == "visibility" && (deferred || value == "collapse") {
             return Err(unsupported("visibility"));
         }
-        if name.starts_with("--")
-            || matches!(
-                name,
-                "color" | "background-color" | "opacity" | "visibility"
-            )
-        {
+        if name.starts_with("--") || non_layout(name) {
             continue;
         }
+
         if deferred {
             return Err(unsupported("variable substitution"));
         }
@@ -289,6 +297,8 @@ struct Tree<'a, 'b> {
     styles: &'a HashMap<NodeId, Declarations>,
     visited: usize,
     cascade: &'a crate::cascade::Cascade,
+    containers: &'a crate::containers::Snapshot,
+    next_containers: crate::containers::Snapshot,
     work: &'a mut Work<'b>,
 }
 
@@ -301,9 +311,13 @@ impl Tree<'_, '_> {
         parent_display: Display,
         depth: usize,
     ) -> Result<Option<taffy::NodeId>> {
-        let declarations =
-            self.cascade
-                .resolve(node, &Declarations::default(), Some(kind), self.work)?;
+        let declarations = self.cascade.resolve(
+            node,
+            &Declarations::default(),
+            Some(kind),
+            self.containers,
+            self.work,
+        )?;
         let (declarations, variables) = declarations.compute_variables(parent, self.work)?;
         let declarations = self
             .cascade
@@ -377,6 +391,7 @@ impl Tree<'_, '_> {
         node: NodeRef<'_>,
         depth: usize,
         parent: &Variables,
+        parent_display: Display,
     ) -> Result<Option<taffy::NodeId>> {
         self.work.charge()?;
         self.visited = self.visited.saturating_add(1);
@@ -406,16 +421,20 @@ impl Tree<'_, '_> {
             Declarations::parse(node.attr("style").as_deref().unwrap_or_default())
                 .map_err(|message| Error::Dom(message.into()))?
         };
-        let declarations = self.cascade.resolve(node, &declarations, None, self.work)?;
+        let declarations =
+            self.cascade
+                .resolve(node, &declarations, None, self.containers, self.work)?;
         let (declarations, variables) = declarations.compute_variables(parent, self.work)?;
         let declarations = self
             .cascade
             .animations
             .sample(&declarations, &variables, self.work)?;
-        let style = style(node, &declarations)?;
+        let mut style = style(node, &declarations)?;
         if style.display == Display::None {
             return Ok(None);
         }
+        let container =
+            crate::containers::Container::apply(&declarations, &mut style, parent_display)?;
         if ![
             "html", "body", "div", "main", "section", "article", "aside", "header", "footer", "nav",
         ]
@@ -440,7 +459,7 @@ impl Tree<'_, '_> {
         children.extend(
             node.children_it(false)
                 .filter_map(|child| {
-                    self.build(child, depth.saturating_add(1), &variables)
+                    self.build(child, depth.saturating_add(1), &variables, style.display)
                         .transpose()
                 })
                 .collect::<Result<Vec<_>>>()?,
@@ -459,6 +478,9 @@ impl Tree<'_, '_> {
             .new_with_children(style, &children)
             .map_err(|error| layout_error(&error))?;
         self.ids.insert(node.id, id);
+        if let Some(container) = container {
+            self.next_containers.insert(node.id, container);
+        }
         Ok(Some(id))
     }
 }
@@ -502,30 +524,50 @@ fn scene<T>(
         .children_it(false)
         .find(NodeRef::is_element)
         .ok_or_else(|| unsupported("document root"))?;
-    let mut tree = Tree {
-        boxes: TaffyTree::new(),
-        ids: HashMap::new(),
-        styles: styles.inline,
-        visited: 0,
-        cascade: &cascade,
-        work,
-    };
-    tree.boxes.disable_rounding();
-    let root_id = tree.build(root, 0, &Variables::default())?;
     let width = f32::from(u16::try_from(media.width).map_err(|_error| unsupported("viewport"))?);
     let height = f32::from(u16::try_from(media.height).map_err(|_error| unsupported("viewport"))?);
-    if let Some(root_id) = root_id {
-        tree.boxes
-            .compute_layout(
-                root_id,
-                Size {
-                    width: AvailableSpace::Definite(width),
-                    height: AvailableSpace::Definite(height),
-                },
-            )
-            .map_err(|error| layout_error(&error))?;
+    let mut containers = crate::containers::Snapshot::new();
+    for _round in 0..=32 {
+        let mut tree = Tree {
+            boxes: TaffyTree::new(),
+            ids: HashMap::new(),
+            styles: styles.inline,
+            visited: 0,
+            cascade: &cascade,
+            containers: &containers,
+            next_containers: crate::containers::Snapshot::new(),
+            work,
+        };
+        tree.boxes.disable_rounding();
+        let root_id = tree.build(root, 0, &Variables::default(), Display::Block)?;
+        if let Some(root_id) = root_id {
+            tree.boxes
+                .compute_layout(
+                    root_id,
+                    Size {
+                        width: AvailableSpace::Definite(width),
+                        height: AvailableSpace::Definite(height),
+                    },
+                )
+                .map_err(|error| layout_error(&error))?;
+        }
+        for (node, container) in &mut tree.next_containers {
+            let id = tree
+                .ids
+                .get(node)
+                .ok_or_else(|| unsupported("missing box"))?;
+            container.measure(
+                tree.boxes
+                    .layout(*id)
+                    .map_err(|error| layout_error(&error))?,
+            );
+        }
+        if !cascade.has_containers() || tree.next_containers == containers {
+            return measure(&mut tree);
+        }
+        containers = tree.next_containers;
     }
-    measure(&mut tree)
+    Err(Error::Limit("container layout passes"))
 }
 
 mod intersection;

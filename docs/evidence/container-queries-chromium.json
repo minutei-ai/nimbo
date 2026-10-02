@@ -1,0 +1,334 @@
+{
+  "checks": {
+    "allAxes": {
+      "failed": 0,
+      "passed": 64
+    },
+    "allAxesRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "alternateName": {
+      "failed": 0,
+      "passed": 64
+    },
+    "alternateNameRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "and": {
+      "failed": 0,
+      "passed": 64
+    },
+    "andRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "block": {
+      "failed": 0,
+      "passed": 64
+    },
+    "blockRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "boolean": {
+      "failed": 0,
+      "passed": 64
+    },
+    "booleanHeight": {
+      "failed": 0,
+      "passed": 64
+    },
+    "booleanHeightRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "booleanRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "caseName": {
+      "failed": 0,
+      "passed": 64
+    },
+    "caseNameRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "conditionalContainer": {
+      "failed": 0,
+      "passed": 64
+    },
+    "contentBox": {
+      "failed": 0,
+      "passed": 64
+    },
+    "contentBoxMatch": {
+      "failed": 0,
+      "passed": 64
+    },
+    "finalRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "globalKeyframes": {
+      "failed": 0,
+      "passed": 64
+    },
+    "groups": {
+      "failed": 0,
+      "passed": 64
+    },
+    "height": {
+      "failed": 0,
+      "passed": 64
+    },
+    "heightRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "important": {
+      "failed": 0,
+      "passed": 64
+    },
+    "inline": {
+      "failed": 0,
+      "passed": 64
+    },
+    "inlineRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "interval": {
+      "failed": 0,
+      "passed": 64
+    },
+    "intervalRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "landscape": {
+      "failed": 0,
+      "passed": 64
+    },
+    "landscapeRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "maxWidth": {
+      "failed": 0,
+      "passed": 64
+    },
+    "maxWidthFalse": {
+      "failed": 0,
+      "passed": 64
+    },
+    "maxWidthFalseRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "maxWidthRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "minWidth": {
+      "failed": 0,
+      "passed": 64
+    },
+    "minWidthRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "missing": {
+      "failed": 0,
+      "passed": 64
+    },
+    "missingRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "mutation": {
+      "failed": 0,
+      "passed": 64
+    },
+    "nameMutation": {
+      "failed": 0,
+      "passed": 64
+    },
+    "nameRestore": {
+      "failed": 0,
+      "passed": 64
+    },
+    "named": {
+      "failed": 0,
+      "passed": 64
+    },
+    "namedRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "nested": {
+      "failed": 0,
+      "passed": 64
+    },
+    "nestedFalse": {
+      "failed": 0,
+      "passed": 64
+    },
+    "noContainer": {
+      "failed": 0,
+      "passed": 64
+    },
+    "not": {
+      "failed": 0,
+      "passed": 64
+    },
+    "notRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "notTrue": {
+      "failed": 0,
+      "passed": 64
+    },
+    "notTrueRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "or": {
+      "failed": 0,
+      "passed": 64
+    },
+    "orRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "portrait": {
+      "failed": 0,
+      "passed": 64
+    },
+    "portraitRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "ratio": {
+      "failed": 0,
+      "passed": 64
+    },
+    "ratioRange": {
+      "failed": 0,
+      "passed": 64
+    },
+    "ratioRangeRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "ratioRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "restore": {
+      "failed": 0,
+      "passed": 64
+    },
+    "reverseInterval": {
+      "failed": 0,
+      "passed": 64
+    },
+    "reverseIntervalRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "reverseRange": {
+      "failed": 0,
+      "passed": 64
+    },
+    "reverseRangeRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "typeMutation": {
+      "failed": 0,
+      "passed": 64
+    },
+    "typeRestore": {
+      "failed": 0,
+      "passed": 64
+    },
+    "unknown": {
+      "failed": 0,
+      "passed": 64
+    },
+    "unknownAnd": {
+      "failed": 0,
+      "passed": 64
+    },
+    "unknownAndRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "unknownNot": {
+      "failed": 0,
+      "passed": 64
+    },
+    "unknownNotRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "unknownOr": {
+      "failed": 0,
+      "passed": 64
+    },
+    "unknownOrRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "unknownRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "variables": {
+      "failed": 0,
+      "passed": 64
+    },
+    "width": {
+      "failed": 0,
+      "passed": 64
+    },
+    "widthEqual": {
+      "failed": 0,
+      "passed": 64
+    },
+    "widthEqualRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "widthFalse": {
+      "failed": 0,
+      "passed": 64
+    },
+    "widthFalseRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "widthRecovery": {
+      "failed": 0,
+      "passed": 64
+    }
+  },
+  "diagnostics": {
+    "fractionalRatioEquality": {
+      "failed": 32,
+      "passed": 32,
+      "description": "Separate 8/5 aspect-ratio equality diagnostic with fractional container heights. Nimbo's double-precision evaluation succeeds on all variants; Chromium matches 32 of 64. This is a recorded comparison gap, not a parity claim."
+    }
+  },
+  "fixture": "crates/engine/tests/fixtures/containers.txt",
+  "frameViewport": {
+    "height": 768,
+    "width": 1024
+  },
+  "variants": 64,
+  "browser": "Chromium 152.0.7977.130"
+}

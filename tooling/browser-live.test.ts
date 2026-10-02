@@ -415,6 +415,16 @@ const origin = Bun.serve({
         headers: { "content-type": "text/html" },
       });
     }
+    if (path.startsWith("/containers/")) {
+      const variant = Number(path.split("/").at(-1));
+      const source = await Bun.file(
+        join(import.meta.dir, "../crates/engine/tests/fixtures/containers.txt"),
+      ).text();
+      return new Response(
+        `<!doctype html><body><script>globalThis.variant=${variant};${source}</script>`,
+        { headers: { "content-type": "text/html" } },
+      );
+    }
     if (path.startsWith("/cascade-index/")) {
       const variant = Number(path.split("/").at(-1));
       const source = await Bun.file(
@@ -2120,7 +2130,7 @@ test.each([
   ["text shaping", "el.textContent='real text';"],
   [
     "stylesheet at-rule",
-    "const css=document.createElement('style');css.textContent='@container (min-width: 10px) {div {width: 50px;}}';document.body.appendChild(css);",
+    "const css=document.createElement('style');css.textContent='@scope {div {width: 50px;}}';document.body.appendChild(css);",
   ],
   [
     "stylesheet sets",
@@ -3472,4 +3482,104 @@ test("real HTTP → workerd → Wasm: indexed native cascade accepts 4096 select
   });
   expect(response.status).toBe(200);
   expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: 37 });
+});
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native container query variant %i",
+  async (variant) => {
+    const url = new URL(`containers/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url,
+        expression: "Object.assign({ratioPrecision:containerRatioPrecision}, comparison)",
+      }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    expect(result).toMatchObject({ url, engine: "rust-wasm-quickjs" });
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing comparison");
+    expect(Object.keys(value)).toHaveLength(80);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+for (const [name, css, reason] of [
+  [
+    "intrinsic inline sizing",
+    ".target{container-type:inline-size}",
+    "container intrinsic size containment",
+  ],
+  [
+    "intrinsic block sizing",
+    ".target{container-type:size;width:100px}",
+    "container intrinsic size containment",
+  ],
+  [
+    "flex intrinsic items",
+    ".parent{display:flex}.target{container-type:inline-size;width:100px}",
+    "container intrinsic item containment",
+  ],
+  [
+    "style conditions",
+    "@container style(--value:test){.target{width:1px}}",
+    "container style query",
+  ],
+  [
+    "scroll-state conditions",
+    "@container scroll-state(stuck:top){.target{width:1px}}",
+    "container scroll-state query",
+  ],
+  [
+    "font-relative conditions",
+    "@container (width > 1em){.target{width:1px}}",
+    "container relative query length",
+  ],
+  ["name inheritance", ".target{container-name:inherit}", "container name inheritance"],
+] as const) {
+  test(`real HTTP → workerd → Wasm: container gap ${name} fails explicitly and recovers`, async () => {
+    const url = new URL("geometry-empty", origin.url).href;
+    const expression = `(()=>{const parent=document.createElement('div');parent.className='parent';const target=document.createElement('div');target.className='target';parent.appendChild(target);document.body.appendChild(parent);const sheet=document.createElement('style');sheet.textContent=${JSON.stringify(css)};document.head.appendChild(sheet);let failure='';try{target.getBoundingClientRect()}catch(error){failure=String(error)}sheet.remove();target.style.width='11px';return {failure,width:target.getBoundingClientRect().width};})()`;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression }),
+    });
+    expect(response.status).toBe(200);
+    const failure: unknown = expect.stringContaining(reason);
+    expect(await response.json()).toEqual({
+      url,
+      engine: "rust-wasm-quickjs",
+      value: { failure, width: 11 },
+    });
+  });
+}
+
+test("real HTTP → workerd → Wasm: container layout work is bounded and fresh pages recover", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const expression = await Bun.file(
+    join(import.meta.dir, "../crates/engine/tests/fixtures/container-budget.txt"),
+  ).text();
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression }),
+  });
+  expect(response.status).toBe(422);
+  const error: unknown = expect.stringContaining("DOM operations");
+  expect(await response.json()).toMatchObject({ error });
+  const healthy = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression:
+        "(()=>{const node=document.createElement('div');node.style.width='11px';document.body.appendChild(node);return node.getBoundingClientRect().width;})()",
+    }),
+  });
+  expect(healthy.status).toBe(200);
+  expect(await healthy.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: 11 });
 });
