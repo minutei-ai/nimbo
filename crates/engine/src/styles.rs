@@ -6,6 +6,8 @@ use lightningcss::{
     declaration::DeclarationBlock,
     properties::{Property, PropertyId},
     stylesheet::{ParserOptions, PrinterOptions},
+    traits::Parse,
+    values::image::Image,
 };
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
@@ -167,7 +169,99 @@ fn custom_name(name: &str) -> bool {
 }
 
 fn known_name(name: &str) -> bool {
-    matches!(name, "float" | "clear") || !matches!(PropertyId::from(name), PropertyId::Custom(_))
+    matches!(name, "float" | "clear" | "content")
+        || !matches!(PropertyId::from(name), PropertyId::Custom(_))
+}
+
+fn content_value(value: &str) -> Option<String> {
+    let mut input = ParserInput::new(value);
+    let mut parser = Parser::new(&mut input);
+    if let Ok(keyword) = parser.try_parse(|input| {
+        let keyword = input.expect_ident_cloned()?;
+        input.expect_exhausted()?;
+        Ok::<_, cssparser::BasicParseError<'_>>(keyword)
+    }) {
+        return matches!(
+            keyword.to_ascii_lowercase().as_str(),
+            "none" | "normal" | "open-quote" | "close-quote" | "no-open-quote" | "no-close-quote"
+        )
+        .then(|| keyword.to_ascii_lowercase());
+    }
+    let mut count = 0_usize;
+    let mut alternative = false;
+    while !parser.is_exhausted() {
+        if !alternative
+            && parser
+                .try_parse(|input| {
+                    let image = Image::parse(input)?;
+                    if matches!(image, Image::None) {
+                        return Err(
+                            input.new_error(cssparser::BasicParseErrorKind::QualifiedRuleInvalid)
+                        );
+                    }
+                    Ok(())
+                })
+                .is_ok()
+        {
+            count = count.saturating_add(1);
+            continue;
+        }
+        match parser.next().ok()?.clone() {
+            Token::QuotedString(_) => {}
+            Token::UnquotedUrl(_) if !alternative => {}
+            Token::Ident(name)
+                if !alternative
+                    && matches!(
+                        name.to_ascii_lowercase().as_str(),
+                        "open-quote" | "close-quote" | "no-open-quote" | "no-close-quote"
+                    ) => {}
+            Token::Delim('/') if !alternative && count > 0 => {
+                alternative = true;
+                count = 0;
+                continue;
+            }
+            Token::Function(name) if name.eq_ignore_ascii_case("url") && !alternative => {
+                parser
+                    .parse_nested_block(|input| {
+                        input.expect_string()?;
+                        input.expect_exhausted()?;
+                        Ok::<_, ParseError<'_, ()>>(())
+                    })
+                    .ok()?;
+            }
+            Token::Function(name) if name.eq_ignore_ascii_case("attr") => {
+                parser
+                    .parse_nested_block(|input| {
+                        input.expect_ident()?;
+                        input.expect_exhausted()?;
+                        Ok::<_, ParseError<'_, ()>>(())
+                    })
+                    .ok()?;
+            }
+            Token::Function(name)
+                if name.eq_ignore_ascii_case("counter")
+                    || name.eq_ignore_ascii_case("counters") =>
+            {
+                parser
+                    .parse_nested_block(|input| {
+                        input.expect_ident()?;
+                        if name.eq_ignore_ascii_case("counters") {
+                            input.expect_comma()?;
+                            input.expect_string()?;
+                        }
+                        if input.try_parse(Parser::expect_comma).is_ok() {
+                            input.expect_ident()?;
+                        }
+                        input.expect_exhausted()?;
+                        Ok::<_, ParseError<'_, ()>>(())
+                    })
+                    .ok()?;
+            }
+            _ => return None,
+        }
+        count = count.saturating_add(1);
+    }
+    (count > 0).then(|| value.to_owned())
 }
 
 fn trimmed(value: &str) -> Option<&str> {
@@ -274,6 +368,9 @@ fn expand(name: &str, value: &str, important: bool) -> Option<Vec<Entry>> {
             native_keyword(name, value)?,
             important,
         )]);
+    }
+    if name == "content" {
+        return Some(vec![Entry::new(name, content_value(value)?, important)]);
     }
     let parsed = Property::parse_string(id.clone(), value, ParserOptions::default()).ok()?;
     // The transformer accepts invalid ordinary values as Unparsed. Only the

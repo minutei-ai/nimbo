@@ -21,7 +21,7 @@ tests as well as integration and application tests.
 
 `tooling/browser-live.test.ts` uses a real loopback HTTP origin, actual workerd,
 and the compiled Rust/Wasm engine. It installs no transport replacements,
-service mocks, browser API stubs, or canned engine results. Its 1984 data variants
+service mocks, browser API stubs, or canned engine results. Its 2048 data variants
 exercise external scripts, Unicode/entity decoding, selector identity,
 ancestry, removal/reparenting, attribute mutation and POST response decoding.
 They also exercise parsed and created text/comment nodes, native node identity,
@@ -45,15 +45,15 @@ failures. The eighth set exercises native Web Storage across inline, external
 and module scripts, UTF-16 including lone surrogates, coercion/receiver guards,
 named properties, reflection, removal, clearing and fresh Worker request areas.
 An additional case exercises actual quota exhaustion, atomic failure, independent
-local/session quotas and reuse. These are repeated integration checks, not 1984 independent platform
+local/session quotas and reuse. These are repeated integration checks, not 2048 independent platform
 features. The ninth set checks native media queries against 64 explicit viewport
 and preference configurations, including ranges, three-valued conditions,
 serialization, CSS escapes, receiver guards and synthetic MediaQueryList events.
 The tenth set rejects 64 invalid environment variants before any HTTP navigation.
 The eleventh set repeats the same DOMTokenList fixture at 64 distinct URLs,
 checking live attribute reads, ordered token mutations, identity, indices,
-iteration, receiver guards and atomic invalid-token rejection. Including sixty-eight
-resource/deadline/origin checks, the real browser suite has 2052 tests.
+iteration, receiver guards and atomic invalid-token rejection. Including seventy-seven
+resource/deadline/origin and explicit-capability checks, the real browser suite has 2125 tests.
 The twelfth set checks HTML namespace identity and reflected attributes with
 64 distinct synthetic strings. It includes parsed SVG/MathML and an HTML
 subtree inside SVG foreignObject.
@@ -832,6 +832,40 @@ Shadow roots, shadow stylesheet matching, :host-context(), pseudo-element
 rendering, public selector API parity and full selector conformance remain
 required work. This document-context behavior does not establish those
 capabilities or introduce an Obscura runtime dependency.
+
+### Native before and after generated boxes
+
+Terminal ::before and ::after selectors, including their legacy single-colon
+notation, now participate in a separate native cascade for the originating
+element's pseudo-element. Origin matching preserves selector specificity,
+layer ordering and importance. Empty-string content creates actual Taffy boxes
+before and after the owner's source children; it does not create DOM nodes.
+The boxes inherit custom properties from their owner and share the layout-tree
+and DOM-operation budgets. Each measurement rebuilds the scene from current
+stylesheets and native DOM state.
+
+The native content grammar retains strings, ordinary attribute/counter
+functions, quote keywords, typed images and alternative text. Geometry currently
+supports empty generated strings in block/flex/grid formatting. Normal, none,
+initial and unset content suppress box generation; display:none suppresses
+unmeasurable content as well. Flex and grid items use blockification. Text,
+images, counters, attribute content, quote generation, content inheritance and
+inline formatting still fail explicitly when they require unsupported layout.
+Typed attributes, extended counter/target grammars, painting, pseudo-element
+CSSOM interfaces and complete generated-content support remain required work.
+
+A shared synthetic fixture passes 105 aggregate checks in the native browser,
+at 64 real Worker URLs and at the same 64 variants in actual Chromium 152.
+Each variant uses a distinct pixel scale, including fractional dimensions.
+It checks measured owner/child geometry, source-child ordering, padding,
+relative offsets, flex/grid items, specificity, variables, conditional/layer
+groups, DOM isolation and recovery after stylesheet removal. Nine additional
+real Worker cases cover explicit gaps and generated-box resource exhaustion
+with recovery. The public record is
+[generated-boxes-chromium.json](evidence/generated-boxes-chromium.json).
+The expected generated-box semantics come from
+[CSS Pseudo-Elements](https://www.w3.org/TR/css-pseudo-4/#generated-content).
+These checks do not establish complete pseudo-element conformance.
 
 ## Native dataset attribute views
 

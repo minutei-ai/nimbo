@@ -415,6 +415,18 @@ const origin = Bun.serve({
         headers: { "content-type": "text/html" },
       });
     }
+    if (path.startsWith("/generated-boxes/")) {
+      const variant = Number(path.split("/").at(-1));
+      const source = await Bun.file(
+        join(import.meta.dir, "../crates/engine/tests/fixtures/generated-boxes.txt"),
+      ).text();
+      return new Response(
+        `<!doctype html><body><script>globalThis.variant=${variant};${source}</script>`,
+        {
+          headers: { "content-type": "text/html" },
+        },
+      );
+    }
     if (path.startsWith("/document-host/")) {
       const variant = Number(path.split("/").at(-1));
       const source = await Bun.file(
@@ -2937,6 +2949,95 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: expected });
   },
 );
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native generated before and after boxes variant %i",
+  async (variant) => {
+    const url = new URL(`generated-boxes/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "comparison" }),
+    });
+    expect(response.status).toBe(200);
+    const expected: Record<string, boolean> = {};
+    for (const name of [
+      "before",
+      "after",
+      "both",
+      "legacy",
+      "escaped",
+      "upper",
+      "none",
+      "normal",
+      "initial",
+      "unset",
+      "missing",
+      "hidden",
+      "strings",
+      "specificity",
+      "important",
+      "order",
+      "mixed",
+      "variables",
+      "localVariables",
+      "variableContent",
+      "invalidVariable",
+      "layer",
+      "media",
+      "supports",
+      "host",
+      "flex",
+      "flexInline",
+      "flexInlineBlock",
+      "padding",
+      "relative",
+      "descendant",
+      "childSelector",
+      "grid",
+      "alternative",
+      "invalidContent",
+    ]) {
+      expected[name] = true;
+      expected[`${name}Dom`] = true;
+      expected[`${name}Recovery`] = true;
+    }
+    expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: expected });
+  },
+);
+
+test.each([
+  ["text", 'content:"text";display:block', "text shaping"],
+  ["attribute", "content:attr(data-label);display:block", "generated content"],
+  ["image", "content:url(https://example.test/image.png);display:block", "generated content"],
+  ["gradient", "content:linear-gradient(red,blue);display:block", "generated content"],
+  ["counter", "content:counter(item);display:block", "generated content"],
+  ["quotes", "content:open-quote;display:block", "generated content"],
+  ["inline", 'content:""', "generated inline formatting"],
+  ["inherited content", "content:inherit;display:block", "generated content"],
+])("real HTTP → workerd → Wasm: generated content gap %s", async (_name, source, detail) => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const expression = `(()=>{const owner=document.createElement('div');owner.id='owner';document.body.appendChild(owner);const sheet=document.createElement('style');sheet.textContent='#owner::before{'+${JSON.stringify(source)}+'}';document.head.appendChild(sheet);let failed=false;try{owner.getBoundingClientRect();}catch(error){failed=error.message.endsWith('layout unsupported: '+${JSON.stringify(detail)});}sheet.remove();owner.remove();return failed&&Number.isFinite(document.body.getBoundingClientRect().height);})()`;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: true });
+});
+
+test("real HTTP → workerd → Wasm: generated boxes share the native layout tree budget", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const expression = `(()=>{const container=document.createElement('div');for(let i=0;i<500;i++)container.appendChild(document.createElement('div'));document.body.appendChild(container);const sheet=document.createElement('style');sheet.textContent='div::before,div::after{content:"";display:block;height:1px}';document.head.appendChild(sheet);let failed=false;try{container.getBoundingClientRect();}catch(error){failed=error.message.endsWith('resource limit: layout tree');}sheet.remove();container.remove();return failed&&Number.isFinite(document.body.getBoundingClientRect().height);})()`;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: true });
+});
 
 const supportsExpected = Object.fromEntries(
   [

@@ -83,6 +83,12 @@ fn script_fixture(script: &str) -> String {
 
 fn layout_fixture(path: &str) -> String {
     let script = match path {
+        "/generated-boxes" => {
+            return format!(
+                "<!doctype html><body>{}",
+                script_fixture(include_str!("fixtures/generated-boxes.txt"))
+            );
+        }
         "/document-host" => {
             return format!(
                 "<!doctype html><body>{}",
@@ -163,7 +169,7 @@ fn serve(mut request: Request) -> io::Result<()> {
     let mut status = 200;
     let mut headers = Vec::new();
     let body = match request.url() {
-        "/cascade" | "/variables" | "/node-insertion" | "/intersections" | "/geometry" | "/external-styles" | "/layers" | "/supports" | "/dataset" | "/group-errors" | "/document-host" => layout_fixture(request.url()),
+        "/cascade" | "/variables" | "/node-insertion" | "/intersections" | "/geometry" | "/external-styles" | "/layers" | "/supports" | "/dataset" | "/group-errors" | "/document-host" | "/generated-boxes" => layout_fixture(request.url()),
         "/style-variables" => script_fixture(include_str!("fixtures/style-variables.txt")),
         "/styles" => script_fixture(include_str!("fixtures/styles.txt")),
         "/anchors" => format!("<base href=\"https://example.com/root/\"><a id=\"link\" href=\"../doc?q=1#fragment\">link</a><svg><a></a></svg><script>{}</script>", include_str!("fixtures/anchors.txt")),
@@ -1174,6 +1180,23 @@ fn document_stylesheets_evaluate_host_predicates_without_shadow_context() -> Tes
     assert!(
         fields.values().all(|value| *value == json!(true)),
         "{result}"
+    );
+    Ok(())
+}
+
+#[test]
+fn generated_before_and_after_boxes_affect_real_geometry_without_dom_children() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/generated-boxes"))?;
+    let result = page.evaluate("comparison")?;
+    let fields = result.as_object().ok_or("missing generated box result")?;
+    assert_eq!(fields.len(), 105);
+    assert!(
+        fields.values().all(|value| *value == json!(true)),
+        "{result}; geometry: {}",
+        page.evaluate("generatedGeometry")?
     );
     Ok(())
 }

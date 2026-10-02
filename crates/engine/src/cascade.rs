@@ -14,6 +14,13 @@ use crate::{Error, MediaEnvironment, Result, layout::Work, styles::Declarations}
 struct Selector {
     matcher: Matcher,
     specificity: u32,
+    generated: Option<Generated>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Generated {
+    Before,
+    After,
 }
 struct Rule {
     selectors: Vec<Selector>,
@@ -255,7 +262,38 @@ impl<'i> QualifiedRuleParser<'i> for Rules<'_> {
                 let source = selector
                     .to_css_string(PrinterOptions::default())
                     .map_err(|_error| input.new_custom_error("stylesheet selector"))?;
-                let mut source_input = ParserInput::new(&source);
+                let generated =
+                    selector
+                        .iter_raw_match_order()
+                        .find_map(|component| match component {
+                            Component::PseudoElement(PseudoElement::Before) => {
+                                Some(Generated::Before)
+                            }
+                            Component::PseudoElement(PseudoElement::After) => {
+                                Some(Generated::After)
+                            }
+                            _ => None,
+                        });
+                let origin = if let Some(generated) = generated {
+                    let (double, single) = match generated {
+                        Generated::Before => ("::before", ":before"),
+                        Generated::After => ("::after", ":after"),
+                    };
+                    let origin = source
+                        .strip_suffix(double)
+                        .or_else(|| source.strip_suffix(single))
+                        .ok_or_else(|| input.new_custom_error("generated selector"))?;
+                    if origin.is_empty() {
+                        "*".to_owned()
+                    } else if origin.ends_with([' ', '\t', '\n', '\r', '\u{c}', '>', '+', '~']) {
+                        format!("{origin}*")
+                    } else {
+                        origin.to_owned()
+                    }
+                } else {
+                    source
+                };
+                let mut source_input = ParserInput::new(&origin);
                 let source = document_predicates(&mut Parser::new(&mut source_input))
                     .map_err(|_error| input.new_custom_error("stylesheet selector"))?;
                 let matcher = Matcher::new(&source)
@@ -263,6 +301,7 @@ impl<'i> QualifiedRuleParser<'i> for Rules<'_> {
                 Ok(Selector {
                     matcher,
                     specificity: selector.specificity(),
+                    generated,
                 })
             })
             .collect()
@@ -418,12 +457,16 @@ impl Cascade {
         &self,
         node: NodeRef<'_>,
         inline: &Declarations,
+        generated: Option<Generated>,
         work: &mut Work<'_>,
     ) -> Result<Declarations> {
         let mut sources = Vec::new();
         for rule in &self.rules {
             let mut specificity = None;
             for selector in &rule.selectors {
+                if selector.generated != generated {
+                    continue;
+                }
                 work.charge()?;
                 if node.is_match(&selector.matcher) {
                     specificity = Some(specificity.map_or(selector.specificity, |value: u32| {
@@ -440,7 +483,9 @@ impl Cascade {
                 ));
             }
         }
-        sources.push((inline, true, 0, [usize::MAX].as_slice()));
+        if generated.is_none() {
+            sources.push((inline, true, 0, [usize::MAX].as_slice()));
+        }
         Declarations::cascade(sources).map_err(|message| Error::Dom(message.into()))
     }
 }

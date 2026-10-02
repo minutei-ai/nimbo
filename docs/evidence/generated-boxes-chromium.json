@@ -1,0 +1,433 @@
+{
+  "browser": "Chromium 152.0.7977.130",
+  "fixture": "crates/engine/tests/fixtures/generated-boxes.txt",
+  "frameViewport": {
+    "width": 1024,
+    "height": 768
+  },
+  "assertions": {
+    "after": {
+      "failed": 0,
+      "passed": 64
+    },
+    "afterDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "afterRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "alternative": {
+      "failed": 0,
+      "passed": 64
+    },
+    "alternativeDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "alternativeRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "before": {
+      "failed": 0,
+      "passed": 64
+    },
+    "beforeDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "beforeRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "both": {
+      "failed": 0,
+      "passed": 64
+    },
+    "bothDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "bothRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "childSelector": {
+      "failed": 0,
+      "passed": 64
+    },
+    "childSelectorDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "childSelectorRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "descendant": {
+      "failed": 0,
+      "passed": 64
+    },
+    "descendantDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "descendantRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "escaped": {
+      "failed": 0,
+      "passed": 64
+    },
+    "escapedDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "escapedRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "flex": {
+      "failed": 0,
+      "passed": 64
+    },
+    "flexDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "flexInline": {
+      "failed": 0,
+      "passed": 64
+    },
+    "flexInlineBlock": {
+      "failed": 0,
+      "passed": 64
+    },
+    "flexInlineBlockDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "flexInlineBlockRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "flexInlineDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "flexInlineRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "flexRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "grid": {
+      "failed": 0,
+      "passed": 64
+    },
+    "gridDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "gridRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "hidden": {
+      "failed": 0,
+      "passed": 64
+    },
+    "hiddenDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "hiddenRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "host": {
+      "failed": 0,
+      "passed": 64
+    },
+    "hostDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "hostRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "important": {
+      "failed": 0,
+      "passed": 64
+    },
+    "importantDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "importantRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "initial": {
+      "failed": 0,
+      "passed": 64
+    },
+    "initialDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "initialRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "invalidContent": {
+      "failed": 0,
+      "passed": 64
+    },
+    "invalidContentDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "invalidContentRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "invalidVariable": {
+      "failed": 0,
+      "passed": 64
+    },
+    "invalidVariableDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "invalidVariableRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "layer": {
+      "failed": 0,
+      "passed": 64
+    },
+    "layerDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "layerRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "legacy": {
+      "failed": 0,
+      "passed": 64
+    },
+    "legacyDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "legacyRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "localVariables": {
+      "failed": 0,
+      "passed": 64
+    },
+    "localVariablesDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "localVariablesRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "media": {
+      "failed": 0,
+      "passed": 64
+    },
+    "mediaDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "mediaRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "missing": {
+      "failed": 0,
+      "passed": 64
+    },
+    "missingDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "missingRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "mixed": {
+      "failed": 0,
+      "passed": 64
+    },
+    "mixedDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "mixedRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "none": {
+      "failed": 0,
+      "passed": 64
+    },
+    "noneDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "noneRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "normal": {
+      "failed": 0,
+      "passed": 64
+    },
+    "normalDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "normalRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "order": {
+      "failed": 0,
+      "passed": 64
+    },
+    "orderDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "orderRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "padding": {
+      "failed": 0,
+      "passed": 64
+    },
+    "paddingDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "paddingRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "relative": {
+      "failed": 0,
+      "passed": 64
+    },
+    "relativeDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "relativeRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "specificity": {
+      "failed": 0,
+      "passed": 64
+    },
+    "specificityDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "specificityRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "strings": {
+      "failed": 0,
+      "passed": 64
+    },
+    "stringsDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "stringsRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "supports": {
+      "failed": 0,
+      "passed": 64
+    },
+    "supportsDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "supportsRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "unset": {
+      "failed": 0,
+      "passed": 64
+    },
+    "unsetDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "unsetRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "upper": {
+      "failed": 0,
+      "passed": 64
+    },
+    "upperDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "upperRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "variableContent": {
+      "failed": 0,
+      "passed": 64
+    },
+    "variableContentDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "variableContentRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "variables": {
+      "failed": 0,
+      "passed": 64
+    },
+    "variablesDom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "variablesRecovery": {
+      "failed": 0,
+      "passed": 64
+    }
+  },
+  "variants": 64,
+  "pixelScale": { "minimum": 0.75, "maximum": 4.6875, "step": 0.0625 },
+  "scope": "Empty-string before/after generated box geometry, cascade, variables, DOM isolation and recovery. Does not establish text shaping, images, counters, inline formatting, painting, CSSOM pseudo queries or complete pseudo-element conformance."
+}

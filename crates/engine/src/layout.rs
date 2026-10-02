@@ -64,19 +64,38 @@ fn defaulted<'a>(name: &str, value: &'a str) -> &'a str {
     }
 }
 
-fn initial_style(node: NodeRef<'_>) -> Style {
+fn initial_style(node: NodeRef<'_>, generated: bool) -> Result<Style> {
+    if node
+        .attr("dir")
+        .is_some_and(|value| value.eq_ignore_ascii_case("rtl"))
+    {
+        return Err(unsupported("direction"));
+    }
     let mut style = Style {
         display: Display::Block,
         box_sizing: BoxSizing::ContentBox,
         ..Style::default()
     };
-    if node.has_name("body") {
+    if !generated && node.has_name("body") {
         style.margin = Rect::length(8.0);
     }
-    if node.has_attr("hidden") {
+    if !generated && node.has_attr("hidden") {
         style.display = Display::None;
     }
-    style
+    Ok(style)
+}
+
+fn blockified<'a>(name: &str, value: &'a str, blockify: bool) -> &'a str {
+    let value = defaulted(name, value);
+    if !blockify || name != "display" {
+        return value;
+    }
+    match value {
+        "inline" | "inline-block" => "block",
+        "inline-flex" => "flex",
+        "inline-grid" => "grid",
+        _ => value,
+    }
 }
 
 // This first layout pass accepts real inline block/flex and auto-grid boxes. Unsupported
@@ -120,13 +139,16 @@ pub(crate) fn supports(declarations: &Declarations) -> bool {
 }
 
 fn style(node: NodeRef<'_>, declarations: &Declarations) -> Result<Style> {
-    if node
-        .attr("dir")
-        .is_some_and(|value| value.eq_ignore_ascii_case("rtl"))
-    {
-        return Err(unsupported("direction"));
-    }
-    let mut style = initial_style(node);
+    style_for(node, declarations, false, false)
+}
+
+fn style_for(
+    node: NodeRef<'_>,
+    declarations: &Declarations,
+    generated: bool,
+    blockify: bool,
+) -> Result<Style> {
+    let mut style = initial_style(node, generated)?;
     macro_rules! assign {
         ($field:expr, $value:expr, $name:expr) => {{
             let value = if $value == "0" && !matches!($name, "flex-grow" | "flex-shrink") {
@@ -138,7 +160,10 @@ fn style(node: NodeRef<'_>, declarations: &Declarations) -> Result<Style> {
         }};
     }
     for (name, value, deferred) in declarations.layout_entries() {
-        let value = defaulted(name, value);
+        if generated && name == "content" {
+            continue;
+        }
+        let value = blockified(name, value, generated && blockify);
         if name == "visibility" && (deferred || value == "collapse") {
             return Err(unsupported("visibility"));
         }
@@ -209,7 +234,9 @@ fn style(node: NodeRef<'_>, declarations: &Declarations) -> Result<Style> {
             _ => return Err(unsupported(name)),
         }
     }
-    validate_overflow(node, &style)?;
+    if !generated {
+        validate_overflow(node, &style)?;
+    }
     // Static positioning ignores inset properties. Taffy represents static and
     // relative boxes with the same positioning enum, so clear the insets here.
     if !declarations
@@ -219,6 +246,41 @@ fn style(node: NodeRef<'_>, declarations: &Declarations) -> Result<Style> {
         style.inset = Rect::auto();
     }
     Ok(style)
+}
+
+// Empty generated strings create real boxes. Non-empty content requires the
+// same shaping/image/counter machinery as ordinary content; do not fabricate
+// its size while that machinery is unavailable.
+fn empty_generated_content(declarations: &Declarations) -> Result<bool> {
+    let Some((_, value, deferred)) = declarations
+        .layout_entries()
+        .find(|(name, _, _)| *name == "content")
+    else {
+        return Ok(false);
+    };
+    if deferred {
+        return Err(unsupported("variable substitution"));
+    }
+    if matches!(value, "none" | "normal" | "initial" | "unset") {
+        return Ok(false);
+    }
+    let mut input = cssparser::ParserInput::new(value);
+    let mut parser = cssparser::Parser::new(&mut input);
+    let mut strings = 0_usize;
+    while !parser.is_exhausted() {
+        match parser
+            .next()
+            .map_err(|_error| unsupported("generated content"))?
+        {
+            cssparser::Token::QuotedString(value) if value.is_empty() => {
+                strings = strings.saturating_add(1);
+            }
+            cssparser::Token::QuotedString(_) => return Err(unsupported("text shaping")),
+            cssparser::Token::Delim('/') if strings > 0 => return Ok(true),
+            _ => return Err(unsupported("generated content")),
+        }
+    }
+    Ok(strings > 0)
 }
 
 struct Tree<'a, 'b> {
@@ -231,6 +293,50 @@ struct Tree<'a, 'b> {
 }
 
 impl Tree<'_, '_> {
+    fn generated(
+        &mut self,
+        node: NodeRef<'_>,
+        kind: crate::cascade::Generated,
+        parent: &Variables,
+        parent_display: Display,
+        depth: usize,
+    ) -> Result<Option<taffy::NodeId>> {
+        let declarations =
+            self.cascade
+                .resolve(node, &Declarations::default(), Some(kind), self.work)?;
+        let (declarations, _) = declarations.compute_variables(parent, self.work)?;
+        if declarations
+            .layout_entries()
+            .any(|(name, value, _)| name == "display" && value == "none")
+        {
+            return Ok(None);
+        }
+        if !empty_generated_content(&declarations)? {
+            return Ok(None);
+        }
+        if !matches!(parent_display, Display::Flex | Display::Grid)
+            && !declarations.layout_entries().any(|(name, value, _)| {
+                name == "display" && matches!(value, "block" | "flex" | "grid")
+            })
+        {
+            return Err(unsupported("generated inline formatting"));
+        }
+        self.work.charge()?;
+        self.visited = self.visited.saturating_add(1);
+        if self.visited > 1024 || depth > 128 {
+            return Err(Error::Limit("layout tree"));
+        }
+        let style = style_for(
+            node,
+            &declarations,
+            true,
+            matches!(parent_display, Display::Flex | Display::Grid),
+        )?;
+        self.boxes
+            .new_leaf(style)
+            .map(Some)
+            .map_err(|error| layout_error(&error))
+    }
     fn rect(&self, target: NodeRef<'_>) -> Result<Bounds> {
         let Some(id) = self.ids.get(&target.id) else {
             return Ok(Bounds::default());
@@ -296,7 +402,7 @@ impl Tree<'_, '_> {
             Declarations::parse(node.attr("style").as_deref().unwrap_or_default())
                 .map_err(|message| Error::Dom(message.into()))?
         };
-        let declarations = self.cascade.resolve(node, &declarations, self.work)?;
+        let declarations = self.cascade.resolve(node, &declarations, None, self.work)?;
         let (declarations, variables) = declarations.compute_variables(parent, self.work)?;
         let style = style(node, &declarations)?;
         if style.display == Display::None {
@@ -313,13 +419,33 @@ impl Tree<'_, '_> {
         {
             return Err(unsupported("element formatting"));
         }
-        let children = node
-            .children_it(false)
-            .filter_map(|child| {
-                self.build(child, depth.saturating_add(1), &variables)
-                    .transpose()
-            })
-            .collect::<Result<Vec<_>>>()?;
+        let mut children = Vec::new();
+        if let Some(before) = self.generated(
+            node,
+            crate::cascade::Generated::Before,
+            &variables,
+            style.display,
+            depth.saturating_add(1),
+        )? {
+            children.push(before);
+        }
+        children.extend(
+            node.children_it(false)
+                .filter_map(|child| {
+                    self.build(child, depth.saturating_add(1), &variables)
+                        .transpose()
+                })
+                .collect::<Result<Vec<_>>>()?,
+        );
+        if let Some(after) = self.generated(
+            node,
+            crate::cascade::Generated::After,
+            &variables,
+            style.display,
+            depth.saturating_add(1),
+        )? {
+            children.push(after);
+        }
         let id = self
             .boxes
             .new_with_children(style, &children)
