@@ -21,6 +21,9 @@ const customElementScript = await Bun.file(
 const encodingScript = await Bun.file(
   join(import.meta.dir, "../crates/engine/tests/fixtures/encoding.txt"),
 ).text();
+const anchorScript = await Bun.file(
+  join(import.meta.dir, "../crates/engine/tests/fixtures/anchors.txt"),
+).text();
 const requests: string[] = [];
 const comparisonBinary = process.env.NIMBO_COMPARE_OBSCURA_BINARY;
 async function comparePage(binary: string, url: string): Promise<unknown> {
@@ -381,6 +384,43 @@ const origin = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     requests.push(`${request.method} ${path}`);
+    if (path.startsWith("/anchors/")) {
+      const variant = Number(path.split("/").at(-1));
+      return new Response(
+        `<base href="https://example.com/root/"><a id="link" href="../doc?q=1#fragment">link</a><svg><a></a></svg><script>globalThis.variant=${variant};${anchorScript}</script>`,
+        { headers: { "content-type": "text/html; charset=utf-8" } },
+      );
+    }
+    if (path.startsWith("/base-origin/")) {
+      const mode = path.split("/").at(-1);
+      const script =
+        mode === "classic"
+          ? '<script src="blocked.js"></script>'
+          : '<script type="module">import "./blocked.js";</script>';
+      return new Response(`<base href="https://external.example.com/">${script}`, {
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
+    }
+    if (path.startsWith("/base-url/")) {
+      const variant = Number(path.split("/").at(-1));
+      return new Response(
+        `<base href="/base-assets/${variant}/"><script src="classic.js"></script><script type="module">import {value} from './module.js'; globalThis.baseModule=value;</script><script>globalThis.baseFetch=fetch('data').then(response=>response.text());</script>`,
+        { headers: { "content-type": "text/html; charset=utf-8" } },
+      );
+    }
+    if (path.startsWith("/base-assets/")) {
+      const variant = Number(path.split("/").at(-2));
+      const file = path.split("/").at(-1);
+      if (file === "classic.js")
+        return new Response(`globalThis.baseClassic=${variant}`, {
+          headers: { "content-type": "text/javascript" },
+        });
+      if (file === "module.js")
+        return new Response(`export const value=${variant}`, {
+          headers: { "content-type": "text/javascript" },
+        });
+      if (file === "data") return new Response(`base-${variant}`);
+    }
     if (path.startsWith("/encoding/")) {
       const variant = Number(path.split("/").at(-1));
       return new Response(`<script>globalThis.variant=${variant};${encodingScript}</script>`, {
@@ -1491,5 +1531,198 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     });
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: expected });
+  },
+);
+
+const anchorExpected = Object.fromEntries(
+  [
+    "identity",
+    "defaults",
+    "parsed",
+    "relative",
+    "unicode",
+    "components",
+    "host",
+    "invalidSetters",
+    "emptyParts",
+    "clearing",
+    "opaque",
+    "invalid",
+    "attributes",
+    "policies",
+    "unknownPolicy",
+    "text",
+    "rel",
+    "forwarded",
+    "guards",
+    "bases",
+  ].map((key) => [key, true]),
+);
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native anchor URLs and reflected attributes variant %i",
+  async (variant) => {
+    const url = new URL(`anchors/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "comparison" }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      url,
+      engine: "rust-wasm-quickjs",
+      value: anchorExpected,
+    });
+    expect(requests).toContain(`GET /anchors/${variant}`);
+    if (comparisonBinary)
+      expect(await comparePage(comparisonBinary, url)).toEqual({
+        ...Object.fromEntries(Object.keys(anchorExpected).map((key) => [key, false])),
+        parsed: true,
+        components: true,
+        host: true,
+        invalidSetters: true,
+        emptyParts: true,
+        clearing: true,
+        text: true,
+        rel: true,
+        bases: true,
+      });
+  },
+);
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: document base drives actual classic scripts modules and fetch variant %i",
+  async (variant) => {
+    const url = new URL(`base-url/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url,
+        expression:
+          "(async()=>{document.querySelector('base').setAttribute('href','https://external.example.com/'); const denied=await fetch('blocked').then(()=>false,error=>error.message.includes('origin'));return {classic:baseClassic,module:baseModule,fetch:await baseFetch,denied};})()",
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      url,
+      engine: "rust-wasm-quickjs",
+      value: { classic: variant, module: variant, fetch: `base-${variant}`, denied: true },
+    });
+    for (const file of ["classic.js", "module.js", "data"])
+      expect(requests).toContain(`GET /base-assets/${variant}/${file}`);
+  },
+);
+
+const linkParts = [
+  "href",
+  "origin",
+  "protocol",
+  "username",
+  "password",
+  "host",
+  "hostname",
+  "port",
+  "pathname",
+  "search",
+  "hash",
+] as const;
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: independent WHATWG URL component vectors variant %i",
+  async (variant) => {
+    const inputs = [
+      `http://EXAMPLE.com:80/a/../b-${variant}?x=1#old`,
+      `https://[2001:db8::1]:443/a-${variant}`,
+      `file:///fixture/path-${variant}`,
+      `mailto:unit-${variant}@example.com`,
+      `data:text/plain,fixture-${variant}`,
+      `custom://EXAMPLE.com/a-${variant}`,
+      `custom:opaque-${variant}`,
+      `https://bücher.example.com/é-${variant}`,
+      `blob:https://example.com/opaque-${variant}`,
+    ];
+    const mutations: [string, string][] = [
+      ["username", "fixture user"],
+      ["password", "fixture value"],
+      ["host", "other.example.com:81"],
+      ["hostname", "[2001:db8::2]"],
+      ["port", "80junk"],
+      ["protocol", "https::::"],
+      ["pathname", `new path/${variant}`],
+      ["search", "?q='é"],
+      ["hash", "#é"],
+    ];
+    const expected = inputs.map((input) => {
+      const target = new URL(input);
+      const states = [linkParts.map((key) => target[key])];
+      for (const [key, value] of mutations) {
+        Reflect.set(target, key, value);
+        states.push(linkParts.map((part) => target[part]));
+      }
+      return states;
+    });
+    const expression = `(() => {
+      const inputs=${JSON.stringify(inputs)}; const mutations=${JSON.stringify(mutations)}; const parts=${JSON.stringify(linkParts)};
+      return inputs.map(input => {
+        const target=document.createElement('a'); target.href=input;
+        const states=[parts.map(key=>target[key])];
+        for(const [key,value] of mutations){target[key]=value;states.push(parts.map(part=>target[part]));}
+        return states;
+      });
+    })()`;
+    const url = new URL("custom-elements-empty", origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: expected });
+  },
+);
+
+test("real HTTP → workerd → Wasm: link parser limits and failed requests release page state", async () => {
+  const url = new URL("custom-elements-empty", origin.url).href;
+  const expression =
+    "(() => {const a=document.createElement('a');a.href='https://example.com/'+'x'.repeat(65536);return a.href;})()";
+  const failed = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression }),
+  });
+  expect(failed.status).toBe(422);
+  const limitMessage: unknown = expect.stringMatching(
+    /^JavaScript: Error: URL input limit(?:\n|$)/,
+  );
+  expect(await failed.json()).toEqual({ error: limitMessage });
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression:
+        "[document.createElement('a').href,document.baseURI === document.URL,typeof nimboLink]",
+    }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({
+    url,
+    engine: "rust-wasm-quickjs",
+    value: ["", true, "undefined"],
+  });
+});
+
+test.each(["classic", "module"])(
+  "real HTTP → workerd → Wasm: cross-origin base cannot authorize %s requests",
+  async (mode) => {
+    const url = new URL(`base-origin/${mode}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "document.URL" }),
+    });
+    expect(response.status).toBe(422);
+    const result: unknown = await response.json();
+    expect(JSON.stringify(result)).toContain("origin policy");
+    expect(requests).toContain(`GET /base-origin/${mode}`);
   },
 );

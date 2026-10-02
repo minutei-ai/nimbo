@@ -82,6 +82,7 @@ fn serve(mut request: Request) -> io::Result<()> {
     let mut status = 200;
     let mut headers = Vec::new();
     let body = match request.url() {
+        "/anchors" => format!("<base href=\"https://example.com/root/\"><a id=\"link\" href=\"../doc?q=1#fragment\">link</a><svg><a></a></svg><script>{}</script>", include_str!("fixtures/anchors.txt")),
         "/encoding" => format!("<script>{}</script>", include_str!("fixtures/encoding.txt")),
         "/custom-elements" => format!("<x-root></x-root><x-parsed data-native=\"source\"></x-parsed><script>{}</script>", include_str!("fixtures/custom-elements.txt")),
         "/html-elements" => format!("<main></main><svg><linearGradient></linearGradient><foreignObject><div></div></foreignObject></svg><math><mi>x</mi></math><script>{}</script>", include_str!("fixtures/html-elements.txt")),
@@ -155,6 +156,11 @@ fn serve(mut request: Request) -> io::Result<()> {
         "/async" => "<script async src='/assets/app.js'></script>".into(),
         "/iframe" => "<iframe src='/static'></iframe>".into(),
         "/base" => "<base href='/other/'><script src='app.js'></script>".into(),
+        "/other/app.js" => "globalThis.baseClassic = true".into(),
+        "/base-module" => "<base href='/other/'><script type='module'>import {value} from './base-module.js'; globalThis.baseModule=value;</script>".into(),
+        "/other/base-module.js" => { content_type = "text/javascript"; "export const value='base module'".into() },
+        "/base-fetch" => "<base href='/other/'><script>globalThis.baseFetch=fetch('data').then(response=>response.text())</script>".into(),
+        "/other/data" => "base response".into(),
         "/slow" => {
             thread::sleep(Duration::from_millis(200));
             "<main>Slow</main>".into()
@@ -292,7 +298,7 @@ fn invalid_urls_http_errors_scripts_and_promises_fail_explicitly() -> TestResult
         browser.navigate(&fixture.path("/missing")),
         Err(Error::HttpStatus(404))
     ));
-    for path in ["/async", "/iframe", "/base"] {
+    for path in ["/async", "/iframe"] {
         assert!(matches!(
             browser.navigate(&fixture.path(path)),
             Err(Error::Unsupported(_))
@@ -828,6 +834,45 @@ fn encoding_handles_native_bytes_unicode_and_streaming_codecs() -> TestResult {
     assert!(
         fields.values().all(|value| *value == json!(true)),
         "{result}"
+    );
+    Ok(())
+}
+
+#[test]
+fn anchors_use_native_urls_reflection_tokens_and_document_base() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/anchors"))?;
+    let result = page.evaluate("comparison")?;
+    let fields = result.as_object().ok_or("missing anchor result")?;
+    assert_eq!(fields.len(), 20);
+    assert!(
+        fields.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    Ok(())
+}
+
+#[test]
+fn document_base_urls_drive_real_scripts_modules_and_fetch() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    assert_eq!(
+        browser
+            .navigate(&fixture.path("/base"))?
+            .evaluate("baseClassic")?,
+        json!(true)
+    );
+    assert_eq!(
+        browser
+            .navigate(&fixture.path("/base-module"))?
+            .evaluate("baseModule")?,
+        json!("base module")
+    );
+    assert_eq!(
+        browser
+            .navigate(&fixture.path("/base-fetch"))?
+            .evaluate("baseFetch")?,
+        json!("base response")
     );
     Ok(())
 }

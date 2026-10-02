@@ -2,6 +2,7 @@
 
 mod dom;
 mod encoding;
+mod links;
 mod machine;
 mod media;
 mod modules;

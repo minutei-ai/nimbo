@@ -1,0 +1,77 @@
+globalThis.comparison = (() => {
+  const variant = globalThis.variant ?? 0;
+  const link = document.querySelector('#link');
+  const created = document.createElement('A');
+  const fails = (fn,name) => {try{fn();return false;}catch(error){return error.name === name;}};
+  const identity = link instanceof HTMLAnchorElement && link instanceof HTMLElement && link instanceof Element
+    && created instanceof HTMLAnchorElement && link === document.querySelector('#link')
+    && Object.getPrototypeOf(link) === HTMLAnchorElement.prototype
+    && Object.getPrototypeOf(HTMLAnchorElement.prototype) === HTMLElement.prototype
+    && !(document.querySelector('svg a') instanceof HTMLAnchorElement)
+    && Object.prototype.toString.call(link) === '[object HTMLAnchorElement]';
+  const defaults = created.href === '' && created.origin === '' && created.protocol === ':'
+    && ['host','hostname','port','pathname','search','hash','username','password'].every(key => created[key] === '')
+    && String(created) === '' && created.text === '' && created.rel === '' && created.target === '';
+  const parsed = link.href === 'https://example.com/doc?q=1#fragment'
+    && link.origin === 'https://example.com' && link.protocol === 'https:'
+    && link.hostname === 'example.com' && link.host === 'example.com' && link.pathname === '/doc'
+    && link.search === '?q=1' && link.hash === '#fragment'
+    && document.baseURI === 'https://example.com/root/' && link.baseURI === document.baseURI;
+  created.href = '../path-' + variant + '/é';
+  const relative = created.getAttribute('href') === '../path-' + variant + '/é'
+    && created.href === 'https://example.com/path-' + variant + '/%C3%A9' && String(created) === created.href;
+  created.href = '/\ud800';
+  const unicode = created.getAttribute('href') === '/�' && created.href === 'https://example.com/%EF%BF%BD';
+  created.href = 'https://EXAMPLE.com:443/start?q=1#old';
+  created.username = 'user name'; created.password = 'test value';
+  created.protocol = 'http::::'; created.port = '8080'; created.hostname = 'Other.Example.com';
+  created.pathname = 'new path/é'; created.search = 'q=é'; created.hash = '#new é';
+  const components = created.username === 'user%20name' && created.password === 'test%20value'
+    && created.protocol === 'http:' && created.host === 'other.example.com:8080' && created.port === '8080'
+    && created.pathname === '/new%20path/%C3%A9' && created.search === '?q=%C3%A9' && created.hash === '#new%20%C3%A9'
+    && created.origin === 'http://other.example.com:8080' && created.getAttribute('href') === created.href;
+  created.username = ''; created.password = ''; created.host = '[2001:db8::1]:80';
+  const host = created.hostname === '[2001:db8::1]' && created.port === '' && created.host === '[2001:db8::1]';
+  const before = created.href; created.hostname = 'invalid host'; created.port = 'invalid'; created.protocol = 'data';
+  const invalidSetters = created.href === before;
+  created.search = '?'; created.hash = '#';
+  const emptyParts = created.search === '' && created.hash === '' && created.href.endsWith('?#');
+  created.search = ''; created.hash = '';
+  const clearing = created.search === '' && created.hash === '' && !created.href.endsWith('?#');
+  created.href = 'mailto:user@example.com'; const opaqueBefore = created.getAttribute('href');
+  created.pathname = '/ignored'; created.host = 'example.com'; created.username = 'ignored'; created.port = '123';
+  const opaque = created.origin === 'null' && created.protocol === 'mailto:' && created.host === ''
+    && created.pathname === 'user@example.com' && created.getAttribute('href') === opaqueBefore;
+  created.href = 'http://['; created.hash = '#ignored';
+  const invalid = created.href === 'http://[' && created.protocol === ':' && created.origin === '' && created.hash === '';
+  const attributes = ['target','download','rel','hreflang','type','name','charset','coords','shape','rev'].every((key,index) => {
+    created[key] = 'value-' + variant + '-' + index;
+    return created.getAttribute(key) === created[key];
+  });
+  created.ping = '\ud800 /ping'; created.referrerPolicy = 'NO-REFERRER';
+  const policies = created.ping === '� /ping' && created.getAttribute('ping') === created.ping
+    && created.referrerPolicy === 'no-referrer' && created.getAttribute('referrerpolicy') === 'NO-REFERRER';
+  created.referrerPolicy = 'invalid'; const unknownPolicy = created.referrerPolicy === '';
+  created.innerHTML = 'one<b>two</b><!--ignored-->'; const textRead = created.text === 'onetwo';
+  created.text = null; const text = textRead && created.text === 'null' && created.childNodes.length === 1;
+  const list = created.relList; created.rel = 'A A b'; list.add('c'); list.toggle('A',false);
+  const rel = list === created.relList && list !== created.classList && list instanceof DOMTokenList
+    && list.value === 'b c' && created.rel === 'b c' && [...list].join(',') === 'b,c' && list[1] === 'c'
+    && list.supports('noopener') === false && list.supports('unknown') === false;
+  created.relList = 'x y'; const forwarded = created.rel === 'x y' && list.value === 'x y';
+  const guards = fails(() => new HTMLAnchorElement(),'TypeError')
+    && fails(() => HTMLAnchorElement.prototype.toString.call({}),'TypeError')
+    && fails(() => Object.getOwnPropertyDescriptor(HTMLAnchorElement.prototype,'href').get.call(document.createElement('div')),'TypeError')
+    && fails(() => {created.href = Symbol();},'TypeError')
+    && fails(() => {created.relList.add('bad token');},'InvalidCharacterError');
+  const firstBase = document.querySelector('base'); const secondBase = document.createElement('base');
+  secondBase.setAttribute('href','https://other.example.com/second/'); document.head.appendChild(secondBase);
+  link.href = 'relative'; const firstWins = link.href === 'https://example.com/root/relative';
+  firstBase.setAttribute('href','javascript:ignored');
+  const fallback = link.href === document.URL.replace(/[^/]*$/, '') + 'relative';
+  firstBase.remove(); const secondWins = link.href === 'https://other.example.com/second/relative';
+  secondBase.setAttribute('href','../new/'); const fromFallback = link.href === document.URL.match(/^https?:\/\/[^/]+/)[0] + '/new/relative';
+  secondBase.removeAttribute('href'); const removed = document.baseURI === document.URL && link.baseURI === document.URL;
+  const bases = firstWins && fallback && secondWins && fromFallback && removed;
+  return {identity,defaults,parsed,relative,unicode,components,host,invalidSetters,emptyParts,clearing,opaque,invalid,attributes,policies,unknownPolicy,text,rel,forwarded,guards,bases};
+})();

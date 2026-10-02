@@ -87,7 +87,8 @@ O binding opcional `EGRESS` implementa `fetch(Request): Promise<Response>`, perm
 | Custom elements autônomos, upgrades, callbacks e whenDefined                       | Testados parcialmente; forms, shadow e registries scoped pendentes |
 | classList/DOMTokenList, mutações ordenadas e atributos vivos                       | Testados no nativo e workerd; cobertura parcial                    |
 | matchMedia, viewport lógico e preferências explícitas                              | Testados; layout e eventos automáticos pendentes                   |
-| Frames e base href                                                                 | Rejeitados explicitamente                                          |
+| HTMLAnchorElement, componentes URL, relList e base do documento                    | Testados; navegação e processamento de links pendentes             |
+| Frames                                                                             | Rejeitados explicitamente                                          |
 
 Scripts executam em ordem após parsing completo. Fetch suporta `method`/corpo string, `status`/`ok`/`url`, `text()` e `json()`. Não implementa headers customizados nem CORS entre origens. HTML e respostas devem ser UTF-8; imagens e estilos não são carregados. Não equivale à compatibilidade de Chromium.
 

@@ -21,7 +21,7 @@ tests as well as integration and application tests.
 
 `tooling/browser-live.test.ts` uses a real loopback HTTP origin, actual workerd,
 and the compiled Rust/Wasm engine. It installs no transport replacements,
-service mocks, browser API stubs, or canned engine results. Its 960 data variants
+service mocks, browser API stubs, or canned engine results. Its 1152 data variants
 exercise external scripts, Unicode/entity decoding, selector identity,
 ancestry, removal/reparenting, attribute mutation and POST response decoding.
 They also exercise parsed and created text/comment nodes, native node identity,
@@ -45,15 +45,15 @@ failures. The eighth set exercises native Web Storage across inline, external
 and module scripts, UTF-16 including lone surrogates, coercion/receiver guards,
 named properties, reflection, removal, clearing and fresh Worker request areas.
 An additional case exercises actual quota exhaustion, atomic failure, independent
-local/session quotas and reuse. These are repeated integration checks, not 960 independent platform
+local/session quotas and reuse. These are repeated integration checks, not 1152 independent platform
 features. The ninth set checks native media queries against 64 explicit viewport
 and preference configurations, including ranges, three-valued conditions,
 serialization, CSS escapes, receiver guards and synthetic MediaQueryList events.
 The tenth set rejects 64 invalid environment variants before any HTTP navigation.
 The eleventh set repeats the same DOMTokenList fixture at 64 distinct URLs,
 checking live attribute reads, ordered token mutations, identity, indices,
-iteration, receiver guards and atomic invalid-token rejection. Including five
-resource/deadline recovery cases, the real browser suite has 965 tests.
+iteration, receiver guards and atomic invalid-token rejection. Including eight
+resource/deadline/origin checks, the real browser suite has 1160 tests.
 The twelfth set checks HTML namespace identity and reflected attributes with
 64 distinct synthetic strings. It includes parsed SVG/MathML and an HTML
 subtree inside SVG foreignObject.
@@ -77,6 +77,38 @@ The separately launched Obscura v0.2.3 binary completed the same encoding fixtur
 Its aggregate checks passed for views, UTF-16 and coercion; the other eleven
 checks were false. This records differences in this fixture, not a claim that
 those APIs are entirely absent. Optional comparison tests pin that observed result.
+
+The sixteenth set checks native HTMLAnchorElement identity, HTML vs SVG namespaces,
+raw/resolved href, USVString replacement, all URL component getters/setters,
+opaque/invalid URLs, string reflection, text, referrerPolicy and live relList at
+64 distinct URLs. The seventeenth set loads actual relative classic scripts,
+inline-module dependencies and fetch responses through 64 document bases. It
+also rejects fetch after changing the base to another origin. The eighteenth set
+compares nine URL forms and nine mutations at 64 variants with Bun's real URL
+parser (5,760 snapshots of eleven components). Other cases check link parser
+limits, fresh-page recovery and forbidden classic/module loads via a cross-origin
+base. The same native fixture passes in the native HTTP adapter.
+
+The parser is the existing pinned Rust url crate and its WHATWG component API.
+The first connected HTML base[href] determines Node.baseURI and relative link,
+script and fetch resolution; mutation/removal recomputes it against the unchanged
+document URL. Invalid, data and javascript bases fall back to that document URL.
+A base does not authorize another network origin. Scripts still execute after
+complete parsing; preparation timing, CSP base-uri, history changes, adoption,
+about:blank/srcdoc documents and full upstream WPT are not covered.
+
+relList reuses native attribute-backed DOMTokenList. Its supported-token vocabulary
+is empty because link activation and auxiliary browsing contexts do not exist;
+reflection of target/download/ping/referrerPolicy is not execution of those policies.
+URL/URLSearchParams globals, HTMLAreaElement, link activation, navigation, downloads,
+ping requests, rel processing and full Web IDL conformance remain missing.
+The standalone Obscura v0.2.3 fixture returned nine true aggregate checks and
+eleven false ones. Optional comparison records this result without inferring that
+all corresponding APIs are absent.
+Public references: [HTML anchor](https://html.spec.whatwg.org/multipage/text-level-semantics.html#the-a-element),
+[hyperlink API](https://html.spec.whatwg.org/multipage/links.html#api-for-a-and-area-elements),
+[base element](https://html.spec.whatwg.org/multipage/semantics.html#the-base-element),
+[url quirks](https://docs.rs/url/2.5.8/url/quirks/index.html).
 
 TextEncoder uses Rust Unicode/UTF-8; TextDecoder uses pinned encoding_rs codecs.
 Neither delegates to host encoding APIs or another browser. Native callbacks own
@@ -310,6 +342,7 @@ evidence cannot establish it.
 | Cookies and per-navigation isolation                  | Subset     | Path/domain/expiry/Secure/HttpOnly/SameSite, independent contexts                  |
 | Persistent sessions, cookies and storage              | Missing    | Restart/eviction recovery and tenant isolation via durable state                   |
 | localStorage/sessionStorage/IndexedDB                 | Subset     | Web Storage/quota tested; IndexedDB, durable state and storage events missing      |
+| HTMLAnchorElement and document base                   | Subset     | Native links/relList and real script/module/fetch loads; navigation gaps           |
 | TextEncoder/TextDecoder                               | Subset     | Native bytes/codecs, Unicode, streams of chunks and fatal queue tests; WPT gaps    |
 | URL, encoding streams, File APIs and WebCrypto        | Missing    | Pinned WPT with actual algorithms and binary round trips                           |
 | Page WebAssembly and Web Workers                      | Missing    | Guest modules, imports, worker messages, termination and isolation                 |

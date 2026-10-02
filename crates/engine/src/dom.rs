@@ -54,6 +54,7 @@ impl Dom {
         }
         self.operations = self.operations.saturating_add(1);
         let result = match operation {
+            "baseHref" => json!(self.base_href()),
             "query" => self.query(handle, arg)?,
             "customCandidates" => self.custom_candidates(handle, arg)?,
             "queryOne" => self.query_one(handle, arg)?,
@@ -146,6 +147,20 @@ impl Dom {
             }
         };
         Ok(serde_json::to_string(&result)?)
+    }
+
+    pub(crate) fn base_href(&self) -> Option<String> {
+        self.document
+            .root()
+            .descendants_it()
+            .find(|node| {
+                node.query_or(false, |node| {
+                    matches!(&node.data, NodeData::Element(element)
+                if element.name.ns.as_ref() == "http://www.w3.org/1999/xhtml"
+                    && element.name.local.as_ref() == "base")
+                }) && node.has_attr("href")
+            })
+            .and_then(|node| node.attr("href").map(|value| value.to_string()))
     }
 
     fn remove_child(&self, handle: usize, value: &str) -> Result<Value> {

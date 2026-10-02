@@ -7,7 +7,7 @@ use rquickjs::{
 
 use crate::{
     Error, Result,
-    machine::{Response, parse_url, resolve},
+    machine::{Response, resolve},
 };
 
 #[derive(Clone)]
@@ -16,13 +16,22 @@ struct Source {
     base: String,
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub(crate) struct Modules {
     sources: Rc<RefCell<HashMap<String, Source>>>,
     missing: Rc<RefCell<Option<String>>>,
+    origin: url::Url,
 }
 
 impl Modules {
+    pub(crate) fn new(origin: url::Url) -> Self {
+        Self {
+            sources: Rc::default(),
+            missing: Rc::default(),
+            origin,
+        }
+    }
+
     pub(crate) fn install(&self, runtime: &Runtime) {
         runtime.set_loader(self.clone(), self.clone());
     }
@@ -140,9 +149,12 @@ impl Resolver for Modules {
             .borrow()
             .get(base)
             .map_or_else(|| base.to_owned(), |source| source.base.clone());
-        let base = parse_url(&source_base)
+        let base = url::Url::parse(&source_base)
             .map_err(|error| Exception::throw_type(ctx, &error.to_string()))?;
-        resolve(&base, name)
+        let resolved = base
+            .join(name)
+            .map_err(|error| Exception::throw_type(ctx, &error.to_string()))?;
+        resolve(&self.origin, resolved.as_str())
             .map(|url| url.to_string())
             .map_err(|error| Exception::throw_type(ctx, &error.to_string()))
     }

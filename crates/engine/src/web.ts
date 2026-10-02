@@ -6,6 +6,7 @@
   const nativeMedia = nimboMedia;
   const nativeEncode = nimboEncode;
   const nativeDecoder = nimboDecoder;
+  const nativeLink = nimboLink;
   // Values are validated by Rust before installing the page bindings.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const mediaEnvironment = JSON.parse(nimboMediaEnvironment) as { width: number; height: number };
@@ -19,6 +20,7 @@
   Reflect.deleteProperty(globalThis, "nimboMedia");
   Reflect.deleteProperty(globalThis, "nimboEncode");
   Reflect.deleteProperty(globalThis, "nimboDecoder");
+  Reflect.deleteProperty(globalThis, "nimboLink");
   Reflect.deleteProperty(globalThis, "nimboMediaEnvironment");
   Reflect.deleteProperty(globalThis, "nimboUrl");
   Reflect.deleteProperty(globalThis, "nimboNow");
@@ -1056,6 +1058,10 @@
     get nodeName(): string {
       return call("get", idOf(this), "nodeName");
     }
+    get baseURI(): string {
+      idOf(this);
+      return documentBase();
+    }
     get ownerDocument(): Document | null {
       return this.nodeType === 9 ? null : document;
     }
@@ -1131,15 +1137,20 @@
       return id === null ? null : element(id);
     }
   }
-  const tokenElements = new WeakMap<object, number>();
-  const classLists = new WeakMap<Element, DOMTokenList>();
+  const tokenElements = new WeakMap<object, { id: number; attribute: string }>();
+  const classLists = new WeakMap<Element, Map<string, DOMTokenList>>();
+  function tokenAttribute(list: object): string {
+    const state = tokenElements.get(list);
+    if (!state) throw new TypeError("Illegal invocation");
+    return state.attribute;
+  }
   function tokenElement(list: object): number {
-    const id = tokenElements.get(list);
+    const id = tokenElements.get(list)?.id;
     if (id === undefined) throw new TypeError("Illegal invocation");
     return id;
   }
   function tokenValue(list: object): string | null {
-    return call("attr", tokenElement(list), "class");
+    return call("attr", tokenElement(list), tokenAttribute(list));
   }
   function tokenValues(list: object): string[] {
     return Array.from(new Set((tokenValue(list) ?? "").split(/[\t\n\f\r ]+/).filter(Boolean)));
@@ -1152,7 +1163,7 @@
   function updateTokens(list: object, values: string[]): void {
     const id = tokenElement(list);
     if (values.length === 0 && tokenValue(list) === null) return;
-    call("setAttr", id, "class", values.join(" "));
+    call("setAttr", id, tokenAttribute(list), values.join(" "));
   }
   class DOMTokenList {
     constructor() {
@@ -1165,7 +1176,7 @@
       return tokenValue(this) ?? "";
     }
     set value(value: unknown) {
-      call("setAttr", tokenElement(this), "class", domString(value));
+      call("setAttr", tokenElement(this), tokenAttribute(this), domString(value));
     }
     item(index: unknown): string | null {
       tokenElement(this);
@@ -1239,7 +1250,11 @@
       tokenElement(this);
       if (arguments.length === 0) throw new TypeError("supports requires a token");
       domString(token);
-      throw new TypeError("class has no supported-token vocabulary");
+      if (tokenAttribute(this) === "class")
+        throw new TypeError("class has no supported-token vocabulary");
+      // Link navigation/auxiliary contexts are not implemented, so no rel
+      // processing-model token is advertised as supported.
+      return false;
     }
     toString(): string {
       return tokenValue(this) ?? "";
@@ -1285,15 +1300,15 @@
     value: "DOMTokenList",
     configurable: true,
   });
-  function classList(owner: Element): DOMTokenList {
-    const cached = classLists.get(owner);
+  function classList(owner: Element, attribute = "class"): DOMTokenList {
+    const cached = classLists.get(owner)?.get(attribute);
     if (cached) return cached;
     const id = idOf(owner);
     if (call<number>("get", id, "nodeType") !== 1) throw new TypeError("Illegal invocation");
     // Only the Element getter manufactures a branded list.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     const target = Object.create(DOMTokenList.prototype) as DOMTokenList;
-    tokenElements.set(target, id);
+    tokenElements.set(target, { id, attribute });
     const proxy = new Proxy(target, {
       get(object, key, receiver): unknown {
         const index = propertyIndex(key);
@@ -1330,8 +1345,13 @@
         return false;
       },
     });
-    tokenElements.set(proxy, id);
-    classLists.set(owner, proxy);
+    tokenElements.set(proxy, { id, attribute });
+    let lists = classLists.get(owner);
+    if (!lists) {
+      lists = new Map();
+      classLists.set(owner, lists);
+    }
+    lists.set(attribute, proxy);
     return proxy;
   }
   class Element extends ParentNode {
@@ -1494,6 +1514,155 @@
     value: "HTMLElement",
     configurable: true,
   });
+  function usvString(value: unknown): string {
+    return domString(value).replace(
+      /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g,
+      "\ufffd",
+    );
+  }
+  function linkValue(
+    operation: string,
+    property: string,
+    input: string | null,
+    base: string,
+    value = "",
+  ): string | null {
+    const result: unknown = JSON.parse(nativeLink(operation, property, input, base, value));
+    if (result === null || typeof result === "string") return result;
+    throw new Error("invalid native URL result");
+  }
+  function documentBase(): string {
+    return linkValue("base", "", raw<string | null>("baseHref", 0), href) ?? href;
+  }
+  const anchors = new WeakSet<object>();
+  function anchorId(owner: object): number {
+    if (!anchors.has(owner)) throw new TypeError("Illegal invocation");
+    return idOf(owner);
+  }
+  function anchorAttribute(owner: object, attribute: string): string {
+    return call<string | null>("attr", anchorId(owner), attribute) ?? "";
+  }
+  function anchorUrl(owner: object, property: string): string {
+    const input = call<string | null>("attr", anchorId(owner), "href");
+    return linkValue("get", property, input, documentBase()) ?? "";
+  }
+  function setAnchorUrl(owner: object, property: string, value: unknown): void {
+    const id = anchorId(owner);
+    const converted = usvString(value);
+    const input = call<string | null>("attr", id, "href");
+    const next = linkValue("set", property, input, documentBase(), converted);
+    if (next !== null) call("setAttr", id, "href", next);
+  }
+  class HTMLAnchorElement extends HTMLElement {
+    constructor(key?: symbol, id?: number) {
+      if (key !== internal || id === undefined) throw new TypeError("Illegal constructor");
+      super(internal, id);
+      anchors.add(this);
+    }
+    get href(): string {
+      return anchorUrl(this, "href");
+    }
+    set href(value: unknown) {
+      const id = anchorId(this);
+      call("setAttr", id, "href", usvString(value));
+    }
+    get origin(): string {
+      return anchorUrl(this, "origin");
+    }
+    get text(): string {
+      return call<string | null>("get", anchorId(this), "textContent") ?? "";
+    }
+    set text(value: unknown) {
+      call("set", anchorId(this), "textContent", domString(value));
+    }
+    get ping(): string {
+      return usvString(anchorAttribute(this, "ping"));
+    }
+    set ping(value: unknown) {
+      call("setAttr", anchorId(this), "ping", usvString(value));
+    }
+    get referrerPolicy(): string {
+      const value = anchorAttribute(this, "referrerpolicy").replace(/[A-Z]/g, (character) =>
+        character.toLowerCase(),
+      );
+      return [
+        "no-referrer",
+        "no-referrer-when-downgrade",
+        "same-origin",
+        "origin",
+        "strict-origin",
+        "origin-when-cross-origin",
+        "strict-origin-when-cross-origin",
+        "unsafe-url",
+      ].includes(value)
+        ? value
+        : "";
+    }
+    set referrerPolicy(value: unknown) {
+      call("setAttr", anchorId(this), "referrerpolicy", domString(value));
+    }
+    get relList(): DOMTokenList {
+      anchorId(this);
+      return classList(this, "rel");
+    }
+    set relList(value: unknown) {
+      anchorId(this);
+      this.relList.value = value;
+    }
+    override toString(): string {
+      return anchorUrl(this, "href");
+    }
+  }
+  Object.defineProperty(HTMLAnchorElement.prototype, Symbol.toStringTag, {
+    value: "HTMLAnchorElement",
+    configurable: true,
+  });
+  for (const attribute of [
+    "target",
+    "download",
+    "rel",
+    "hreflang",
+    "type",
+    "name",
+    "charset",
+    "coords",
+    "shape",
+    "rev",
+  ]) {
+    Object.defineProperty(HTMLAnchorElement.prototype, attribute, {
+      get(this: object): string {
+        return anchorAttribute(this, attribute);
+      },
+      set(this: object, value: unknown) {
+        call("setAttr", anchorId(this), attribute, domString(value));
+      },
+      enumerable: true,
+      configurable: true,
+    });
+  }
+  for (const property of [
+    "protocol",
+    "username",
+    "password",
+    "host",
+    "hostname",
+    "port",
+    "pathname",
+    "search",
+    "hash",
+  ]) {
+    Object.defineProperty(HTMLAnchorElement.prototype, property, {
+      get(this: object): string {
+        return anchorUrl(this, property);
+      },
+      set(this: object, value: unknown) {
+        setAnchorUrl(this, property, value);
+      },
+      enumerable: true,
+      configurable: true,
+    });
+  }
+
   type CustomConstructor = new () => HTMLElement;
   type CustomCallback = (this: HTMLElement, ...args: unknown[]) => unknown;
   type Definition = {
@@ -1872,7 +2041,9 @@
     switch (call<number>("get", id, "nodeType")) {
       case 1:
         return call<string>("get", id, "namespaceURI") === "http://www.w3.org/1999/xhtml"
-          ? new HTMLElement(internal, id)
+          ? call<string>("get", id, "localName") === "a"
+            ? new HTMLAnchorElement(internal, id)
+            : new HTMLElement(internal, id)
           : new Element(internal, id);
       case 3:
         return new Text("", internal, id);
@@ -1911,6 +2082,9 @@
       return readyState;
     }
     get URL() {
+      return href;
+    }
+    get documentURI() {
       return href;
     }
     get title() {
@@ -2105,6 +2279,7 @@
     Node,
     Element,
     HTMLElement,
+    HTMLAnchorElement,
     CustomElementRegistry,
     Document,
     DocumentFragment,

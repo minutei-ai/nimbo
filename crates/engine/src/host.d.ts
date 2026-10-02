@@ -21,3 +21,11 @@ declare function nimboDecoder(
   fatal: boolean,
   ignoreBOM: boolean,
 ): { encoding: string; decode(input: string, stream: boolean): string };
+
+declare function nimboLink(
+  operation: string,
+  property: string,
+  input: string | null,
+  base: string,
+  value: string,
+): string;

@@ -98,6 +98,7 @@ pub(crate) struct Machine {
     limits: Limits,
     phase: Phase,
     base: Url,
+    dom: Rc<RefCell<Dom>>,
 }
 
 impl Drop for Machine {
@@ -124,7 +125,7 @@ impl Machine {
         let dom = Rc::new(RefCell::new(Dom::new(html, limits)));
         let scripts = collect_scripts(&dom.borrow(), execute_scripts)?;
         let runtime = Runtime::new().map_err(|error| Error::JavaScript(error.to_string()))?;
-        let modules = Modules::default();
+        let modules = Modules::new(base.clone());
         modules.install(&runtime);
         runtime.set_memory_limit(limits.javascript_memory_bytes);
         runtime.set_max_stack_size(512 * 1024);
@@ -171,6 +172,7 @@ impl Machine {
             limits,
             phase: Phase::Scripts,
             base,
+            dom: Rc::clone(&dom),
         };
         machine.bootstrap(dom, url, storage, media)?;
         machine.check_budget()?;
@@ -187,6 +189,7 @@ impl Machine {
         let limits = self.limits;
         let pending = Rc::clone(&self.pending);
         let request_base = self.base.clone();
+        let request_dom = Rc::clone(&dom);
         let dom_check = Arc::clone(&self.check);
         let requests = Rc::new(Cell::new(0_usize));
         let clock = Rc::clone(&self.clock);
@@ -224,7 +227,7 @@ impl Machine {
             let request = Function::new(
                 ctx.clone(),
                 move |ctx: Ctx<'_>, url: String, method: String, body: String| {
-                    let url = resolve(&request_base, &url)
+                    let url = resolve_document(&request_base, &request_dom.borrow(), &url)
                         .map_err(|error| Exception::throw_message(&ctx, &error.to_string()))?;
                     if !matches!(method.as_str(), "GET" | "POST") {
                         return Err(Exception::throw_message(&ctx, "only GET and POST"));
@@ -266,6 +269,7 @@ impl Machine {
             js(&ctx, globals.set("nimboStorage", js(&ctx, storage_call)?))?;
             install_media(&ctx, media)?;
             js(&ctx, crate::encoding::install(&ctx))?;
+            js(&ctx, crate::links::install(&ctx))?;
             js(&ctx, globals.set("nimboUrl", url))?;
             let callbacks = js(
                 &ctx,
@@ -330,6 +334,7 @@ impl Machine {
     fn next_script(&mut self) -> Result<Option<Action>> {
         if let Some(root) = self.module_root.clone() {
             if let Some(url) = self.modules.prepare(&self.runtime, &root)? {
+                resolve(&self.base, &url)?;
                 return Ok(Some(self.activate(Request {
                     url: url.clone(),
                     method: "GET".into(),
@@ -350,6 +355,9 @@ impl Machine {
             return Ok(None);
         }
         if let Some(script) = self.scripts.pop_front() {
+            let document_base =
+                crate::links::base(self.dom.borrow().base_href().as_deref(), self.base.as_str())
+                    .unwrap_or_else(|| self.base.clone());
             if script.deferred && !self.parsed {
                 self.context.with(|ctx| -> Result<()> {
                     let callback = self
@@ -365,18 +373,31 @@ impl Machine {
             }
             if script.module {
                 let root = if let Some(src) = script.src {
-                    resolve(&self.base, &src)?.to_string()
+                    resolve(
+                        &self.base,
+                        document_base
+                            .join(&src)
+                            .map_err(|error| Error::InvalidUrl(error.to_string()))?
+                            .as_str(),
+                    )?
+                    .to_string()
                 } else {
                     let root = format!("nimbo:inline:{}", self.scripts.len());
                     self.modules
-                        .inline(root.clone(), script.source, self.base.to_string());
+                        .inline(root.clone(), script.source, document_base.to_string());
                     root
                 };
                 self.module_root = Some(root);
                 return Ok(None);
             }
             if let Some(src) = script.src {
-                let url = resolve(&self.base, &src)?;
+                let url = resolve(
+                    &self.base,
+                    document_base
+                        .join(&src)
+                        .map_err(|error| Error::InvalidUrl(error.to_string()))?
+                        .as_str(),
+                )?;
                 return Ok(Some(self.activate(Request {
                     url: url.to_string(),
                     method: "GET".into(),
@@ -580,6 +601,15 @@ pub(crate) fn parse_url(value: &str) -> Result<Url> {
     Ok(url)
 }
 
+fn resolve_document(origin: &Url, dom: &Dom, value: &str) -> Result<Url> {
+    let base = crate::links::base(dom.base_href().as_deref(), origin.as_str())
+        .unwrap_or_else(|| origin.clone());
+    let url = base
+        .join(value)
+        .map_err(|error| Error::InvalidUrl(error.to_string()))?;
+    resolve(origin, url.as_str())
+}
+
 pub(crate) fn resolve(base: &Url, value: &str) -> Result<Url> {
     let url = parse_url(
         base.join(value)
@@ -630,8 +660,8 @@ fn js<T>(ctx: &Ctx<'_>, result: rquickjs::Result<T>) -> Result<T> {
 }
 
 fn collect_scripts(dom: &Dom, execute_scripts: bool) -> Result<VecDeque<Script>> {
-    if dom.document.select("iframe, frame, base[href]").exists() {
-        return Err(Error::Unsupported("frames and base URL elements".into()));
+    if dom.document.select("iframe, frame").exists() {
+        return Err(Error::Unsupported("frames".into()));
     }
     let mut scripts = VecDeque::new();
     let mut modules = VecDeque::new();
