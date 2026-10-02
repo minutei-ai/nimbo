@@ -28,6 +28,7 @@ export const Action = Schema.Union([
     url: Schema.String,
     method: Schema.Literals(["GET", "POST"]),
     body: Schema.String,
+    binary: Schema.Boolean,
   }),
   Schema.Struct({ type: Schema.Literal("ready") }),
   Schema.Struct({ type: Schema.Literal("wait"), milliseconds: Schema.Finite }),

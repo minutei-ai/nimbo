@@ -1,6 +1,11 @@
 // Native bindings installed by page.rs before evaluating web.js.
 declare function nimboDom(operation: string, id: number, arg: string, value: string): string;
-declare function nimboRequest(url: string, method: string, body: string): string | Promise<string>;
+interface NimboResponse {
+  readonly status: number;
+  readonly url: string;
+  readonly body: ArrayBuffer | null;
+}
+declare function nimboRequest(url: string, method: string, body: string): Promise<NimboResponse>;
 declare function nimboStorage(area: number, operation: string, key: string, value: string): string;
 declare function nimboMedia(query: string): string;
 declare const nimboMediaEnvironment: string;

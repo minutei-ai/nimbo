@@ -89,7 +89,8 @@ const scrape = (request: Request, environment: Environment) =>
             break;
           case "request": {
             yield* Effect.tryPromise({
-              try: (signal) => transport.request(action.url, action.method, action.body, signal),
+              try: (signal) =>
+                transport.request(action.url, action.method, action.body, signal, action.binary),
               catch: (cause) => failure(cause, 502),
             }).pipe(
               Effect.flatMap((result) =>

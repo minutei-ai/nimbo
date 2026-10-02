@@ -1,36 +1,44 @@
 import { CookieJar } from "tough-cookie";
 import { ScrapeError, type Egress, type EngineLimits } from "./protocol";
 
-export async function readBody(
-  message: Request | Response,
-  maximum: number,
-): Promise<{ text: string; bytes: number }> {
+export async function readBytes(message: Request | Response, maximum: number): Promise<Uint8Array> {
   const reader = message.body?.getReader();
-  if (!reader) return { text: "", bytes: 0 };
-  const decoder = new TextDecoder("utf-8", { fatal: true });
-  const chunks = [];
+  if (!reader) return new Uint8Array(0);
+  const chunks: Uint8Array[] = [];
   let bytes = 0;
   try {
     while (true) {
-      // Reads are intentionally sequential to bound buffering and release the stream on failure.
+      // Reads are sequential to bound buffering and release the stream on failure.
       // oxlint-disable-next-line eslint/no-await-in-loop
       const { done, value } = await reader.read();
       if (done) break;
       bytes += value.byteLength;
       if (bytes > maximum)
         throw new ScrapeError({ status: 413, reason: "response/input byte limit" });
-      chunks.push(decoder.decode(value, { stream: true }));
+      chunks.push(value);
     }
-    chunks.push(decoder.decode());
-    return { text: chunks.join(""), bytes };
+    const result = new Uint8Array(bytes);
+    let offset = 0;
+    for (const chunk of chunks) {
+      result.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return result;
   } finally {
-    // Cancels unconsumed bodies, including oversized input and decoding failures.
     try {
       await reader.cancel();
     } finally {
       reader.releaseLock();
     }
   }
+}
+
+export async function readBody(
+  message: Request | Response,
+  maximum: number,
+): Promise<{ text: string; bytes: number }> {
+  const bytes = await readBytes(message, maximum);
+  return { text: new TextDecoder("utf-8", { fatal: true }).decode(bytes), bytes: bytes.byteLength };
 }
 
 export class Transport {
@@ -57,7 +65,13 @@ export class Transport {
     return url;
   }
 
-  async request(value: string, method: "GET" | "POST", body: string, signal: AbortSignal) {
+  async request(
+    value: string,
+    method: "GET" | "POST",
+    body: string,
+    signal: AbortSignal,
+    binary = false,
+  ) {
     let url = this.resolve(value);
     if (this.encode.encode(body).byteLength > this.limits.maxResponseBytes)
       throw new ScrapeError({ status: 413, reason: "request body limit" });
@@ -107,12 +121,13 @@ export class Transport {
         )
           throw new ScrapeError({ status: 422, reason: "upstream challenge" });
         // oxlint-disable-next-line eslint/no-await-in-loop
-        const result = await readBody(response, this.limits.maxResponseBytes - this.bytes);
-        this.bytes += result.bytes;
+        const result = await readBytes(response, this.limits.maxResponseBytes - this.bytes);
+        this.bytes += result.byteLength;
         return {
           url: url.href,
           status: response.status,
-          body: result.text,
+          body: binary ? "" : new TextDecoder("utf-8", { fatal: true }).decode(result),
+          raw_body: binary ? Array.from(result) : undefined,
           content_type: response.headers.get("content-type") ?? "",
         };
       } finally {

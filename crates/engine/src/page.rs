@@ -82,13 +82,16 @@ impl Page {
                         std::time::Duration::from_secs_f64(milliseconds / 1000.0).min(remaining),
                     );
                 }
-                Action::Request { url, method, body } => {
-                    match self.transport.request(&base, &url, &method, &body) {
-                        Ok(response) => self.machine.borrow_mut().respond(&response)?,
-                        Err(Error::Limit(limit)) => return Err(Error::Limit(limit)),
-                        Err(error) => self.machine.borrow_mut().reject(&error.to_string())?,
-                    }
-                }
+                Action::Request {
+                    url,
+                    method,
+                    body,
+                    binary,
+                } => match self.transport.request(&base, &url, &method, &body, binary) {
+                    Ok(response) => self.machine.borrow_mut().respond(&response)?,
+                    Err(Error::Limit(limit)) => return Err(Error::Limit(limit)),
+                    Err(error) => self.machine.borrow_mut().reject(&error.to_string())?,
+                },
             }
         }
     }

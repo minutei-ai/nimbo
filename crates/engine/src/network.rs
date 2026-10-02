@@ -82,7 +82,7 @@ impl Browser {
             requests: Cell::new(0),
             bytes: Cell::new(0),
         });
-        let response = transport.request(&self.origin, url, "GET", "")?;
+        let response = transport.request(&self.origin, url, "GET", "", false)?;
         if !(200..300).contains(&response.status) {
             return Err(Error::HttpStatus(response.status));
         }
@@ -133,6 +133,7 @@ impl Transport {
         value: &str,
         method: &str,
         body: &str,
+        binary: bool,
     ) -> Result<Response> {
         let mut url = self.resolve(base, value)?;
         let mut method = match method {
@@ -172,12 +173,17 @@ impl Transport {
                 }
                 continue;
             }
-            return self.read_response(response, &url);
+            return self.read_response(response, &url, binary);
         }
         Err(Error::Limit("redirect count"))
     }
 
-    fn read_response(&self, response: reqwest::blocking::Response, url: &Url) -> Result<Response> {
+    fn read_response(
+        &self,
+        response: reqwest::blocking::Response,
+        url: &Url,
+        binary: bool,
+    ) -> Result<Response> {
         let status = response.status().as_u16();
         let content_type = response
             .headers()
@@ -202,12 +208,21 @@ impl Transport {
             return Err(Error::Limit("total response bytes"));
         }
         self.bytes.set(self.bytes.get().saturating_add(bytes.len()));
-        let body = String::from_utf8(bytes)
-            .map_err(|error| Error::Unsupported(format!("only UTF-8 response bodies: {error}")))?;
+        let (body, raw_body) = if binary {
+            (String::new(), Some(bytes))
+        } else {
+            (
+                String::from_utf8(bytes).map_err(|error| {
+                    Error::Unsupported(format!("only UTF-8 response bodies: {error}"))
+                })?,
+                None,
+            )
+        };
         Ok(Response {
             url: url.to_string(),
             status,
             body,
+            raw_body,
             content_type,
         })
     }

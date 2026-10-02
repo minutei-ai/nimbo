@@ -1,0 +1,138 @@
+{
+  "browser": "Chromium 152.0.7977.130",
+  "fixture": "crates/engine/tests/fixtures/binary-fetch.txt",
+  "variants": 64,
+  "checksPerVariant": 26,
+  "execution": "64 isolated browser documents; actual same-origin HTTP responses and native body consumption",
+  "checks": {
+    "bom": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "byteIdentity": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "bytesIdentity": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "chunkedUnicode": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "cloneAfter": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "cloneIsolation": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "concurrentReads": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "empty": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "fontBytes": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "getterReceiver": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "healthy": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "httpStatus": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "identity": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "initial": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "intrinsicIsolation": {
+      "passed": 64,
+      "failedVariants": []
+    },
+    "invalidJson": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "json": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "metadata": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "nullBody": {
+      "failedVariants": [
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+        25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47,
+        48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63
+      ],
+      "passed": 0
+    },
+    "nullClone": {
+      "failedVariants": [
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+        25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47,
+        48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63
+      ],
+      "passed": 0
+    },
+    "readOnly": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "receiver": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "redirect": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "repeat": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "replacement": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "synchronousConsumption": {
+      "failedVariants": [],
+      "passed": 64
+    }
+  },
+  "syntheticFontValidation": {
+    "advanceABA": 189.99981689453125,
+    "bytes": 1104,
+    "status": "loaded"
+  },
+  "nullConstructorProbe": {
+    "bodyNull": true,
+    "length": 0,
+    "text": "",
+    "used": false
+  },
+  "limitations": [
+    "24 checks matched in all 64 variants; two HTTP 204 consumption/clone checks differed in the collaborative browser. The cause is unresolved.",
+    "The browser's independent Response(null, {status:204}) probe preserved a null body and permitted repeated reads. This does not establish the cause of the network discrepancy.",
+    "The font was parsed and measured only by the browser comparator. Nimbo proves binary transport of its exact bytes, not font parsing, shaping, loading API or CSS font-face conformance.",
+    "Response streams, constructors, complete headers/metadata, upload body types, CORS, cancellation, cloning of live streams and pinned WPT remain incomplete."
+  ]
+}

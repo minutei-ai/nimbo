@@ -1,3 +1,4 @@
+import { binaryFixture } from "./binary-fixture";
 import { externalStylePage, externalStyleResponse } from "./external-styles-fixture";
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { join } from "node:path";
@@ -406,6 +407,17 @@ const origin = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     requests.push(`${request.method} ${path}`);
+    const binary = binaryFixture(path);
+    if (binary) return binary;
+    if (path.startsWith("/binary-cases/")) {
+      const variant = Number(path.split("/").at(-1));
+      const source = await Bun.file(
+        join(import.meta.dir, "../crates/engine/tests/fixtures/binary-fetch.txt"),
+      ).text();
+      return new Response(`<script>globalThis.variant=${variant};${source}</script>`, {
+        headers: { "content-type": "text/html" },
+      });
+    }
     if (path.startsWith("/dataset/")) {
       const variant = Number(path.split("/").at(-1));
       const source = await Bun.file(
@@ -3779,3 +3791,80 @@ test("real HTTP → workerd → Wasm: registration resource limit and recovery",
   expect(healthy.status).toBe(200);
   expect(await healthy.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: 0 });
 });
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: binary response body variant %i",
+  async (variant) => {
+    const url = new URL(`binary-cases/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "comparison" }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    expect(result).toMatchObject({ url, engine: "rust-wasm-quickjs" });
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing comparison");
+    expect(Object.keys(value)).toHaveLength(26);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test("real HTTP → workerd → Wasm: binary transport byte limit and recovery", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression:
+        "fetch('/binary/large').then(response=>response.arrayBuffer()).then(buffer=>buffer.byteLength)",
+    }),
+  });
+  expect(response.status).toBe(413);
+  const error: unknown = expect.stringContaining("byte limit");
+  expect(await response.json()).toMatchObject({ error });
+  const healthy = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression:
+        "fetch('/binary/data/0').then(response=>response.bytes()).then(bytes=>bytes.length)",
+    }),
+  });
+  expect(healthy.status).toBe(200);
+  expect(await healthy.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: 512 });
+});
+
+test.each([
+  ["new Response('text')", "Response construction"],
+  ["fetch('/binary/data/0').then(response=>response.body)", "response streams"],
+  ["fetch('/binary/data/0').then(response=>response.headers)", "response headers"],
+] as const)(
+  "real HTTP → workerd → Wasm: explicit response diagnostic %s",
+  async (expression, reason) => {
+    const url = new URL("geometry-empty", origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression }),
+    });
+    expect(response.status).toBe(422);
+    const error: unknown = expect.stringContaining(reason);
+    expect(await response.json()).toMatchObject({ error });
+    const healthy = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url,
+        expression:
+          "fetch('/binary/data/0').then(response=>response.bytes()).then(bytes=>bytes.length)",
+      }),
+    });
+    expect(healthy.status).toBe(200);
+    expect(await healthy.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: 512 });
+  },
+);

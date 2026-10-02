@@ -1,0 +1,46 @@
+globalThis.comparison = (async () => {
+  const variant=Number(globalThis.variant||0);
+  const result={};
+  const rejectType=async(task)=>{try{await task();return false;}catch(error){return error instanceof TypeError;}};
+  const response=await fetch('/binary/data/'+variant);
+  result.identity=response instanceof Response && Object.prototype.toString.call(response)==='[object Response]';
+  result.metadata=response.status===200 && response.ok && response.url.endsWith('/binary/data/'+variant);
+  result.initial=!response.bodyUsed;
+  const copy=response.clone();const second=copy.clone();
+  const pending=response.arrayBuffer();
+  result.synchronousConsumption=response.bodyUsed;
+  const buffer=await pending;const bytes=new Uint8Array(buffer);
+  result.byteIdentity=buffer instanceof ArrayBuffer && bytes.length===512 && bytes.every((v,i)=>v===((i+variant)%256));
+  result.repeat=await rejectType(()=>response.text());
+  result.cloneAfter=await rejectType(()=>response.clone());
+  const copied=await copy.bytes();result.bytesIdentity=copied instanceof Uint8Array && copied.length===512 && copied.every((v,i)=>v===((i+variant)%256));
+  bytes[0]=0;copied[1]=0;const third=await second.arrayBuffer();
+  result.cloneIsolation=new Uint8Array(third).every((v,i)=>v===((i+variant)%256));
+  const bom=await fetch('/binary/bom');
+  result.bom=(await bom.text())==='Olá € 😀';
+  const invalid=await fetch('/binary/invalid');result.replacement=(await invalid.text())==='�(';
+  const large=await fetch('/binary/unicode-large');result.chunkedUnicode=(await large.text())==='a'.repeat(32767)+'😀'+'b'.repeat(32767)+'€';
+  const json=await fetch('/binary/json');const parsed=await json.json();result.json=parsed.value==='Olá € 😀' && json.bodyUsed;
+  const bad=await fetch('/binary/json-bad');try{await bad.json();result.invalidJson=false;}catch(error){result.invalidJson=error instanceof SyntaxError && bad.bodyUsed;}
+  const empty=await fetch('/binary/empty');result.empty=(await empty.arrayBuffer()).byteLength===0 && empty.bodyUsed;
+  const none=await fetch('/binary/no-content');
+  const nullText=await none.text();let nullLength=-1;try{nullLength=(await none.arrayBuffer()).byteLength;}catch(error){if(!(error instanceof TypeError))throw error;}
+  result.nullBody=none.status===204 && nullText==='' && nullLength===0 && !none.bodyUsed;
+  try{result.nullClone=none.clone().status===204;}catch(error){result.nullClone=false;if(!(error instanceof TypeError))throw error;}
+  const status=await fetch('/binary/error');result.httpStatus=status.status===404 && !status.ok && (await status.bytes()).length===2;
+  const redirect=await fetch('/binary/redirect/'+variant);result.redirect=redirect.url.endsWith('/binary/data/'+variant) && (await redirect.arrayBuffer()).byteLength===512;
+  result.receiver=await rejectType(()=>Response.prototype.arrayBuffer.call({}));
+  result.getterReceiver=await rejectType(()=>Object.getOwnPropertyDescriptor(Response.prototype,'bodyUsed').get.call({}));
+  result.readOnly=Reflect.set(none,'status',200)===false && none.status===204;
+  const font=await fetch('/binary/font.ttf');const fontBytes=new Uint8Array(await font.arrayBuffer());let hash=2166136261;
+  for(const value of fontBytes)hash=Math.imul(hash^value,16777619)>>>0;
+  result.fontBytes=fontBytes.length===1104 && hash===2255829193;
+  const raced=await fetch('/binary/empty');const reads=await Promise.allSettled([raced.arrayBuffer(),raced.bytes()]);
+  result.concurrentReads=reads[0].status==='fulfilled' && reads[1].status==='rejected' && reads[1].reason instanceof TypeError;
+  const intrinsic=await fetch('/binary/data/'+variant);let hooks=0;const descriptor=Object.getOwnPropertyDescriptor(ArrayBuffer.prototype,'constructor');
+  Object.defineProperty(ArrayBuffer.prototype,'constructor',{configurable:true,get(){hooks++;return {[Symbol.species]:ArrayBuffer};}});
+  const safe=await intrinsic.arrayBuffer();Object.defineProperty(ArrayBuffer.prototype,'constructor',descriptor);
+  result.intrinsicIsolation=hooks===0 && new Uint8Array(safe).every((v,i)=>v===((i+variant)%256));
+  result.healthy=document.documentElement instanceof Element;
+  return result;
+})()

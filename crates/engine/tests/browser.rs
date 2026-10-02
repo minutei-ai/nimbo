@@ -198,8 +198,8 @@ fn serve_sheet(request: Request) -> io::Result<()> {
 }
 
 fn serve(mut request: Request) -> io::Result<()> {
-    if request.url().starts_with("/sheets-css/") {
-        return serve_sheet(request);
+    if request.url().starts_with("/sheets-css/") || request.url().starts_with("/binary/") {
+        return serve_resource(request);
     }
 
     let mut content_type = "text/html; charset=utf-8";
@@ -1385,6 +1385,101 @@ fn registered_custom_properties_validate_before_substitution() -> TestResult {
     assert!(
         fields.values().all(|value| *value == json!(true)),
         "{result}"
+    );
+    Ok(())
+}
+
+fn serve_resource(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/binary/") {
+        return serve_binary(request);
+    }
+    serve_sheet(request)
+}
+fn serve_binary(request: Request) -> io::Result<()> {
+    let path = request.url();
+    let mut status = 200;
+    let mut headers = Vec::new();
+    let data = if let Some(variant) = path.strip_prefix("/binary/data/") {
+        let variant = variant.parse::<u16>().map_err(io::Error::other)?;
+        (0_u16..512)
+            .map(|i| u8::try_from(i.saturating_add(variant) % 256).map_err(io::Error::other))
+            .collect::<io::Result<Vec<_>>>()?
+    } else if let Some(variant) = path.strip_prefix("/binary/redirect/") {
+        status = 302;
+        headers.push(header("Location", &format!("/binary/data/{variant}"))?);
+        Vec::new()
+    } else {
+        match path {
+            "/binary/font.ttf" => include_bytes!("fixtures/synthetic-font.ttf").to_vec(),
+            "/binary/bom" => "\u{feff}Olá € 😀".as_bytes().to_vec(),
+            "/binary/invalid" => vec![255, 40],
+            "/binary/unicode-large" => {
+                format!("{}😀{}€", "a".repeat(32767), "b".repeat(32767)).into_bytes()
+            }
+            "/binary/json" => "\u{feff}{\"value\":\"Olá € 😀\"}".as_bytes().to_vec(),
+            "/binary/json-bad" => vec![255],
+            "/binary/empty" => Vec::new(),
+            "/binary/no-content" => {
+                status = 204;
+                Vec::new()
+            }
+            "/binary/large" => vec![255; 2 * 1024 * 1024],
+            _ => {
+                status = 404;
+                vec![255, 0]
+            }
+        }
+    };
+    let mut response = Response::from_data(data)
+        .with_status_code(status)
+        .with_header(header("Content-Type", "application/octet-stream")?);
+    for value in headers {
+        response.add_header(value);
+    }
+    request.respond(response)
+}
+
+#[test]
+fn binary_fetch_preserves_bytes_and_body_consumption() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path("/empty-layout"))?;
+        let result = page.evaluate(&format!(
+            "(()=>{{globalThis.variant={variant};return {};}})()",
+            include_str!("fixtures/binary-fetch.txt")
+        ))?;
+        let fields = result.as_object().ok_or("missing binary result")?;
+        assert_eq!(fields.len(), 26);
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn binary_response_limits_preserve_fresh_navigation() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = Browser::new(
+        &fixture.url,
+        Limits {
+            max_response_bytes: 1024,
+            ..Limits::default()
+        },
+    )?;
+    let page = browser.navigate(&fixture.path("/empty-layout"))?;
+    assert!(matches!(
+        page.evaluate("fetch('/binary/font.ttf').then(response=>response.arrayBuffer())"),
+        Err(Error::Limit("total response bytes"))
+    ));
+    let healthy = browser.navigate(&fixture.path("/empty-layout"))?;
+    assert_eq!(
+        healthy.evaluate(
+            "fetch('/binary/data/0').then(response=>response.bytes()).then(bytes=>bytes.length)"
+        )?,
+        json!(512)
     );
     Ok(())
 }

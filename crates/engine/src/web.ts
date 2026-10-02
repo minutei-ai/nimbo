@@ -3121,26 +3121,100 @@
     return true;
   }
 
+  const responseKey = {};
+  interface ResponseState extends NimboResponse {
+    used: boolean;
+  }
+  const responses = new WeakMap<object, ResponseState>();
+  const BodyBuffer = ArrayBuffer;
+  // oxlint-disable-next-line typescript/unbound-method
+  const decodeText = TextDecoder.prototype.decode;
+  function responseState(value: object): ResponseState {
+    const state = responses.get(value);
+    if (!state) throw new TypeError("Illegal invocation");
+    return state;
+  }
+  function responseBody(value: object): ArrayBuffer {
+    const state = responseState(value);
+    if (state.used) throw new TypeError("Body has already been consumed");
+    if (state.body === null) return new BodyBuffer(0);
+    state.used = true;
+    const length = bufferLength(state.body);
+    if (typeof length !== "number") throw new TypeError("Invalid response buffer");
+    const copy = new BodyBuffer(length);
+    Reflect.apply(byteSet, new ByteArray(copy), [new ByteArray(state.body)]);
+    return copy;
+  }
+  function responseText(value: object): string {
+    const body = responseBody(value);
+    const decoder = new TextDecoder();
+    const length = bufferLength(body);
+    if (typeof length !== "number") throw new TypeError("Invalid response buffer");
+    let output = "";
+    for (let offset = 0; offset < length; offset += 32_768) {
+      output += Reflect.apply(decodeText, decoder, [
+        new ByteArray(body, offset, Math.min(32_768, length - offset)),
+        { stream: true },
+      ]);
+    }
+    return output + Reflect.apply(decodeText, decoder, []);
+  }
+  class Response {
+    constructor(key?: unknown, response?: NimboResponse) {
+      if (key !== responseKey || response === undefined)
+        throw new TypeError("Response construction is not implemented");
+      responses.set(this, { ...response, used: false });
+    }
+    get status(): number {
+      return responseState(this).status;
+    }
+    get ok(): boolean {
+      const status = responseState(this).status;
+      return status >= 200 && status < 300;
+    }
+    get url(): string {
+      return responseState(this).url;
+    }
+    get bodyUsed(): boolean {
+      return responseState(this).used;
+    }
+    get body(): never {
+      responseState(this);
+      throw new Error("response streams are not implemented");
+    }
+    get headers(): never {
+      responseState(this);
+      throw new Error("response headers are not implemented");
+    }
+    async arrayBuffer(): Promise<ArrayBuffer> {
+      return responseBody(this);
+    }
+    async bytes(): Promise<Uint8Array> {
+      return new ByteArray(responseBody(this));
+    }
+    async text(): Promise<string> {
+      return responseText(this);
+    }
+    async json(): Promise<unknown> {
+      return JSON.parse(responseText(this));
+    }
+    clone(): Response {
+      const state = responseState(this);
+      if (state.used) throw new TypeError("Body has already been consumed");
+      return new Response(responseKey, state);
+    }
+  }
+  Object.defineProperty(Response.prototype, Symbol.toStringTag, {
+    value: "Response",
+    configurable: true,
+  });
   const fetch = async (url: string, options: { method?: string; body?: string } = {}) => {
     for (const key of Object.keys(options)) {
       if (!["method", "body"].includes(key)) throw new Error(`unsupported fetch option: ${key}`);
     }
     const method = (options.method ?? "GET").toUpperCase();
     if (method === "GET" && options.body !== undefined) throw new Error("GET cannot have a body");
-    // Rust owns the serialized HTTP response shape.
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    const response = JSON.parse(await nativeRequest(url, method, options.body ?? "")) as {
-      status: number;
-      body: string;
-      url: string;
-    };
-    return {
-      status: response.status,
-      ok: response.status >= 200 && response.status < 300,
-      url: response.url,
-      text: async () => response.body,
-      json: async (): Promise<unknown> => JSON.parse(response.body),
-    };
+    return new Response(responseKey, await nativeRequest(url, method, options.body ?? ""));
   };
   Object.assign(globalThis, {
     document,
@@ -3182,6 +3256,7 @@
     Text,
     Comment,
     fetch,
+    Response,
     setTimeout,
     setInterval,
     clearTimeout,

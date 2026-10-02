@@ -23,6 +23,8 @@ pub(crate) struct Response {
     pub url: String,
     pub status: u16,
     pub body: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub raw_body: Option<Vec<u8>>,
     pub content_type: String,
 }
 
@@ -33,6 +35,7 @@ pub(crate) enum Action {
         url: String,
         method: String,
         body: String,
+        binary: bool,
     },
     Ready,
     Wait {
@@ -597,6 +600,7 @@ impl Machine {
             url: request.url.clone(),
             method: request.method.clone(),
             body: request.body.clone(),
+            binary: matches!(&request.purpose, RequestPurpose::Fetch(_)),
         };
         self.active = Some(request);
         action
@@ -609,7 +613,12 @@ impl Machine {
             .take()
             .ok_or_else(|| Error::Unsupported("no pending request".into()))?;
         resolve(&self.base, &response.url)?;
-        if response.body.len() > self.limits.max_response_bytes {
+        if response
+            .body
+            .len()
+            .saturating_add(response.raw_body.as_ref().map_or(0, Vec::len))
+            > self.limits.max_response_bytes
+        {
             return Err(Error::Limit("response bytes"));
         }
         if let RequestPurpose::Stylesheet(handle) = request.purpose {
@@ -617,8 +626,20 @@ impl Machine {
         } else if let RequestPurpose::Module(name) = request.purpose {
             self.modules.respond(name, response)?;
         } else if let RequestPurpose::Fetch(resolver) = request.purpose {
-            let payload = serde_json::to_string(response)?;
             self.context.with(|ctx| {
+                let payload = js(&ctx, rquickjs::Object::new(ctx.clone()))?;
+                js(&ctx, payload.set("status", response.status))?;
+                js(&ctx, payload.set("url", response.url.as_str()))?;
+                if matches!(response.status, 204 | 205 | 304) {
+                    js(&ctx, payload.set("body", rquickjs::Null))?;
+                } else {
+                    let bytes = response
+                        .raw_body
+                        .clone()
+                        .unwrap_or_else(|| response.body.as_bytes().to_vec());
+                    let body = js(&ctx, rquickjs::ArrayBuffer::new(ctx.clone(), bytes))?;
+                    js(&ctx, payload.set("body", body))?;
+                }
                 js(
                     &ctx,
                     js(&ctx, resolver.resolve.restore(&ctx))?.call::<_, ()>((payload,)),
@@ -668,6 +689,14 @@ impl Machine {
             let promise = js(
                 &ctx,
                 ctx.eval_with_options::<Promise<'_>, _>(source, options),
+            )?;
+            // Rust observes this promise's rejection through result(). Mark
+            // that observation without swallowing the rejection on the root.
+            let handled = js(&ctx, Function::new(ctx.clone(), || ()))?;
+            js(
+                &ctx,
+                js(&ctx, promise.catch())?
+                    .call::<_, ()>((rquickjs::function::This(promise.clone()), handled)),
             )?;
             Ok(Persistent::save(&ctx, promise))
         });
