@@ -29,6 +29,7 @@ mod storage;
 mod styles;
 mod stylesheets;
 mod supports;
+mod tabs;
 mod text_adjust;
 #[cfg(target_arch = "wasm32")]
 mod wasm;

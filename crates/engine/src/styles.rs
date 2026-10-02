@@ -348,19 +348,33 @@ fn native_property(name: &str, value: &str, important: bool) -> Option<Vec<Entry
         "float" | "clear" | "writing-mode" => native_keyword(name, value)?,
         "content" => content_value(value)?,
         "text-size-adjust" => crate::text_adjust::specified(value)?,
+        "tab-size" => crate::tabs::specified(value)?,
         "outline-offset" | "outline-color" => outline_native_value(name, value)?,
         _ => return None,
     };
     Some(vec![Entry::new(name, value, important)])
 }
 
+fn native_declaration(name: &str, value: &str) -> bool {
+    matches!(
+        name,
+        "float"
+            | "clear"
+            | "writing-mode"
+            | "content"
+            | "outline-offset"
+            | "text-size-adjust"
+            | "tab-size"
+    ) || (name == "outline-color" && value.eq_ignore_ascii_case("auto"))
+}
+
 fn expand(name: &str, value: &str, important: bool) -> Option<Vec<Entry>> {
     let value = trimmed(value)?;
     let id = PropertyId::from(name);
-    if !known_name(name) && !custom_name(name) {
-        return None;
-    }
-    if name == "--" || (value.is_empty() && !custom_name(name)) {
+    if (!known_name(name) && !custom_name(name))
+        || name == "--"
+        || (value.is_empty() && !custom_name(name))
+    {
         return None;
     }
     if let Some(wide) = wide_keyword(value) {
@@ -414,11 +428,7 @@ fn expand(name: &str, value: &str, important: bool) -> Option<Vec<Entry>> {
             animated: false,
         }]);
     }
-    if matches!(
-        name,
-        "float" | "clear" | "writing-mode" | "content" | "outline-offset" | "text-size-adjust"
-    ) || (name == "outline-color" && value.eq_ignore_ascii_case("auto"))
-    {
+    if native_declaration(name, value) {
         return native_property(name, value, important);
     }
     let parsed = Property::parse_string(id.clone(), value, ParserOptions::default()).ok()?;

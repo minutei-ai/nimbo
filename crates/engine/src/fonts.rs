@@ -17,12 +17,16 @@ fn unsupported(detail: &str) -> Error {
 pub(crate) struct Context {
     size: f64,
     adjustment: crate::text_adjust::Adjustment,
+    tabs: crate::tabs::Tabs,
     root: f64,
     initial: f64,
     width: f64,
     height: f64,
 }
 impl Context {
+    pub(crate) fn tabs(&self) -> Result<String> {
+        self.tabs.value()
+    }
     pub(crate) fn adjustment(&self) -> Result<String> {
         self.adjustment.value()
     }
@@ -34,6 +38,7 @@ impl Context {
         Self {
             size,
             adjustment: crate::text_adjust::Adjustment::default(),
+            tabs: crate::tabs::Tabs::default(),
             root: size,
             initial: size,
             width: f64::from(media.width),
@@ -68,12 +73,18 @@ impl Context {
             work.charge()?;
         }
         let adjustment = self.adjustment.compute(&value)?;
-        Ok(Self {
+        let mut computed = Self {
             adjustment,
             size,
             root: if root { size } else { self.root },
             ..*self
-        })
+        };
+        let (value, _) = declarations.value("tab-size");
+        if !value.is_empty() {
+            work.charge()?;
+        }
+        computed.tabs = self.tabs.compute(&value, &computed, work)?;
+        Ok(computed)
     }
     fn percentage_length(
         &self,

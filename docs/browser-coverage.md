@@ -1795,3 +1795,34 @@ detach/reattach, live parent/sheet mutations and unchanged empty-box geometry.
 This does not establish complete CSS mobile text adjustment or browser parity.
 
 Public reference: [CSS Mobile Text Size Adjustment](https://drafts.csswg.org/css-size-adjust/#adjustment-control).
+
+## Native computed tab-size
+
+The native font context now computes tab-size as either a nonnegative number
+of spaces or an absolute length. The initial value is eight spaces. Inheritance
+copies the parent's computed value: a parent's .5em at 20px remains 10px when a
+child uses a 40px font. Zero-length declarations retain their length type rather
+than becoming unitless numbers. Negative literals and percentages are rejected;
+negative calculated results clamp to zero. Contextual lengths use the existing
+bounded native font/unit/math machinery and shared operation budget.
+
+The live read-only getComputedStyle facade now exposes tab-size as its eighth
+resolved property. Computed lengths serialize with six significant digits;
+very small positive lengths retain a nonzero numeric value. Complete browser
+numeric/token serialization remains pending. The existing layout validator still
+rejects text requiring shaping: accepting tab-size does not implement tab-stop
+positions, font space advances, white-space processing, line wrapping or paint.
+
+The shared real HTTP fixture passes 46 checks across 64 native Rust navigations
+and 64 workerd/Wasm requests, including actual external CSS. All 2944 checks
+also pass in Chromium; see [the aggregate](evidence/tabs-chromium.json).
+The small-length check compares numeric values, not exact serialization.
+Coverage includes numbers/fractions, zero lengths, em/rem, contextual math,
+min/max/clamp, variable substitution, specificity/source order, inline origin,
+normal/important layers, computed inheritance/defaulting, invalid declarations,
+CSSOM mutation/removal, read-only writes, live parent/sheet changes and
+detach/reattach. Two additional Worker cases reject an unsupported font-metric
+unit and text shaping, then verify fresh-request recovery. Empty box dimensions
+remain unchanged; no text-rendering or full CSS Text parity is claimed.
+
+Public reference: [CSS Text tab-size](https://drafts.csswg.org/css-text-3/#tab-size-property).

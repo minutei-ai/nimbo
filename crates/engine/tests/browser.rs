@@ -1390,6 +1390,9 @@ fn registered_custom_properties_validate_before_substitution() -> TestResult {
 }
 
 fn serve_resource(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/tabs/") || request.url().starts_with("/tabs-assets/") {
+        return serve_tabs(request);
+    }
     if request.url().starts_with("/text-adjust/")
         || request.url().starts_with("/text-adjust-assets/")
     {
@@ -1546,6 +1549,8 @@ fn is_resource(path: &str) -> bool {
         "/layout-budget/",
         "/logical-size/",
         "/outlines/",
+        "/tabs/",
+        "/tabs-assets/",
         "/text-adjust/",
         "/text-adjust-assets/",
         "/outline-assets/",
@@ -1957,6 +1962,41 @@ fn serve_text_adjust(request: Request) -> io::Result<()> {
     let source = format!(
         "<!doctype html><meta charset=utf-8><link rel=stylesheet href=/text-adjust-assets/{variant}><script>{}</script>",
         include_str!("fixtures/text-adjust.txt")
+    );
+    request.respond(Response::from_string(source).with_header(header("Content-Type", "text/html")?))
+}
+
+#[test]
+fn native_tabs_real_http_computed_lengths() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/tabs/{variant}")))?;
+        let result = page.evaluate(&format!("tabsCase({variant})"))?;
+        let fields = result.as_object().ok_or("missing computed tabs result")?;
+        assert_eq!(fields.len(), 46);
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+fn serve_tabs(request: Request) -> io::Result<()> {
+    if let Some(value) = request.url().strip_prefix("/tabs-assets/") {
+        let variant = value.parse::<u32>().map_err(io::Error::other)?;
+        return request.respond(
+            Response::from_string(format!(
+                "#external{{tab-size:{}px}}",
+                variant.saturating_add(3)
+            ))
+            .with_header(header("Content-Type", "text/css")?),
+        );
+    }
+    let variant = request.url().strip_prefix("/tabs/").unwrap_or("0");
+    let source = format!(
+        "<!doctype html><meta charset=utf-8><link rel=stylesheet href=/tabs-assets/{variant}><script>{}</script>",
+        include_str!("fixtures/tabs.txt")
     );
     request.respond(Response::from_string(source).with_header(header("Content-Type", "text/html")?))
 }

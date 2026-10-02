@@ -1,3 +1,4 @@
+import { tabsFixture } from "./tabs-fixture";
 import { textAdjustFixture } from "./text-adjust-fixture";
 import { outlineFixture } from "./outline-fixture";
 import { layoutBudgetFixture } from "./layout-budget-fixture";
@@ -417,6 +418,8 @@ const origin = Bun.serve({
     requests.push(`${request.method} ${path}`);
     const layoutBudget = layoutBudgetFixture(path);
     if (layoutBudget) return layoutBudget;
+    const tabs = await tabsFixture(path);
+    if (tabs) return tabs;
     const adjustment = await textAdjustFixture(path);
     if (adjustment) return adjustment;
     const outline = await outlineFixture(path);
@@ -4716,7 +4719,7 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
   expect(await response.json()).toMatchObject({
     value: {
       font: "18px",
-      count: 7,
+      count: 8,
       names: [
         "color",
         "font-size",
@@ -4724,6 +4727,7 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
         "outline-offset",
         "outline-style",
         "outline-width",
+        "tab-size",
         "text-size-adjust",
       ],
     },
@@ -4746,5 +4750,53 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     if (typeof value !== "object" || value === null) throw new Error("Missing adjustment values");
     expect(Object.keys(value)).toHaveLength(44);
     expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native computed tabs variant %i",
+  async (variant) => {
+    const url = new URL(`tabs/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: `tabsCase(${variant})` }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing computed tabs");
+    expect(Object.keys(value)).toHaveLength(46);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each([
+  [
+    "(()=>{const e=document.createElement('div');e.style.tabSize='2ex';document.body.append(e);return getComputedStyle(e).tabSize})()",
+    "relative query length",
+  ],
+  [
+    "(()=>{document.body.textContent=String.fromCharCode(65,9,66);document.body.style.tabSize='4';return document.body.getBoundingClientRect()})()",
+    "text shaping",
+  ],
+])(
+  "real HTTP → workerd → Wasm: unsupported tab layout %s fails explicitly",
+  async (expression, reason) => {
+    const url = new URL("tabs/0", origin.url).href;
+    const failed = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression }),
+    });
+    expect(failed.status).toBe(422);
+    expect(await failed.text()).toContain(reason);
+    const healthy = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "tabsCase(0)" }),
+    });
+    expect(healthy.status).toBe(200);
   },
 );

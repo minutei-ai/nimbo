@@ -1,0 +1,33 @@
+function tabsCase(v) {
+  document.body.innerHTML='';document.body.style.cssText='margin:0';document.documentElement.style.fontSize='20px';
+  const parent=document.createElement('main');parent.style.cssText='font-size:20px;tab-size:8';document.body.append(parent);
+  const sheet=document.createElement('style');document.head.append(sheet);
+  const e=document.createElement('div');e.id='target';parent.append(e);const s=getComputedStyle(e),checks={};
+  const check=(name,css,expected,rules='')=>{sheet.textContent=rules;e.style.cssText='width:40px;height:10px;'+css;checks[name]=s.tabSize===expected&&s.getPropertyValue('tab-size')===expected&&e.getBoundingClientRect().width===40;};
+  check('default','','8');check('number',`tab-size:${v+2}`,`${v+2}`);check('fraction','tab-size:2.5','2.5');check('zero','tab-size:0','0');
+  check('pixels',`tab-size:${v+3}px`,`${v+3}px`);check('fractionPixels','tab-size:2.9px','2.9px');check('zeroPixels','tab-size:0px','0px');
+  check('em','tab-size:.5em','10px');check('rem','tab-size:.5rem','10px');check('smallEm','tab-size:.3em','6px');
+  check('lengthMath','tab-size:calc(2px + .5em)','12px');check('numberMath','tab-size:calc(1 + 2)','3');
+  check('negativeNumberMath','tab-size:calc(1 - 2)','0');check('negativeLengthMath','tab-size:calc(1px - 2px)','0px');
+  check('minimum','tab-size:min(5px, 1em)','5px');check('maximum','tab-size:max(5px, 1em)','20px');check('clamp','tab-size:clamp(5px, 1em, 10px)','10px');
+  check('specificity','','5','div{tab-size:3}#target{tab-size:5}');check('sourceOrder','','5','#target{tab-size:3}#target{tab-size:5}');
+  check('inlineOrigin','tab-size:7','7','#target{tab-size:5}');check('sheetImportant','tab-size:7','5','#target{tab-size:5!important}');
+  check('layers','','5','@layer early,late;@layer early{#target{tab-size:3}}@layer late{div{tab-size:5}}');
+  check('importantLayers','','3','@layer early,late;@layer early{div{tab-size:3!important}}@layer late{#target{tab-size:5!important}}');
+  check('variable',`--tabs:${v+3}px;tab-size:var(--tabs)`,`${v+3}px`);check('invalidVariable','tab-size:var(--missing)','8');
+  sheet.textContent='';parent.style.tabSize='.5em';check('inherit','font-size:40px;tab-size:inherit','10px');check('unset','font-size:40px;tab-size:unset','10px');
+  check('implicitInheritance','font-size:40px','10px');check('initial','tab-size:initial','8');
+  parent.style.tabSize='2.5';check('inheritNumber','tab-size:inherit','2.5');
+  e.style.cssText='tab-size:4';e.style.tabSize='-1';checks.invalidNumber=s.tabSize==='4';e.style.tabSize='-1px';checks.invalidLength=s.tabSize==='4';
+  e.style.tabSize='20%';checks.invalidPercentage=s.tabSize==='4';e.style.tabSize='auto';checks.invalidKeyword=s.tabSize==='4';
+  e.style.setProperty('TAB-SIZE','6','important');checks.cssom=s.tabSize==='6'&&e.style.getPropertyPriority('tab-size')==='important';
+  checks.removal=e.style.removeProperty('tab-size')==='6'&&s.tabSize==='2.5';
+  parent.style.tabSize='7';checks.liveInheritance=s.tabSize==='7';
+  sheet.textContent='#target{tab-size:9px}';checks.liveSheet=s.tabSize==='9px';sheet.textContent='#target{tab-size:11px}';checks.liveSheetMutation=s.tabSize==='11px';
+  const throws=(fn,name)=>{try{fn();return false;}catch(e){return e.name===name;}};
+  checks.readOnly=throws(()=>{s.tabSize='10'},'NoModificationAllowedError');checks.priority=s.getPropertyPriority('tab-size')==='';checks.uppercase=s.getPropertyValue('TAB-SIZE')==='11px';
+  const external=document.createElement('div');external.id='external';parent.append(external);checks.external=getComputedStyle(external).tabSize===`${v+3}px`;
+  e.remove();checks.detached=s.tabSize==='';parent.append(e);checks.reattached=s.tabSize==='11px';
+  e.style.tabSize='0.0000001px';checks.tinyLength=Math.abs(parseFloat(s.tabSize)-0.0000001)<1e-15;
+  sheet.remove();return checks;
+}

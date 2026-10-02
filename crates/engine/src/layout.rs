@@ -180,6 +180,7 @@ fn non_layout(name: &str) -> bool {
             | "container-type"
             | "font-size"
             | "text-size-adjust"
+            | "tab-size"
             | "border-top-color"
             | "border-right-color"
             | "border-bottom-color"
