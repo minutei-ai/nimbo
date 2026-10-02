@@ -7,6 +7,7 @@ mod dom;
 mod encoding;
 mod font_data;
 mod font_faces;
+mod font_matching;
 mod fonts;
 mod layers;
 mod layout;

@@ -42,7 +42,7 @@ struct Resource {
     technology: bool,
 }
 
-fn guarded(source: &str) -> bool {
+pub(crate) fn guarded(source: &str) -> bool {
     let mut input = ParserInput::new(source);
     let mut parser = Parser::new(&mut input);
     crate::styles::components(&mut parser, 0, true).is_ok()

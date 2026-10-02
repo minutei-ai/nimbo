@@ -20,6 +20,14 @@ export async function fontFixture(path: string): Promise<Response | undefined> {
   }
   if (path.startsWith("/font-assets/invalid/")) return new Response(new Uint8Array([1, 2, 3]));
   if (path.startsWith("/font-assets/missing/")) return new Response("missing", { status: 404 });
+  if (path.startsWith("/font-matching/")) {
+    const script = await Bun.file(
+      join(import.meta.dir, "../crates/engine/tests/fixtures/font-matching.txt"),
+    ).text();
+    return new Response(`<!doctype html><meta charset="utf-8"><script>${script}</script>`, {
+      headers: { "content-type": "text/html" },
+    });
+  }
   if (path.startsWith("/font-loading/")) {
     const variant = Number(path.split("/").at(-1));
     const script = await Bun.file(

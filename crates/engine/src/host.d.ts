@@ -39,3 +39,5 @@ declare function nimboLink(
 declare function nimboFontData(source: Uint8Array): boolean;
 
 declare function nimboFontMeta(field: string, source: string): string;
+
+declare function nimboFontMatch(input: string): string;

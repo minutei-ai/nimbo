@@ -1390,7 +1390,10 @@ fn registered_custom_properties_validate_before_substitution() -> TestResult {
 }
 
 fn serve_resource(request: Request) -> io::Result<()> {
-    if request.url().starts_with("/font-assets/") || request.url().starts_with("/font-loading/") {
+    if request.url().starts_with("/font-assets/")
+        || request.url().starts_with("/font-loading/")
+        || request.url().starts_with("/font-matching/")
+    {
         return serve_fonts(request);
     }
     if request.url().starts_with("/binary/") {
@@ -1513,6 +1516,7 @@ fn is_resource(path: &str) -> bool {
         "/binary/",
         "/font-assets/",
         "/font-loading/",
+        "/font-matching/",
     ]
     .iter()
     .any(|prefix| path.starts_with(prefix))
@@ -1540,6 +1544,12 @@ fn serve_fonts(request: Request) -> io::Result<()> {
             .with_header(header("Content-Type", "text/css")?)
     } else if path.starts_with("/font-assets/invalid/") {
         Response::from_data(vec![1, 2, 3])
+    } else if path.starts_with("/font-matching/") {
+        Response::from_data(format!(
+            "<!doctype html><meta charset=\"utf-8\"><script>{}</script>",
+            include_str!("fixtures/font-matching.txt")
+        ))
+        .with_header(header("Content-Type", "text/html")?)
     } else if let Some(variant) = path.strip_prefix("/font-loading/") {
         let width = variant
             .parse::<usize>()
@@ -1565,6 +1575,23 @@ fn css_fonts_register_and_load_through_real_http() -> TestResult {
         let result = page.evaluate(&format!("fontCase({variant})"))?;
         let fields = result.as_object().ok_or("missing font result")?;
         assert_eq!(fields.len(), 27);
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn font_matching_selects_and_loads_real_http_fonts() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/font-matching/{variant}")))?;
+        let result = page.evaluate(&format!("fontMatchCase({variant})"))?;
+        let fields = result.as_object().ok_or("missing font matching result")?;
+        assert_eq!(fields.len(), 49);
         assert!(
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"

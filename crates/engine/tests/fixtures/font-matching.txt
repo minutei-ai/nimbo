@@ -1,0 +1,88 @@
+globalThis.fontMatchCase = async (variant) => {
+  const checks = {};
+  const prefix = `NimboMatch${variant}`;
+  const bytes = await fetch(`/font-assets/font/${variant}`).then(response => response.arrayBuffer());
+  const all = [];
+  const add = (family, descriptors = {}, source = bytes) => {
+    const face = new FontFace(family, source, descriptors);
+    document.fonts.add(face);
+    all.push(face);
+    return face;
+  };
+  const choose = async (name, descriptors, query, expected, text = 'A') => {
+    const family = `${prefix}${name}`;
+    const faces = descriptors.map(descriptor => add(family, descriptor));
+    const result = await document.fonts.load(query.replace('$', family), text);
+    checks[name] = JSON.stringify(result.map(face => faces.indexOf(face))) === JSON.stringify(expected);
+  };
+  await choose('weight400', [{weight:'300'},{weight:'500'},{weight:'600'}], '400 12px $', [1]);
+  await choose('weight450', [{weight:'400'},{weight:'500'},{weight:'600'}], '450 12px $', [1]);
+  await choose('weight500', [{weight:'400'},{weight:'600'}], '500 12px $', [0]);
+  await choose('weight350', [{weight:'300'},{weight:'400'}], '350 12px $', [0]);
+  await choose('weight550', [{weight:'500'},{weight:'600'}], '550 12px $', [1]);
+  await choose('weightRange', [{weight:'300 600'},{weight:'400 500'},{weight:'450'}], '450 12px $', [0,1,2]);
+  await choose('bolder', [{weight:'400'},{weight:'700'}], 'bolder 12px $', [1]);
+  await choose('lighter', [{weight:'100'},{weight:'400'}], 'lighter 12px $', [0]);
+  await choose('widthBelow', [{stretch:'75%'},{stretch:'125%'}], 'normal 12px $', [0]);
+  await choose('widthAbove', [{stretch:'100%'},{stretch:'150%'}], 'expanded 12px $', [1]);
+  await choose('widthRange', [{stretch:'75% 125%'},{stretch:'normal'}], '12px $', [0,1]);
+  await choose('widthBeforeStyle', [{stretch:'condensed',style:'normal'},{stretch:'expanded',style:'italic'}], 'italic 12px $', [0]);
+  await choose('styleBeforeWeight', [{style:'italic',weight:'100'},{style:'normal',weight:'700'}], 'italic bold 12px $', [0]);
+  await choose('italic', [{style:'normal'},{style:'italic'},{style:'oblique'}], 'italic 12px $', [1]);
+  await choose('normal', [{style:'normal'},{style:'italic'},{style:'oblique'}], '12px $', [0]);
+  await choose('oblique', [{style:'normal'},{style:'italic'},{style:'oblique'}], 'oblique 12px $', [2]);
+  await choose('normalOblique', [{style:'italic'},{style:'oblique 20deg'},{style:'oblique 5deg'}], '12px $', [2]);
+  await choose('italicFallback', [{style:'normal'},{style:'oblique 20deg'},{style:'oblique 5deg'}], 'italic 12px $', [1]);
+  await choose('obliqueHigh', [{style:'oblique 5deg'},{style:'oblique 30deg'}], 'oblique 20deg 12px $', [1]);
+  await choose('obliqueLow', [{style:'oblique 5deg'},{style:'oblique 30deg'}], 'oblique 8deg 12px $', [0]);
+  await choose('obliqueNegative', [{style:'oblique -30deg'},{style:'oblique -5deg'}], 'oblique -20deg 12px $', [0]);
+  await choose('obliqueRange', [{style:'oblique 0deg 30deg'},{style:'oblique 20deg'}], 'oblique 20deg 12px $', [0,1]);
+  await choose('rangesA', [{unicodeRange:'U+41'},{unicodeRange:'U+42'},{unicodeRange:'U+41'}], '12px $', [0,2]);
+  await choose('rangesAB', [{unicodeRange:'U+41'},{unicodeRange:'U+42'},{unicodeRange:'U+41'}], '12px $', [0,1,2], 'AB');
+  await choose('rangeEmpty', [{unicodeRange:'U+0-10FFFF'}], '12px $', [], '');
+  await choose('rangeExcluded', [{unicodeRange:'U+42'}], '12px $', []);
+  await choose('astral', [{unicodeRange:'U+1F600'},{unicodeRange:'U+41'}], '12px $', [0], '\uD83D\uDE00');
+  await choose('surrogate', [{unicodeRange:'U+D800'},{unicodeRange:'U+FFFD'}], '12px $', [0], '\uD800');
+  await choose('rangeAfterWeight', [{weight:'400',unicodeRange:'U+42'},{weight:'700',unicodeRange:'U+41'}], '12px $', []);
+  const quoted = add(`${prefix} Quoted`);
+  checks.quoted = (await document.fonts.load(`12px "${prefix} Quoted"`, 'A'))[0] === quoted;
+  const fold = add(`${prefix}Straße`);
+  checks.caseFold = (await document.fonts.load(`12px ${prefix.toLowerCase()}STRASSE`, 'A'))[0] === fold;
+  const sigma = add(`${prefix}Σ`);
+  checks.sigmaFold = (await document.fonts.load(`12px ${prefix}ς`, 'A'))[0] === sigma;
+  const accented = add(`${prefix}å`);
+  checks.noNormalization = (await document.fonts.load(`12px ${prefix}a\u030A`, 'A')).length === 0;
+  const first = add(`${prefix}First`);
+  const second = add(`${prefix}Second`);
+  const listed = await document.fonts.load(`12px ${prefix}Second, ${prefix}First, ${prefix}Second`, 'A');
+  checks.familyOrder = listed.length === 3 && listed[0] === second && listed[1] === first && listed[2] === second;
+  checks.missing = document.fonts.check(`12px ${prefix}Missing`) && (await document.fonts.load(`12px ${prefix}Missing`)).length === 0;
+  checks.generic = document.fonts.check('12px serif') && (await document.fonts.load('12px serif')).length === 0;
+  const remote = add(`${prefix}Remote`, {unicodeRange:'U+41'}, `url('/font-assets/font/${variant}')`);
+  checks.unloaded = remote.status === 'unloaded' && !document.fonts.check(`12px ${prefix}Remote`, 'A');
+  checks.defaultSpace = document.fonts.check(`12px ${prefix}Remote`) && (await document.fonts.load(`12px ${prefix}Remote`)).length === 0;
+  checks.excludeUnloaded = document.fonts.check(`12px ${prefix}Remote`, 'B');
+  remote.load = () => { throw new Error('page override'); };
+  const pending = document.fonts.load(`12px ${prefix}Remote`, 'A');
+  checks.loading = remote.status === 'loading' && !document.fonts.check(`12px ${prefix}Remote`, 'A');
+  const loaded = await pending;
+  checks.loaded = loaded.length === 1 && loaded[0] === remote && document.fonts.check(`12px ${prefix}Remote`, 'A');
+  const failed = add(`${prefix}Failed`, {}, `url('/font-assets/missing/${variant}')`);
+  try { await document.fonts.load(`12px ${prefix}Failed`, 'A'); checks.failed = false; }
+  catch (error) { checks.failed = error.name === 'NetworkError' && failed.status === 'error' && !document.fonts.check(`12px ${prefix}Failed`, 'A'); }
+  try { document.fonts.check('nonsense'); checks.checkSyntax = false; }
+  catch (error) { checks.checkSyntax = error.name === 'SyntaxError'; }
+  try { await document.fonts.load('nonsense'); checks.loadSyntax = false; }
+  catch (error) { checks.loadSyntax = error.name === 'SyntaxError'; }
+  try { document.fonts.check(); checks.checkRequired = false; }
+  catch (error) { checks.checkRequired = error instanceof TypeError; }
+  try { await document.fonts.load(); checks.loadRequired = false; }
+  catch (error) { checks.loadRequired = error instanceof TypeError; }
+  try { document.fonts.check.call({}, '12px serif'); checks.checkReceiver = false; }
+  catch (error) { checks.checkReceiver = error instanceof TypeError; }
+  try { await document.fonts.load.call({}, '12px serif'); checks.loadReceiver = false; }
+  catch (error) { checks.loadReceiver = error instanceof TypeError; }
+  checks.coercion = document.fonts.check({toString:()=>`12px ${prefix}Remote`}, {toString:()=> 'A'});
+  for (const face of all) document.fonts.delete(face);
+  return checks;
+};

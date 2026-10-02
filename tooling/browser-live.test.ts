@@ -4023,3 +4023,63 @@ test.each([
   expect(healthy.status).toBe(200);
   expect(await healthy.json()).toMatchObject({ value: "loaded" });
 });
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: font matching variant %i",
+  async (variant) => {
+    const url = new URL(`font-matching/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: `fontMatchCase(${variant})` }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing comparison");
+    expect(Object.keys(value)).toHaveLength(49);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each([
+  {
+    name: "font shorthand length",
+    expression: "document.fonts.check('12px '+ 'x'.repeat(4097))",
+    reason: "font matching input",
+  },
+  {
+    name: "font sample length",
+    expression: "document.fonts.check('12px Example', 'A'.repeat(65537))",
+    reason: "encoding input limit",
+  },
+  {
+    name: "font matching face count",
+    expression:
+      "(()=>{for(let i=0;i<1025;i++)document.fonts.add(new FontFace('Example', 'url(/font-assets/font/0)'));return document.fonts.check('12px Example')})()",
+    reason: "font matching input",
+  },
+  {
+    name: "font matching payload",
+    expression:
+      "(()=>{for(let i=0;i<300;i++)document.fonts.add(new FontFace('x'.repeat(4096)+i, 'url(/font-assets/font/0)'));return document.fonts.check('12px Example')})()",
+    reason: "font matching payload limit",
+  },
+])("real HTTP → workerd → Wasm: $name boundary and recovery", async ({ expression, reason }) => {
+  const url = new URL("font-matching/129", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression }),
+  });
+  expect(response.status).toBe(422);
+  expect(await response.text()).toContain(reason);
+  const healthy = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: "document.fonts.check('12px Example')" }),
+  });
+  expect(healthy.status).toBe(200);
+  expect(await healthy.json()).toMatchObject({ value: true });
+});

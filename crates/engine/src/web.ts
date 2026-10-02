@@ -9,6 +9,7 @@
   const nativeLink = nimboLink;
   const nativeFontData = nimboFontData;
   const nativeFontMeta = nimboFontMeta;
+  const nativeFontMatch = nimboFontMatch;
   // Values are validated by Rust before installing the page bindings.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const mediaEnvironment = JSON.parse(nimboMediaEnvironment) as { width: number; height: number };
@@ -25,6 +26,7 @@
   Reflect.deleteProperty(globalThis, "nimboLink");
   Reflect.deleteProperty(globalThis, "nimboFontData");
   Reflect.deleteProperty(globalThis, "nimboFontMeta");
+  Reflect.deleteProperty(globalThis, "nimboFontMatch");
   Reflect.deleteProperty(globalThis, "nimboMediaEnvironment");
   Reflect.deleteProperty(globalThis, "nimboUrl");
   Reflect.deleteProperty(globalThis, "nimboNow");
@@ -3250,6 +3252,7 @@
   const FontPromise = Promise;
   function fontNoop(): void {}
   const fontReject = Promise.reject.bind(Promise);
+  const fontAll = Promise.all.bind(Promise);
   // Internal status promises are marked handled, as required by CSS Font Loading.
   // oxlint-disable-next-line typescript/unbound-method
   const fontCatch = Promise.prototype.catch;
@@ -3392,18 +3395,22 @@
     }
     load(): Promise<FontFace> {
       try {
-        const state = fontState(this);
-        if (state.status === "unloaded") {
-          state.status = "loading";
-          fontSetLoading(this);
-          void loadFont(this, state);
-        }
-        return state.promise;
+        return beginFont(this);
       } catch (error) {
         return fontReject<FontFace>(error);
       }
     }
   }
+  function beginFont(owner: FontFace): Promise<FontFace> {
+    const state = fontState(owner);
+    if (state.status === "unloaded") {
+      state.status = "loading";
+      fontSetLoading(owner);
+      void loadFont(owner, state);
+    }
+    return state.promise;
+  }
+
   for (const [key, defaultValue] of Object.entries(fontDefaults)) {
     Object.defineProperty(FontFace.prototype, key, {
       get(this: FontFace): string {
@@ -3621,14 +3628,55 @@
       for (const face of fontSetState(this).all)
         Reflect.apply(callback, thisArg, [face, face, this]);
     }
-    load(): Promise<never> {
-      return fontReject(new Error("unsupported: font matching"));
+    load(font: unknown, text: unknown = " "): Promise<FontFace[]> {
+      try {
+        fontSetState(this);
+        if (arguments.length === 0) throw new TypeError("FontFaceSet.load requires a font");
+        const faces = matchingFonts(this, font, text);
+        return fontAll(faces.map(beginFont));
+      } catch (error) {
+        return fontReject<FontFace[]>(error);
+      }
     }
-    check(): never {
+    check(font: unknown, text: unknown = " "): boolean {
       fontSetState(this);
-      throw new Error("unsupported: font matching");
+      if (arguments.length === 0) throw new TypeError("FontFaceSet.check requires a font");
+      return matchingFonts(this, font, text).every((face) => fontState(face).status === "loaded");
     }
   }
+  function matchingFonts(owner: FontFaceSet, font: unknown, text: unknown): FontFace[] {
+    const source = usvString(font);
+    // UTF-16 code units preserve the DOMString sample, including isolated surrogates.
+    const sample: unknown = JSON.parse(encodingUnits(text));
+    const faces = [...fontSetState(owner).all];
+    const descriptions = faces.map((face) => {
+      const state = fontState(face);
+      return {
+        family: usvString(state.family),
+        style: state.descriptors.style ?? "normal",
+        weight: state.descriptors.weight ?? "normal",
+        stretch: state.descriptors.stretch ?? "normal",
+        range: state.descriptors.unicodeRange ?? "U+0-10FFFF",
+      };
+    });
+    // Indices and null syntax failures are produced by the native CSS matcher.
+    const result: unknown = JSON.parse(
+      nativeFontMatch(JSON.stringify({ font: source, text: sample, faces: descriptions })),
+    );
+    if (
+      result !== null &&
+      (!Array.isArray(result) || !result.every((index: unknown) => typeof index === "number"))
+    )
+      throw new Error("Invalid native font match");
+    const indices: number[] | null = result;
+    if (indices === null) throw new DOMException("Invalid font shorthand", "SyntaxError");
+    return indices.map((index) => {
+      const face = faces[index];
+      if (!face) throw new Error("Invalid native font match");
+      return face;
+    });
+  }
+
   Object.defineProperty(FontFaceSet.prototype, Symbol.toStringTag, {
     value: "FontFaceSet",
     configurable: true,

@@ -299,6 +299,7 @@ impl Machine {
             js(&ctx, crate::encoding::install(&ctx))?;
             js(&ctx, crate::font_data::install(&ctx))?;
             js(&ctx, crate::font_faces::install(&ctx))?;
+            js(&ctx, crate::font_matching::install(&ctx))?;
             js(&ctx, crate::links::install(&ctx))?;
             js(&ctx, globals.set("nimboUrl", url))?;
             let callbacks = js(

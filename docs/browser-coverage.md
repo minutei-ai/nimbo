@@ -21,7 +21,7 @@ tests as well as integration and application tests.
 
 `tooling/browser-live.test.ts` uses a real loopback HTTP origin, actual workerd,
 and the compiled Rust/Wasm engine. It installs no transport replacements,
-service mocks, browser API stubs, or canned engine results. Its 2688 data variants
+service mocks, browser API stubs, or canned engine results. Its 2752 data variants
 exercise external scripts, Unicode/entity decoding, selector identity,
 ancestry, removal/reparenting, attribute mutation and POST response decoding.
 They also exercise parsed and created text/comment nodes, native node identity,
@@ -45,15 +45,15 @@ failures. The eighth set exercises native Web Storage across inline, external
 and module scripts, UTF-16 including lone surrogates, coercion/receiver guards,
 named properties, reflection, removal, clearing and fresh Worker request areas.
 An additional case exercises actual quota exhaustion, atomic failure, independent
-local/session quotas and reuse. These are repeated integration checks, not 2688 independent platform
+local/session quotas and reuse. These are repeated integration checks, not 2752 independent platform
 features. The ninth set checks native media queries against 64 explicit viewport
 and preference configurations, including ranges, three-valued conditions,
 serialization, CSS escapes, receiver guards and synthetic MediaQueryList events.
 The tenth set rejects 64 invalid environment variants before any HTTP navigation.
 The eleventh set repeats the same DOMTokenList fixture at 64 distinct URLs,
 checking live attribute reads, ordered token mutations, identity, indices,
-iteration, receiver guards and atomic invalid-token rejection. Including one hundred and twenty-three
-resource/deadline/origin and explicit-capability checks, the real browser suite has 2811 tests.
+iteration, receiver guards and atomic invalid-token rejection. Including one hundred and twenty-seven
+resource/deadline/origin and explicit-capability checks, the real browser suite has 2879 tests.
 The twelfth set checks HTML namespace identity and reflected attributes with
 64 distinct synthetic strings. It includes parsed SVG/MathML and an HTML
 subtree inside SVG foreignObject.
@@ -321,8 +321,8 @@ the forwarded request reaches the origin. These checks cover redirects,
 HTTP cookies, POST bodies, response errors, script skipping, isolation,
 resource limits and recovery. The HTTP cookie fixture does not test TLS or
 Secure cookie delivery. The seven lint/infrastructure checks spawn the actual
-pinned tools rather than replacing their behavior. All 2830 Bun tests therefore
-run without transport, browser or tool mocks; 2823 exercise the browser engine
+pinned tools rather than replacing their behavior. All 2898 Bun tests therefore
+run without transport, browser or tool mocks; 2891 exercise the browser engine
 and seven exercise tooling. Neither local suite proves deployed performance,
 TLS fingerprints, rendering or broad browser compatibility.
 
@@ -1310,9 +1310,59 @@ is used.
 
 Remaining work includes CSSOM two-way descriptor linkage and font identity across
 all rule/sheet mutations, robust caches and complete parser recovery, automatic
-font use detection, font matching, text/range and fallback behavior, compressed
+font use detection, complete matching and text/range/fallback behavior, compressed
 formats, full sanitization, glyph shaping/metrics, rendering, font-set readiness,
 worker font sources, and full Web IDL/WPT conformance. Registering or manually
 loading a font does not prove that a page can render or measure text with it.
 
 Public reference: [CSS Font Loading](https://www.w3.org/TR/css-font-loading-3/).
+
+## FontFaceSet resource matching
+
+The native CSS matcher now backs document.fonts.load(font, text) and
+check(font, text). It parses the font shorthand, applies the initial normal
+weight to bolder/lighter, and selects declared faces by family, stretch, style
+and weight, in that order. Matching includes descriptor intervals, directional
+weight/width preferences, oblique angles and unicode-range filtering after
+style selection. Families use ICU Unicode case folding without normalization
+or locale-specific mappings. Family lists preserve order and repeated entries.
+The default sample is one space; empty samples select no face. UTF-16 samples
+retain isolated surrogate code units in this implementation.
+
+load() starts the existing real native URL transport for selected unloaded
+faces, preserves source fallback and resolves with the selected FontFace objects
+in order. Failed fonts reject. Selection and loading use private state rather
+than page-overridden FontFace.load or descriptor getters. check() returns false
+for selected unloaded, loading or failed faces and true for loaded faces or an
+empty selection. An absent family or an excluded sample therefore returns true;
+this does not establish that any glyph can be rendered. This engine has no
+installed platform font inventory.
+
+The matcher bounds the native payload at 1 MiB, the shorthand at 4096 bytes,
+the sample at 65536 UTF-16 units and the face list at 1024 entries. Sample
+codepoints are indexed once rather than rescanned for each face. Four actual
+Worker cases exercise payload, shorthand, sample and face-count exhaustion and
+fresh-request recovery. The shared fixture performs 49 assertions in 64 actual
+native HTTP navigations and 64 workerd/Wasm requests using owned TrueType bytes,
+with real successful and failed font downloads. Descriptor ranges in that static
+font test do not prove variable-font decoding or rendering.
+
+The collaborative Chromium 152 comparison used 64 fresh UTF-8 pages and the
+same real HTTP font fixture. Forty-two assertions matched in every variant.
+Seven differed in every variant: weightRange, widthRange, italic, oblique,
+obliqueRange, surrogate and caseFold. The focused browser probe returned both
+italic and default-oblique faces for an italic request and narrowed overlapping
+weight ranges to the exact declared weight. The causes and full specification
+coverage remain unresolved; these results do not establish a browser defect.
+The first comparator run lacked an explicit UTF-8 declaration. That fixture
+error was corrected before the aggregate below was produced.
+See [the complete aggregate](evidence/font-matching-chromium.json).
+
+Further work includes these matching differences, system font shorthands,
+complete CSS parsing and descriptor validation, CSSOM linkage and identity,
+automatic font use and readiness, font shaping/metrics/rendering, compressed
+and variable/color formats, font source caching, and full Web IDL/WPT conformance.
+An explicit resource load is not document.fonts.ready or text layout proof.
+
+Public references: [CSS Font Loading](https://www.w3.org/TR/css-font-loading-3/),
+[CSS Fonts matching](https://www.w3.org/TR/css-fonts-4/#font-matching-algorithm).
