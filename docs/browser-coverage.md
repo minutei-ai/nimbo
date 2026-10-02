@@ -21,7 +21,7 @@ tests as well as integration and application tests.
 
 `tooling/browser-live.test.ts` uses a real loopback HTTP origin, actual workerd,
 and the compiled Rust/Wasm engine. It installs no transport replacements,
-service mocks, browser API stubs, or canned engine results. Its 1664 data variants
+service mocks, browser API stubs, or canned engine results. Its 1728 data variants
 exercise external scripts, Unicode/entity decoding, selector identity,
 ancestry, removal/reparenting, attribute mutation and POST response decoding.
 They also exercise parsed and created text/comment nodes, native node identity,
@@ -45,15 +45,15 @@ failures. The eighth set exercises native Web Storage across inline, external
 and module scripts, UTF-16 including lone surrogates, coercion/receiver guards,
 named properties, reflection, removal, clearing and fresh Worker request areas.
 An additional case exercises actual quota exhaustion, atomic failure, independent
-local/session quotas and reuse. These are repeated integration checks, not 1664 independent platform
+local/session quotas and reuse. These are repeated integration checks, not 1728 independent platform
 features. The ninth set checks native media queries against 64 explicit viewport
 and preference configurations, including ranges, three-valued conditions,
 serialization, CSS escapes, receiver guards and synthetic MediaQueryList events.
 The tenth set rejects 64 invalid environment variants before any HTTP navigation.
 The eleventh set repeats the same DOMTokenList fixture at 64 distinct URLs,
 checking live attribute reads, ordered token mutations, identity, indices,
-iteration, receiver guards and atomic invalid-token rejection. Including fifty-seven
-resource/deadline/origin checks, the real browser suite has 1721 tests.
+iteration, receiver guards and atomic invalid-token rejection. Including sixty
+resource/deadline/origin checks, the real browser suite has 1788 tests.
 The twelfth set checks HTML namespace identity and reflected attributes with
 64 distinct synthetic strings. It includes parsed SVG/MathML and an HTML
 subtree inside SVG foreignObject.
@@ -451,7 +451,7 @@ mutating IDs, shorthands, media/type attributes, nested media and sheet removal.
 
 Eleven additional real Worker cases reach per-sheet byte/rule/selector limits,
 shared bytes/selectors/expanded declaration limits, nesting limits, unsupported
-layers and nested rules, and unsupported forgiving recovery. Failure cases
+scopes and nested rules, and unsupported forgiving recovery. Failure cases
 verify a fresh request; a separate case removes an oversized sheet and reuses
 the same page while preserving inline state and old rectangle snapshots.
 Limits are 256 KiB per active sheet, 256 KiB total active sheet text, 1024 rules
@@ -463,7 +463,7 @@ listed input/tree limits; this is not a total-process CPU or memory claim.
 
 This is author style-rule ordering for supported box properties, not a complete
 cascade/computed-style implementation. Missing: stylesheet imports, origins
-and stylesheet sets, full style/link/sheet interfaces, layers/scope/container/
+and stylesheet sets, full style/link/sheet interfaces, scope/container/
 supports groups, nesting, full selector state/scope/WPT behavior, defaulting and
 inheritance for ordinary properties, complete variable semantics, registered properties, presentational hints,
 full UA defaults, getComputedStyle, animations/transitions and paint. Font/text
@@ -726,6 +726,37 @@ browser loading conformance. HTTP caching, global URL deduplication, imports,
 SRI verification, cross-origin sheets, alternate stylesheet sets, CSSOM sheet
 interfaces, fonts, full CSS parsing and rendering remain unimplemented. No
 Obscura runtime dependency or fallback is involved.
+
+## Author cascade layers
+
+The native cascade now records layer names and first-declaration order across
+active inline and external sheets. Ordering statements, reopened names, dotted
+names, anonymous layers and nested layers use the same registry. Normal rules
+prefer later layers; important rules reverse layer precedence. Unlayered rules
+and rules directly inside a parent layer retain their implicit final position.
+Inline declarations still outrank stylesheet declarations of equal importance.
+Layer precedence is compared before selector specificity and source order.
+
+A shared synthetic HTTP fixture passes 30 aggregate checks in the native engine,
+at 64 real Worker URLs and at the same 64 variants in actual Chromium 152.
+It covers order statements, reopening, cross-sheet order and DOM reordering,
+parent/nested layers, anonymous layers, escaped and case-sensitive names, active
+and inactive media groups, invalid blocks, inline priority, shorthands,
+inherited custom properties and immutable geometry snapshots. The aggregate
+Chromium record is [layers-chromium.json](evidence/layers-chromium.json).
+
+Three further real Worker cases verify explicit failures for more than 1024
+layer nodes, including ordering statements without blocks and anonymous blocks, and more
+than 32 components in a dotted layer path. The registry is rebuilt when geometry
+collects active sheets, so DOM/media changes affect order; it does not persist
+stale declarations. Existing byte, rule, selector and DOM-work budgets remain.
+
+This establishes author layer ordering for supported native layout properties.
+Revert-layer rollback, import-layer loading, other origins, shadow encapsulation,
+CSSOM layer interfaces and full CSS/WPT conformance remain required work.
+Unsupported conditional/registration rules inside layers still fail explicitly;
+accepting layer syntax does not make those contents supported. No Obscura
+runtime dependency or fallback is involved.
 
 ## Worker feasibility gates
 

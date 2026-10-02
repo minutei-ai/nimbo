@@ -18,6 +18,7 @@ struct Selector {
 struct Rule {
     selectors: Vec<Selector>,
     declarations: Declarations,
+    layer: Vec<usize>,
 }
 pub(crate) struct Cascade {
     rules: Vec<Rule>,
@@ -125,40 +126,85 @@ enum ParsedRule {
     Style(Rule),
     Group(Vec<Rule>),
 }
+enum Prelude {
+    Media(bool),
+    Layers(Vec<Vec<String>>),
+}
 struct Rules<'a> {
     media: &'a MediaEnvironment,
+    layers: &'a mut crate::layers::Layers,
+    parent: &'a [usize],
 }
 impl<'i> AtRuleParser<'i> for Rules<'_> {
-    type Prelude = bool;
+    type Prelude = Prelude;
     type AtRule = ParsedRule;
     type Error = &'static str;
     fn parse_prelude<'t>(
         &mut self,
         name: CowRcStr<'i>,
         input: &mut Parser<'i, 't>,
-    ) -> std::result::Result<bool, ParseError<'i, Self::Error>> {
+    ) -> std::result::Result<Prelude, ParseError<'i, Self::Error>> {
+        if name.eq_ignore_ascii_case("layer") {
+            return crate::layers::names(input).map(Prelude::Layers);
+        }
         if !name.eq_ignore_ascii_case("media") {
             return Err(input.new_custom_error("stylesheet at-rule"));
         }
         let start = input.position();
         consume(input, 0)?;
         matches_media(self.media, input.slice_from(start))
+            .map(Prelude::Media)
             .map_err(|_error| input.new_custom_error("stylesheet media query"))
     }
     fn parse_block<'t>(
         &mut self,
-        active: bool,
+        prelude: Prelude,
         _start: &ParserState,
         input: &mut Parser<'i, 't>,
     ) -> std::result::Result<ParsedRule, ParseError<'i, Self::Error>> {
         let start = input.position();
         consume(input, 0)?;
-        if !active {
-            return Ok(ParsedRule::Group(Vec::new()));
-        }
-        let rules = sheet(input.slice_from(start), self.media)
-            .map_err(|_error| input.new_custom_error("stylesheet media group"))?;
+        let parent = match prelude {
+            Prelude::Media(false) => return Ok(ParsedRule::Group(Vec::new())),
+            Prelude::Media(true) => self.parent.to_vec(),
+            Prelude::Layers(names) => {
+                if names.len() > 1 {
+                    return Err(
+                        input.new_error(cssparser::BasicParseErrorKind::QualifiedRuleInvalid)
+                    );
+                }
+                self.layers
+                    .register(self.parent, names.first().map(Vec::as_slice))
+                    .map_err(|message| input.new_custom_error(message))?
+            }
+        };
+        let rules =
+            sheet(input.slice_from(start), self.media, self.layers, &parent).map_err(|error| {
+                input.new_custom_error(match error {
+                    Error::Limit("stylesheet layers") => "stylesheet layers",
+                    Error::Limit("stylesheet layer depth") => "stylesheet layer depth",
+                    _ => "stylesheet group",
+                })
+            })?;
         Ok(ParsedRule::Group(rules))
+    }
+    fn rule_without_block(
+        &mut self,
+        prelude: Prelude,
+        _start: &ParserState,
+    ) -> std::result::Result<ParsedRule, ()> {
+        let Prelude::Layers(names) = prelude else {
+            return Err(());
+        };
+        if names.is_empty() {
+            return Err(());
+        }
+        for name in names {
+            self.layers
+                .register(self.parent, Some(&name))
+                .map_err(|_message| ())?;
+        }
+        Ok(ParsedRule::Group(Vec::new()))
     }
 }
 impl<'i> QualifiedRuleParser<'i> for Rules<'_> {
@@ -220,11 +266,22 @@ impl<'i> QualifiedRuleParser<'i> for Rules<'_> {
         Ok(ParsedRule::Style(Rule {
             selectors,
             declarations,
+            layer: self
+                .parent
+                .iter()
+                .copied()
+                .chain(std::iter::once(usize::MAX))
+                .collect(),
         }))
     }
 }
 
-fn sheet(source: &str, media: &MediaEnvironment) -> Result<Vec<Rule>> {
+fn sheet(
+    source: &str,
+    media: &MediaEnvironment,
+    layers: &mut crate::layers::Layers,
+    parent: &[usize],
+) -> Result<Vec<Rule>> {
     if source.len() > 262_144 {
         return Err(Error::Limit("stylesheet bytes"));
     }
@@ -234,19 +291,35 @@ fn sheet(source: &str, media: &MediaEnvironment) -> Result<Vec<Rule>> {
     let mut input = ParserInput::new(source);
     let mut parser = Parser::new(&mut input);
     let mut rules = Vec::new();
-    for result in StyleSheetParser::new(&mut parser, &mut Rules { media }) {
+    for result in StyleSheetParser::new(
+        &mut parser,
+        &mut Rules {
+            media,
+            layers,
+            parent,
+        },
+    ) {
         match result {
             Ok(ParsedRule::Style(rule)) => rules.push(rule),
             Ok(ParsedRule::Group(group)) => rules.extend(group),
             Err((error, _source)) => {
                 if let cssparser::ParseErrorKind::Custom(message) = error.kind {
-                    return Err(unsupported(message));
+                    return Err(
+                        if message == "stylesheet layers" || message == "stylesheet layer depth" {
+                            Error::Limit(message)
+                        } else {
+                            unsupported(message)
+                        },
+                    );
                 }
             }
         }
         if rules.len() > 1024 {
             return Err(Error::Limit("stylesheet rules"));
         }
+    }
+    if let Some(message) = layers.failure {
+        return Err(Error::Limit(message));
     }
     Ok(rules)
 }
@@ -268,6 +341,7 @@ impl Cascade {
         let mut bytes = 0_usize;
         let mut nodes = 0_usize;
         let mut selectors = 0_usize;
+        let mut layers = crate::layers::Layers::default();
         for node in document.root().descendants_it() {
             work.charge()?;
             nodes = nodes.saturating_add(1);
@@ -305,7 +379,7 @@ impl Cascade {
             if bytes > 262_144 {
                 return Err(Error::Limit("stylesheet total bytes"));
             }
-            let parsed = sheet(&source, media)?;
+            let parsed = sheet(&source, media, &mut layers, &[])?;
             selectors = selectors.saturating_add(
                 parsed
                     .iter()
@@ -338,10 +412,15 @@ impl Cascade {
                 }
             }
             if let Some(specificity) = specificity {
-                sources.push((&rule.declarations, false, specificity));
+                sources.push((
+                    &rule.declarations,
+                    false,
+                    specificity,
+                    rule.layer.as_slice(),
+                ));
             }
         }
-        sources.push((inline, true, 0));
+        sources.push((inline, true, 0, [usize::MAX].as_slice()));
         Declarations::cascade(sources).map_err(|message| Error::Dom(message.into()))
     }
 }

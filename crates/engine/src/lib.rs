@@ -3,6 +3,7 @@
 mod cascade;
 mod dom;
 mod encoding;
+mod layers;
 mod layout;
 mod links;
 mod machine;

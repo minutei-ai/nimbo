@@ -1,0 +1,132 @@
+{
+  "browser": "Chromium 152.0.7977.130",
+  "fixture": "crates/engine/tests/fixtures/layers.txt",
+  "variants": 64,
+  "viewport": {
+    "width": 1024,
+    "height": 768
+  },
+  "assertions": {
+    "anonymous": {
+      "passed": 64,
+      "failed": 0
+    },
+    "anonymousImportant": {
+      "passed": 64,
+      "failed": 0
+    },
+    "caseSensitive": {
+      "passed": 64,
+      "failed": 0
+    },
+    "crossSheet": {
+      "passed": 64,
+      "failed": 0
+    },
+    "crossSheetOrder": {
+      "passed": 64,
+      "failed": 0
+    },
+    "dotted": {
+      "passed": 64,
+      "failed": 0
+    },
+    "dottedReopened": {
+      "passed": 64,
+      "failed": 0
+    },
+    "escaped": {
+      "passed": 64,
+      "failed": 0
+    },
+    "importance": {
+      "passed": 64,
+      "failed": 0
+    },
+    "important": {
+      "passed": 64,
+      "failed": 0
+    },
+    "inactiveOrder": {
+      "passed": 64,
+      "failed": 0
+    },
+    "inlineImportant": {
+      "passed": 64,
+      "failed": 0
+    },
+    "inlineNormal": {
+      "passed": 64,
+      "failed": 0
+    },
+    "invalidBlock": {
+      "passed": 64,
+      "failed": 0
+    },
+    "media": {
+      "passed": 64,
+      "failed": 0
+    },
+    "nested": {
+      "passed": 64,
+      "failed": 0
+    },
+    "nestedImportant": {
+      "passed": 64,
+      "failed": 0
+    },
+    "normal": {
+      "passed": 64,
+      "failed": 0
+    },
+    "parent": {
+      "passed": 64,
+      "failed": 0
+    },
+    "parentGroup": {
+      "passed": 64,
+      "failed": 0
+    },
+    "reopened": {
+      "passed": 64,
+      "failed": 0
+    },
+    "reorder": {
+      "passed": 64,
+      "failed": 0
+    },
+    "reserved": {
+      "passed": 64,
+      "failed": 0
+    },
+    "shorthand": {
+      "passed": 64,
+      "failed": 0
+    },
+    "snapshot": {
+      "passed": 64,
+      "failed": 0
+    },
+    "sourceOrder": {
+      "passed": 64,
+      "failed": 0
+    },
+    "specificity": {
+      "passed": 64,
+      "failed": 0
+    },
+    "unlayered": {
+      "passed": 64,
+      "failed": 0
+    },
+    "unlayeredImportant": {
+      "passed": 64,
+      "failed": 0
+    },
+    "variables": {
+      "passed": 64,
+      "failed": 0
+    }
+  },
+  "scope": "Named, anonymous and nested author cascade layer ordering with supported native box properties. No complete CSS, revert-layer, imports, CSSOM or rendering parity claim."
+}

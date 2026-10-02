@@ -348,15 +348,25 @@ impl RuleBodyItemParser<'_, (String, Vec<Entry>), ()> for ListParser {
 
 impl Declarations {
     pub(crate) fn cascade<'a>(
-        sources: impl IntoIterator<Item = (&'a Self, bool, u32)>,
+        sources: impl IntoIterator<Item = (&'a Self, bool, u32, &'a [usize])>,
     ) -> Result<Self, &'static str> {
         let mut winners = std::collections::HashMap::new();
-        for (source, inline, specificity) in sources {
+        for (source, inline, specificity, layer) in sources {
             for entry in &source.entries {
-                let rank = (entry.important, inline, specificity);
+                let order: Vec<_> = layer
+                    .iter()
+                    .map(|value| {
+                        if entry.important {
+                            usize::MAX.saturating_sub(*value)
+                        } else {
+                            *value
+                        }
+                    })
+                    .collect();
+                let rank = (entry.important, inline, order, specificity);
                 let winner = winners
                     .entry(entry.name.clone())
-                    .or_insert_with(|| (rank, entry.clone()));
+                    .or_insert_with(|| (rank.clone(), entry.clone()));
                 if rank >= winner.0 {
                     *winner = (rank, entry.clone());
                 }

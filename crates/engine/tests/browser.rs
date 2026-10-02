@@ -83,6 +83,7 @@ fn script_fixture(script: &str) -> String {
 
 fn layout_fixture(path: &str) -> String {
     let script = match path {
+        "/layers" => include_str!("fixtures/layers.txt"),
         "/external-styles" => {
             return format!(
                 "<!doctype html><html><head><link id=\"initial\" rel=\"stylesheet\" href=\"/sheets-css/main?v=0\"></head><body><script>{}</script></body></html>",
@@ -153,7 +154,7 @@ fn serve(mut request: Request) -> io::Result<()> {
     let mut status = 200;
     let mut headers = Vec::new();
     let body = match request.url() {
-        "/cascade" | "/variables" | "/node-insertion" | "/intersections" | "/geometry" | "/external-styles" => layout_fixture(request.url()),
+        "/cascade" | "/variables" | "/node-insertion" | "/intersections" | "/geometry" | "/external-styles" | "/layers" => layout_fixture(request.url()),
         "/style-variables" => script_fixture(include_str!("fixtures/style-variables.txt")),
         "/styles" => script_fixture(include_str!("fixtures/styles.txt")),
         "/anchors" => format!("<base href=\"https://example.com/root/\"><a id=\"link\" href=\"../doc?q=1#fragment\">link</a><svg><a></a></svg><script>{}</script>", include_str!("fixtures/anchors.txt")),
@@ -1087,6 +1088,20 @@ fn external_stylesheets_load_through_http_and_update_native_cascade() -> TestRes
         .as_object()
         .ok_or("missing external stylesheet result")?;
     assert_eq!(fields.len(), 29);
+    assert!(
+        fields.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    Ok(())
+}
+
+#[test]
+fn cascade_layers_preserve_order_priority_and_nesting() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/layers"))?;
+    let result = page.evaluate("comparison")?;
+    let fields = result.as_object().ok_or("missing layer result")?;
+    assert_eq!(fields.len(), 30);
     assert!(
         fields.values().all(|value| *value == json!(true)),
         "{result}"
