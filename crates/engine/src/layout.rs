@@ -6,6 +6,23 @@ use taffy::{TaffyError, prelude::*};
 
 use crate::{Error, MediaEnvironment, Result, styles::Declarations};
 
+pub(crate) struct Work<'a> {
+    operations: &'a mut usize,
+    limit: usize,
+}
+impl<'a> Work<'a> {
+    pub(crate) fn new(operations: &'a mut usize, limit: usize) -> Self {
+        Self { operations, limit }
+    }
+    pub(crate) fn charge(&mut self) -> Result<()> {
+        if *self.operations >= self.limit {
+            return Err(Error::Limit("DOM operations"));
+        }
+        *self.operations = self.operations.saturating_add(1);
+        Ok(())
+    }
+}
+
 #[derive(Default, Serialize)]
 pub(crate) struct Bounds {
     x: f64,
@@ -53,6 +70,9 @@ fn style(node: NodeRef<'_>, declarations: &Declarations) -> Result<Style> {
         }};
     }
     for (name, value, deferred) in declarations.layout_entries() {
+        if name == "visibility" && (deferred || value == "collapse") {
+            return Err(unsupported("visibility"));
+        }
         if name.starts_with("--")
             || matches!(
                 name,
@@ -123,15 +143,18 @@ fn style(node: NodeRef<'_>, declarations: &Declarations) -> Result<Style> {
     Ok(style)
 }
 
-struct Tree<'a> {
+struct Tree<'a, 'b> {
     boxes: TaffyTree<()>,
     ids: HashMap<NodeId, taffy::NodeId>,
     styles: &'a HashMap<NodeId, Declarations>,
     visited: usize,
+    cascade: &'a crate::cascade::Cascade,
+    work: &'a mut Work<'b>,
 }
 
-impl Tree<'_> {
+impl Tree<'_, '_> {
     fn build(&mut self, node: NodeRef<'_>, depth: usize) -> Result<Option<taffy::NodeId>> {
+        self.work.charge()?;
         self.visited = self.visited.saturating_add(1);
         if self.visited > 1024 || depth > 128 {
             return Err(Error::Limit("layout tree"));
@@ -159,6 +182,7 @@ impl Tree<'_> {
             Declarations::parse(node.attr("style").as_deref().unwrap_or_default())
                 .map_err(|message| Error::Dom(message.into()))?
         };
+        let declarations = self.cascade.resolve(node, &declarations, self.work)?;
         let style = style(node, &declarations)?;
         if style.display == Display::None {
             return Ok(None);
@@ -192,7 +216,8 @@ pub(crate) fn bounds(
     target: NodeRef<'_>,
     styles: &HashMap<NodeId, Declarations>,
     media: &MediaEnvironment,
-) -> Result<(Bounds, usize)> {
+    work: &mut Work<'_>,
+) -> Result<Bounds> {
     if !target.is_element() {
         return Err(unsupported("non-element owner"));
     }
@@ -200,25 +225,9 @@ pub(crate) fn bounds(
         .ancestors_it(None)
         .any(|ancestor| ancestor.is_document())
     {
-        return Ok((Bounds::default(), 0));
+        return Ok(Bounds::default());
     }
-    let mut count = 0_usize;
-    for node in document.root().descendants_it() {
-        count = count.saturating_add(1);
-        if count > 1024 {
-            return Err(Error::Limit("layout tree"));
-        }
-        if (node.has_name("style") && !node.text().is_empty())
-            || (node.has_name("link")
-                && node.attr("rel").is_some_and(|value| {
-                    value
-                        .split_ascii_whitespace()
-                        .any(|part| part.eq_ignore_ascii_case("stylesheet"))
-                }))
-        {
-            return Err(unsupported("stylesheet cascade"));
-        }
-    }
+    let cascade = crate::cascade::Cascade::collect(document, media, work)?;
     let root = document
         .root()
         .children_it(false)
@@ -229,10 +238,12 @@ pub(crate) fn bounds(
         ids: HashMap::new(),
         styles,
         visited: 0,
+        cascade: &cascade,
+        work,
     };
     tree.boxes.disable_rounding();
     let Some(root_id) = tree.build(root, 0)? else {
-        return Ok((Bounds::default(), count));
+        return Ok(Bounds::default());
     };
     let width = f32::from(u16::try_from(media.width).map_err(|_error| unsupported("viewport"))?);
     let height = f32::from(u16::try_from(media.height).map_err(|_error| unsupported("viewport"))?);
@@ -246,7 +257,7 @@ pub(crate) fn bounds(
         )
         .map_err(|error| layout_error(&error))?;
     let Some(id) = tree.ids.get(&target.id) else {
-        return Ok((Bounds::default(), count));
+        return Ok(Bounds::default());
     };
     let measured = tree
         .boxes
@@ -273,5 +284,5 @@ pub(crate) fn bounds(
     {
         return Err(unsupported("non-finite geometry"));
     }
-    Ok((result, count))
+    Ok(result)
 }

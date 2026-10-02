@@ -1,0 +1,46 @@
+{
+  "recordedAt": "2026-10-02 01:37:59 UTC",
+  "reference": "Chromium 152, collaborative browser",
+  "fixture": "crates/engine/tests/fixtures/cascade.txt",
+  "environment": {
+    "width": 1024,
+    "height": 768,
+    "origin": "synthetic srcdoc frame"
+  },
+  "variants": {
+    "count": 64,
+    "first": 0,
+    "last": 63
+  },
+  "failureCounts": {
+    "attributes": 0,
+    "combinator": 0,
+    "declarationPriority": 0,
+    "important": 0,
+    "inline": 0,
+    "inlineImportant": 0,
+    "invalid": 0,
+    "isSpecificity": 0,
+    "matchingList": 0,
+    "mediaGroup": 0,
+    "mediaGroupOff": 0,
+    "mediaOff": 0,
+    "mediaOn": 0,
+    "movedSheet": 0,
+    "noRule": 0,
+    "notSpecificity": 0,
+    "order": 0,
+    "removal": 0,
+    "sheets": 0,
+    "shorthand": 0,
+    "specificity": 0,
+    "typeOff": 0,
+    "typeOn": 0,
+    "whereSpecificity": 0
+  },
+  "interpretation": {
+    "aggregateChecks": 24,
+    "referenceMatches": 24
+  },
+  "scope": "Author style elements and nested media groups driving native box measurements. No full cascade, inheritance, computed style, selector WPT, external stylesheet or rendering parity claim."
+}

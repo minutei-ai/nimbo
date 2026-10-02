@@ -33,6 +33,9 @@ const styleVariableScript = await Bun.file(
 const geometryScript = await Bun.file(
   join(import.meta.dir, "../crates/engine/tests/fixtures/geometry.txt"),
 ).text();
+const cascadeScript = await Bun.file(
+  join(import.meta.dir, "../crates/engine/tests/fixtures/cascade.txt"),
+).text();
 const requests: string[] = [];
 const comparisonBinary = process.env.NIMBO_COMPARE_OBSCURA_BINARY;
 async function comparePage(binary: string, url: string): Promise<unknown> {
@@ -393,6 +396,12 @@ const origin = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     requests.push(`${request.method} ${path}`);
+    if (path.startsWith("/cascade/")) {
+      const variant = Number(path.split("/").at(-1));
+      return new Response(`<script>globalThis.variant=${variant};${cascadeScript}</script>`, {
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
+    }
     if (path.startsWith("/geometry/")) {
       const variant = Number(path.split("/").at(-1));
       return new Response(`<script>globalThis.variant=${variant};${geometryScript}</script>`, {
@@ -1987,11 +1996,11 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
 test.each([
   ["text shaping", "el.textContent='real text';"],
   [
-    "stylesheet cascade",
-    "const css=document.createElement('style');css.textContent='div { width: 50px; }';document.body.appendChild(css);",
+    "stylesheet at-rule",
+    "const css=document.createElement('style');css.textContent='@supports (display: grid) {div {width: 50px;}}';document.body.appendChild(css);",
   ],
   [
-    "stylesheet cascade",
+    "external stylesheet",
     "const css=document.createElement('link');css.setAttribute('rel','stylesheet');document.body.appendChild(css);",
   ],
   ["transform", "el.style.transform='translateX(10px)';"],
@@ -2071,4 +2080,162 @@ test("real HTTP → workerd → Wasm: geometry charges the shared DOM operation 
   });
   expect(recovered.status).toBe(200);
   expect(await recovered.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: true });
+});
+
+const cascadeExpected = Object.fromEntries(
+  [
+    "specificity",
+    "inline",
+    "important",
+    "inlineImportant",
+    "order",
+    "sheets",
+    "movedSheet",
+    "matchingList",
+    "isSpecificity",
+    "whereSpecificity",
+    "notSpecificity",
+    "combinator",
+    "attributes",
+    "invalid",
+    "declarationPriority",
+    "shorthand",
+    "mediaGroup",
+    "mediaGroupOff",
+    "mediaOff",
+    "mediaOn",
+    "typeOff",
+    "typeOn",
+    "removal",
+    "noRule",
+  ].map((key) => [key, true]),
+);
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native author stylesheet cascade variant %i",
+  async (variant) => {
+    const url = new URL(`cascade/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "comparison" }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      url,
+      engine: "rust-wasm-quickjs",
+      value: cascadeExpected,
+    });
+    expect(requests).toContain(`GET /cascade/${variant}`);
+  },
+);
+
+test.each([
+  ["bytes", "'x'.repeat(65537)", "resource limit: stylesheet bytes"],
+  [
+    "selectors",
+    "Array.from({length:65},(_,i)=>'.x'+i).join(',')+'{width:1px}'",
+    "layout unsupported: stylesheet selectors",
+  ],
+  [
+    "rules",
+    "Array.from({length:1025},(_,i)=>'.x'+i+'{width:1px}').join('')",
+    "resource limit: stylesheet rules",
+  ],
+  [
+    "nesting",
+    "':is('.repeat(34)+'.x'+')'.repeat(34)+'{width:1px}'",
+    "resource limit: stylesheet nesting",
+  ],
+  ["nested rule", "'div { & div {width:1px;} }'", "layout unsupported: nested stylesheet rule"],
+  ["layer", "'@layer test {div {width:1px;}}'", "layout unsupported: stylesheet at-rule"],
+  [
+    "forgiving recovery",
+    "':is(.x, :bogus#never) {width:1px;}'",
+    "layout unsupported: forgiving selector recovery",
+  ],
+])(
+  "real HTTP → workerd → Wasm: stylesheet %s fails explicitly and releases the request",
+  async (_name, source, reason) => {
+    const url = new URL("geometry-empty", origin.url).href;
+    const expression = `(() => {const css=document.createElement('style');css.textContent=${source};document.body.appendChild(css);return document.body.getBoundingClientRect();})()`;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression }),
+    });
+    expect(response.status).toBe(422);
+    const message: unknown = expect.stringContaining(reason);
+    expect(await response.json()).toEqual({ error: message });
+    const recovered = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "document.body.getBoundingClientRect().width > 0" }),
+    });
+    expect(recovered.status).toBe(200);
+    expect(await recovered.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: true });
+  },
+);
+
+test.each([
+  [
+    "expanded declarations",
+    "for(let i=0;i<2;i++){const css=document.createElement('style');css.textContent='*{'+Array.from({length:600},(_,j)=>'--x_'+i+'_'+j+':1;').join('')+'}';document.body.appendChild(css);}",
+    "CSS declaration limit",
+  ],
+  [
+    "total bytes",
+    "for(let i=0;i<5;i++){const css=document.createElement('style');css.textContent='/*'+'x'.repeat(59996)+'*/';document.body.appendChild(css);}",
+    "resource limit: stylesheet total bytes",
+  ],
+  [
+    "total selectors",
+    "for(let i=0;i<17;i++){const css=document.createElement('style');css.textContent=Array.from({length:64},(_,j)=>'.x'+i+'_'+j).join(',')+'{width:1px}';document.body.appendChild(css);}",
+    "resource limit: stylesheet selectors",
+  ],
+])(
+  "real HTTP → workerd → Wasm: stylesheet %s quota is shared across sheets",
+  async (_name, setup, reason) => {
+    const url = new URL("geometry-empty", origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url,
+        expression: `(() => {${setup}return document.body.getBoundingClientRect();})()`,
+      }),
+    });
+    expect(response.status).toBe(422);
+    const message: unknown = expect.stringContaining(reason);
+    expect(await response.json()).toEqual({ error: message });
+    const recovered = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "document.body.getBoundingClientRect().width > 0" }),
+    });
+    expect(recovered.status).toBe(200);
+    expect(await recovered.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: true });
+  },
+);
+
+test("real HTTP → workerd → Wasm: failed stylesheet parsing preserves inline state and permits page reuse", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const expression = `(() => {
+    document.body.style.margin='0';const el=document.createElement('div');el.id='target';el.style.cssText='width:10px;height:5px';document.body.appendChild(el);
+    const css=document.createElement('style');css.textContent='#target {width:50px !important;}';document.body.appendChild(css);
+    const snapshot=el.getBoundingClientRect();const invalid=document.createElement('style');invalid.textContent='x'.repeat(65537);document.body.appendChild(invalid);
+    let failed=false;try{el.getBoundingClientRect();}catch(error){failed=error.message.includes('resource limit: stylesheet bytes');}
+    invalid.remove();const recovered=el.getBoundingClientRect().width===50;css.textContent='#target {width:60px !important;}';
+    return {failed,recovered,changed:el.getBoundingClientRect().width===60,snapshot:snapshot.width===50,inline:el.style.width==='10px'};
+  })()`;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({
+    url,
+    engine: "rust-wasm-quickjs",
+    value: { failed: true, recovered: true, changed: true, snapshot: true, inline: true },
+  });
 });

@@ -77,8 +77,9 @@ O binding opcional `EGRESS` implementa `fetch(Request): Promise<Response>`, perm
 | Redirects, cookies HttpOnly, isolamento entre páginas, liberação do Wasm           | Testados no workerd                                                     |
 | Limites de bytes, requests, DOM, heap JS, instruções e microtasks                  | Implementados; testes locais de falha e recuperação                     |
 | Proxy, deploy, custo, memória prolongada e throughput em produção                  | Pendentes                                                               |
-| Geometria de caixas inline block/flex e grid automático                            | Subconjunto nativo testado; textos, cascata e layout completo pendentes |
-| Cascata CSS, screenshots, Chromium/CDP, XHR e frames/idle                          | Não implementados                                                       |
+| Geometria de caixas block/flex e grid automático                                   | Subconjunto nativo testado; textos, cascata e layout completo pendentes |
+| Regras de style, prioridade, especificidade e grupos media                         | Subconjunto nativo testado; cascata completa pendente                   |
+| Cascata completa, screenshots, Chromium/CDP, XHR e frames/idle                     | Não implementados                                                       |
 | Modules com imports relativos, ciclos, bindings vivos e top-level await            | Testados no nativo e workerd                                            |
 | Import maps, JSON modules e carregamento de novos imports dinâmicos                | Não implementados; scripts async rejeitados                             |
 | localStorage/sessionStorage, cota UTF-16 e persistência entre navegações nativas   | Testados; Worker inicia áreas vazias por request                        |

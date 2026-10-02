@@ -344,6 +344,29 @@ impl RuleBodyItemParser<'_, (String, Vec<Entry>), ()> for ListParser {
 }
 
 impl Declarations {
+    pub(crate) fn cascade<'a>(
+        sources: impl IntoIterator<Item = (&'a Self, bool, u32)>,
+    ) -> Result<Self, &'static str> {
+        let mut winners = std::collections::HashMap::new();
+        for (source, inline, specificity) in sources {
+            for entry in &source.entries {
+                let rank = (entry.important, inline, specificity);
+                let winner = winners
+                    .entry(entry.name.clone())
+                    .or_insert_with(|| (rank, entry.clone()));
+                if rank >= winner.0 {
+                    *winner = (rank, entry.clone());
+                }
+                if winners.len() > ENTRY_LIMIT {
+                    return Err("CSS declaration limit");
+                }
+            }
+        }
+        Ok(Self {
+            entries: winners.into_values().map(|(_rank, entry)| entry).collect(),
+            shorthands: Vec::new(),
+        })
+    }
     pub(crate) fn layout_entries(&self) -> impl Iterator<Item = (&str, &str, bool)> {
         self.entries
             .iter()

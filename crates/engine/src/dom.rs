@@ -156,13 +156,19 @@ impl Dom {
     }
 
     fn bounds(&mut self, handle: usize) -> Result<Value> {
-        let target = self.node(handle)?;
-        let (rect, count) =
-            crate::layout::bounds(&self.document, target, &self.styles, &self.media)?;
-        self.operations = self.operations.saturating_add(count);
-        if self.operations > self.limits.max_dom_operations {
-            return Err(Error::Limit("DOM operations"));
-        }
+        let id = self
+            .handles
+            .get(handle)
+            .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
+        let target = self
+            .document
+            .tree
+            .get(id)
+            .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
+        let mut work =
+            crate::layout::Work::new(&mut self.operations, self.limits.max_dom_operations);
+        let rect =
+            crate::layout::bounds(&self.document, target, &self.styles, &self.media, &mut work)?;
         Ok(serde_json::to_value(rect)?)
     }
 
