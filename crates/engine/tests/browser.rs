@@ -1390,6 +1390,11 @@ fn registered_custom_properties_validate_before_substitution() -> TestResult {
 }
 
 fn serve_resource(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/text-adjust/")
+        || request.url().starts_with("/text-adjust-assets/")
+    {
+        return serve_text_adjust(request);
+    }
     if request.url().starts_with("/outlines/") || request.url().starts_with("/outline-assets/") {
         return serve_outlines(request);
     }
@@ -1541,6 +1546,8 @@ fn is_resource(path: &str) -> bool {
         "/layout-budget/",
         "/logical-size/",
         "/outlines/",
+        "/text-adjust/",
+        "/text-adjust-assets/",
         "/outline-assets/",
         "/canvas/",
         "/borders/",
@@ -1914,6 +1921,42 @@ fn serve_outlines(request: Request) -> io::Result<()> {
     let source = format!(
         "<!doctype html><meta charset=utf-8><link rel=stylesheet href=/outline-assets/{variant}><script>{}</script>",
         include_str!("fixtures/outlines.txt")
+    );
+    request.respond(Response::from_string(source).with_header(header("Content-Type", "text/html")?))
+}
+
+#[test]
+fn text_adjustment_real_http_cascade_and_aliases() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/text-adjust/{variant}")))?;
+        let result = page.evaluate(&format!("textAdjustCase({variant})"))?;
+        let fields = result.as_object().ok_or("missing text adjustment result")?;
+        assert_eq!(fields.len(), 44);
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+
+fn serve_text_adjust(request: Request) -> io::Result<()> {
+    if let Some(value) = request.url().strip_prefix("/text-adjust-assets/") {
+        let variant = value.parse::<u32>().map_err(io::Error::other)?;
+        return request.respond(
+            Response::from_string(format!(
+                "#external{{text-size-adjust:{}%}}",
+                variant.saturating_add(50)
+            ))
+            .with_header(header("Content-Type", "text/css")?),
+        );
+    }
+    let variant = request.url().strip_prefix("/text-adjust/").unwrap_or("0");
+    let source = format!(
+        "<!doctype html><meta charset=utf-8><link rel=stylesheet href=/text-adjust-assets/{variant}><script>{}</script>",
+        include_str!("fixtures/text-adjust.txt")
     );
     request.respond(Response::from_string(source).with_header(header("Content-Type", "text/html")?))
 }

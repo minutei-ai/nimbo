@@ -1763,3 +1763,35 @@ screenshots and broad browser/WPT parity remain pending.
 
 Public references: [CSS UI outlines](https://drafts.csswg.org/css-ui/#outline-width)
 and [CSSOM getComputedStyle](https://drafts.csswg.org/cssom/#dom-window-getcomputedstyle).
+
+## Native desktop text adjustment state
+
+The native declaration engine now canonicalizes `-webkit-text-size-adjust` to
+`text-size-adjust`. The alias shares declaration storage, CSSOM reads/writes,
+removal, importance and author cascade ordering. The `webkitTextSizeAdjust`
+JavaScript property maps to the same state. Nonnegative percentages, auto, none,
+CSS-wide keywords, variables and percentage math are syntax-checked natively.
+Negative literal percentages are rejected; negative calculated percentages clamp
+to zero at computed-value time. Calc serialization retains its calculated form;
+other math expressions retain their specified text rather than promising full
+browser token serialization.
+
+The font context inherits the computed adjustment state and exposes the seventh
+resolved property through the live read-only `getComputedStyle` facade. At the
+current desktop environment the property does not inflate font-size or alter box
+geometry. The observed Chromium resolved serialization of none is 100%, while
+the inline declaration retains none. This is desktop state and resolution;
+mobile device classification, automatic text inflation, glyph shaping, wrapping
+and mobile text metrics remain unimplemented.
+
+The shared HTTP fixture passes 44 checks across 64 native Rust navigations and
+64 workerd/Wasm requests, with actual external CSS fetched over HTTP. All 2816
+checks also pass in Chromium; see
+[the aggregate](evidence/text-adjust-chromium.json). Coverage includes alias
+source order and importance, layers, specificity, variable substitution,
+inheritance/defaulting, min/max/clamp/calc percentage values, invalid declarations,
+canonical alias CSSOM storage, mutation/removal, read-only alias writes,
+detach/reattach, live parent/sheet mutations and unchanged empty-box geometry.
+This does not establish complete CSS mobile text adjustment or browser parity.
+
+Public reference: [CSS Mobile Text Size Adjustment](https://drafts.csswg.org/css-size-adjust/#adjustment-control).

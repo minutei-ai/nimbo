@@ -16,12 +16,16 @@ fn unsupported(detail: &str) -> Error {
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) struct Context {
     size: f64,
+    adjustment: crate::text_adjust::Adjustment,
     root: f64,
     initial: f64,
     width: f64,
     height: f64,
 }
 impl Context {
+    pub(crate) fn adjustment(&self) -> Result<String> {
+        self.adjustment.value()
+    }
     pub(crate) fn size(&self) -> f64 {
         self.size
     }
@@ -29,6 +33,7 @@ impl Context {
         let size = f64::from(media.default_font_size);
         Self {
             size,
+            adjustment: crate::text_adjust::Adjustment::default(),
             root: size,
             initial: size,
             width: f64::from(media.width),
@@ -58,7 +63,13 @@ impl Context {
         if !size.is_finite() || size < 0.0 {
             return Err(unsupported("non-finite font-size"));
         }
+        let (value, _) = declarations.value("text-size-adjust");
+        if !value.is_empty() {
+            work.charge()?;
+        }
+        let adjustment = self.adjustment.compute(&value)?;
         Ok(Self {
+            adjustment,
             size,
             root: if root { size } else { self.root },
             ..*self

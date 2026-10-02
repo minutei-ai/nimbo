@@ -1765,6 +1765,7 @@
   function styleName(key: PropertyKey): string | null {
     if (typeof key !== "string" || key.startsWith("--")) return null;
     if (key === "cssFloat") return "float";
+    if (key === "webkitTextSizeAdjust") return "text-size-adjust";
     return key.includes("-") ? key : key.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
   }
   function inlineStyle(owner: object, computed = false): CSSStyleProperties {

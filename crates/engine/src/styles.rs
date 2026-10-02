@@ -132,11 +132,16 @@ fn deferred_value(value: &str) -> Option<bool> {
     components(&mut Parser::new(&mut input), 0, true).ok()
 }
 
-fn property_name(name: &str) -> String {
+pub(crate) fn property_name(name: &str) -> String {
     if name.starts_with("--") {
         name.to_owned()
     } else {
-        name.to_ascii_lowercase()
+        let name = name.to_ascii_lowercase();
+        if name == "-webkit-text-size-adjust" {
+            "text-size-adjust".into()
+        } else {
+            name
+        }
     }
 }
 
@@ -342,6 +347,7 @@ fn native_property(name: &str, value: &str, important: bool) -> Option<Vec<Entry
     let value = match name {
         "float" | "clear" | "writing-mode" => native_keyword(name, value)?,
         "content" => content_value(value)?,
+        "text-size-adjust" => crate::text_adjust::specified(value)?,
         "outline-offset" | "outline-color" => outline_native_value(name, value)?,
         _ => return None,
     };
@@ -410,7 +416,7 @@ fn expand(name: &str, value: &str, important: bool) -> Option<Vec<Entry>> {
     }
     if matches!(
         name,
-        "float" | "clear" | "writing-mode" | "content" | "outline-offset"
+        "float" | "clear" | "writing-mode" | "content" | "outline-offset" | "text-size-adjust"
     ) || (name == "outline-color" && value.eq_ignore_ascii_case("auto"))
     {
         return native_property(name, value, important);

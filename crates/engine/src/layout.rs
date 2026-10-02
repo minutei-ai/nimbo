@@ -179,6 +179,7 @@ fn non_layout(name: &str) -> bool {
             | "container-name"
             | "container-type"
             | "font-size"
+            | "text-size-adjust"
             | "border-top-color"
             | "border-right-color"
             | "border-bottom-color"

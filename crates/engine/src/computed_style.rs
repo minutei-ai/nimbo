@@ -6,13 +6,14 @@ use crate::{
     styles::{Declarations, Variables},
 };
 
-pub(crate) const PROPERTIES: [&str; 6] = [
+pub(crate) const PROPERTIES: [&str; 7] = [
     "color",
     "font-size",
     "outline-color",
     "outline-offset",
     "outline-style",
     "outline-width",
+    "text-size-adjust",
 ];
 
 pub(crate) struct Computed {
@@ -21,7 +22,11 @@ pub(crate) struct Computed {
 }
 impl Computed {
     pub(crate) fn value(&self, name: &str) -> Result<String> {
-        self.outlines.value(name, &self.fonts)
+        if name == "text-size-adjust" {
+            self.fonts.adjustment()
+        } else {
+            self.outlines.value(name, &self.fonts)
+        }
     }
 }
 

@@ -1,3 +1,4 @@
+import { textAdjustFixture } from "./text-adjust-fixture";
 import { outlineFixture } from "./outline-fixture";
 import { layoutBudgetFixture } from "./layout-budget-fixture";
 import { logicalSizeFixture } from "./logical-size-fixture";
@@ -416,6 +417,8 @@ const origin = Bun.serve({
     requests.push(`${request.method} ${path}`);
     const layoutBudget = layoutBudgetFixture(path);
     if (layoutBudget) return layoutBudget;
+    const adjustment = await textAdjustFixture(path);
+    if (adjustment) return adjustment;
     const outline = await outlineFixture(path);
     if (outline) return outline;
     const logicalSize = await logicalSizeFixture(path);
@@ -4713,7 +4716,7 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
   expect(await response.json()).toMatchObject({
     value: {
       font: "18px",
-      count: 6,
+      count: 7,
       names: [
         "color",
         "font-size",
@@ -4721,7 +4724,27 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
         "outline-offset",
         "outline-style",
         "outline-width",
+        "text-size-adjust",
       ],
     },
   });
 });
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: text adjustment cascade variant %i",
+  async (variant) => {
+    const url = new URL(`text-adjust/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: `textAdjustCase(${variant})` }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing adjustment values");
+    expect(Object.keys(value)).toHaveLength(44);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);

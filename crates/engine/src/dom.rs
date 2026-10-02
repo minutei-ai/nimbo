@@ -264,11 +264,7 @@ impl Dom {
     }
 
     fn computed_style(&mut self, handle: usize, operation: &str, name: &str) -> Result<Value> {
-        let property_name = if name.starts_with("--") {
-            name.to_owned()
-        } else {
-            name.to_ascii_lowercase()
-        };
+        let property_name = crate::styles::property_name(name);
         let name = property_name.as_str();
         let node = self
             .handles
