@@ -1,0 +1,30 @@
+globalThis.cssBudgetCase = async (variant) => {
+  const checks = {};
+  const box = document.getElementById('target');
+  const measure = () => box.getBoundingClientRect();
+  const initial = measure();
+  checks.width = initial.width === variant + 300;
+  checks.height = initial.height === variant + 20;
+  checks.inline = document.getElementById('inline').textContent.length > 100000;
+  checks.fontRegistered = document.fonts.size === 1;
+  checks.unloaded = [...document.fonts][0].status === 'unloaded';
+  const fonts = await document.fonts.load(`12px BudgetFont${variant}`, 'A');
+  checks.fontLoaded = fonts.length === 1 && fonts[0].status === 'loaded';
+  checks.fontCheck = document.fonts.check(`12px BudgetFont${variant}`, 'A');
+  const link = document.getElementById('first');
+  await new Promise(resolve => {
+    link.addEventListener('load', resolve, {once:true});
+    link.setAttribute('href', `/css-budget-assets/replacement/${variant}`);
+  });
+  checks.replacement = measure().width === variant + 400;
+  checks.remaining = measure().height === variant + 20;
+  document.getElementById('second').remove();
+  checks.removal = measure().height === 15;
+  const extra = document.createElement('style');
+  extra.textContent = '/*'+'x'.repeat(160000)+'*/#target{height:33px}';
+  document.head.appendChild(extra);
+  checks.mutation = measure().height === 33;
+  extra.remove();
+  checks.recovery = measure().height === 15;
+  return checks;
+};

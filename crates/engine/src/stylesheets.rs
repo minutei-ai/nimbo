@@ -15,6 +15,7 @@ pub(crate) struct Sheets {
     origin: Url,
     loaded: HashMap<NodeId, Sheet>,
     bytes: usize,
+    max_bytes: usize,
 }
 
 pub(crate) fn is_stylesheet(node: NodeRef<'_>) -> bool {
@@ -26,12 +27,17 @@ pub(crate) fn is_stylesheet(node: NodeRef<'_>) -> bool {
 }
 
 impl Sheets {
-    pub(crate) fn new(origin: Url) -> Self {
+    pub(crate) fn new(origin: Url, max_bytes: usize) -> Self {
         Self {
             origin,
             loaded: HashMap::new(),
             bytes: 0,
+            max_bytes,
         }
+    }
+
+    pub(crate) fn max_bytes(&self) -> usize {
+        self.max_bytes
     }
 
     fn url(&self, node: NodeRef<'_>, base: Option<&str>) -> Result<Option<String>> {
@@ -177,7 +183,7 @@ impl Sheets {
             .bytes
             .saturating_sub(previous)
             .saturating_add(source.len());
-        if bytes > 262_144 {
+        if bytes > self.max_bytes {
             return Err(Error::Limit("stylesheet total bytes"));
         }
         self.bytes = bytes;

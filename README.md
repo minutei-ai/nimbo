@@ -55,6 +55,8 @@ O núcleo Rust é uma máquina que produz ações HTTP e recebe respostas. Não 
 
 Para HTML renderizado no servidor, envie `"scripts": "skip"`: scripts inline, externos, modules e async não executam nem são carregados. A expressão de extração continua usando o DOM recebido e QuickJS. O padrão `"scripts": "execute"` mantém a execução e as rejeições de scripts não suportados; não há fallback automático para conteúdo estático. Esse modo não hidrata aplicações nem produz conteúdo que depende de JavaScript.
 
+O campo opcional `maxStylesheetBytes` configura o orçamento de CSS por página, de 1 byte a 2 MiB no Worker; o padrão é 256 KiB. Ele limita cada stylesheet, o texto CSS das folhas ativas e o cache de respostas CSS carregadas. Por exemplo, `"maxStylesheetBytes": 1048576` permite até 1 MiB. O orçamento de respostas HTTP, as cotas de regras/seletores e o deadline continuam aplicáveis. Na biblioteca Rust, configure `Limits::max_stylesheet_bytes`.
+
 O artefato inclui o módulo Wasm pré-compilado e o secret `API_TOKEN`. A stack em `apps/infrastructure/alchemy.run.ts` usa o recurso nativo Worker do Alchemy com `bundle: false`, preservando o JavaScript e o módulo Wasm produzidos pelo build. `NIMBO_API_TOKEN` vem do ambiente privado e é declarado como secret via `Config.Redacted`; autenticação Cloudflare usa o fluxo nativo do Alchemy. Nenhuma credencial acompanha o projeto.
 
 ```sh
@@ -94,7 +96,7 @@ O binding opcional `EGRESS` implementa `fetch(Request): Promise<Response>`, perm
 | HTMLAnchorElement, componentes URL, relList e base do documento                    | Testados; navegação e processamento de links pendentes                  |
 | Frames                                                                             | Rejeitados explicitamente                                               |
 
-Scripts executam em ordem após parsing completo. Fetch suporta `method`/corpo string, `status`/`ok`/`url`, `text()` e `json()`. Não implementa headers customizados nem CORS entre origens. HTML e respostas devem ser UTF-8; imagens e estilos não são carregados. Não equivale à compatibilidade de Chromium.
+Scripts executam em ordem após parsing completo. Fetch suporta `method`/corpo string, `status`/`ok`/`url`, `text()` e `json()`. Não implementa headers customizados nem CORS entre origens. HTML e respostas devem ser UTF-8; imagens não são carregadas; stylesheets externos são carregados no subconjunto CSS documentado. Não equivale à compatibilidade de Chromium.
 
 Callbacks de timers executam no QuickJS da página; o host fornece tempo monotônico e atende esperas. Uma Promise de extração pendente avança tarefas futuras; uma extração já resolvida não espera todos os timers. O transporte HTTP permanece serializado. Os limites são 1024 timers pendentes e 10 mil callbacks por página, além do deadline total.
 

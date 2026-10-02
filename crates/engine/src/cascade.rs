@@ -449,9 +449,7 @@ fn sheet(
     parent: &[usize],
     containers: &[std::rc::Rc<crate::containers::Query>],
 ) -> Result<Vec<Rule>> {
-    if source.len() > 262_144 {
-        return Err(Error::Limit("stylesheet bytes"));
-    }
+    // Cascade::collect validates the whole sheet; nested groups are slices of it.
     let mut input = ParserInput::new(source);
     let mut parser = Parser::new(&mut input);
     consume(&mut parser, 0).map_err(|_error| Error::Limit("stylesheet nesting"))?;
@@ -544,11 +542,11 @@ impl Cascade {
             } else {
                 node.text().to_string()
             };
-            if source.len() > 262_144 {
+            if source.len() > sheets.max_bytes() {
                 return Err(Error::Limit("stylesheet bytes"));
             }
             bytes = bytes.saturating_add(source.len());
-            if bytes > 262_144 {
+            if bytes > sheets.max_bytes() {
                 return Err(Error::Limit("stylesheet total bytes"));
             }
             let source_base = if external {

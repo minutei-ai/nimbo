@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-02",
+  "browser": "Chromium 152.0.7977.130",
+  "fixture": "crates/engine/tests/fixtures/css-budget.txt",
+  "execution": "64 fresh UTF-8 documents and actual HTTP stylesheets/font downloads in the collaborative browser",
+  "variants": 64,
+  "checksPerVariant": 12,
+  "passingVariantsByCheck": {
+    "fontCheck": 64,
+    "fontLoaded": 64,
+    "fontRegistered": 64,
+    "height": 64,
+    "inline": 64,
+    "mutation": 64,
+    "recovery": 64,
+    "remaining": 64,
+    "removal": 64,
+    "replacement": 64,
+    "unloaded": 64,
+    "width": 64
+  },
+  "limitations": [
+    "This tests parsing and application of large stylesheets in the existing supported cascade and empty-box layout subset, not full CSS compatibility.",
+    "The fixture has over 256 KiB of UTF-8 CSS in a nested media group and over 256 KiB of combined sheet sources. It uses an owned static TrueType font.",
+    "Nimbo budget configuration and exhaustion are verified by actual native/workerd integration tests. Chromium is a behavior comparator, not proof of Nimbo quota enforcement.",
+    "Deployed Worker CPU/memory behavior, dense production rule counts, text shaping and broader matching remain unverified."
+  ]
+}

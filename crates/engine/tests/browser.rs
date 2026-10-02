@@ -1390,6 +1390,10 @@ fn registered_custom_properties_validate_before_substitution() -> TestResult {
 }
 
 fn serve_resource(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/css-budget/") || request.url().starts_with("/css-budget-assets/")
+    {
+        return serve_css_budget(request);
+    }
     if request.url().starts_with("/font-assets/")
         || request.url().starts_with("/font-loading/")
         || request.url().starts_with("/font-matching/")
@@ -1513,6 +1517,8 @@ fn binary_font_data_parses_real_bytes_and_tracks_status() -> TestResult {
 fn is_resource(path: &str) -> bool {
     [
         "/sheets-css/",
+        "/css-budget/",
+        "/css-budget-assets/",
         "/binary/",
         "/font-assets/",
         "/font-loading/",
@@ -1597,5 +1603,100 @@ fn font_matching_selects_and_loads_real_http_fonts() -> TestResult {
             "variant {variant}: {result}"
         );
     }
+    Ok(())
+}
+
+fn serve_css_budget(request: Request) -> io::Result<()> {
+    let path = request.url();
+    let variant = path
+        .rsplit('/')
+        .next()
+        .unwrap_or_default()
+        .parse::<usize>()
+        .unwrap_or_default();
+    let (source, mime) = if path.starts_with("/css-budget/") {
+        (
+            format!(
+                "<!doctype html><meta charset=utf-8><style id=inline>/*{}*/#target{{width:10px;height:15px}}</style><link id=first rel=stylesheet href='/css-budget-assets/first/{variant}'><link id=second rel=stylesheet href='/css-budget-assets/second/{variant}'><div id=target></div><script>{}</script>",
+                "x".repeat(120_000),
+                include_str!("fixtures/css-budget.txt")
+            ),
+            "text/html; charset=utf-8",
+        )
+    } else if path.starts_with("/css-budget-assets/first/") {
+        (
+            format!(
+                "@media (min-width:1px){{/*{}*/#target{{width:{}px}}@font-face{{font-family:BudgetFont{variant};src:url('/font-assets/font/{variant}')}}}}",
+                "é".repeat(150_000),
+                variant.saturating_add(300)
+            ),
+            "text/css; charset=utf-8",
+        )
+    } else if path.starts_with("/css-budget-assets/replacement/") {
+        (
+            format!(
+                "/*{}*/#target{{width:{}px}}",
+                "x".repeat(320_000),
+                variant.saturating_add(400)
+            ),
+            "text/css; charset=utf-8",
+        )
+    } else {
+        (
+            format!(
+                "/*{}*/#target{{height:{}px}}",
+                "x".repeat(150_000),
+                variant.saturating_add(20)
+            ),
+            "text/css; charset=utf-8",
+        )
+    };
+    request.respond(Response::from_data(source).with_header(header("Content-Type", mime)?))
+}
+
+#[test]
+fn configured_stylesheet_budget_parses_large_real_http_sheets() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = Browser::new(
+        &fixture.url,
+        Limits {
+            max_stylesheet_bytes: 700_000,
+            ..Limits::default()
+        },
+    )?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/css-budget/{variant}")))?;
+        let result = page.evaluate(&format!("cssBudgetCase({variant})"))?;
+        let fields = result.as_object().ok_or("missing CSS budget result")?;
+        assert_eq!(fields.len(), 12);
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn stylesheet_budget_configuration_rejects_limits_and_recovers() -> TestResult {
+    let fixture = Fixture::new()?;
+    assert!(
+        Browser::new(
+            &fixture.url,
+            Limits {
+                max_stylesheet_bytes: 0,
+                ..Limits::default()
+            }
+        )
+        .is_err()
+    );
+    let browser = fixture.browser()?;
+    let failed = browser.navigate(&fixture.path("/css-budget/130"));
+    assert!(matches!(
+        failed,
+        Err(Error::Limit("stylesheet total bytes"))
+    ));
+    let page = browser.navigate(&fixture.path("/empty-layout"))?;
+    assert_eq!(page.evaluate("true")?, json!(true));
     Ok(())
 }

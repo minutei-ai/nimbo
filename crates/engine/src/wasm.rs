@@ -25,6 +25,7 @@ impl fmt::Debug for WasmPage {
 impl WasmPage {
     /// Cria uma página com os limites padrão e sem acesso direto ao runtime do Worker.
     /// `execute_scripts` omitido executa scripts; false extrai somente o HTML recebido.
+    /// `max_stylesheet_bytes` configura o orçamento CSS, até o teto de resposta padrão.
     ///
     /// # Errors
     /// Retorna falha de URL, HTML, scripts, alocação ou inicialização do motor.
@@ -34,6 +35,7 @@ impl WasmPage {
         url: &str,
         execute_scripts: Option<bool>,
         media: Option<String>,
+        max_stylesheet_bytes: Option<usize>,
     ) -> Result<Self, String> {
         let media: MediaEnvironment = media
             .map_or_else(
@@ -42,10 +44,17 @@ impl WasmPage {
             )
             .map_err(|error| error.to_string())?;
         media.validate().map_err(|error| error.to_string())?;
+        let mut limits = Limits::default();
+        if let Some(bytes) = max_stylesheet_bytes {
+            if bytes == 0 || bytes > limits.max_response_bytes {
+                return Err("resource limit: invalid stylesheet byte configuration".into());
+            }
+            limits.max_stylesheet_bytes = bytes;
+        }
         Machine::new(
             html,
             url,
-            Limits::default(),
+            limits,
             Arc::new(|| false),
             execute_scripts.unwrap_or(true),
             std::rc::Rc::default(),
@@ -113,5 +122,5 @@ impl WasmPage {
 #[must_use]
 pub fn engine_limits() -> String {
     let limits = Limits::default();
-    serde_json::json!({ "timeoutMs": limits.timeout.as_millis(), "maxResponseBytes": limits.max_response_bytes, "maxRequests": limits.max_requests, "maxExpressionBytes": limits.max_expression_bytes }).to_string()
+    serde_json::json!({ "timeoutMs": limits.timeout.as_millis(), "maxResponseBytes": limits.max_response_bytes, "maxStylesheetBytes": limits.max_stylesheet_bytes, "maxRequests": limits.max_requests, "maxExpressionBytes": limits.max_expression_bytes }).to_string()
 }

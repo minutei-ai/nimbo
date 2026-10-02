@@ -1,3 +1,4 @@
+import { cssBudgetFixture } from "./css-budget-fixture";
 import { fontFixture } from "./font-fixture";
 import { binaryFixture } from "./binary-fixture";
 import { externalStylePage, externalStyleResponse } from "./external-styles-fixture";
@@ -408,6 +409,8 @@ const origin = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     requests.push(`${request.method} ${path}`);
+    const cssBudget = await cssBudgetFixture(path);
+    if (cssBudget) return cssBudget;
     const font = await fontFixture(path);
     if (font) return font;
     const binary = binaryFixture(path);
@@ -4083,3 +4086,98 @@ test.each([
   expect(healthy.status).toBe(200);
   expect(await healthy.json()).toMatchObject({ value: true });
 });
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: configured stylesheet budget variant %i",
+  async (variant) => {
+    const url = new URL(`css-budget/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url,
+        maxStylesheetBytes: 700000,
+        expression: `cssBudgetCase(${variant})`,
+      }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing checks");
+    expect(Object.keys(value)).toHaveLength(12);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each([0, -1, 1.5, 2097153, "700000", true, null, {}])(
+  "real HTTP → workerd → Wasm: invalid stylesheet budget %j is rejected before navigation",
+  async (maxStylesheetBytes) => {
+    const url = new URL("css-budget/130", origin.url).href;
+    const count = requests.length;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, maxStylesheetBytes, expression: "true" }),
+    });
+    expect(response.status).toBe(400);
+    expect(requests.length).toBe(count);
+  },
+);
+
+test.each([
+  {
+    name: "default downloaded bytes",
+    path: "css-budget/130",
+    expression: "true",
+    maxStylesheetBytes: undefined,
+    reason: "stylesheet total bytes",
+  },
+  {
+    name: "configured downloaded bytes",
+    path: "css-budget/131",
+    expression: "true",
+    maxStylesheetBytes: 290000,
+    reason: "stylesheet total bytes",
+  },
+  {
+    name: "configured single inline bytes",
+    path: "geometry-empty",
+    expression:
+      "(()=>{const s=document.createElement('style');s.textContent='/*'+'é'.repeat(150000)+'*/';document.head.appendChild(s);return document.body.getBoundingClientRect()})()",
+    maxStylesheetBytes: 290000,
+    reason: "stylesheet bytes",
+  },
+  {
+    name: "configured combined inline bytes",
+    path: "geometry-empty",
+    expression:
+      "(()=>{for(let i=0;i<2;i++){const s=document.createElement('style');s.textContent='/*'+'x'.repeat(180000)+'*/';document.head.appendChild(s)}return document.body.getBoundingClientRect()})()",
+    maxStylesheetBytes: 300000,
+    reason: "stylesheet total bytes",
+  },
+])(
+  "real HTTP → workerd → Wasm: $name limit and fresh recovery",
+  async ({ path, expression, maxStylesheetBytes, reason }) => {
+    const url = new URL(path, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression, maxStylesheetBytes }),
+    });
+    expect(response.status).toBe(422);
+    expect(await response.text()).toContain(reason);
+    const healthyUrl = new URL("css-budget/132", origin.url).href;
+    const healthy = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: healthyUrl,
+        expression: "document.getElementById('target').getBoundingClientRect().width",
+        maxStylesheetBytes: 700000,
+      }),
+    });
+    expect(healthy.status).toBe(200);
+    expect(await healthy.json()).toMatchObject({ value: 432 });
+  },
+);

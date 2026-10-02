@@ -43,6 +43,7 @@ impl Browser {
             || limits.max_expression_bytes == 0
             || limits.timeout.is_zero()
             || limits.max_response_bytes == 0
+            || limits.max_stylesheet_bytes == 0
             || limits.max_requests == 0
             || limits.max_dom_operations == 0
             || limits.max_dom_write_bytes == 0

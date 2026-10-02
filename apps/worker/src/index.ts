@@ -62,6 +62,7 @@ const scrape = (request: Request, environment: Environment) =>
               response.url,
               input.scripts !== "skip",
               input.media === undefined ? undefined : JSON.stringify(input.media),
+              input.maxStylesheetBytes,
             ),
           catch: (cause) => failure(cause),
         }),

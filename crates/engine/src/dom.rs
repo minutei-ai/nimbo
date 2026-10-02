@@ -41,7 +41,7 @@ impl Dom {
             operations: 0,
             layout_version: 0,
             sheet_scan: None,
-            sheets: crate::stylesheets::Sheets::new(base),
+            sheets: crate::stylesheets::Sheets::new(base, limits.max_stylesheet_bytes),
             writes: 0,
             limits,
             media,

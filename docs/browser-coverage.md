@@ -21,7 +21,7 @@ tests as well as integration and application tests.
 
 `tooling/browser-live.test.ts` uses a real loopback HTTP origin, actual workerd,
 and the compiled Rust/Wasm engine. It installs no transport replacements,
-service mocks, browser API stubs, or canned engine results. Its 2752 data variants
+service mocks, browser API stubs, or canned engine results. Its 2816 data variants
 exercise external scripts, Unicode/entity decoding, selector identity,
 ancestry, removal/reparenting, attribute mutation and POST response decoding.
 They also exercise parsed and created text/comment nodes, native node identity,
@@ -45,15 +45,15 @@ failures. The eighth set exercises native Web Storage across inline, external
 and module scripts, UTF-16 including lone surrogates, coercion/receiver guards,
 named properties, reflection, removal, clearing and fresh Worker request areas.
 An additional case exercises actual quota exhaustion, atomic failure, independent
-local/session quotas and reuse. These are repeated integration checks, not 2752 independent platform
+local/session quotas and reuse. These are repeated integration checks, not 2816 independent platform
 features. The ninth set checks native media queries against 64 explicit viewport
 and preference configurations, including ranges, three-valued conditions,
 serialization, CSS escapes, receiver guards and synthetic MediaQueryList events.
 The tenth set rejects 64 invalid environment variants before any HTTP navigation.
 The eleventh set repeats the same DOMTokenList fixture at 64 distinct URLs,
 checking live attribute reads, ordered token mutations, identity, indices,
-iteration, receiver guards and atomic invalid-token rejection. Including one hundred and twenty-seven
-resource/deadline/origin and explicit-capability checks, the real browser suite has 2879 tests.
+iteration, receiver guards and atomic invalid-token rejection. Including one hundred and thirty-nine
+resource/deadline/origin and explicit-capability checks, the real browser suite has 2955 tests.
 The twelfth set checks HTML namespace identity and reflected attributes with
 64 distinct synthetic strings. It includes parsed SVG/MathML and an HTML
 subtree inside SVG foreignObject.
@@ -321,8 +321,8 @@ the forwarded request reaches the origin. These checks cover redirects,
 HTTP cookies, POST bodies, response errors, script skipping, isolation,
 resource limits and recovery. The HTTP cookie fixture does not test TLS or
 Secure cookie delivery. The seven lint/infrastructure checks spawn the actual
-pinned tools rather than replacing their behavior. All 2898 Bun tests therefore
-run without transport, browser or tool mocks; 2891 exercise the browser engine
+pinned tools rather than replacing their behavior. All 2974 Bun tests therefore
+run without transport, browser or tool mocks; 2967 exercise the browser engine
 and seven exercise tooling. Neither local suite proves deployed performance,
 TLS fingerprints, rendering or broad browser compatibility.
 
@@ -463,7 +463,8 @@ shared bytes/selectors/expanded declaration limits, nesting limits, unsupported
 scopes and nested rules, and unsupported forgiving recovery. Failure cases
 verify a fresh request; a separate case removes an oversized sheet and reuses
 the same page while preserving inline state and old rectangle snapshots.
-Limits are 256 KiB per active sheet, 256 KiB total active sheet text, 4096 rules
+The default byte limits are 256 KiB per active sheet and 256 KiB total active
+sheet text, configurable through the stylesheet budget described below; other limits are 4096 rules
 per sheet, 64 selectors per rule, 4096 selectors across active sheets, 32 nested
 blocks and 1024 winning expanded declarations per element. DOM traversal and
 selector comparisons charge the shared operation budget before doing the work,
@@ -1366,3 +1367,39 @@ An explicit resource load is not document.fonts.ready or text layout proof.
 
 Public references: [CSS Font Loading](https://www.w3.org/TR/css-font-loading-3/),
 [CSS Fonts matching](https://www.w3.org/TR/css-fonts-4/#font-matching-algorithm).
+
+## Configurable stylesheet byte budget
+
+Limits::max_stylesheet_bytes now sets the per-sheet and aggregate CSS source
+budget for the native engine. Optional Worker input maxStylesheetBytes selects
+1 through 2097152 bytes; omission retains the existing 262144-byte default.
+The Wasm constructor also rejects zero and values above the default HTTP
+response ceiling. Invalid Worker inputs reject before HTTP navigation.
+This option changes byte admission, not parser semantics or other resource
+budgets. HTTP responses remain cumulative and bounded at 2 MiB by default;
+rule/selector/nesting, DOM, QuickJS, font and deadline limits still apply.
+
+The cache checks the combined text of loaded external responses, accounting for
+replacement and disconnect cleanup. Cascade collection separately checks each
+active sheet and the combined active external/inline text. These are separate
+counters, not a combined count of both cached and inline sources. Nested media,
+support and layer groups inherit the admission of their enclosing sheet and
+retain nesting/rule limits; an obsolete hard-coded nested byte check was removed.
+Native CSS callbacks remain synchronous and are not preempted by the host timeout.
+Increasing the byte budget is not deployed CPU/memory sizing evidence.
+
+The shared fixture uses actual HTTP HTML, two external CSS responses, an inline
+sheet and an owned TrueType font. The first external response contains over
+256 KiB of UTF-8 CSS inside a media group; combined active CSS also exceeds the
+old limit. Twelve assertions across 64 native navigations and 64 workerd/Wasm
+requests verify final box dimensions, Unicode byte parsing, font registration
+and explicit loading, stylesheet replacement, disconnect, mutation and recovery.
+Twelve additional Worker cases verify invalid input types/ranges, unchanged
+default rejection, lower configured downloaded/inline limits and fresh recovery.
+A native test checks zero-budget rejection, default exhaustion and recovery.
+
+The same real fixture was independently run in 64 fresh collaborative Chromium
+152 documents. All twelve assertions matched in every variant; see
+[the aggregate](evidence/css-budget-chromium.json). This does not prove full
+CSS parsing, dense rule support, text layout, general browser parity or deployed
+capacity. The broad implementation goal and existing differences remain open.
