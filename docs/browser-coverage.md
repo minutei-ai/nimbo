@@ -21,7 +21,7 @@ tests as well as integration and application tests.
 
 `tooling/browser-live.test.ts` uses a real loopback HTTP origin, actual workerd,
 and the compiled Rust/Wasm engine. It installs no transport replacements,
-service mocks, browser API stubs, or canned engine results. Its 1920 data variants
+service mocks, browser API stubs, or canned engine results. Its 1984 data variants
 exercise external scripts, Unicode/entity decoding, selector identity,
 ancestry, removal/reparenting, attribute mutation and POST response decoding.
 They also exercise parsed and created text/comment nodes, native node identity,
@@ -45,7 +45,7 @@ failures. The eighth set exercises native Web Storage across inline, external
 and module scripts, UTF-16 including lone surrogates, coercion/receiver guards,
 named properties, reflection, removal, clearing and fresh Worker request areas.
 An additional case exercises actual quota exhaustion, atomic failure, independent
-local/session quotas and reuse. These are repeated integration checks, not 1920 independent platform
+local/session quotas and reuse. These are repeated integration checks, not 1984 independent platform
 features. The ninth set checks native media queries against 64 explicit viewport
 and preference configurations, including ranges, three-valued conditions,
 serialization, CSS escapes, receiver guards and synthetic MediaQueryList events.
@@ -53,7 +53,7 @@ The tenth set rejects 64 invalid environment variants before any HTTP navigation
 The eleventh set repeats the same DOMTokenList fixture at 64 distinct URLs,
 checking live attribute reads, ordered token mutations, identity, indices,
 iteration, receiver guards and atomic invalid-token rejection. Including sixty-eight
-resource/deadline/origin checks, the real browser suite has 1988 tests.
+resource/deadline/origin checks, the real browser suite has 2052 tests.
 The twelfth set checks HTML namespace identity and reflected attributes with
 64 distinct synthetic strings. It includes parsed SVG/MathML and an HTML
 subtree inside SVG foreignObject.
@@ -808,6 +808,30 @@ mocks. These checks verify Nimbo diagnostics and recovery; they do not establish
 browser CSS conformance or implement the unsupported rule and selector forms.
 CSS parsing and recovery remain governed by the
 [CSS Syntax specification](https://www.w3.org/TR/css-syntax-3/).
+
+### Document stylesheet host predicates
+
+Document stylesheets now compile :host and :host() as predicates that match
+no element outside a shadow matching context, as specified by
+[CSS Shadow](https://drafts.csswg.org/css-scoping/#host-selector).
+The existing typed selector parser validates syntax before token transformation.
+The matcher retains the original selector AST specificity, including the maximum
+specificity of functional selector lists. False host predicates participate
+normally in negation, relational selectors and forgiving lists rather than
+discarding an entire style rule. Attribute strings and escaped class names
+are preserved as literal selector data.
+
+A shared synthetic fixture passes 33 aggregate checks in the native browser,
+at 64 real Worker URLs and at the same 64 variants in actual Chromium 152.
+It measures native box widths after real stylesheet insertion and removal,
+including escapes, combinators, :not(), :is(), :where(), :has(), root variables,
+importance, layer/media/support groups and specificity. The public comparison
+record is [document-host-chromium.json](evidence/document-host-chromium.json).
+
+Shadow roots, shadow stylesheet matching, :host-context(), pseudo-element
+rendering, public selector API parity and full selector conformance remain
+required work. This document-context behavior does not establish those
+capabilities or introduce an Obscura runtime dependency.
 
 ## Native dataset attribute views
 

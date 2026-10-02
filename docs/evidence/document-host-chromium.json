@@ -1,0 +1,144 @@
+{
+  "browser": "Chromium 152.0.7977.130",
+  "fixture": "crates/engine/tests/fixtures/document-host.txt",
+  "variants": 64,
+  "frameViewport": {
+    "width": 1024,
+    "height": 768
+  },
+  "assertions": {
+    "attributeFalse": {
+      "passed": 64,
+      "failed": 0
+    },
+    "attributeLiteral": {
+      "passed": 64,
+      "failed": 0
+    },
+    "bare": {
+      "passed": 64,
+      "failed": 0
+    },
+    "child": {
+      "passed": 64,
+      "failed": 0
+    },
+    "descendant": {
+      "passed": 64,
+      "failed": 0
+    },
+    "doubleNegation": {
+      "passed": 64,
+      "failed": 0
+    },
+    "escaped": {
+      "passed": 64,
+      "failed": 0
+    },
+    "escapedClass": {
+      "passed": 64,
+      "failed": 0
+    },
+    "following": {
+      "passed": 64,
+      "failed": 0
+    },
+    "functional": {
+      "passed": 64,
+      "failed": 0
+    },
+    "functionalList": {
+      "passed": 64,
+      "failed": 0
+    },
+    "functionalNegation": {
+      "passed": 64,
+      "failed": 0
+    },
+    "has": {
+      "passed": 64,
+      "failed": 0
+    },
+    "hasNegation": {
+      "passed": 64,
+      "failed": 0
+    },
+    "is": {
+      "passed": 64,
+      "failed": 0
+    },
+    "isNegation": {
+      "passed": 64,
+      "failed": 0
+    },
+    "isOnly": {
+      "passed": 64,
+      "failed": 0
+    },
+    "layer": {
+      "passed": 64,
+      "failed": 0
+    },
+    "list": {
+      "passed": 64,
+      "failed": 0
+    },
+    "media": {
+      "passed": 64,
+      "failed": 0
+    },
+    "negation": {
+      "passed": 64,
+      "failed": 0
+    },
+    "notList": {
+      "passed": 64,
+      "failed": 0
+    },
+    "notMatchingList": {
+      "passed": 64,
+      "failed": 0
+    },
+    "recovery": {
+      "passed": 64,
+      "failed": 0
+    },
+    "reverseList": {
+      "passed": 64,
+      "failed": 0
+    },
+    "rootList": {
+      "passed": 64,
+      "failed": 0
+    },
+    "sibling": {
+      "passed": 64,
+      "failed": 0
+    },
+    "specificity": {
+      "passed": 64,
+      "failed": 0
+    },
+    "supports": {
+      "passed": 64,
+      "failed": 0
+    },
+    "upper": {
+      "passed": 64,
+      "failed": 0
+    },
+    "where": {
+      "passed": 64,
+      "failed": 0
+    },
+    "whereImportant": {
+      "passed": 64,
+      "failed": 0
+    },
+    "whereSpecificity": {
+      "passed": 64,
+      "failed": 0
+    }
+  },
+  "scope": "Document stylesheet :host and :host() predicates, original specificity, selector composition and native box geometry. Does not prove shadow roots, host-context, pseudo-element rendering, selector APIs or full selector conformance."
+}

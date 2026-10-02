@@ -1,0 +1,58 @@
+globalThis.comparison = (() => {
+  const variant = Number(globalThis.variant || 0);
+  const target = document.createElement('div');
+  target.className = 'target';
+  target.id = 'target';
+  document.body.appendChild(target);
+  const base = document.createElement('style');
+  base.textContent = '.target{width:11px;height:5px}';
+  document.head.appendChild(base);
+  const cases = [
+    ['bare', ':host{width:37px}', 11],
+    ['functional', ':host(.target){width:37px}', 11],
+    ['escaped', ':h\\6fst{width:37px}', 11],
+    ['upper', ':HOST{width:37px}', 11],
+    ['list', ':host,.target{width:37px}', 37],
+    ['reverseList', '.target,:host{width:37px}', 37],
+    ['functionalList', ':host(#target),.target{width:37px}', 37],
+    ['negation', '.target:not(:host){width:37px}', 37],
+    ['functionalNegation', '.target:not(:host(.target)){width:37px}', 37],
+    ['doubleNegation', '.target:not(:not(:host)){width:37px}', 11],
+    ['is', ':is(:host,.target){width:37px}', 37],
+    ['isOnly', ':is(:host){width:37px}', 11],
+    ['where', ':where(:host,.target){width:37px}', 11],
+    ['whereImportant', ':where(:host,.target){width:37px!important}', 37],
+    ['isNegation', '.target:is(:not(:host)){width:37px}', 37],
+    ['notList', '.target:not(:host,.missing){width:37px}', 37],
+    ['notMatchingList', '.target:not(:host,.target){width:37px}', 11],
+    ['descendant', ':host .target{width:37px}', 11],
+    ['child', ':host>.target{width:37px}', 11],
+    ['sibling', ':host+.target{width:37px}', 11],
+    ['following', ':host~.target{width:37px}', 11],
+    ['has', '.target:has(:host){width:37px}', 11],
+    ['hasNegation', '.target:not(:has(:host)){width:37px}', 37],
+    ['specificity', ':is(:host(#other),.target){width:37px}.target{width:19px}', 37],
+    ['whereSpecificity', ':where(:host(#other),.target){width:37px}.target{width:19px}', 19],
+    ['media', '@media all{:host,.target{width:37px}}', 37],
+    ['supports', '@supports (width:1px){:host,.target{width:37px}}', 37],
+    ['layer', '@layer demo{:host,.target{width:37px!important}}', 37],
+    ['rootList', ':root,:host{--measure:37px}.target{width:var(--measure)}', 37],
+    ['attributeLiteral', '.target[data-value=":host"]{width:37px}', 37],
+    ['attributeFalse', '.target[data-value=":root"]{width:37px}', 11],
+    ['escapedClass', '.\\:host{width:37px}', 37],
+  ];
+  target.setAttribute('data-value', ':host');
+  target.className = 'target :host';
+  const result = {};
+  for (const [name, source, expected] of cases) {
+    const sheet = document.createElement('style');
+    sheet.textContent = '/* variant '+variant+' */'+source;
+    document.head.appendChild(sheet);
+    result[name] = target.getBoundingClientRect().width === expected;
+    sheet.remove();
+  }
+  result.recovery = target.getBoundingClientRect().width === 11;
+  base.remove();
+  target.remove();
+  return result;
+})();

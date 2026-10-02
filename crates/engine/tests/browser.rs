@@ -83,6 +83,12 @@ fn script_fixture(script: &str) -> String {
 
 fn layout_fixture(path: &str) -> String {
     let script = match path {
+        "/document-host" => {
+            return format!(
+                "<!doctype html><body>{}",
+                script_fixture(include_str!("fixtures/document-host.txt"))
+            );
+        }
         "/group-errors" => include_str!("fixtures/group-errors.txt"),
         "/dataset" => include_str!("fixtures/dataset.txt"),
         "/supports" => include_str!("fixtures/supports.txt"),
@@ -157,7 +163,7 @@ fn serve(mut request: Request) -> io::Result<()> {
     let mut status = 200;
     let mut headers = Vec::new();
     let body = match request.url() {
-        "/cascade" | "/variables" | "/node-insertion" | "/intersections" | "/geometry" | "/external-styles" | "/layers" | "/supports" | "/dataset" | "/group-errors" => layout_fixture(request.url()),
+        "/cascade" | "/variables" | "/node-insertion" | "/intersections" | "/geometry" | "/external-styles" | "/layers" | "/supports" | "/dataset" | "/group-errors" | "/document-host" => layout_fixture(request.url()),
         "/style-variables" => script_fixture(include_str!("fixtures/style-variables.txt")),
         "/styles" => script_fixture(include_str!("fixtures/styles.txt")),
         "/anchors" => format!("<base href=\"https://example.com/root/\"><a id=\"link\" href=\"../doc?q=1#fragment\">link</a><svg><a></a></svg><script>{}</script>", include_str!("fixtures/anchors.txt")),
@@ -1149,6 +1155,22 @@ fn nested_stylesheet_failures_preserve_their_cause_and_recover() -> TestResult {
     let result = page.evaluate("comparison")?;
     let fields = result.as_object().ok_or("missing group failure result")?;
     assert_eq!(fields.len(), 37);
+    assert!(
+        fields.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    Ok(())
+}
+
+#[test]
+fn document_stylesheets_evaluate_host_predicates_without_shadow_context() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/document-host"))?;
+    let result = page.evaluate("comparison")?;
+    let fields = result.as_object().ok_or("missing document host result")?;
+    assert_eq!(fields.len(), 33);
     assert!(
         fields.values().all(|value| *value == json!(true)),
         "{result}"

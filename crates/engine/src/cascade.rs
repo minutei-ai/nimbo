@@ -30,8 +30,10 @@ fn unsupported(detail: &str) -> Error {
 
 // The DOM matcher's :root predicate tests document nodes rather than their
 // root element. Its document predicate can identify the parent of the root
-// element in connected stylesheet matching. Keep the original AST specificity.
-fn root_predicate<'i>(
+// element in connected stylesheet matching. Document stylesheets have no shadow
+// matching context, so :host and :host() are false predicates, including within
+// negation or a selector list. Keep the original AST specificity in both cases.
+fn document_predicates<'i>(
     input: &mut Parser<'i, '_>,
 ) -> std::result::Result<String, ParseError<'i, &'static str>> {
     let mut output = String::new();
@@ -44,9 +46,19 @@ fn root_predicate<'i>(
             Token::Ident(name) if colon && name.eq_ignore_ascii_case("root") => {
                 output.push_str("is(:root > *)");
             }
+            Token::Ident(name) if colon && name.eq_ignore_ascii_case("host") => {
+                output.push_str("not(*)");
+            }
+            Token::Function(name) if colon && name.eq_ignore_ascii_case("host") => {
+                input.parse_nested_block(|nested| {
+                    consume(nested, 0)?;
+                    Ok(())
+                })?;
+                output.push_str("not(*)");
+            }
             Token::Function(_) | Token::ParenthesisBlock => {
                 output.push_str(&source);
-                output.push_str(&input.parse_nested_block(root_predicate)?);
+                output.push_str(&input.parse_nested_block(document_predicates)?);
                 output.push(')');
             }
             Token::SquareBracketBlock => {
@@ -244,7 +256,7 @@ impl<'i> QualifiedRuleParser<'i> for Rules<'_> {
                     .to_css_string(PrinterOptions::default())
                     .map_err(|_error| input.new_custom_error("stylesheet selector"))?;
                 let mut source_input = ParserInput::new(&source);
-                let source = root_predicate(&mut Parser::new(&mut source_input))
+                let source = document_predicates(&mut Parser::new(&mut source_input))
                     .map_err(|_error| input.new_custom_error("stylesheet selector"))?;
                 let matcher = Matcher::new(&source)
                     .map_err(|_error| input.new_custom_error("stylesheet selector"))?;

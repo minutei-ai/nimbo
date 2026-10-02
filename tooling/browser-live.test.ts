@@ -415,6 +415,18 @@ const origin = Bun.serve({
         headers: { "content-type": "text/html" },
       });
     }
+    if (path.startsWith("/document-host/")) {
+      const variant = Number(path.split("/").at(-1));
+      const source = await Bun.file(
+        join(import.meta.dir, "../crates/engine/tests/fixtures/document-host.txt"),
+      ).text();
+      return new Response(
+        `<!doctype html><body><script>globalThis.variant=${variant};${source}</script>`,
+        {
+          headers: { "content-type": "text/html" },
+        },
+      );
+    }
     if (path.startsWith("/group-errors/")) {
       const source = await Bun.file(
         join(import.meta.dir, "../crates/engine/tests/fixtures/group-errors.txt"),
@@ -2871,6 +2883,57 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
         expected[`${name}Recovery${depth}`] = true;
       }
     }
+    expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: expected });
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: document stylesheet host predicates variant %i",
+  async (variant) => {
+    const url = new URL(`document-host/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "comparison" }),
+    });
+    expect(response.status).toBe(200);
+    const expected = Object.fromEntries(
+      [
+        "bare",
+        "functional",
+        "escaped",
+        "upper",
+        "list",
+        "reverseList",
+        "functionalList",
+        "negation",
+        "functionalNegation",
+        "doubleNegation",
+        "is",
+        "isOnly",
+        "where",
+        "whereImportant",
+        "isNegation",
+        "notList",
+        "notMatchingList",
+        "descendant",
+        "child",
+        "sibling",
+        "following",
+        "has",
+        "hasNegation",
+        "specificity",
+        "whereSpecificity",
+        "media",
+        "supports",
+        "layer",
+        "rootList",
+        "attributeLiteral",
+        "attributeFalse",
+        "escapedClass",
+        "recovery",
+      ].map((key) => [key, true]),
+    );
     expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: expected });
   },
 );
