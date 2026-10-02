@@ -6,9 +6,10 @@ use crate::{
     styles::{Declarations, Variables},
 };
 
-pub(crate) const PROPERTIES: [&str; 8] = [
+pub(crate) const PROPERTIES: [&str; 9] = [
     "color",
     "font-size",
+    "line-height",
     "outline-color",
     "outline-offset",
     "outline-style",
@@ -23,7 +24,9 @@ pub(crate) struct Computed {
 }
 impl Computed {
     pub(crate) fn value(&self, name: &str) -> Result<String> {
-        if name == "tab-size" {
+        if name == "line-height" {
+            self.fonts.line_height()
+        } else if name == "tab-size" {
             self.fonts.tabs()
         } else if name == "text-size-adjust" {
             self.fonts.adjustment()

@@ -1826,3 +1826,38 @@ unit and text shaping, then verify fresh-request recovery. Empty box dimensions
 remain unchanged; no text-rendering or full CSS Text parity is claimed.
 
 Public reference: [CSS Text tab-size](https://drafts.csswg.org/css-text-3/#tab-size-property).
+
+## Native resolved line-height values
+
+The native font context now retains line-height as normal, a unitless multiplier
+or a computed absolute length. Multipliers remain unitless during inheritance
+and resolve against each element's own font size when read. Percentages and
+contextual lengths become absolute computed lengths before inheritance.
+Thus 1.5 on a 20px parent resolves to 60px on a 40px child, while the same
+parent's 150% or 1.5em remains 30px on that child. Initial normal remains the
+normal keyword; the engine does not invent a font-metric line height.
+
+Numbers, percentages, lengths, contextual math, min/max/clamp and variables use
+native typed parsing and the existing shared operation budget. Negative literal
+values are rejected; negative calculated values clamp to zero. The read-only
+live getComputedStyle facade now exposes line-height as its ninth property.
+Length serialization is shared with tab-size and retains six significant
+digits; the small-length test compares numeric values instead of exact browser
+token serialization. CSS function detection is shared with the other native
+typographic declarations instead of duplicated across modules.
+
+The shared real HTTP fixture passes 51 checks across 64 native Rust navigations
+and 64 workerd/Wasm requests, including real external stylesheet fetches.
+All 3264 checks also pass in Chromium; see
+[the aggregate](evidence/line-height-chromium.json). Coverage includes typed
+inheritance, defaulting, math, variable substitution, layers/importance,
+specificity/source order, inline origin, invalid declarations, CSSOM mutation,
+live parent font/style and stylesheet changes, read-only writes and
+detach/reattach. Two further Worker cases reject a font-metric unit and text
+requiring shaping, then recover through fresh successful requests.
+
+Empty block geometry does not acquire a fabricated line box. Glyph metrics,
+inline formatting, baseline/leading, line boxes, wrapping, text paint, complete
+numeric serialization and full browser/CSS Inline parity remain pending.
+
+Public reference: [CSS line-height](https://drafts.csswg.org/css2/#propdef-line-height).

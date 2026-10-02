@@ -1,0 +1,31 @@
+function lineHeightCase(v) {
+  document.body.innerHTML='';document.body.style.cssText='margin:0';document.documentElement.style.fontSize='20px';
+  const parent=document.createElement('main');parent.style.cssText='font-size:20px;line-height:normal';document.body.append(parent);
+  const sheet=document.createElement('style');document.head.append(sheet);
+  const e=document.createElement('div');e.id='target';parent.append(e);const s=getComputedStyle(e),checks={};
+  const check=(name,css,expected,rules='')=>{sheet.textContent=rules;e.style.cssText='width:40px;height:10px;'+css;checks[name]=s.lineHeight===expected&&s.getPropertyValue('line-height')===expected&&e.getBoundingClientRect().width===40&&e.getBoundingClientRect().height===10;};
+  check('default','','normal');check('normal','line-height:normal','normal');check('number','line-height:2','40px');check('fraction','line-height:1.5','30px');check('zero','line-height:0','0px');
+  check('pixels',`line-height:${v+3}px`,`${v+3}px`);check('fractionPixels','line-height:2.9px','2.9px');check('zeroPixels','line-height:0px','0px');
+  check('percentage','line-height:150%','30px');check('em','line-height:1.5em','30px');check('rem','line-height:1.5rem','30px');
+  check('lengthMath','line-height:calc(2px + .5em)','12px');check('percentageMath','line-height:calc(100% + 2px)','22px');check('numberMath','line-height:calc(1 + 2)','60px');
+  check('negativeNumberMath','line-height:calc(1 - 2)','0px');check('negativeLengthMath','line-height:calc(1px - 2px)','0px');
+  check('minimum','line-height:min(30%, 10px)','6px');check('maximum','line-height:max(30%, 10px)','10px');check('clamp','line-height:clamp(20%, 50%, 40%)','8px');
+  check('specificity','','30px','div{line-height:2}#target{line-height:1.5}');check('sourceOrder','','30px','#target{line-height:2}#target{line-height:1.5}');
+  check('inlineOrigin','line-height:3','60px','#target{line-height:1.5}');check('sheetImportant','line-height:3','30px','#target{line-height:1.5!important}');
+  check('layers','','30px','@layer early,late;@layer early{#target{line-height:2}}@layer late{div{line-height:1.5}}');
+  check('importantLayers','','40px','@layer early,late;@layer early{div{line-height:2!important}}@layer late{#target{line-height:1.5!important}}');
+  check('variable',`--line:${v+3}px;line-height:var(--line)`,`${v+3}px`);check('invalidVariable','line-height:var(--missing)','normal');
+  sheet.textContent='';parent.style.lineHeight='1.5';check('inheritMultiplier','font-size:40px;line-height:inherit','60px');check('implicitMultiplier','font-size:40px','60px');check('unsetMultiplier','font-size:40px;line-height:unset','60px');
+  parent.style.lineHeight='150%';check('inheritPercentage','font-size:40px;line-height:inherit','30px');parent.style.lineHeight='1.5em';check('inheritLength','font-size:40px;line-height:inherit','30px');
+  check('initial','line-height:initial','normal');check('zeroFont','font-size:0;line-height:1.5','0px');
+  e.style.cssText='line-height:1.5';e.style.lineHeight='-1';checks.invalidNumber=s.lineHeight==='30px';e.style.lineHeight='-1px';checks.invalidLength=s.lineHeight==='30px';e.style.lineHeight='-1%';checks.invalidPercentage=s.lineHeight==='30px';e.style.lineHeight='auto';checks.invalidKeyword=s.lineHeight==='30px';
+  e.style.setProperty('LINE-HEIGHT','2','important');checks.cssom=s.lineHeight==='40px'&&e.style.getPropertyPriority('line-height')==='important';
+  checks.removal=e.style.removeProperty('line-height')==='2'&&s.lineHeight==='30px';parent.style.lineHeight='2';checks.liveInheritance=s.lineHeight==='40px';parent.style.fontSize='30px';checks.liveParentFont=s.lineHeight==='60px';
+  sheet.textContent='#target{line-height:9px}';checks.liveSheet=s.lineHeight==='9px';sheet.textContent='#target{line-height:11px}';checks.liveSheetMutation=s.lineHeight==='11px';
+  const throws=(fn,name)=>{try{fn();return false;}catch(e){return e.name===name;}};
+  checks.readOnly=throws(()=>{s.lineHeight='10px'},'NoModificationAllowedError');checks.priority=s.getPropertyPriority('line-height')==='';checks.uppercase=s.getPropertyValue('LINE-HEIGHT')==='11px';
+  const external=document.createElement('div');external.id='external';parent.append(external);checks.external=getComputedStyle(external).lineHeight===`${v+3}px`;
+  e.remove();checks.detached=s.lineHeight==='';parent.append(e);checks.reattached=s.lineHeight==='11px';
+  e.style.lineHeight='0.0000001px';checks.tinyLength=Math.abs(parseFloat(s.lineHeight)-0.0000001)<1e-15;
+  sheet.remove();return checks;
+}

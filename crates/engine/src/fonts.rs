@@ -18,12 +18,16 @@ pub(crate) struct Context {
     size: f64,
     adjustment: crate::text_adjust::Adjustment,
     tabs: crate::tabs::Tabs,
+    line_height: crate::line_height::Height,
     root: f64,
     initial: f64,
     width: f64,
     height: f64,
 }
 impl Context {
+    pub(crate) fn line_height(&self) -> Result<String> {
+        self.line_height.value(self)
+    }
     pub(crate) fn tabs(&self) -> Result<String> {
         self.tabs.value()
     }
@@ -39,6 +43,7 @@ impl Context {
             size,
             adjustment: crate::text_adjust::Adjustment::default(),
             tabs: crate::tabs::Tabs::default(),
+            line_height: crate::line_height::Height::default(),
             root: size,
             initial: size,
             width: f64::from(media.width),
@@ -84,7 +89,23 @@ impl Context {
             work.charge()?;
         }
         computed.tabs = self.tabs.compute(&value, &computed, work)?;
+        let (value, _) = declarations.value("line-height");
+        if !value.is_empty() {
+            work.charge()?;
+        }
+        computed.line_height = self.line_height.compute(&value, &computed, work)?;
         Ok(computed)
+    }
+    pub(crate) fn relative_length(
+        &self,
+        value: &LengthPercentage,
+        work: &mut Work<'_>,
+    ) -> Result<f64> {
+        let value = self.percentage_length(value, 0, work)?;
+        if !value.is_finite() {
+            return Err(unsupported("non-finite contextual length"));
+        }
+        Ok(value)
     }
     fn percentage_length(
         &self,
@@ -221,4 +242,14 @@ pub(crate) fn absolute(value: &Length, work: &mut Work<'_>) -> Result<f64> {
         }
     }
     literal(value, 0, work)
+}
+
+pub(crate) fn pixels(value: f64) -> Result<String> {
+    let rounded = format!("{value:.5e}")
+        .parse::<f64>()
+        .map_err(|_error| Error::Dom("computed length serialization".into()))?;
+    if !rounded.is_finite() {
+        return Err(Error::Dom("computed length range".into()));
+    }
+    Ok(format!("{rounded}px"))
 }

@@ -1,3 +1,4 @@
+import { lineHeightFixture } from "./line-height-fixture";
 import { tabsFixture } from "./tabs-fixture";
 import { textAdjustFixture } from "./text-adjust-fixture";
 import { outlineFixture } from "./outline-fixture";
@@ -418,6 +419,8 @@ const origin = Bun.serve({
     requests.push(`${request.method} ${path}`);
     const layoutBudget = layoutBudgetFixture(path);
     if (layoutBudget) return layoutBudget;
+    const lineHeight = await lineHeightFixture(path);
+    if (lineHeight) return lineHeight;
     const tabs = await tabsFixture(path);
     if (tabs) return tabs;
     const adjustment = await textAdjustFixture(path);
@@ -4719,10 +4722,11 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
   expect(await response.json()).toMatchObject({
     value: {
       font: "18px",
-      count: 8,
+      count: 9,
       names: [
         "color",
         "font-size",
+        "line-height",
         "outline-color",
         "outline-offset",
         "outline-style",
@@ -4796,6 +4800,54 @@ test.each([
       method: "POST",
       headers: { authorization: "Bearer test-secret" },
       body: JSON.stringify({ url, expression: "tabsCase(0)" }),
+    });
+    expect(healthy.status).toBe(200);
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native resolved line height variant %i",
+  async (variant) => {
+    const url = new URL(`line-height/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: `lineHeightCase(${variant})` }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing line height values");
+    expect(Object.keys(value)).toHaveLength(51);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each([
+  [
+    "(()=>{const e=document.createElement('div');e.style.lineHeight='2ex';document.body.append(e);return getComputedStyle(e).lineHeight})()",
+    "relative query length",
+  ],
+  [
+    "(()=>{document.body.textContent=String.fromCharCode(65,10,66);document.body.style.lineHeight='1.5';return document.body.getBoundingClientRect()})()",
+    "text shaping",
+  ],
+])(
+  "real HTTP → workerd → Wasm: unsupported line metrics %s fail explicitly",
+  async (expression, reason) => {
+    const url = new URL("line-height/0", origin.url).href;
+    const failed = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression }),
+    });
+    expect(failed.status).toBe(422);
+    expect(await failed.text()).toContain(reason);
+    const healthy = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "lineHeightCase(0)" }),
     });
     expect(healthy.status).toBe(200);
   },

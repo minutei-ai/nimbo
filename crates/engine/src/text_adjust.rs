@@ -15,18 +15,10 @@ pub(crate) enum Adjustment {
     Percentage(f32),
 }
 
-fn math(value: &str) -> bool {
-    let mut input = cssparser::ParserInput::new(value);
-    matches!(
-        cssparser::Parser::new(&mut input).next(),
-        Ok(cssparser::Token::Function(_))
-    )
-}
-
 pub(crate) fn specified(value: &str) -> Option<String> {
     let parsed = TextSizeAdjust::parse_string(value).ok()?;
     if let TextSizeAdjust::Percentage(Percentage(number)) = &parsed
-        && (!number.is_finite() || (*number < 0.0 && !math(value)))
+        && (!number.is_finite() || (*number < 0.0 && !crate::styles::function_value(value)))
     {
         return None;
     }
@@ -38,7 +30,7 @@ pub(crate) fn specified(value: &str) -> Option<String> {
             .is_some_and(|prefix| prefix.eq_ignore_ascii_case("calc("))
         {
             format!("calc({serialized})")
-        } else if math(value) {
+        } else if crate::styles::function_value(value) {
             value.trim().to_owned()
         } else {
             serialized

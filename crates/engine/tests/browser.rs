@@ -1390,6 +1390,11 @@ fn registered_custom_properties_validate_before_substitution() -> TestResult {
 }
 
 fn serve_resource(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/line-height/")
+        || request.url().starts_with("/line-height-assets/")
+    {
+        return serve_line_height(request);
+    }
     if request.url().starts_with("/tabs/") || request.url().starts_with("/tabs-assets/") {
         return serve_tabs(request);
     }
@@ -1550,6 +1555,8 @@ fn is_resource(path: &str) -> bool {
         "/logical-size/",
         "/outlines/",
         "/tabs/",
+        "/line-height/",
+        "/line-height-assets/",
         "/tabs-assets/",
         "/text-adjust/",
         "/text-adjust-assets/",
@@ -1997,6 +2004,41 @@ fn serve_tabs(request: Request) -> io::Result<()> {
     let source = format!(
         "<!doctype html><meta charset=utf-8><link rel=stylesheet href=/tabs-assets/{variant}><script>{}</script>",
         include_str!("fixtures/tabs.txt")
+    );
+    request.respond(Response::from_string(source).with_header(header("Content-Type", "text/html")?))
+}
+
+#[test]
+fn native_line_height_real_http_inheritance() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/line-height/{variant}")))?;
+        let result = page.evaluate(&format!("lineHeightCase({variant})"))?;
+        let fields = result.as_object().ok_or("missing line height result")?;
+        assert_eq!(fields.len(), 51);
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+fn serve_line_height(request: Request) -> io::Result<()> {
+    if let Some(value) = request.url().strip_prefix("/line-height-assets/") {
+        let variant = value.parse::<u32>().map_err(io::Error::other)?;
+        return request.respond(
+            Response::from_string(format!(
+                "#external{{line-height:{}px}}",
+                variant.saturating_add(3)
+            ))
+            .with_header(header("Content-Type", "text/css")?),
+        );
+    }
+    let variant = request.url().strip_prefix("/line-height/").unwrap_or("0");
+    let source = format!(
+        "<!doctype html><meta charset=utf-8><link rel=stylesheet href=/line-height-assets/{variant}><script>{}</script>",
+        include_str!("fixtures/line-height.txt")
     );
     request.respond(Response::from_string(source).with_header(header("Content-Type", "text/html")?))
 }

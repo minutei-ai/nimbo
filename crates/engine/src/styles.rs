@@ -343,12 +343,18 @@ fn outline_native_value(name: &str, value: &str) -> Option<String> {
         .ok()
 }
 
+pub(crate) fn function_value(value: &str) -> bool {
+    let mut input = ParserInput::new(value);
+    matches!(Parser::new(&mut input).next(), Ok(Token::Function(_)))
+}
+
 fn native_property(name: &str, value: &str, important: bool) -> Option<Vec<Entry>> {
     let value = match name {
         "float" | "clear" | "writing-mode" => native_keyword(name, value)?,
         "content" => content_value(value)?,
         "text-size-adjust" => crate::text_adjust::specified(value)?,
         "tab-size" => crate::tabs::specified(value)?,
+        "line-height" => crate::line_height::specified(value)?,
         "outline-offset" | "outline-color" => outline_native_value(name, value)?,
         _ => return None,
     };
@@ -365,6 +371,7 @@ fn native_declaration(name: &str, value: &str) -> bool {
             | "outline-offset"
             | "text-size-adjust"
             | "tab-size"
+            | "line-height"
     ) || (name == "outline-color" && value.eq_ignore_ascii_case("auto"))
 }
 
