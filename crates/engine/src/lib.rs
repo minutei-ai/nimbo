@@ -2,6 +2,7 @@
 
 mod animations;
 mod borders;
+mod canvas;
 mod cascade;
 mod containers;
 mod dom;

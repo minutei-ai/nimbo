@@ -1390,6 +1390,9 @@ fn registered_custom_properties_validate_before_substitution() -> TestResult {
 }
 
 fn serve_resource(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/canvas/") {
+        return serve_canvas(request);
+    }
     if request.url().starts_with("/borders/") {
         return serve_borders(request);
     }
@@ -1520,6 +1523,7 @@ fn binary_font_data_parses_real_bytes_and_tracks_status() -> TestResult {
 fn is_resource(path: &str) -> bool {
     [
         "/sheets-css/",
+        "/canvas/",
         "/borders/",
         "/css-budget/",
         "/css-budget-assets/",
@@ -1722,6 +1726,31 @@ fn physical_borders_compute_real_http_box_geometry() -> TestResult {
         let result = page.evaluate(&format!("borderCase({variant})"))?;
         let fields = result.as_object().ok_or("missing border result")?;
         assert_eq!(fields.len(), 54);
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+
+fn serve_canvas(request: Request) -> io::Result<()> {
+    let source = format!(
+        "<!doctype html><meta charset=utf-8><script>{}</script>",
+        include_str!("fixtures/canvas.txt")
+    );
+    request.respond(Response::from_string(source).with_header(header("Content-Type", "text/html")?))
+}
+
+#[test]
+fn software_canvas_rasterizes_real_http_pixels() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/canvas/{variant}")))?;
+        let result = page.evaluate(&format!("canvasCase({variant})"))?;
+        let fields = result.as_object().ok_or("missing canvas result")?;
+        assert_eq!(fields.len(), 55);
         assert!(
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"

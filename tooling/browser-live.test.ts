@@ -1,3 +1,4 @@
+import { canvasFixture } from "./canvas-fixture";
 import { borderFixture } from "./border-fixture";
 import { cssBudgetFixture } from "./css-budget-fixture";
 import { fontFixture } from "./font-fixture";
@@ -410,6 +411,8 @@ const origin = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     requests.push(`${request.method} ${path}`);
+    const canvas = await canvasFixture(path);
+    if (canvas) return canvas;
     const border = await borderFixture(path);
     if (border) return border;
     const cssBudget = await cssBudgetFixture(path);
@@ -4232,4 +4235,120 @@ test.each([
   const value: unknown = Reflect.get(result, "value");
   if (typeof value !== "object" || value === null) throw new Error("Missing recovery");
   expect(Object.values(value).every((check) => check === true)).toBe(true);
+});
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native software canvas pixels variant %i",
+  async (variant) => {
+    const url = new URL(`canvas/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: `canvasCase(${variant})` }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing pixels");
+    expect(Object.keys(value)).toHaveLength(55);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each([
+  {
+    name: "dimensions",
+    expression: "new OffscreenCanvas(4097,1)",
+    reason: "canvas: dimensions limit",
+  },
+  { name: "pixels", expression: "new OffscreenCanvas(2048,2048)", reason: "canvas: pixels limit" },
+  {
+    name: "memory",
+    expression: "Array.from({length:5},()=>new OffscreenCanvas(1024,1024))",
+    reason: "canvas: memory limit",
+  },
+  {
+    name: "owners",
+    expression: "Array.from({length:65},()=>new OffscreenCanvas(0,0))",
+    reason: "canvas: owners limit",
+  },
+  {
+    name: "pixel work",
+    expression:
+      "(()=>{const x=new OffscreenCanvas(1024,1024).getContext('2d');for(let i=0;i<20;i++)x.fillRect(0,0,1024,1024)})()",
+    reason: "canvas: pixel work limit",
+  },
+  {
+    name: "state stack",
+    expression:
+      "(()=>{const x=new OffscreenCanvas(1,1).getContext('2d');for(let i=0;i<65;i++)x.save()})()",
+    reason: "canvas: state stack limit",
+  },
+  {
+    name: "color bytes",
+    expression: "new OffscreenCanvas(1,1).getContext('2d').fillStyle='x'.repeat(4097)",
+    reason: "canvas: color bytes limit",
+  },
+  {
+    name: "color space",
+    expression: "new OffscreenCanvas(1,1).getContext('2d',{colorSpace:'display-p3'})",
+    reason: "unsupported: canvas color space",
+  },
+  {
+    name: "text",
+    expression: "new OffscreenCanvas(1,1).getContext('2d').measureText('A')",
+    reason: "unsupported: canvas measureText",
+  },
+  {
+    name: "transform",
+    expression: "new OffscreenCanvas(1,1).getContext('2d').translate(1,1)",
+    reason: "unsupported: canvas translate",
+  },
+  {
+    name: "compositing",
+    expression: "new OffscreenCanvas(1,1).getContext('2d').globalCompositeOperation='copy'",
+    reason: "unsupported: canvas compositing operation",
+  },
+  {
+    name: "stroke",
+    expression: "new OffscreenCanvas(1,1).getContext('2d').strokeStyle='red'",
+    reason: "unsupported: canvas strokeStyle",
+  },
+])(
+  "real HTTP → workerd → Wasm: canvas $name boundary and recovery",
+  async ({ expression, reason }) => {
+    const url = new URL("canvas/128", origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression }),
+    });
+    expect(response.status).toBe(422);
+    expect(await response.text()).toContain(reason);
+    const healthy = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "canvasCase(0)" }),
+    });
+    expect(healthy.status).toBe(200);
+    const result: unknown = await healthy.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing recovery");
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test("real HTTP → workerd → Wasm: rejected canvas resize preserves bitmap and state", async () => {
+  const url = new URL("canvas/129", origin.url).href;
+  const expression =
+    "(()=>{const c=new OffscreenCanvas(1024,2),x=c.getContext('2d');x.fillStyle='red';x.fillRect(0,0,1,1);let limit=false;try{c.height=2048}catch(e){limit=String(e).includes('canvas: pixels limit')}const data=x.getImageData(0,0,1,1).data;return limit&&c.width===1024&&c.height===2&&x.fillStyle==='#ff0000'&&data[0]===255&&data[3]===255})()";
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ value: true });
 });

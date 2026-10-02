@@ -7,6 +7,7 @@
   const nativeEncode = nimboEncode;
   const nativeDecoder = nimboDecoder;
   const nativeLink = nimboLink;
+  const nativeCanvas = nimboCanvas;
   const nativeFontData = nimboFontData;
   const nativeFontMeta = nimboFontMeta;
   const nativeFontMatch = nimboFontMatch;
@@ -24,6 +25,7 @@
   Reflect.deleteProperty(globalThis, "nimboEncode");
   Reflect.deleteProperty(globalThis, "nimboDecoder");
   Reflect.deleteProperty(globalThis, "nimboLink");
+  Reflect.deleteProperty(globalThis, "nimboCanvas");
   Reflect.deleteProperty(globalThis, "nimboFontData");
   Reflect.deleteProperty(globalThis, "nimboFontMeta");
   Reflect.deleteProperty(globalThis, "nimboFontMatch");
@@ -3332,6 +3334,434 @@
       failFont(state, error);
     }
   }
+  const PixelArray = Uint8ClampedArray;
+  const pixelType = intrinsicGetter(typedPrototype, Symbol.toStringTag);
+  const canvasOwners = new WeakMap<
+    object,
+    { id: number; context: OffscreenCanvasRenderingContext2D | null }
+  >();
+  const drawingOwners = new WeakMap<
+    object,
+    { canvas: OffscreenCanvas; attributes: Record<string, unknown> }
+  >();
+  const imageOwners = new WeakMap<
+    object,
+    { data: Uint8ClampedArray; width: number; height: number }
+  >();
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
+  function canvasCall<T>(operation: string, id: number, fields: Record<string, unknown> = {}): T {
+    const value = nativeCanvas(JSON.stringify({ operation, id, ...fields }));
+    if (typeof value !== "string") throw new Error("invalid canvas metadata");
+    // The private Rust bridge serializes this validated result shape.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    return JSON.parse(value) as T;
+  }
+  function canvasOwner(value: object) {
+    const owner = canvasOwners.get(value);
+    if (!owner) throw new TypeError("Illegal invocation");
+    return owner;
+  }
+  function drawingOwner(value: object) {
+    const owner = drawingOwners.get(value);
+    if (!owner) throw new TypeError("Illegal invocation");
+    return owner;
+  }
+  function canvasNumber(value: unknown): number {
+    if (typeof value === "bigint") throw new TypeError("value must be a number");
+    // Web IDL uses ToNumber, which also rejects objects coercing to BigInt.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion, typescript/no-unnecessary-type-conversion
+    return +(value as number);
+  }
+  function canvasInteger(value: unknown, minimum: number, maximum: number): number {
+    const number = canvasNumber(value),
+      integer = Math.trunc(number);
+    if (!Number.isFinite(number) || integer < minimum || integer > maximum)
+      throw new TypeError("canvas integer out of range");
+    return integer;
+  }
+  function canvasDimension(value: unknown): number {
+    const size = canvasInteger(value, 0, 18446744073709549568);
+    if (size > 4096) throw new Error("canvas: dimensions limit");
+    return size;
+  }
+  function imageSettings(settings: unknown): void {
+    const value = encodingOptions(settings);
+    const colorSpace = value.colorSpace === undefined ? "srgb" : domString(value.colorSpace);
+    if (!["srgb", "display-p3"].includes(colorSpace)) throw new TypeError("invalid color space");
+    if (colorSpace !== "srgb") throw new Error("unsupported: canvas color space");
+    const format = value.pixelFormat === undefined ? "rgba-unorm8" : domString(value.pixelFormat);
+    if (!["rgba-unorm8", "rgba-float16"].includes(format))
+      throw new TypeError("invalid pixel format");
+    if (format !== "rgba-unorm8") throw new Error("unsupported: canvas pixel format");
+  }
+  function canvasBytes(operation: string, id: number, rect: number[]): Uint8ClampedArray {
+    const value = nativeCanvas(JSON.stringify({ operation, id, read: rect }));
+    if (typeof value === "string") throw new Error("invalid canvas pixels");
+    const result = new PixelArray(Number(typedLength(value)));
+    Reflect.apply(byteSet, result, [value]);
+    return result;
+  }
+  function imageInteger(value: unknown): number {
+    const number = canvasNumber(value);
+    if (!Number.isFinite(number) || number === 0) return 0;
+    const integer = Math.trunc(number);
+    return ((integer % 4294967296) + 4294967296) % 4294967296;
+  }
+  class ImageData {
+    constructor(first: unknown, second: unknown, third?: unknown, fourth?: unknown) {
+      if (arguments.length < 2) throw new TypeError("ImageData requires data or dimensions");
+      let data: Uint8ClampedArray, width: number, height: number;
+      if (isView(first) && pixelType(first) === "Float16Array")
+        throw new Error("unsupported: canvas pixel format");
+      if (isView(first) && pixelType(first) === "Uint8ClampedArray") {
+        const length = Number(typedLength(first));
+        width = imageInteger(second);
+        height = third === undefined ? length / (4 * width) : imageInteger(third);
+        imageSettings(fourth);
+        if (!length || length % 4)
+          throw new DOMException("Invalid image storage", "InvalidStateError");
+        if (!width || !Number.isInteger(height) || !height || length !== width * height * 4)
+          throw new DOMException("Invalid ImageData dimensions", "IndexSizeError");
+        if (width > 4096 || height > 4096 || width * height > 1048576)
+          throw new Error("canvas: pixels limit");
+        // The native typed-array intrinsic above establishes the exact array brand.
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        data = first as Uint8ClampedArray;
+      } else {
+        width = imageInteger(first);
+        height = imageInteger(second);
+        imageSettings(third);
+        if (!width || !height)
+          throw new DOMException("Invalid ImageData dimensions", "IndexSizeError");
+        data = canvasBytes("image", 0, [0, 0, width, height]);
+      }
+      imageOwners.set(this, { data, width, height });
+    }
+    get data(): Uint8ClampedArray {
+      return imageOwner(this).data;
+    }
+    get width(): number {
+      return imageOwner(this).width;
+    }
+    get height(): number {
+      return imageOwner(this).height;
+    }
+    get colorSpace(): string {
+      imageOwner(this);
+      return "srgb";
+    }
+    get pixelFormat(): string {
+      imageOwner(this);
+      return "rgba-unorm8";
+    }
+  }
+  function imageOwner(owner: object) {
+    const result = imageOwners.get(owner);
+    if (!result) throw new TypeError("Illegal invocation");
+    return result;
+  }
+  function imageResult(data: Uint8ClampedArray, width: number, height: number): ImageData {
+    // Only bounded native pixel operations can manufacture these branded objects.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const result = Object.create(ImageData.prototype) as ImageData;
+    imageOwners.set(result, { data, width, height });
+    return result;
+  }
+  function drawingState(owner: object): { fillStyle: string; globalAlpha: number } {
+    const drawing = drawingOwner(owner);
+    return canvasCall("state", canvasOwner(drawing.canvas).id);
+  }
+  function rectangle(owner: object, operation: string, values: unknown[]): void {
+    const drawing = drawingOwner(owner);
+    if (values.length < 4) throw new TypeError("rectangle requires four arguments");
+    const rect = values.slice(0, 4).map(canvasNumber);
+    if (!rect.every(Number.isFinite)) return;
+    canvasCall(operation, canvasOwner(drawing.canvas).id, { rect });
+  }
+  class OffscreenCanvasRenderingContext2D {
+    constructor() {
+      throw new TypeError("Illegal constructor");
+    }
+    get canvas(): OffscreenCanvas {
+      return drawingOwner(this).canvas;
+    }
+    get fillStyle(): string {
+      return drawingState(this).fillStyle;
+    }
+    set fillStyle(value: unknown) {
+      const owner = drawingOwner(this);
+      canvasCall("fillStyle", canvasOwner(owner.canvas).id, { color: domString(value) });
+    }
+    get globalAlpha(): number {
+      return drawingState(this).globalAlpha;
+    }
+    set globalAlpha(value: unknown) {
+      const owner = drawingOwner(this),
+        alpha = canvasNumber(value);
+      if (Number.isFinite(alpha) && alpha >= 0 && alpha <= 1)
+        canvasCall("alpha", canvasOwner(owner.canvas).id, { alpha });
+    }
+    get globalCompositeOperation(): string {
+      drawingOwner(this);
+      return "source-over";
+    }
+    set globalCompositeOperation(value: unknown) {
+      drawingOwner(this);
+      const mode = domString(value);
+      if (
+        [
+          "source-in",
+          "source-out",
+          "source-atop",
+          "destination-over",
+          "destination-in",
+          "destination-out",
+          "destination-atop",
+          "lighter",
+          "copy",
+          "xor",
+          "multiply",
+          "screen",
+          "overlay",
+          "darken",
+          "lighten",
+          "color-dodge",
+          "color-burn",
+          "hard-light",
+          "soft-light",
+          "difference",
+          "exclusion",
+          "hue",
+          "saturation",
+          "color",
+          "luminosity",
+        ].includes(mode)
+      )
+        throw new Error("unsupported: canvas compositing operation");
+    }
+    getContextAttributes(): Record<string, unknown> {
+      return { ...drawingOwner(this).attributes };
+    }
+    isContextLost(): boolean {
+      drawingOwner(this);
+      return false;
+    }
+    fillRect(...args: unknown[]): void {
+      rectangle(this, "fill", args);
+    }
+    clearRect(...args: unknown[]): void {
+      rectangle(this, "clear", args);
+    }
+    save(): void {
+      canvasCall("save", canvasOwner(drawingOwner(this).canvas).id);
+    }
+    restore(): void {
+      canvasCall("restore", canvasOwner(drawingOwner(this).canvas).id);
+    }
+    reset(): void {
+      canvasCall("reset", canvasOwner(drawingOwner(this).canvas).id);
+    }
+    getImageData(
+      x: unknown,
+      y: unknown,
+      width: unknown,
+      height: unknown,
+      settings?: unknown,
+    ): ImageData {
+      const owner = drawingOwner(this);
+      if (arguments.length < 4) throw new TypeError("getImageData requires four arguments");
+      const rect = [x, y, width, height].map((value) =>
+        canvasInteger(value, -2147483648, 2147483647),
+      );
+      const w = rect[2] ?? 0,
+        h = rect[3] ?? 0;
+      if (!w || !h) throw new DOMException("Invalid ImageData dimensions", "IndexSizeError");
+      imageSettings(settings);
+      return imageResult(
+        canvasBytes("read", canvasOwner(owner.canvas).id, rect),
+        Math.abs(w),
+        Math.abs(h),
+      );
+    }
+    createImageData(width: unknown, height?: unknown, settings?: unknown): ImageData {
+      drawingOwner(this);
+      if (arguments.length < 1) throw new TypeError("createImageData requires arguments");
+      const existing =
+        typeof width === "object" && width !== null ? imageOwners.get(width) : undefined;
+      if (existing) return new ImageData(existing.width, existing.height);
+      if (arguments.length < 2) throw new TypeError("createImageData requires dimensions");
+      const w = canvasInteger(width, -2147483648, 2147483647),
+        h = canvasInteger(height, -2147483648, 2147483647);
+      return new ImageData(Math.abs(w), Math.abs(h), settings);
+    }
+  }
+  class OffscreenCanvas extends EventTarget {
+    constructor(width: unknown, height: unknown) {
+      super();
+      if (arguments.length < 2) throw new TypeError("OffscreenCanvas requires dimensions");
+      const id = canvasCall<number>("create", 0, {
+        width: canvasDimension(width),
+        height: canvasDimension(height),
+      });
+      canvasOwners.set(this, { id, context: null });
+    }
+    get width(): number {
+      return canvasCall<number[]>("size", canvasOwner(this).id)[0] ?? 0;
+    }
+    set width(value: unknown) {
+      const id = canvasOwner(this).id;
+      canvasCall("resize", id, { width: canvasDimension(value), height: this.height });
+    }
+    get height(): number {
+      return canvasCall<number[]>("size", canvasOwner(this).id)[1] ?? 0;
+    }
+    set height(value: unknown) {
+      const id = canvasOwner(this).id;
+      canvasCall("resize", id, { width: this.width, height: canvasDimension(value) });
+    }
+    getContext(kind: unknown, options?: unknown): OffscreenCanvasRenderingContext2D | null {
+      const owner = canvasOwner(this);
+      if (arguments.length < 1) throw new TypeError("getContext requires a context type");
+      const type = domString(kind);
+      if (!["2d", "bitmaprenderer", "webgl", "webgl2", "webgpu"].includes(type))
+        throw new TypeError("Invalid context type");
+      if (type !== "2d") return null;
+      if (owner.context) return owner.context;
+      const input = typeof options === "object" && options !== null ? options : {};
+      const colorSpace: unknown = Reflect.get(input, "colorSpace");
+      imageSettings({ colorSpace });
+      const colorType: unknown = Reflect.get(input, "colorType");
+      if (colorType !== undefined) {
+        const format = domString(colorType);
+        if (!["unorm8", "float16"].includes(format)) throw new TypeError("invalid color type");
+        if (format !== "unorm8") throw new Error("unsupported: canvas color type");
+      }
+      const alpha: unknown = Reflect.get(input, "alpha");
+      const attributes = {
+        alpha: alpha === undefined || Boolean(alpha),
+        colorSpace: "srgb",
+        colorType: "unorm8",
+        desynchronized: Boolean(Reflect.get(input, "desynchronized")),
+        willReadFrequently: Boolean(Reflect.get(input, "willReadFrequently")),
+      };
+      canvasCall("context", owner.id, { opaque: !attributes.alpha });
+      const contextObject: unknown = Object.create(OffscreenCanvasRenderingContext2D.prototype);
+      // Only this bitmap owner can construct a branded context from the private prototype.
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+      const target = contextObject as OffscreenCanvasRenderingContext2D;
+      drawingOwners.set(target, { canvas: this, attributes });
+      const proxy = new Proxy(target, {
+        set(object, key, value, receiver) {
+          if (
+            [
+              "strokeStyle",
+              "font",
+              "filter",
+              "shadowBlur",
+              "shadowColor",
+              "shadowOffsetX",
+              "shadowOffsetY",
+              "imageSmoothingEnabled",
+              "imageSmoothingQuality",
+              "lineWidth",
+              "lineCap",
+              "lineJoin",
+              "miterLimit",
+              "lineDashOffset",
+              "textAlign",
+              "textBaseline",
+              "direction",
+              "fontKerning",
+              "fontStretch",
+              "fontVariantCaps",
+              "letterSpacing",
+              "wordSpacing",
+              "textRendering",
+            ].includes(String(key))
+          )
+            throw new Error(`unsupported: canvas ${String(key)}`);
+          return Reflect.set(object, key, value, receiver);
+        },
+      });
+      drawingOwners.set(proxy, { canvas: this, attributes });
+      owner.context = proxy;
+      return proxy;
+    }
+    transferToImageBitmap(): never {
+      canvasOwner(this);
+      throw new Error("unsupported: ImageBitmap transfer");
+    }
+    convertToBlob(): Promise<never> {
+      canvasOwner(this);
+      return Promise.reject(new Error("unsupported: canvas image encoding"));
+    }
+  }
+  Object.defineProperty(ImageData, "length", { value: 2, configurable: true });
+  function canvasArity(prototype: object, name: string, length: number): void {
+    const method: unknown = Reflect.get(prototype, name);
+    if (typeof method !== "function") throw new Error("missing canvas method");
+    Object.defineProperty(method, "length", { value: length, configurable: true });
+  }
+  for (const [name, length] of [
+    ["fillRect", 4],
+    ["clearRect", 4],
+    ["getImageData", 4],
+    ["createImageData", 1],
+  ] as const)
+    canvasArity(OffscreenCanvasRenderingContext2D.prototype, name, length);
+  canvasArity(OffscreenCanvas.prototype, "getContext", 1);
+  for (const [prototype, name] of [
+    [OffscreenCanvas.prototype, "OffscreenCanvas"],
+    [OffscreenCanvasRenderingContext2D.prototype, "OffscreenCanvasRenderingContext2D"],
+    [ImageData.prototype, "ImageData"],
+  ] as const)
+    Object.defineProperty(prototype, Symbol.toStringTag, { value: name, configurable: true });
+  for (const name of [
+    "putImageData",
+    "drawImage",
+    "measureText",
+    "fillText",
+    "strokeText",
+    "strokeRect",
+    "beginPath",
+    "closePath",
+    "moveTo",
+    "lineTo",
+    "arc",
+    "arcTo",
+    "ellipse",
+    "rect",
+    "roundRect",
+    "bezierCurveTo",
+    "quadraticCurveTo",
+    "fill",
+    "stroke",
+    "clip",
+    "translate",
+    "rotate",
+    "scale",
+    "transform",
+    "setTransform",
+    "resetTransform",
+    "getTransform",
+    "createPattern",
+    "createLinearGradient",
+    "createRadialGradient",
+    "createConicGradient",
+    "isPointInPath",
+    "isPointInStroke",
+    "setLineDash",
+    "getLineDash",
+  ])
+    Object.defineProperty(OffscreenCanvasRenderingContext2D.prototype, name, {
+      value: function (this: object) {
+        drawingOwner(this);
+        throw new Error(`unsupported: canvas ${name}`);
+      },
+      writable: true,
+      configurable: true,
+    });
+
   class FontFace {
     constructor(family: unknown, source: unknown, descriptors?: unknown) {
       if (arguments.length < 2) throw new TypeError("FontFace requires family and source");
@@ -3732,6 +4162,9 @@
     Comment,
     fetch,
     Response,
+    OffscreenCanvas,
+    OffscreenCanvasRenderingContext2D,
+    ImageData,
     FontFace,
     FontFaceSet,
     FontFaceSetLoadEvent,

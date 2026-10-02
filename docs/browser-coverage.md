@@ -321,8 +321,8 @@ the forwarded request reaches the origin. These checks cover redirects,
 HTTP cookies, POST bodies, response errors, script skipping, isolation,
 resource limits and recovery. The HTTP cookie fixture does not test TLS or
 Secure cookie delivery. The seven lint/infrastructure checks spawn the actual
-pinned tools rather than replacing their behavior. All 3042 Bun tests therefore
-run without transport, browser or tool mocks; 3035 exercise the browser engine
+pinned tools rather than replacing their behavior. All 3119 Bun tests therefore
+run without transport, browser or tool mocks; 3112 exercise the browser engine
 and seven exercise tooling. Neither local suite proves deployed performance,
 TLS fingerprints, rendering or broad browser compatibility.
 
@@ -568,7 +568,8 @@ evidence cannot establish it.
 | Inline CSS declarations                              | Subset     | Native property grammar and live HTML style mutations tested; full CSSOM missing                  |
 | CSS cascade, typed styles, layout and geometry       | Subset     | Author styles and native boxes tested; full cascade, text, computed styles and paint missing      |
 | Binary FontFace parsing                              | Partial    | Native TrueType and lazy URL/CSS loads tested; rendering, compressed formats and full WPT missing |
-| Fonts, images, SVG and Canvas 2D                     | Missing    | Resource loading, shaping, raster output and pixel comparisons                                    |
+| Font shaping, images and SVG                         | Missing    | Glyph shaping, image decoding and SVG paint                                                       |
+| OffscreenCanvas and Canvas 2D                        | Partial    | Native RGBA8 rectangle pixels/readback tested below; full Canvas 2D and HTML canvas missing       |
 | Screenshots, PDF and screencasts                     | Missing    | Real paint output, pagination, frame changes and backpressure                                     |
 | Accessibility tree and snapshots                     | Missing    | Roles, names, hidden nodes, state changes and stable references                                   |
 | Mouse, keyboard, focus, selection and scrolling      | Missing    | Hit-testing, trusted host input and resulting page behavior                                       |
@@ -1487,3 +1488,65 @@ them.
 
 Public references: [CSS Backgrounds and Borders 3](https://www.w3.org/TR/css-backgrounds-3/#border-width)
 and [CSS Values 4 border-width snapping](https://www.w3.org/TR/css-values-4/#snap-a-length-as-a-border-width).
+
+### Native software canvas pixels
+
+OffscreenCanvas now owns a native Rust software bitmap in each page runtime.
+The same implementation runs in the CLI and compiled Wasm inside workerd; it
+uses neither a browser renderer nor a GPU backend. Solid-color fillRect writes
+premultiplied sRGB RGBA8 pixels and applies source-over composition and global
+alpha. ClearRect writes transparent black, or opaque black for alpha:false
+contexts. Axis-aligned fractional rectangles use geometric pixel coverage.
+Negative sizes normalize the rectangle and drawing clips to the actual bitmap.
+Readback unpremultiplies the stored channels into physical native byte arrays;
+getImageData includes transparent black outside the bitmap. JavaScript returns
+a separate Uint8ClampedArray, using captured intrinsic constructors/methods so
+page replacements cannot intercept private pixel arrays.
+
+The interfaces also implement context identity, size getters/setters and reset,
+state save/restore, readback snapshots, createImageData and the RGBA8 ImageData
+constructor overloads with live data identity and readonly dimensions. Required
+arguments, receiver guards, numeric conversions, enum rejection and the tested
+method arities are explicit. Unsupported drawing methods and state setters fail
+instead of manufacturing rendered results. Other context types return null to
+indicate that this backend cannot create them; this does not implement WebGL.
+
+The public fixture has 55 checks across 64 fresh actual HTTP documents with
+different bitmap widths in both native and compiled-Wasm workerd integration
+suites. It checks actual RGBA values for opaque/transparent fills, overlapping
+alpha, clipping, negative rectangles, fractional coverage, clearing, state and
+resize effects, isolated owners, out-of-bounds reads, buffer snapshots and
+hostile page buffer hooks. Twelve additional actual Worker cases reach quotas
+or reject unsupported behavior and verify fresh-request recovery. Another actual
+Worker case proves that a rejected resize preserves existing pixels and state.
+
+Chromium 152 matched 54 of the 55 checks in every variant. The unresolved
+fractionClear case remains in [canvas-chromium.json](evidence/canvas-chromium.json).
+Clearing half an opaque red pixel gives alpha 128 with Nimbo's coverage model.
+The fixture's Chromium context with willReadFrequently:true yields transparent
+black; a separate default-context probe returns RGBA [255,0,0,159]. These are
+recorded backend differences, not a claim of universal fractional-edge parity.
+
+Native per-page quotas cap each bitmap/image at 4096 pixels per dimension and
+1,048,576 pixels, allocated bitmaps at 4,194,304 pixels total (16 MiB of RGBA8
+storage), owners at 64, native calls at 10,000, cumulative pixel work at
+16,777,216 and saved drawing states at 64 per context. Allocation, drawing,
+reset and readback charge work before touching pixels. A failed allocation does
+not replace the old bitmap. Owners are retained until the page runtime closes;
+this does not implement per-object garbage-collection reclamation. Color input
+is capped at 4096 bytes and token nesting is guarded before native parsing.
+Checked numeric conversion uses pinned num-traits 0.2.19 without default features.
+These are bounded-operation/storage quotas, not a total-isolate memory bound or
+proof of deployed Worker CPU limits. Native raster calls cannot be preempted by
+the JavaScript watchdog; deployed performance remains unverified.
+
+Still missing are HTMLCanvasElement and its DOM linkage, paths, transforms,
+strokes, gradients/patterns, image drawing/writing/decoding, text shaping and
+metrics, context-dependent/wide-gamut colors, image encoding/transfer, WebGL
+shaders, GPU behavior, video, screenshots, complete Web IDL and unmodified WPT.
+The new bitmap backend is a foundation for those requirements, not their proof.
+
+Public references: [HTML OffscreenCanvas](https://html.spec.whatwg.org/multipage/canvas.html#the-offscreencanvas-interface),
+[Canvas pixel manipulation](https://html.spec.whatwg.org/multipage/canvas.html#pixel-manipulation),
+[ImageData](https://html.spec.whatwg.org/multipage/imagebitmap-and-animations.html#imagedata),
+[checked numeric conversion](https://docs.rs/num-traits/0.2.19/num_traits/cast/trait.ToPrimitive.html).
