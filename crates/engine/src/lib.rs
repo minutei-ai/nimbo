@@ -1,6 +1,7 @@
 //! Primeiro núcleo de scraping do Nimbo: HTTP, DOM e JavaScript sem renderização.
 
 mod animations;
+mod borders;
 mod cascade;
 mod containers;
 mod dom;

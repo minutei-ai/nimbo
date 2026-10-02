@@ -132,8 +132,16 @@ pub(crate) fn supports(declarations: &Declarations) -> bool {
     }
     let mut operations = 0;
     let mut work = Work::new(&mut operations, 10_000);
-    if crate::fonts::Context::new(&MediaEnvironment::default())
-        .compute(declarations, false, &mut work)
+    let Ok(fonts) = crate::fonts::Context::new(&MediaEnvironment::default()).compute(
+        declarations,
+        false,
+        &mut work,
+    ) else {
+        return false;
+    };
+    if crate::borders::Borders::default()
+        .compute(declarations, &fonts, &mut work)
+        .and_then(|borders| borders.geometry())
         .is_err()
     {
         return false;
@@ -160,6 +168,10 @@ fn non_layout(name: &str) -> bool {
             | "container-name"
             | "container-type"
             | "font-size"
+            | "border-top-color"
+            | "border-right-color"
+            | "border-bottom-color"
+            | "border-left-color"
     )
 }
 
@@ -194,6 +206,9 @@ fn style_for(
 
         if deferred {
             return Err(unsupported("variable substitution"));
+        }
+        if crate::borders::property(name) {
+            continue;
         }
         match name {
             "display" => assign!(style.display, value, name),
@@ -300,6 +315,27 @@ fn empty_generated_content(declarations: &Declarations) -> Result<bool> {
     Ok(strings > 0)
 }
 
+fn validate_element(node: NodeRef<'_>) -> Result<()> {
+    if ![
+        "html", "body", "div", "main", "section", "article", "aside", "header", "footer", "nav",
+    ]
+    .iter()
+    .any(|name| node.has_name(name))
+        || node
+            .qual_name_ref()
+            .is_none_or(|name| name.ns.as_ref() != "http://www.w3.org/1999/xhtml")
+    {
+        return Err(unsupported("element formatting"));
+    }
+    Ok(())
+}
+
+#[derive(Clone)]
+struct BoxContext {
+    fonts: crate::fonts::Context,
+    borders: crate::borders::Borders,
+}
+
 struct Tree<'a, 'b> {
     boxes: TaffyTree<()>,
     ids: HashMap<NodeId, taffy::NodeId>,
@@ -319,6 +355,7 @@ impl Tree<'_, '_> {
         parent: &Variables,
         parent_display: Display,
         depth: usize,
+        context: &BoxContext,
     ) -> Result<Option<taffy::NodeId>> {
         let declarations = self.cascade.resolve(
             node,
@@ -354,12 +391,17 @@ impl Tree<'_, '_> {
         if self.visited > 1024 || depth > 128 {
             return Err(Error::Limit("layout tree"));
         }
-        let style = style_for(
+        let mut style = style_for(
             node,
             &declarations,
             true,
             matches!(parent_display, Display::Flex | Display::Grid),
         )?;
+        let fonts = context.fonts.compute(&declarations, false, self.work)?;
+        style.border = context
+            .borders
+            .compute(&declarations, &fonts, self.work)?
+            .geometry()?;
         self.boxes
             .new_leaf(style)
             .map(Some)
@@ -402,7 +444,7 @@ impl Tree<'_, '_> {
         depth: usize,
         parent: &Variables,
         parent_display: Display,
-        fonts: &crate::fonts::Context,
+        context: &BoxContext,
     ) -> Result<Option<taffy::NodeId>> {
         self.work.charge()?;
         self.visited = self.visited.saturating_add(1);
@@ -445,20 +487,15 @@ impl Tree<'_, '_> {
         if style.display == Display::None {
             return Ok(None);
         }
-        let fonts = fonts.compute(&declarations, depth == 0, self.work)?;
+        let fonts = context
+            .fonts
+            .compute(&declarations, depth == 0, self.work)?;
+        let borders = context.borders.compute(&declarations, &fonts, self.work)?;
+        style.border = borders.geometry()?;
+        let context = BoxContext { fonts, borders };
         let container =
             crate::containers::Container::apply(&declarations, &mut style, parent_display, fonts)?;
-        if ![
-            "html", "body", "div", "main", "section", "article", "aside", "header", "footer", "nav",
-        ]
-        .iter()
-        .any(|name| node.has_name(name))
-            || node
-                .qual_name_ref()
-                .is_none_or(|name| name.ns.as_ref() != "http://www.w3.org/1999/xhtml")
-        {
-            return Err(unsupported("element formatting"));
-        }
+        validate_element(node)?;
         let mut children = Vec::new();
         if let Some(before) = self.generated(
             node,
@@ -466,6 +503,7 @@ impl Tree<'_, '_> {
             &variables,
             style.display,
             depth.saturating_add(1),
+            &context,
         )? {
             children.push(before);
         }
@@ -477,7 +515,7 @@ impl Tree<'_, '_> {
                         depth.saturating_add(1),
                         &variables,
                         style.display,
-                        &fonts,
+                        &context,
                     )
                     .transpose()
                 })
@@ -489,6 +527,7 @@ impl Tree<'_, '_> {
             &variables,
             style.display,
             depth.saturating_add(1),
+            &context,
         )? {
             children.push(after);
         }
@@ -563,7 +602,10 @@ fn scene<T>(
             0,
             &Variables::default(),
             Display::Block,
-            &crate::fonts::Context::new(media),
+            &BoxContext {
+                fonts: crate::fonts::Context::new(media),
+                borders: crate::borders::Borders::default(),
+            },
         )?;
         if let Some(root_id) = root_id {
             tree.boxes

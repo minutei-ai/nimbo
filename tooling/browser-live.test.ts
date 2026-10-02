@@ -1,3 +1,4 @@
+import { borderFixture } from "./border-fixture";
 import { cssBudgetFixture } from "./css-budget-fixture";
 import { fontFixture } from "./font-fixture";
 import { binaryFixture } from "./binary-fixture";
@@ -409,6 +410,8 @@ const origin = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     requests.push(`${request.method} ${path}`);
+    const border = await borderFixture(path);
+    if (border) return border;
     const cssBudget = await cssBudgetFixture(path);
     if (cssBudget) return cssBudget;
     const font = await fontFixture(path);
@@ -4181,3 +4184,52 @@ test.each([
     expect(await healthy.json()).toMatchObject({ value: 432 });
   },
 );
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: physical border geometry variant %i",
+  async (variant) => {
+    const url = new URL(`borders/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: `borderCase(${variant})` }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing checks");
+    expect(Object.keys(value)).toHaveLength(54);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each([
+  { css: "border:1ch solid", reason: "relative query length" },
+  { css: "border-image-source:url('/image')", reason: "border-image-source" },
+  { css: "border-inline-start-width:2px", reason: "border-inline-start-width" },
+  { css: "border-top-left-radius:2px", reason: "border-top-left-radius" },
+])("real HTTP → workerd → Wasm: unsupported border $css and recovery", async ({ css, reason }) => {
+  const url = new URL("borders/128", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression: `(()=>{const e=document.createElement('div');e.style.cssText=${JSON.stringify(css)};document.body.append(e);return e.getBoundingClientRect()})()`,
+    }),
+  });
+  expect(response.status).toBe(422);
+  expect(await response.text()).toContain(reason);
+  const healthy = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: "borderCase(0)" }),
+  });
+  expect(healthy.status).toBe(200);
+  const result: unknown = await healthy.json();
+  if (typeof result !== "object" || result === null) throw new Error("Missing response");
+  const value: unknown = Reflect.get(result, "value");
+  if (typeof value !== "object" || value === null) throw new Error("Missing recovery");
+  expect(Object.values(value).every((check) => check === true)).toBe(true);
+});

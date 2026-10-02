@@ -388,7 +388,7 @@ fn expand(name: &str, value: &str, important: bool) -> Option<Vec<Entry>> {
     let parsed = Property::parse_string(id.clone(), value, ParserOptions::default()).ok()?;
     // The transformer accepts invalid ordinary values as Unparsed. Only the
     // syntax-checked variable branch above may bypass a property's typed grammar.
-    if matches!(parsed, Property::Unparsed(_)) {
+    if matches!(parsed, Property::Unparsed(_)) || !crate::borders::valid_literals(name, value) {
         return None;
     }
     id.longhands().map_or_else(

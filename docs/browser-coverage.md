@@ -321,8 +321,8 @@ the forwarded request reaches the origin. These checks cover redirects,
 HTTP cookies, POST bodies, response errors, script skipping, isolation,
 resource limits and recovery. The HTTP cookie fixture does not test TLS or
 Secure cookie delivery. The seven lint/infrastructure checks spawn the actual
-pinned tools rather than replacing their behavior. All 2974 Bun tests therefore
-run without transport, browser or tool mocks; 2967 exercise the browser engine
+pinned tools rather than replacing their behavior. All 3042 Bun tests therefore
+run without transport, browser or tool mocks; 3035 exercise the browser engine
 and seven exercise tooling. Neither local suite proves deployed performance,
 TLS fingerprints, rendering or broad browser compatibility.
 
@@ -416,7 +416,7 @@ bound.
 
 Missing requirements remain: full stylesheet cascade and computed values, complete variable semantics,
 complete UA defaults, text/font shaping and line boxes, replaced
-content, borders, explicit/named grid tracks, absolute/fixed/sticky containing
+content, border painting, explicit/named grid tracks, absolute/fixed/sticky containing
 blocks, logical/writing modes, SVG geometry, transforms, fragmentation, scrolling,
 client-rect lists, pixel-unit rounding parity, painting and intersection/resize
 observers. Unsupported properties fail conservatively in this prototype.
@@ -1445,3 +1445,45 @@ broad implementation goal remain open.
 Public references: [CSS Fonts single-face and composite selection](https://www.w3.org/TR/css-fonts-4/#font-style-matching),
 [CSSOMString choices](https://www.w3.org/TR/cssom-1/#cssomstring),
 [upstream font-loading tests](https://github.com/web-platform-tests/wpt/tree/master/css/css-font-loading).
+
+### Physical border geometry
+
+The engine now resolves physical border widths and styles into the actual Taffy
+box model. A shared native border context carries computed widths and style
+keywords from each parent to its children and empty generated boxes. It resolves
+explicit inheritance, initial/unset values, the 1px/3px/5px width keywords,
+absolute units, supported font/viewport-relative units and bounded math through
+the existing font-size context. None and hidden produce zero computed widths.
+At the current fixed scale of one device pixel per CSS pixel, positive widths
+below one pixel become one and larger fractional widths round down. Negative
+literal lengths invalidate the entire declaration at parse time; math results
+are clamped after evaluation. Cascaded variables still use the existing native
+substitution machinery before geometry is calculated.
+
+The synthetic fixture has 54 checks across 64 fresh actual HTTP documents in
+each native and compiled-Wasm workerd suite. It checks shorthand expansion,
+physical sides, all line-style keywords, transparent/currentColor declaration
+retention, width snapping, relative lengths, variable substitution, explicit
+inheritance, content/border-box dimensions, child offsets, flex items, generated
+boxes, mutation, removal and rectangle snapshots. Four additional actual Worker
+cases reject font-metric units, border images, logical borders and rounded
+corners, then verify recovery with a fresh real request.
+
+Actual Chromium 152 at devicePixelRatio 1 matched 53 of the 54 checks in every
+variant. The remaining inheritZero case is retained in
+[borders-chromium.json](evidence/borders-chromium.json): after the parent's border
+style becomes none, Nimbo inherits its zero computed width, while Chromium
+reports a zero parent width but a child with solid style inherits the original
+4px width. This difference is unresolved; no broad inheritance parity is claimed.
+
+Border colors are retained as specified native declarations and have no effect
+on these box dimensions. This does not implement computed color resolution,
+getComputedStyle, painting, screenshots, clipping, logical/writing modes,
+configurable device scale, collapsed table borders, border images, full text
+layout or unmodified WPT execution. Other unsupported layout inputs still fail
+explicitly. The existing shared DOM-operation budget charges border computation
+and contextual math; finite native lengths are required before Taffy receives
+them.
+
+Public references: [CSS Backgrounds and Borders 3](https://www.w3.org/TR/css-backgrounds-3/#border-width)
+and [CSS Values 4 border-width snapping](https://www.w3.org/TR/css-values-4/#snap-a-length-as-a-border-width).
