@@ -16,6 +16,7 @@ mod modules;
 mod network;
 #[cfg(not(target_arch = "wasm32"))]
 mod page;
+mod registrations;
 mod selectors;
 mod storage;
 mod styles;

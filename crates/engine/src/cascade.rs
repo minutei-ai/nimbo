@@ -38,6 +38,7 @@ pub(crate) struct Cascade {
     rules: Vec<Rule>,
     index: Index,
     pub(crate) animations: crate::animations::Definitions,
+    pub(crate) registrations: crate::registrations::Definitions,
 }
 
 type Position = (usize, usize);
@@ -173,12 +174,14 @@ enum Prelude {
     Media(bool),
     Layers(Vec<Vec<String>>),
     Keyframes(String),
+    Property(String),
     Container(std::rc::Rc<crate::containers::Query>),
 }
 struct Rules<'a> {
     media: &'a MediaEnvironment,
     layers: &'a mut crate::layers::Layers,
     animations: &'a mut crate::animations::Definitions,
+    registrations: &'a mut crate::registrations::Definitions,
     parent: &'a [usize],
     containers: &'a [std::rc::Rc<crate::containers::Query>],
     failure: Option<Error>,
@@ -201,6 +204,14 @@ impl<'i> AtRuleParser<'i> for Rules<'_> {
                 input.new_error(cssparser::BasicParseErrorKind::QualifiedRuleInvalid)
             })?;
             return Ok(Prelude::Keyframes(source.to_owned()));
+        }
+        if name.eq_ignore_ascii_case("property") {
+            let name = input.expect_ident_cloned()?.to_string();
+            input.expect_exhausted()?;
+            if !name.starts_with("--") || name == "--" {
+                return Err(input.new_error(cssparser::BasicParseErrorKind::QualifiedRuleInvalid));
+            }
+            return Ok(Prelude::Property(name));
         }
         if name.eq_ignore_ascii_case("container") {
             let start = input.position();
@@ -237,6 +248,15 @@ impl<'i> AtRuleParser<'i> for Rules<'_> {
         consume(input, 0)?;
         let mut containers = self.containers.to_vec();
         let parent = match prelude {
+            Prelude::Property(name) => {
+                self.registrations
+                    .register(&name, input.slice_from(start), self.parent)
+                    .map_err(|error| {
+                        self.failure = Some(error);
+                        input.new_custom_error("stylesheet property registration")
+                    })?;
+                return Ok(ParsedRule::Group(Vec::new()));
+            }
             Prelude::Container(query) => {
                 containers.push(query);
                 self.parent.to_vec()
@@ -268,6 +288,7 @@ impl<'i> AtRuleParser<'i> for Rules<'_> {
             self.media,
             self.layers,
             self.animations,
+            self.registrations,
             &parent,
             &containers,
         )
@@ -403,6 +424,7 @@ fn sheet(
     media: &MediaEnvironment,
     layers: &mut crate::layers::Layers,
     animations: &mut crate::animations::Definitions,
+    registrations: &mut crate::registrations::Definitions,
     parent: &[usize],
     containers: &[std::rc::Rc<crate::containers::Query>],
 ) -> Result<Vec<Rule>> {
@@ -419,6 +441,7 @@ fn sheet(
         media,
         layers,
         animations,
+        registrations,
         parent,
         containers,
         failure: None,
@@ -473,6 +496,7 @@ impl Cascade {
         let mut selectors = 0_usize;
         let mut layers = crate::layers::Layers::default();
         let mut animations = crate::animations::Definitions::default();
+        let mut registrations = crate::registrations::Definitions::default();
         for node in document.root().descendants_it() {
             work.charge()?;
             nodes = nodes.saturating_add(1);
@@ -510,7 +534,15 @@ impl Cascade {
             if bytes > 262_144 {
                 return Err(Error::Limit("stylesheet total bytes"));
             }
-            let parsed = sheet(&source, media, &mut layers, &mut animations, &[], &[])?;
+            let parsed = sheet(
+                &source,
+                media,
+                &mut layers,
+                &mut animations,
+                &mut registrations,
+                &[],
+                &[],
+            )?;
             selectors = selectors.saturating_add(
                 parsed
                     .iter()
@@ -526,6 +558,7 @@ impl Cascade {
             index: Index::new(&rules),
             rules,
             animations,
+            registrations,
         })
     }
 

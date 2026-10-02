@@ -327,7 +327,8 @@ impl Tree<'_, '_> {
             self.containers,
             self.work,
         )?;
-        let (declarations, variables) = declarations.compute_variables(parent, self.work)?;
+        let (declarations, variables) =
+            declarations.compute_registered(parent, &self.cascade.registrations, self.work)?;
         let declarations = self
             .cascade
             .animations
@@ -434,7 +435,8 @@ impl Tree<'_, '_> {
         let declarations =
             self.cascade
                 .resolve(node, &declarations, None, self.containers, self.work)?;
-        let (declarations, variables) = declarations.compute_variables(parent, self.work)?;
+        let (declarations, variables) =
+            declarations.compute_registered(parent, &self.cascade.registrations, self.work)?;
         let declarations = self
             .cascade
             .animations

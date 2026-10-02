@@ -207,6 +207,8 @@ struct Resolver<'a, 'b> {
     active: Vec<String>,
     invalid: HashSet<String>,
     work: &'a mut Work<'b>,
+    registrations: &'a crate::registrations::Definitions,
+    defaults: Variables,
     bytes: usize,
 }
 
@@ -219,6 +221,20 @@ fn append(output: &mut String, value: &str) -> Computed<()> {
 }
 
 impl Resolver<'_, '_> {
+    fn default(&self, name: &str) -> Option<Rc<str>> {
+        self.registrations
+            .entries
+            .get(name)
+            .filter(|registration| {
+                !matches!(
+                    registration.syntax,
+                    lightningcss::values::syntax::SyntaxString::Universal
+                )
+            })
+            .and_then(|_registration| self.defaults.0.get(name))
+            .cloned()
+            .flatten()
+    }
     fn settle(&mut self) -> Result<()> {
         let inherited = self.values.clone();
         let sources = self.local.clone();
@@ -235,7 +251,7 @@ impl Resolver<'_, '_> {
             self.bytes = bytes;
             for name in &self.invalid {
                 self.local.remove(name);
-                self.values.0.insert(name.clone(), None);
+                self.values.0.insert(name.clone(), self.default(name));
             }
             for name in sources.keys() {
                 self.resolve(name, 0).map_err(engine_error)?;
@@ -271,8 +287,16 @@ impl Resolver<'_, '_> {
         let rendered = self.render(&items, depth.saturating_add(1));
         self.active.pop();
         let value = match rendered {
-            Ok(value) if !self.invalid.contains(name) => Some(Rc::<str>::from(value)),
-            Ok(_) | Err(Failure::Invalid) => None,
+            Ok(value) if !self.invalid.contains(name) => {
+                if let Some(registration) = self.registrations.entries.get(name) {
+                    crate::registrations::compute(&registration.syntax, &value, self.work)
+                        .map_err(Failure::Engine)?
+                        .or_else(|| self.default(name))
+                } else {
+                    Some(Rc::<str>::from(value))
+                }
+            }
+            Ok(_) | Err(Failure::Invalid) => self.default(name),
             Err(error) => return Err(error),
         };
         self.bytes = self
@@ -330,7 +354,22 @@ impl Declarations {
         parent: &Variables,
         work: &mut Work<'_>,
     ) -> Result<(Self, Variables)> {
+        self.compute_registered(parent, &crate::registrations::Definitions::default(), work)
+    }
+    pub(crate) fn compute_registered(
+        &self,
+        parent: &Variables,
+        registrations: &crate::registrations::Definitions,
+        work: &mut Work<'_>,
+    ) -> Result<(Self, Variables)> {
         let mut values = parent.clone();
+        for (name, registration) in &registrations.entries {
+            work.charge()?;
+            if !registration.inherits || !values.0.contains_key(name) {
+                values.0.insert(name.clone(), registration.initial.clone());
+            }
+        }
+        let defaults = values.clone();
         let mut local = BTreeMap::new();
         let mut source_bytes = 0_usize;
         for entry in &self.entries {
@@ -343,9 +382,25 @@ impl Declarations {
                 return Err(Error::Limit("CSS variable source bytes"));
             }
             match wide_keyword(&entry.value).as_deref() {
-                Some("inherit" | "unset") => {}
+                Some("inherit") => {
+                    let initial = registrations
+                        .entries
+                        .get(&entry.name)
+                        .and_then(|registration| registration.initial.clone());
+                    values.0.insert(
+                        entry.name.clone(),
+                        parent.0.get(&entry.name).cloned().unwrap_or(initial),
+                    );
+                }
+                Some("unset") => {}
                 Some("initial") => {
-                    values.0.insert(entry.name.clone(), None);
+                    values.0.insert(
+                        entry.name.clone(),
+                        registrations
+                            .entries
+                            .get(&entry.name)
+                            .and_then(|registration| registration.initial.clone()),
+                    );
                 }
                 Some(_) => {
                     return Err(Error::Dom(
@@ -385,6 +440,8 @@ impl Declarations {
             active: Vec::new(),
             invalid: HashSet::new(),
             work,
+            registrations,
+            defaults,
             bytes,
         };
         resolver.settle()?;

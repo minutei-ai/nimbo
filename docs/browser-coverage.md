@@ -21,7 +21,7 @@ tests as well as integration and application tests.
 
 `tooling/browser-live.test.ts` uses a real loopback HTTP origin, actual workerd,
 and the compiled Rust/Wasm engine. It installs no transport replacements,
-service mocks, browser API stubs, or canned engine results. Its 2432 data variants
+service mocks, browser API stubs, or canned engine results. Its 2496 data variants
 exercise external scripts, Unicode/entity decoding, selector identity,
 ancestry, removal/reparenting, attribute mutation and POST response decoding.
 They also exercise parsed and created text/comment nodes, native node identity,
@@ -45,15 +45,15 @@ failures. The eighth set exercises native Web Storage across inline, external
 and module scripts, UTF-16 including lone surrogates, coercion/receiver guards,
 named properties, reflection, removal, clearing and fresh Worker request areas.
 An additional case exercises actual quota exhaustion, atomic failure, independent
-local/session quotas and reuse. These are repeated integration checks, not 2432 independent platform
+local/session quotas and reuse. These are repeated integration checks, not 2496 independent platform
 features. The ninth set checks native media queries against 64 explicit viewport
 and preference configurations, including ranges, three-valued conditions,
 serialization, CSS escapes, receiver guards and synthetic MediaQueryList events.
 The tenth set rejects 64 invalid environment variants before any HTTP navigation.
 The eleventh set repeats the same DOMTokenList fixture at 64 distinct URLs,
 checking live attribute reads, ordered token mutations, identity, indices,
-iteration, receiver guards and atomic invalid-token rejection. Including ninety-seven
-resource/deadline/origin and explicit-capability checks, the real browser suite has 2529 tests.
+iteration, receiver guards and atomic invalid-token rejection. Including one hundred and seven
+resource/deadline/origin and explicit-capability checks, the real browser suite has 2603 tests.
 The twelfth set checks HTML namespace identity and reflected attributes with
 64 distinct synthetic strings. It includes parsed SVG/MathML and an HTML
 subtree inside SVG foreignObject.
@@ -320,8 +320,8 @@ the forwarded request reaches the origin. These checks cover redirects,
 HTTP cookies, POST bodies, response errors, script skipping, isolation,
 resource limits and recovery. The HTTP cookie fixture does not test TLS or
 Secure cookie delivery. The seven lint/infrastructure checks spawn the actual
-pinned tools rather than replacing their behavior. All 2548 Bun tests therefore
-run without transport, browser or tool mocks; 2541 exercise the browser engine
+pinned tools rather than replacing their behavior. All 2622 Bun tests therefore
+run without transport, browser or tool mocks; 2615 exercise the browser engine
 and seven exercise tooling. Neither local suite proves deployed performance,
 TLS fingerprints, rendering or broad browser compatibility.
 
@@ -372,7 +372,7 @@ as required by the CSSOM value grammar; Chromium accepted the embedded flag
 when the value contained var(). This is measured subset evidence, not full
 CSSOM/WPT or rendering parity. Full shorthand component/reset-property metadata
 (including border/font/animation and background position axes), logical ordering,
-CSS registered properties and complete syntax/error recovery remain missing.
+complete registered-property semantics and syntax/error recovery remain missing.
 The engine never resolves a variable merely to return a plausible specified
 value. The public comparator record is in
 [css-variables-chromium.json](evidence/css-variables-chromium.json).
@@ -472,7 +472,7 @@ listed input/tree limits; this is not a total-process CPU or memory claim.
 This is author style-rule ordering for supported box properties, not a complete
 cascade/computed-style implementation. Missing: stylesheet imports, origins
 and stylesheet sets, full style/link/sheet interfaces, scope/full container groups, nesting, full selector state/scope/WPT behavior, defaulting and
-inheritance for ordinary properties, complete variable semantics, registered properties, presentational hints,
+inheritance for ordinary properties, complete variable semantics, full registered-property semantics, presentational hints,
 full UA defaults, getComputedStyle, animations/transitions and paint. Font/text
 and all remaining layout/observer gaps stay in scope.
 
@@ -524,8 +524,8 @@ verify recovery with a fresh request, and one real exponential-expansion case
 verifies invalid-value fallback. These bounds are not a total-process memory
 or CPU guarantee.
 
-Ordinary-property inheritance/defaulting, CSS-wide cascade rollback, registered
-properties, environment variables, arbitrary substitution functions, computed
+Ordinary-property inheritance/defaulting, CSS-wide cascade rollback, full registered
+property semantics, environment variables, arbitrary substitution functions, computed
 style APIs, fonts and all remaining layout/observer requirements remain in scope.
 Unsupported defaults and values still fail explicitly.
 
@@ -1088,6 +1088,61 @@ four reject invalid settings before navigation. No transport or API behavior
 is replaced. Glyph/line-height/container metrics, remaining font-size keywords,
 math functions, invalid-value recovery/defaulting, ordinary relative layout
 lengths, full font-size rounding/zoom/preferences, lifecycle invalidation and
-font/WPT conformance remain required work. Known unsupported font-face and
-property at-rules now identify their public rule category in diagnostics;
-unknown extension names retain the generic diagnostic.
+font/WPT conformance remain required work. Unsupported font-face rules identify
+their public rule category in diagnostics; unknown extension names retain the
+generic diagnostic. The registered-property implementation is described below.
+
+## Stylesheet registered custom properties
+
+The native cascade now collects `@property` registrations and computes their
+values before substitution into another custom or ordinary property. Supported
+registrations establish initial values and inheritance flags, including explicit
+inherit/initial/unset, invalid computed-value defaults, dependency cycles and
+rebuilding after stylesheet replacement or removal. Layer priority and source
+order select registrations; malformed registrations leave an earlier valid one
+in place. Inactive media groups do not register properties. Size-container groups
+continue to collect registrations globally rather than treating their definitions
+as element-local conditional declarations.
+
+The parser uses the pinned native syntax grammar and matches entire alternatives,
+not prefixes. It supports universal token values, literal/custom identifiers,
+strings, numbers, integers, percentages, absolute lengths, pure length or percentage
+components of length-percentage values, angle/time/resolution components and RGBA
+colors. Space/comma lists serialize each supported component. Absolute length
+calculation uses the existing bounded native evaluator. Valid initial values with
+font dependencies or variable references invalidate the registration; missing
+syntax/inherits and missing typed initial values also invalidate it. Required
+syntax/inherits follow the published Level 1 contract and the actual Chromium
+comparison, not the later editor draft's optional-descriptor behavior.
+
+The public `registrations.txt` fixture runs 74 geometry/validation checks at each
+of 64 real HTTP URLs through workerd and the compiled Wasm engine. The same 74
+checks passed in all 64 isolated Chromium 152 documents. This covers initial and
+specified widths, inheritance/defaulting, substituted/canonical absolute lengths,
+number calculation, percentage widths, list padding, case-sensitive alternatives,
+important winners, cycles, unknown/invalid descriptor recovery, layer priority,
+media activation, dynamic registration removal and a healthy final geometry read.
+Some declared types are tested only for invalid-value rejection, not their entire
+computed-value behavior. The aggregate browser record is
+[registered-properties-chromium.json](evidence/registered-properties-chromium.json).
+
+Nine separate real Worker cases verify explicit diagnostics for relative/contextual
+lengths, currentColor, advanced colors, URLs, images, transforms and mixed
+length-percentage calculation. Each verifies healthy request recovery. The
+currentColor probe established that it is a valid initial value; Nimbo rejects
+its computation explicitly rather than silently discarding the registration.
+A tenth case exhausts the 1024-registration-attempt cap and verifies recovery.
+Parsing retains existing stylesheet byte/nesting bounds, while substitution and
+value computation charge the shared DOM budget. This is not a process CPU or
+memory guarantee.
+
+Remaining scope includes CSS.registerProperty and CSSPropertyRule/Typed OM,
+relative-length/font/line-height dependencies, viewport/container lengths in
+registered values, complete numeric and color computation, URL bases and resource
+loading, image/transform computation, registration-aware animation interpolation,
+full grammar/error recovery, shadow-tree registration and pinned WPT coverage.
+The new comparison proves the listed subset only, not full registered-property
+or browser conformance.
+
+Public references: [published CSS Properties and Values Level 1](https://www.w3.org/TR/2024/WD-css-properties-values-api-1-20240326/),
+[CSS Cascade 5](https://www.w3.org/TR/css-cascade-5/).

@@ -162,3 +162,38 @@ pub(crate) fn validate(value: &Length) -> Result<()> {
         .length(value, &mut work)
         .map(|_value| ())
 }
+
+pub(crate) fn absolute(value: &Length, work: &mut Work<'_>) -> Result<f64> {
+    fn literal(value: &Length, depth: usize, work: &mut Work<'_>) -> Result<f64> {
+        match value {
+            Length::Value(value) => {
+                if let Some(value) = value.to_px() {
+                    return Ok(f64::from(value));
+                }
+                let (_value, unit) = value.to_unit_value();
+                Err(unsupported(
+                    if matches!(
+                        unit,
+                        "em" | "rem"
+                            | "ex"
+                            | "rex"
+                            | "ch"
+                            | "rch"
+                            | "cap"
+                            | "rcap"
+                            | "ic"
+                            | "ric"
+                            | "lh"
+                            | "rlh"
+                    ) {
+                        "registered relative length"
+                    } else {
+                        "registered contextual length"
+                    },
+                ))
+            }
+            Length::Calc(value) => calculate(value, depth, work, &literal),
+        }
+    }
+    literal(value, 0, work)
+}

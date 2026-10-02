@@ -1,0 +1,313 @@
+{
+  "browser": "Chromium 152.0.7977.130",
+  "fixture": "crates/engine/tests/fixtures/registrations.txt",
+  "viewport": {
+    "width": 1024,
+    "height": 768
+  },
+  "execution": "64 isolated real browser iframe documents; fixture executed synchronously with actual geometry reads",
+  "variants": 64,
+  "checksPerVariant": 74,
+  "checks": {
+    "absoluteCalc": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "absoluteInch": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "absolutePoint": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "activeMedia": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "alternativeComplete": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "angleInvalid": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "chain": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "clamp": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "colorInvalid": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "commaListInvalid": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "commaListTrailing": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "commaListValid": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "custom-identInvalid": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "cycleInherited": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "cyclePair": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "cycleSelf": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "cycleUniversal": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "dependentInitial": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "explicitInherit": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "explicitInitial": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "fallbackReference": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "importantInvalid": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "importantValid": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "inactiveMedia": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "inherited": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "initial": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "integer": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "integerInvalid": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "invalidDescriptorRecovery": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "invalidInherited": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "invalidInitial": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "invalidLastRegistration": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "invalidNonInherited": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "invalidVariableLastInitial": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "lastRegistration": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "layerLastRule": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "layerSourceOrder": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "literal": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "literalCase": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "min": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "missingInherits": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "missingInitial": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "missingReference": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "missingSyntax": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "nonInherited": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "number": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "numberCalc": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "percentage": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "percentageAlternative": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "recovery": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "registrationAdded": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "registrationRemoved": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "resolutionInvalid": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "spaceList": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "spaceListInvalid": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "spaceListValid": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "specified": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "stringInvalid": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "substitutionInvalid": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "substitutionValid": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "timeInvalid": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "trailingTokens": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "universalEmpty": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "universalInheritance": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "universalInitial": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "universalMissing": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "unknownDescriptor": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "unlayeredPriority": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "unsetInherited": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "unsetNonInherited": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "unusedFallback": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "variableInitial": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "wideInitial": {
+      "failedVariants": [],
+      "passed": 64
+    },
+    "winnerInvalid": {
+      "failedVariants": [],
+      "passed": 64
+    }
+  },
+  "limitations": [
+    "This compares the listed geometry and validation cases, not full registered-property conformance or WPT.",
+    "Font-relative values, contextual lengths, currentColor, advanced color spaces, URL/image/transform computed values, mixed length-percentage calculations and JS registration remain unproven or explicitly unsupported."
+  ]
+}

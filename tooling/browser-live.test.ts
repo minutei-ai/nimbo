@@ -415,6 +415,16 @@ const origin = Bun.serve({
         headers: { "content-type": "text/html" },
       });
     }
+    if (path.startsWith("/registrations/")) {
+      const variant = Number(path.split("/").at(-1));
+      const source = await Bun.file(
+        join(import.meta.dir, "../crates/engine/tests/fixtures/registrations.txt"),
+      ).text();
+      return new Response(
+        `<!doctype html><body><script>globalThis.variant=${variant};${source}</script>`,
+        { headers: { "content-type": "text/html" } },
+      );
+    }
     if (path.startsWith("/font-queries/")) {
       const variant = Number(path.split("/").at(-1));
       const source = await Bun.file(
@@ -3690,3 +3700,82 @@ for (const initial of [1, 512]) {
     });
   });
 }
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: registered custom properties variant %i",
+  async (variant) => {
+    const url = new URL(`registrations/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "comparison" }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    expect(result).toMatchObject({ url, engine: "rust-wasm-quickjs" });
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing comparison");
+    expect(Object.keys(value)).toHaveLength(74);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each([
+  ["<length>", "0px", "--p:2em", "registered relative length"],
+  ["<length>", "2vw", "", "registered contextual length"],
+  ["<color>", "red", "--p:currentColor", "registered dependent color"],
+  ["<color>", "currentColor", "", "registered dependent color"],
+  ["<color>", "lab(50% 0 0)", "", "registered computed value type"],
+  ["<url>", "url(example.test)", "", "registered computed value type"],
+  ["<image>", "linear-gradient(red,blue)", "", "registered computed value type"],
+  ["<transform-function>", "translateX(1px)", "", "registered computed value type"],
+  ["<length-percentage>", "calc(10px + 5%)", "", "registered computed value type"],
+] as const)(
+  "real HTTP → workerd → Wasm: explicit registered value diagnostic %s/%s",
+  async (syntax, initial, declarations, reason) => {
+    const url = new URL("geometry-empty", origin.url).href;
+    const css = `@property --p {syntax:"${syntax}";inherits:false;initial-value:${initial};}.target{width:var(--p);${declarations}}`;
+    const expression = `(()=>{const sheet=document.createElement('style');sheet.textContent=${JSON.stringify(css)};document.head.appendChild(sheet);const target=document.createElement('div');target.className='target';document.body.appendChild(target);return target.getBoundingClientRect().width;})()`;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression }),
+    });
+    expect(response.status).toBe(422);
+    const error: unknown = expect.stringContaining(reason);
+    expect(await response.json()).toMatchObject({ error });
+    const healthy = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url,
+        expression:
+          "(()=>{const node=document.createElement('div');node.style.width='11px';document.body.appendChild(node);return node.getBoundingClientRect().width;})()",
+      }),
+    });
+    expect(healthy.status).toBe(200);
+    expect(await healthy.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: 11 });
+  },
+);
+
+test("real HTTP → workerd → Wasm: registration resource limit and recovery", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const expression =
+    "(()=>{const sheet=document.createElement('style');let css='';for(let i=0;i<1025;i++)css+='@property --p'+i+'{syntax:invalid;}';sheet.textContent=css;document.head.appendChild(sheet);return document.body.getBoundingClientRect().width;})()";
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression }),
+  });
+  expect(response.status).toBe(422);
+  const error: unknown = expect.stringContaining("property registrations");
+  expect(await response.json()).toMatchObject({ error });
+  const healthy = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: "document.body.children.length" }),
+  });
+  expect(healthy.status).toBe(200);
+  expect(await healthy.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: 0 });
+});

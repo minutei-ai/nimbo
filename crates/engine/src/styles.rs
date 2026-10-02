@@ -56,7 +56,7 @@ pub(crate) struct Declarations {
 
 // Tokenize before invoking the grammar parser, bounding recursion and rejecting
 // bad strings/URLs rather than accepting the transformer's unparsed fallback.
-fn components<'i>(
+pub(crate) fn components<'i>(
     input: &mut Parser<'i, '_>,
     depth: usize,
     strict: bool,
@@ -293,7 +293,7 @@ fn trimmed(value: &str) -> Option<&str> {
     Some(start.map_or("", |start| parser.slice(start..end)))
 }
 
-fn wide_keyword(value: &str) -> Option<String> {
+pub(crate) fn wide_keyword(value: &str) -> Option<String> {
     let mut input = ParserInput::new(value);
     let mut parser = Parser::new(&mut input);
     let keyword = parser.expect_ident().ok()?.to_ascii_lowercase();
