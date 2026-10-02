@@ -86,6 +86,7 @@ fn serve(mut request: Request) -> io::Result<()> {
     let mut status = 200;
     let mut headers = Vec::new();
     let body = match request.url() {
+        "/style-variables" => script_fixture(include_str!("fixtures/style-variables.txt")),
         "/styles" => script_fixture(include_str!("fixtures/styles.txt")),
         "/anchors" => format!("<base href=\"https://example.com/root/\"><a id=\"link\" href=\"../doc?q=1#fragment\">link</a><svg><a></a></svg><script>{}</script>", include_str!("fixtures/anchors.txt")),
         "/encoding" => format!("<script>{}</script>", include_str!("fixtures/encoding.txt")),
@@ -899,6 +900,22 @@ fn inline_styles_use_native_declarations_and_live_dom_attributes() -> TestResult
     let result = page.evaluate("comparison")?;
     let fields = result.as_object().ok_or("missing styles result")?;
     assert_eq!(fields.len(), 20);
+    assert!(
+        fields.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    Ok(())
+}
+
+#[test]
+fn inline_variables_preserve_native_pending_shorthands_and_invalidations() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/style-variables"))?;
+    let result = page.evaluate("comparison")?;
+    let fields = result.as_object().ok_or("missing variable styles result")?;
+    assert_eq!(fields.len(), 27);
     assert!(
         fields.values().all(|value| *value == json!(true)),
         "{result}"

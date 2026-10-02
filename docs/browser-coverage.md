@@ -21,7 +21,7 @@ tests as well as integration and application tests.
 
 `tooling/browser-live.test.ts` uses a real loopback HTTP origin, actual workerd,
 and the compiled Rust/Wasm engine. It installs no transport replacements,
-service mocks, browser API stubs, or canned engine results. Its 1216 data variants
+service mocks, browser API stubs, or canned engine results. Its 1280 data variants
 exercise external scripts, Unicode/entity decoding, selector identity,
 ancestry, removal/reparenting, attribute mutation and POST response decoding.
 They also exercise parsed and created text/comment nodes, native node identity,
@@ -45,15 +45,15 @@ failures. The eighth set exercises native Web Storage across inline, external
 and module scripts, UTF-16 including lone surrogates, coercion/receiver guards,
 named properties, reflection, removal, clearing and fresh Worker request areas.
 An additional case exercises actual quota exhaustion, atomic failure, independent
-local/session quotas and reuse. These are repeated integration checks, not 1216 independent platform
+local/session quotas and reuse. These are repeated integration checks, not 1280 independent platform
 features. The ninth set checks native media queries against 64 explicit viewport
 and preference configurations, including ranges, three-valued conditions,
 serialization, CSS escapes, receiver guards and synthetic MediaQueryList events.
 The tenth set rejects 64 invalid environment variants before any HTTP navigation.
 The eleventh set repeats the same DOMTokenList fixture at 64 distinct URLs,
 checking live attribute reads, ordered token mutations, identity, indices,
-iteration, receiver guards and atomic invalid-token rejection. Including eleven
-resource/deadline/origin checks, the real browser suite has 1227 tests.
+iteration, receiver guards and atomic invalid-token rejection. Including thirteen
+resource/deadline/origin checks, the real browser suite has 1293 tests.
 The twelfth set checks HTML namespace identity and reflected attributes with
 64 distinct synthetic strings. It includes parsed SVG/MathML and an HTML
 subtree inside SVG foreignObject.
@@ -329,17 +329,50 @@ then verify page-state release and fresh style objects on the next request.
 
 This is an inline declaration subset, not a layout engine or complete CSSOM.
 The grammar transformer accepts unparsed invalid ordinary values, so the engine
-explicitly rejects that fallback. Deferred var()/env() values are currently
-rejected for ordinary properties; substitution, computed values and variable
-shorthand handling remain missing. Tokenization is bounded to 32 nested blocks,
-64 KiB inputs and 1024 expanded declarations. Custom-property token whitespace,
-empty token values, CSSOM color/zero-length canonicalization, complete property
+explicitly rejects that fallback. Syntactically valid var()/env() values now preserve their specified token text.
+Pending shorthand longhands serialize as empty strings, retain priority and
+native state across style reads/writes, and reconstruct the originating
+shorthand only when all components still match. Substitution, dependency cycles,
+inheritance, animation taint and computed values remain missing. Tokenization is bounded to 32 nested blocks,
+64 KiB inputs and 1024 expanded declarations. CSSOM color/zero-length canonicalization, complete property
 aliases, semantic range validation and IDL reflection, generic shorthand recompression, foreign namespace
 inline-style interfaces, stylesheet/rule APIs, cascade, getComputedStyle,
 layout/geometry and IntersectionObserver remain incomplete or absent. Accepting
 and storing a declaration does not prove its rendering behavior. Bundler,
 source-map, Node and threading features are disabled. Hash-map entropy on Wasm
 comes from the Worker's native Web Crypto; page scripts cannot access this bridge.
+
+A twentieth set of 64 real Worker variants checks variable syntax, empty and
+nested fallbacks, escaped/case-sensitive references, environment indices,
+custom-value interior whitespace/comments and empty tokens, pending
+margin/padding longhands, priorities, partial override/removal, external
+attribute invalidation, failed writes and custom-element reactions. CSS state
+belongs to the native DOM rather than being rebuilt from a serialized attribute
+on every getter. Same-value setAttribute preserves it; changed values, removals
+and cssText replacement reparse it. A 4 MiB accounted native-state quota charges
+entry/vector/string storage and conservatively charges shared pending strings
+per expanded entry. Actual Worker tests reach that quota, prove atomic failure,
+release state through attribute removal and reuse the page and Worker request.
+A separate real case confirms that cssText replacement recovers from an oversized
+external attribute without trying to parse the discarded value first.
+
+The identical synthetic variable fixture was also evaluated in actual
+Chromium 152 through the collaborative browser at 64 distinct names. Its 25
+common aggregate checks matched. Two differences are explicit: Nimbo throws
+on an input above 64 KiB, and rejects embedded !important in setProperty values
+as required by the CSSOM value grammar; Chromium accepted the embedded flag
+when the value contained var(). This is measured subset evidence, not full
+CSSOM/WPT or rendering parity. Full shorthand component/reset-property metadata
+(including border/font/animation and background position axes), logical ordering,
+CSS registered properties and complete syntax/error recovery remain missing.
+The engine never resolves a variable merely to return a plausible specified
+value. The public comparator record is in
+[css-variables-chromium.json](evidence/css-variables-chromium.json).
+
+Public references:
+[CSS Variables](https://www.w3.org/TR/css-variables-1/),
+[CSS environment variables](https://www.w3.org/TR/css-env-1/), and
+[CSSOM](https://drafts.csswg.org/cssom/) (the latter two are work in progress).
 
 ## Capability matrix
 

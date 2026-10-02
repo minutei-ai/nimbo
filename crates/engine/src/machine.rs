@@ -270,7 +270,6 @@ impl Machine {
             install_media(&ctx, media)?;
             js(&ctx, crate::encoding::install(&ctx))?;
             js(&ctx, crate::links::install(&ctx))?;
-            js(&ctx, crate::styles::install(&ctx))?;
             js(&ctx, globals.set("nimboUrl", url))?;
             let callbacks = js(
                 &ctx,

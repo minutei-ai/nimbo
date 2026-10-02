@@ -1,0 +1,79 @@
+globalThis.comparison = (() => {
+  const variant=globalThis.variant ?? 0;
+  const el=document.createElement('div'); const s=el.style;
+  const ref=`var(--Size${variant}, ${variant+1}px)`;
+  s.width=ref;
+  const specified=s.width===ref && s.cssText===`width: ${ref};` && s.length===1;
+  s.width='var(--Size) nonsense';
+  const deferredGrammar=s.width==='var(--Size) nonsense';
+  const valid=['var(--x)','VAR(--x)','var(--x,)','var(--x,,)','var(--x, 1px, 2px)',
+    'var(--x, var(--y, 3px))','calc(var(--x) + 1px)','env(safe-area-inset-top)',
+    'ENV(safe-area-inset-top, 2px)','env(foo 0 1, var(--x,))','env(foo, red, blue)','env(initial)','env(default)',
+    'var( /*c*/ --x /*a*/, /*b*/ 1px /*end*/)','var(--\\58)','v\\61r(--x)',
+    'var(--x','calc(var(--x) + 1px','var(--x, "foo'];
+  const validGrammar=valid.every(value=>{s.cssText='';s.width=value;return s.width===value && s.length===1;});
+  const invalid=['var(--)','var(x)','var()','var(--x 1px)','var(--x, var(bad))',
+    'var(--x, !bad)','var(--x, ;)','env(foo -1)','env(foo 1.5)','env(foo 1e0)',
+    'env(foo bar)','var(--x); height: 2px',
+    'calc(var(bad) + var(--x))'];
+  const invalidGrammar=invalid.every(value=>{s.cssText='width: 7px;';s.width=value;return s.width==='7px' && s.cssText==='width: 7px;';});
+  s.setProperty('width','var(--x) !important');
+  const embeddedPriority=s.width==='7px' && s.getPropertyPriority('width')==='';
+  s.cssText='--A: 001  002/**/X; --a: var(--A, 3px);';
+  const customCase=s.getPropertyValue('--A')==='001  002/**/X' && s.getPropertyValue('--a')==='var(--A, 3px)';
+  s.cssText='--x: /*start*/ one  /*end*/;';
+  const customEdges=s.getPropertyValue('--x')==='one' && s.cssText==='--x: one;';
+  s.cssText='--x: a/**/b;';
+  const customInterior=s.getPropertyValue('--x')==='a/**/b' && s.cssText==='--x: a/**/b;';
+  s.cssText='--x: \u00a0foo\u00a0;';
+  const nonAsciiWhitespace=s.getPropertyValue('--x')==='\u00a0foo\u00a0';
+  s.cssText='--x:  ; --y: /*comment*/;';
+  const emptyCustom=s.length===2 && s.getPropertyValue('--x')==='' && s.getPropertyValue('--y')==='' && s.cssText==='--x: ; --y: ;';
+  s.setProperty('--z',' ');
+  const emptySpecified=s.length===3 && s.getPropertyValue('--z')==='';
+  s.setProperty('--z','');
+  const emptyRemoval=s.length===2;
+  s.cssText='--x: INITIAL/**/;';
+  const wide=s.getPropertyValue('--x')==='initial';
+  s.cssText='--x: var(bad); height: 8px;';
+  const invalidCustom=s.length===1 && s.getPropertyValue('--x')==='' && s.height==='8px';
+  s.cssText='';s.margin=ref;
+  const pending=s.margin===ref && s.marginTop==='' && s.marginRight==='' && s.marginBottom==='' && s.marginLeft===''
+    && s.length===4 && Array.from({length:s.length},(_,i)=>s.item(i)).join(',')==='margin-top,margin-right,margin-bottom,margin-left'
+    && s.cssText===`margin: ${ref};` && el.getAttribute('style')===s.cssText;
+  s.marginTop='3px';
+  const partial=s.margin==='' && s.marginTop==='3px' && s.marginRight==='' && s.length===4
+    && s.cssText==='margin-top: 3px; margin-right: ; margin-bottom: ; margin-left: ;';
+  s.height='4px';s.cssFloat='left';
+  const retained=s.length===6 && s.item(1)==='margin-right' && s.marginRight==='';
+  s.removeProperty('margin-left');
+  const removedPending=s.length===5 && s.item(1)==='margin-right' && s.margin==='';
+  const serialized=s.cssText; el.setAttribute('style',serialized);
+  const externalSame=s.length===5 && s.item(1)==='margin-right';
+  el.setAttribute('style',serialized+' ');
+  const externalReset=s.length===3 && s.marginTop==='3px' && s.height==='4px' && s.cssFloat==='left';
+  s.cssText='';s.setProperty('padding',ref,'important');
+  const important=s.padding===ref && s.paddingTop==='' && s.getPropertyPriority('padding')==='important'
+    && s.getPropertyPriority('padding-top')==='important' && s.cssText===`padding: ${ref} !important;`;
+  s.setProperty('padding-top','2px');
+  const mixed=s.padding==='' && s.getPropertyPriority('padding')==='' && s.getPropertyPriority('padding-right')==='important'
+    && s.cssText==='padding-top: 2px; padding-right:  !important; padding-bottom:  !important; padding-left:  !important;';
+  s.cssText='';s.margin='env(safe-area-inset-top, 1px)';
+  const environment=s.margin==='env(safe-area-inset-top, 1px)' && s.marginTop==='' && s.length===4;
+  s.cssText='margin-top: var(--x); margin-right: 1px; margin-bottom: 1px; margin-left: 1px;';
+  const longhandVariable=s.margin==='' && s.marginTop==='var(--x)' && s.length===4;
+  s.cssText='';s.margin=ref;
+  const failed=(()=>{try{s.setProperty('width','x'.repeat(65537));return false;}catch{return s.margin===ref && s.length===4;}})();
+  class VariableStyleElement extends HTMLElement {
+    static get observedAttributes(){return ['style'];}
+    attributeChangedCallback(){this.calls=(this.calls ?? 0)+1; this.pending=this.style.margin;}
+  }
+  customElements.define(`x-variable-style-${variant}`,VariableStyleElement);
+  const observed=document.createElement(`x-variable-style-${variant}`);observed.style.margin=ref;
+  const reaction=observed.calls===1 && observed.pending===ref;
+  const style=el.style;el.removeAttribute('style');
+  const reset=style===el.style && style.length===0;
+  return {specified,deferredGrammar,validGrammar,invalidGrammar,embeddedPriority,customCase,customEdges,customInterior,nonAsciiWhitespace,
+    emptyCustom,emptySpecified,emptyRemoval,wide,invalidCustom,pending,partial,retained,removedPending,externalSame,externalReset,
+    important,mixed,environment,longhandVariable,failed,reaction,reset};
+})();

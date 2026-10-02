@@ -1,0 +1,49 @@
+{
+  "recordedAt": "2026-10-02 00:49:15 UTC",
+  "reference": "Chromium 152, collaborative browser",
+  "fixture": "crates/engine/tests/fixtures/style-variables.txt",
+  "variants": {
+    "count": 64,
+    "first": 2000,
+    "last": 2063
+  },
+  "failureCounts": {
+    "customCase": 0,
+    "customEdges": 0,
+    "customInterior": 0,
+    "deferredGrammar": 0,
+    "embeddedPriority": 64,
+    "emptyCustom": 0,
+    "emptyRemoval": 0,
+    "emptySpecified": 0,
+    "environment": 0,
+    "externalReset": 0,
+    "externalSame": 0,
+    "failed": 64,
+    "important": 0,
+    "invalidCustom": 0,
+    "invalidGrammar": 0,
+    "longhandVariable": 0,
+    "mixed": 0,
+    "nonAsciiWhitespace": 0,
+    "partial": 0,
+    "pending": 0,
+    "reaction": 0,
+    "removedPending": 0,
+    "reset": 0,
+    "retained": 0,
+    "specified": 0,
+    "validGrammar": 0,
+    "wide": 0
+  },
+  "interpretation": {
+    "commonChecks": 25,
+    "referenceMatches": 25,
+    "nimboOnlyChecks": ["failed", "embeddedPriority"],
+    "differences": {
+      "failed": "Nimbo explicitly rejects an input over 64 KiB; this Chromium probe did not throw for the 65537-byte invalid width value.",
+      "embeddedPriority": "Nimbo rejects !important embedded in a setProperty value; Chromium accepted and extracted the flag when that value contained var()."
+    }
+  },
+  "scope": "Specified inline values and pending margin/padding declarations only; no computed style, variable substitution, cascade, layout or full WPT proof."
+}

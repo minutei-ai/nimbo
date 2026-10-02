@@ -82,7 +82,7 @@ O binding opcional `EGRESS` implementa `fetch(Request): Promise<Response>`, perm
 | Import maps, JSON modules e carregamento de novos imports dinâmicos                | Não implementados; scripts async rejeitados                        |
 | localStorage/sessionStorage, cota UTF-16 e persistência entre navegações nativas   | Testados; Worker inicia áreas vazias por request                   |
 | IndexedDB, storage events e sessões duráveis                                       | Não implementados                                                  |
-| Estilos inline: parser CSS nativo, prioridades e mutações no DOM                   | Subconjunto testado; CSSOM completo e estilos computados pendentes |
+| Estilos inline: parser CSS nativo, var/env e estado de shorthands                  | Subconjunto testado; CSSOM completo e estilos computados pendentes |
 | TextEncoder/TextDecoder, buffers e codecs Rust                                     | Testados; encoding streams e WPT completo pendentes                |
 | HTMLElement, namespaces e atributos refletidos básicos                             | Testados; interfaces específicas pendentes                         |
 | Custom elements autônomos, upgrades, callbacks e whenDefined                       | Testados parcialmente; forms, shadow e registries scoped pendentes |

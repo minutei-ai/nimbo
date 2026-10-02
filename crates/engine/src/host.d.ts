@@ -29,11 +29,3 @@ declare function nimboLink(
   base: string,
   value: string,
 ): string;
-
-declare function nimboStyle(
-  operation: string,
-  source: string,
-  property: string,
-  value: string,
-  priority: string,
-): string;

@@ -7,7 +7,6 @@
   const nativeEncode = nimboEncode;
   const nativeDecoder = nimboDecoder;
   const nativeLink = nimboLink;
-  const nativeStyle = nimboStyle;
   // Values are validated by Rust before installing the page bindings.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const mediaEnvironment = JSON.parse(nimboMediaEnvironment) as { width: number; height: number };
@@ -22,7 +21,6 @@
   Reflect.deleteProperty(globalThis, "nimboEncode");
   Reflect.deleteProperty(globalThis, "nimboDecoder");
   Reflect.deleteProperty(globalThis, "nimboLink");
-  Reflect.deleteProperty(globalThis, "nimboStyle");
   Reflect.deleteProperty(globalThis, "nimboMediaEnvironment");
   Reflect.deleteProperty(globalThis, "nimboUrl");
   Reflect.deleteProperty(globalThis, "nimboNow");
@@ -1466,12 +1464,7 @@
   ): StyleOutput {
     const id = styleOwners.get(owner);
     if (id === undefined) throw new TypeError("Illegal invocation");
-    const source = call<string | null>("attr", id, "style") ?? "";
-    // The native declaration parser owns this JSON contract.
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    const output = JSON.parse(nativeStyle(operation, source, name, value, priority)) as StyleOutput;
-    if (operation === "text" || output.changed) call("setAttr", id, "style", output.css_text);
-    return output;
+    return call<StyleOutput>("style", id, operation, JSON.stringify({ name, value, priority }));
   }
   class CSSStyleDeclaration {
     constructor() {
@@ -2135,6 +2128,7 @@
       ![
         "setAttr",
         "removeAttr",
+        "style",
         "set",
         "append",
         "insert",
@@ -2145,6 +2139,17 @@
     )
       return raw<T>(operation, id, arg, value);
     return reactions(() => {
+      if (operation === "style") {
+        const target = nodes.get(id);
+        const old = raw<string | null>("attr", id, "style");
+        const result = raw<StyleOutput>(operation, id, arg, value);
+        if (target && isHTML(target) && (arg === "text" || result.changed)) {
+          customCallback(target, "attributeChangedCallback", ["style", old, result.css_text, null]);
+        }
+        // Rust owns the result shape for this operation.
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        return result as T;
+      }
       if (operation === "setAttr" || operation === "removeAttr") {
         const target = nodes.get(id);
         const old = raw<string | null>("attr", id, arg);

@@ -27,6 +27,9 @@ const anchorScript = await Bun.file(
 const styleScript = await Bun.file(
   join(import.meta.dir, "../crates/engine/tests/fixtures/styles.txt"),
 ).text();
+const styleVariableScript = await Bun.file(
+  join(import.meta.dir, "../crates/engine/tests/fixtures/style-variables.txt"),
+).text();
 const requests: string[] = [];
 const comparisonBinary = process.env.NIMBO_COMPARE_OBSCURA_BINARY;
 async function comparePage(binary: string, url: string): Promise<unknown> {
@@ -387,6 +390,12 @@ const origin = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     requests.push(`${request.method} ${path}`);
+    if (path.startsWith("/style-variables/")) {
+      const variant = Number(path.split("/").at(-1));
+      return new Response(`<script>globalThis.variant=${variant};${styleVariableScript}</script>`, {
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
+    }
     if (path.startsWith("/styles/")) {
       const variant = Number(path.split("/").at(-1));
       return new Response(`<script>globalThis.variant=${variant};${styleScript}</script>`, {
@@ -1796,7 +1805,7 @@ test.each(["value", "attribute", "entries"])(
     });
     expect(failed.status).toBe(422);
     const message: unknown = expect.stringMatching(
-      /^JavaScript: Error: CSS (?:input|declaration) limit(?:\n|$)/,
+      /^JavaScript: Error: (?:DOM: )?CSS (?:input|declaration) limit(?:\n|$)/,
     );
     expect(await failed.json()).toEqual({ error: message });
     const recovered = await worker.dispatchFetch("https://nimbo.test/scrape", {
@@ -1815,3 +1824,108 @@ test.each(["value", "attribute", "entries"])(
     });
   },
 );
+
+const styleVariablesExpected = Object.fromEntries(
+  [
+    "specified",
+    "deferredGrammar",
+    "validGrammar",
+    "invalidGrammar",
+    "embeddedPriority",
+    "customCase",
+    "customEdges",
+    "customInterior",
+    "nonAsciiWhitespace",
+    "emptyCustom",
+    "emptySpecified",
+    "emptyRemoval",
+    "wide",
+    "invalidCustom",
+    "pending",
+    "partial",
+    "retained",
+    "removedPending",
+    "externalSame",
+    "externalReset",
+    "important",
+    "mixed",
+    "environment",
+    "longhandVariable",
+    "failed",
+    "reaction",
+    "reset",
+  ].map((key) => [key, true]),
+);
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native variable values and pending CSS shorthands variant %i",
+  async (variant) => {
+    const url = new URL(`style-variables/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "comparison" }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      url,
+      engine: "rust-wasm-quickjs",
+      value: styleVariablesExpected,
+    });
+    expect(requests).toContain(`GET /style-variables/${variant}`);
+  },
+);
+
+test("real HTTP → workerd → Wasm: native CSS state quota is atomic and reusable", async () => {
+  const url = new URL("styles/0", origin.url).href;
+  const expression = `(() => {
+    const owners=[];const value='x'.repeat(65000);let failure='';let failed=null;
+    for(let i=0;i<70;i++) {
+      const el=document.createElement('div');
+      try {el.style.setProperty('--blob',value);owners.push(el);}
+      catch(error){failure=error.message;failed=el;break;}
+    }
+    const atomic=failed!==null && failed.getAttribute('style')===null && failed.style.length===0;
+    owners[0].removeAttribute('style');failed.style.width='8px';
+    return {limited:failure==='resource limit: CSS state',atomic,reused:failed.style.width==='8px',count:owners.length>0 && owners.length<70};
+  })()`;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({
+    url,
+    engine: "rust-wasm-quickjs",
+    value: { limited: true, atomic: true, reused: true, count: true },
+  });
+  const recovered = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: "document.createElement('div').style.length" }),
+  });
+  expect(recovered.status).toBe(200);
+  expect(await recovered.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: 0 });
+});
+
+test("real HTTP → workerd → Wasm: cssText recovers from an oversized external attribute", async () => {
+  const url = new URL("styles/0", origin.url).href;
+  const expression = `(() => {
+    const el=document.createElement('div');const style=el.style;
+    el.setAttribute('style','x'.repeat(65537));let limited=false;
+    try {style.length;} catch(error){limited=error.message.includes('CSS input limit');}
+    style.cssText='width: 8px';
+    return {limited,identity:style===el.style,value:style.width,attribute:el.getAttribute('style'),length:style.length};
+  })()`;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({
+    url,
+    engine: "rust-wasm-quickjs",
+    value: { limited: true, identity: true, value: "8px", attribute: "width: 8px;", length: 1 },
+  });
+});

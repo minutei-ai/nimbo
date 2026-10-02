@@ -11,6 +11,8 @@ pub(crate) struct Dom {
     ids: HashMap<NodeId, usize>,
     // Cache compiled selectors only; DOM results must always reflect mutations.
     matchers: HashMap<String, Matcher>,
+    styles: HashMap<NodeId, crate::styles::Declarations>,
+    style_bytes: usize,
     operations: usize,
     writes: usize,
     limits: Limits,
@@ -25,6 +27,8 @@ impl Dom {
             handles: vec![root],
             ids: HashMap::from([(root, 0)]),
             matchers: HashMap::new(),
+            styles: HashMap::new(),
+            style_bytes: 0,
             operations: 0,
             writes: 0,
             limits,
@@ -128,10 +132,9 @@ impl Dom {
                     .collect::<Vec<_>>()
             ),
             "attr" => json!(self.node(handle)?.attr(arg).map(|text| text.to_string())),
+            "style" => self.style(handle, arg, value)?,
             "set" | "setAttr" | "removeAttr" => {
-                let attribute_bytes = if operation == "setAttr" { arg.len() } else { 0 };
-                self.charge_write(attribute_bytes.saturating_add(value.len()))?;
-                self.set(operation, handle, arg, value)?;
+                self.write_value(operation, handle, arg, value)?;
                 Value::Null
             }
             "append" | "insert" | "replace" => self.insert(operation, handle, arg, value)?,
@@ -147,6 +150,67 @@ impl Dom {
             }
         };
         Ok(serde_json::to_string(&result)?)
+    }
+
+    fn write_value(
+        &mut self,
+        operation: &str,
+        handle: usize,
+        arg: &str,
+        value: &str,
+    ) -> Result<()> {
+        let style_changed = arg.eq_ignore_ascii_case("style")
+            && (operation == "removeAttr"
+                || (operation == "setAttr"
+                    && self.node(handle)?.attr("style").as_deref() != Some(value)));
+        let attribute_bytes = if operation == "setAttr" { arg.len() } else { 0 };
+        self.charge_write(attribute_bytes.saturating_add(value.len()))?;
+        self.set(operation, handle, arg, value)?;
+        if style_changed {
+            let id = self.node(handle)?.id;
+            if let Some(previous) = self.styles.remove(&id) {
+                self.style_bytes = self.style_bytes.saturating_sub(previous.bytes());
+            }
+        }
+        Ok(())
+    }
+
+    fn style(&mut self, handle: usize, operation: &str, request: &str) -> Result<Value> {
+        const STATE_LIMIT: usize = 4 * 1024 * 1024;
+        let node = self.node(handle)?;
+        if !node.is_element() {
+            return Err(Error::Dom("style owner must be an element".into()));
+        }
+        let id = node.id;
+        let mut state = if operation == "text" {
+            crate::styles::Declarations::default()
+        } else if let Some(state) = self.styles.get(&id) {
+            state.clone()
+        } else {
+            crate::styles::Declarations::parse(node.attr("style").as_deref().unwrap_or_default())
+                .map_err(|message| Error::Dom(message.into()))?
+        };
+        let output = crate::styles::call(&mut state, operation, request)
+            .map_err(|message| Error::Dom(message.into()))?;
+        state.compact();
+        let bytes = self
+            .style_bytes
+            .saturating_sub(
+                self.styles
+                    .get(&id)
+                    .map_or(0, crate::styles::Declarations::bytes),
+            )
+            .saturating_add(state.bytes());
+        if bytes > STATE_LIMIT {
+            return Err(Error::Limit("CSS state"));
+        }
+        if operation == "text" || output.changed {
+            self.charge_write("style".len().saturating_add(output.css_text.len()))?;
+            self.set("setAttr", handle, "style", &output.css_text)?;
+        }
+        self.styles.insert(id, state);
+        self.style_bytes = bytes;
+        Ok(serde_json::to_value(output)?)
     }
 
     pub(crate) fn base_href(&self) -> Option<String> {
