@@ -486,16 +486,21 @@ length token. Invalid substitution/grammar uses the property's unset behavior
 where supported; it never resurrects a lower-priority declaration. Original
 inline CSS and previously returned rectangle snapshots remain unchanged.
 
-The identical synthetic fixture has 34 aggregate checks across 64 variants.
-Native execution accepts all 34. Actual Chromium 152 agrees on 33 checks and
-**differs on the unused-fallback cycle check**: `--a:80px;
---b:var(--a,var(--b));width:var(--b,102px)` measures 80px in Chromium and
-102px in Nimbo. The current engine uses the published 2022 directed dependency
-graph, including unused fallbacks; the current draft uses substitution contexts
-and evaluates fallbacks conditionally. This is an outstanding compatibility gap,
-not a passed differential check. See the unfiltered
-[computed-variables-chromium.json](evidence/computed-variables-chromium.json).
+The identical synthetic fixture has 42 aggregate checks across 64 variants.
+All 42 agree in Nimbo and actual Chromium 152, including six cycle permutations
+with changed variable names and declaration order. The unused-fallback cycle
+previously recorded in
+[computed-variables-chromium.json](evidence/computed-variables-chromium.json)
+now measures 80px in both engines. Current evidence is
+[variable-cycles-chromium.json](evidence/variable-cycles-chromium.json).
 Full Variables/WPT parity remains unproven.
+
+The engine computes a dependency graph with primary references, then adds edges
+only for fallback branches that are actually used. Active substitution contexts
+invalidate participants when a selected fallback closes a cycle. A newly
+invalidated variable triggers recomputation of dependent values, preserving
+valid downstream fallbacks. Repeated graph and substitution work uses the shared
+operation budget. Unused fallback branches do not create false cycles.
 
 Stylesheet matching corrects the DOM library's document-node `:root` predicate
 to identify the connected document element while retaining the original selector

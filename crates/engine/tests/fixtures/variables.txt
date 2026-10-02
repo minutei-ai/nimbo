@@ -25,7 +25,7 @@ globalThis.comparison = (() => {
   put('#target {--w:98px;width:var(--w,var(--missing));}'); const unusedFallback=width()===98;
   put('#target {--a:var(--a,99px);width:var(--a,100px);}'); const selfCycle=width()===100;
   put('#target {--a:var(--b);--b:var(--a);width:var(--a,101px);}'); const mutualCycle=width()===101;
-  put('#target {--a:80px;--b:var(--a,var(--b));width:var(--b,102px);}'); const fallbackCycle=width()===102;
+  put('#target {--a:80px;--b:var(--a,var(--b));width:var(--b,102px);}'); const fallbackCycle=width()===80;
   put('#target {--a:var(--b) var(--c);--b:var(--a);--c:var(--b,70px);width:var(--c,103px);}'); const overlappingCycle=width()===103;
   put('#target {--a:var(--a);--b:var(--a,104px);width:var(--b);}'); const downstreamFallback=width()===104;
   put('#target {width:50px;width:var(--missing);}'); const invalidOverrides=width()===800;
@@ -41,7 +41,22 @@ globalThis.comparison = (() => {
   put('#target {width:var(--w);}'); item.style.setProperty('--w','109px'); const inlineVariable=width()===109;
   item.style.width='var(--w)'; const inlineSpecified=item.style.width==='var(--w)' && width()===109;
   const snapshot=item.getBoundingClientRect(); item.style.setProperty('--w','110px'); const live=width()===110 && snapshot.width===109;
+  put('#target {--a:var(--missing,var(--a,70px));width:var(--a,111px);}'); const activatedSelfCycle=width()===111;
+  put('#target {--a:var(--missing,var(--b,70px));--b:var(--a,80px);width:var(--a,112px);}'); const activatedMutualCycle=width()===112;
+  put('#target {--leaf:75px;--a:var(--leaf);--b:var(--a,var(--b));width:var(--b);}'); const chainUnusedCycle=width()===75;
+  put('#target {--a:blue;--b:var(--a,var(--b));width:var(--b,70px);}'); const validTokensInvalidGrammar=width()===800;
+  put('#target {--a:80px;--b:var(--a,var(--c));--c:var(--b);width:var(--c);}'); const unusedMutualCycle=width()===80;
+  put('#target {--a:var(--missing,var(--b));--b:120px;width:var(--a);}'); const activatedAcyclicFallback=width()===120;
+  put('#target {--a:var(--missing,);width:var(--a,70px);}'); const computedEmptyFallback=width()===800;
+  const permutations=[['a','b','c'],['a','c','b'],['b','a','c'],['b','c','a'],['c','a','b'],['c','b','a']].every(names=>{
+    const [a,b,c]=names;
+    const declarations=[`--${a}:var(--${b}) var(--${c});`,`--${b}:var(--${a});`,`--${c}:var(--${b},70px);`];
+    if(variant%2)declarations.reverse();
+    put('#target {'+declarations.join('')+`width:var(--${c},103px);}`);
+    return width()===103;
+  });
+  put('#target {width:var(--w);}');item.style.cssText='--w:110px;width:var(--w);';
   css.remove(); const inlineAfterRemoval=width()===110;
   item.style.cssText=''; const noVariable=width()===800;
-  return {local,specified,inherited,parentMutation,parentRemoval,computedInheritance,inheritKeyword,unsetKeyword,initialKeyword,nestedFallback,chain,caseSensitive,functionCase,escapedName,unusedFallback,selfCycle,mutualCycle,fallbackCycle,overlappingCycle,downstreamFallback,invalidOverrides,invalidGrammar,tokenBoundary,emptyValue,emptyFallback,pendingShorthand,shorthandOrder,invalidShorthand,customPriority,inlineVariable,inlineSpecified,live,inlineAfterRemoval,noVariable};
+  return {local,specified,inherited,parentMutation,parentRemoval,computedInheritance,inheritKeyword,unsetKeyword,initialKeyword,nestedFallback,chain,caseSensitive,functionCase,escapedName,unusedFallback,selfCycle,mutualCycle,fallbackCycle,overlappingCycle,downstreamFallback,invalidOverrides,invalidGrammar,tokenBoundary,emptyValue,emptyFallback,pendingShorthand,shorthandOrder,invalidShorthand,customPriority,inlineVariable,inlineSpecified,live,inlineAfterRemoval,noVariable,activatedSelfCycle,activatedMutualCycle,chainUnusedCycle,validTokensInvalidGrammar,unusedMutualCycle,activatedAcyclicFallback,computedEmptyFallback,permutations};
 })();

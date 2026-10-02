@@ -2285,6 +2285,14 @@ const variablesExpected = Object.fromEntries(
     "live",
     "inlineAfterRemoval",
     "noVariable",
+    "activatedSelfCycle",
+    "activatedMutualCycle",
+    "chainUnusedCycle",
+    "validTokensInvalidGrammar",
+    "unusedMutualCycle",
+    "activatedAcyclicFallback",
+    "computedEmptyFallback",
+    "permutations",
   ].map((key) => [key, true]),
 );
 test.each(Array.from({ length: 64 }, (_, variant) => variant))(

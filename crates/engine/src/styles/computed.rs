@@ -99,11 +99,8 @@ fn tokens(value: &str, work: &mut Work<'_>) -> Computed<Vec<Component>> {
 fn dependencies(items: &[Component], output: &mut BTreeSet<String>) {
     for item in items {
         match item {
-            Component::Var(name, fallback) => {
+            Component::Var(name, _) => {
                 output.insert(name.clone());
-                if let Some(fallback) = fallback {
-                    dependencies(fallback, output);
-                }
             }
             Component::Block(_, items, _) => dependencies(items, output),
             _ => {}
@@ -111,7 +108,7 @@ fn dependencies(items: &[Component], output: &mut BTreeSet<String>) {
     }
 }
 
-// All references, including unused fallbacks, participate in the cycle graph.
+// Primary references always participate; fallback edges are added only when used.
 // Inherited values are already computed and cannot form a new local cycle.
 struct Cycles<'a> {
     graph: &'a BTreeMap<String, BTreeSet<String>>,
@@ -122,6 +119,23 @@ struct Cycles<'a> {
 }
 
 impl Cycles<'_> {
+    fn collect(
+        graph: &BTreeMap<String, BTreeSet<String>>,
+        work: &mut Work<'_>,
+    ) -> Result<HashSet<String>> {
+        let mut cycles = Cycles {
+            graph,
+            indices: BTreeMap::new(),
+            stack: Vec::new(),
+            active: HashSet::new(),
+            invalid: HashSet::new(),
+        };
+        for name in graph.keys() {
+            cycles.visit(name, 0, work)?;
+        }
+        Ok(cycles.invalid)
+    }
+
     fn visit(&mut self, name: &str, depth: usize, work: &mut Work<'_>) -> Result<()> {
         work.charge()?;
         if self.indices.contains_key(name) {
@@ -188,7 +202,10 @@ impl Cycles<'_> {
 
 struct Resolver<'a, 'b> {
     values: Variables,
-    local: BTreeMap<String, Vec<Component>>,
+    local: BTreeMap<String, Rc<[Component]>>,
+    graph: BTreeMap<String, BTreeSet<String>>,
+    active: Vec<String>,
+    invalid: HashSet<String>,
     work: &'a mut Work<'b>,
     bytes: usize,
 }
@@ -202,10 +219,47 @@ fn append(output: &mut String, value: &str) -> Computed<()> {
 }
 
 impl Resolver<'_, '_> {
+    fn settle(&mut self) -> Result<()> {
+        let inherited = self.values.clone();
+        let sources = self.local.clone();
+        let bytes = self.bytes;
+        loop {
+            // Reconsider dependents when a newly used fallback closes a cycle.
+            // Edges and invalid participants grow monotonically; every pass
+            // is charged to the shared DOM operation budget.
+            let previous = self.invalid.clone();
+            self.invalid
+                .extend(Cycles::collect(&self.graph, self.work)?);
+            self.values = inherited.clone();
+            self.local = sources.clone();
+            self.bytes = bytes;
+            for name in &self.invalid {
+                self.local.remove(name);
+                self.values.0.insert(name.clone(), None);
+            }
+            for name in sources.keys() {
+                self.resolve(name, 0).map_err(engine_error)?;
+            }
+            self.invalid
+                .extend(Cycles::collect(&self.graph, self.work)?);
+            if self.invalid == previous {
+                break;
+            }
+        }
+        if self.bytes > TOTAL_LIMIT {
+            return Err(Error::Limit("CSS computed variable bytes"));
+        }
+        Ok(())
+    }
+
     fn resolve(&mut self, name: &str, depth: usize) -> Computed<Option<Rc<str>>> {
         self.work.charge().map_err(Failure::Engine)?;
         if depth >= CHAIN_LIMIT {
             return Err(Failure::Engine(Error::Limit("CSS variable chain")));
+        }
+        if let Some(index) = self.active.iter().position(|active| active == name) {
+            self.invalid.extend(self.active.iter().skip(index).cloned());
+            return Ok(None);
         }
         if let Some(value) = self.values.0.get(name) {
             return Ok(value.clone());
@@ -213,9 +267,12 @@ impl Resolver<'_, '_> {
         let Some(items) = self.local.remove(name) else {
             return Ok(None);
         };
-        let value = match self.render(&items, depth.saturating_add(1)) {
-            Ok(value) => Some(Rc::<str>::from(value)),
-            Err(Failure::Invalid) => None,
+        self.active.push(name.to_owned());
+        let rendered = self.render(&items, depth.saturating_add(1));
+        self.active.pop();
+        let value = match rendered {
+            Ok(value) if !self.invalid.contains(name) => Some(Rc::<str>::from(value)),
+            Ok(_) | Err(Failure::Invalid) => None,
             Err(error) => return Err(error),
         };
         self.bytes = self
@@ -240,6 +297,12 @@ impl Resolver<'_, '_> {
                     append(&mut output, &close.to_string())?;
                 }
                 Component::Var(name, fallback) => {
+                    if let Some(owner) = self.active.last() {
+                        self.graph
+                            .entry(owner.clone())
+                            .or_default()
+                            .insert(name.clone());
+                    }
                     let value = match self.resolve(name, depth)? {
                         Some(value) => value.to_string(),
                         None => self.render(fallback.as_ref().ok_or(Failure::Invalid)?, depth)?,
@@ -293,7 +356,7 @@ impl Declarations {
                     values.0.remove(&entry.name);
                     match tokens(&entry.value, work) {
                         Ok(items) => {
-                            local.insert(entry.name.clone(), items);
+                            local.insert(entry.name.clone(), Rc::<[Component]>::from(items));
                         }
                         Err(Failure::Invalid) => {
                             values.0.insert(entry.name.clone(), None);
@@ -314,33 +377,17 @@ impl Declarations {
                 (name.clone(), edges)
             })
             .collect::<BTreeMap<_, _>>();
-        let mut cycles = Cycles {
-            graph: &graph,
-            indices: BTreeMap::new(),
-            stack: Vec::new(),
-            active: HashSet::new(),
-            invalid: HashSet::new(),
-        };
-        for name in graph.keys() {
-            cycles.visit(name, 0, work)?;
-        }
-        for name in cycles.invalid {
-            local.remove(&name);
-            values.0.insert(name, None);
-        }
         let bytes = values.0.values().flatten().map(|value| value.len()).sum();
         let mut resolver = Resolver {
             values,
             local,
+            graph,
+            active: Vec::new(),
+            invalid: HashSet::new(),
             work,
             bytes,
         };
-        for name in graph.keys() {
-            resolver.resolve(name, 0).map_err(engine_error)?;
-        }
-        if resolver.bytes > TOTAL_LIMIT {
-            return Err(Error::Limit("CSS computed variable bytes"));
-        }
+        resolver.settle()?;
         let declarations = resolver.declarations(self)?;
         Ok((declarations, resolver.values))
     }

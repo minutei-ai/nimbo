@@ -960,7 +960,7 @@ fn custom_properties_resolve_inheritance_cycles_and_pending_shorthands() -> Test
     let page = fixture.browser()?.navigate(&fixture.path("/variables"))?;
     let result = page.evaluate("comparison")?;
     let fields = result.as_object().ok_or("missing variables result")?;
-    assert_eq!(fields.len(), 34);
+    assert_eq!(fields.len(), 42);
     assert!(
         fields.values().all(|value| *value == json!(true)),
         "{result}"
