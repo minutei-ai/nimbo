@@ -415,6 +415,14 @@ const origin = Bun.serve({
         headers: { "content-type": "text/html" },
       });
     }
+    if (path.startsWith("/group-errors/")) {
+      const source = await Bun.file(
+        join(import.meta.dir, "../crates/engine/tests/fixtures/group-errors.txt"),
+      ).text();
+      return new Response(`<script>${source}</script>`, {
+        headers: { "content-type": "text/html" },
+      });
+    }
     if (path.startsWith("/supports/")) {
       const variant = Number(path.split("/").at(-1));
       const source = await Bun.file(
@@ -2845,6 +2853,27 @@ test.each([
   expect(response.status).toBe(200);
   expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: true });
 });
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: nested stylesheet failure causes variant %i",
+  async (variant) => {
+    const url = new URL(`group-errors/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "comparison" }),
+    });
+    expect(response.status).toBe(200);
+    const expected: Record<string, boolean> = { inactive: true };
+    for (const name of ["atRule", "nesting", "forgiving", "selectors", "rules", "declarations"]) {
+      for (const depth of [1, 2, 3]) {
+        expected[`${name}${depth}`] = true;
+        expected[`${name}Recovery${depth}`] = true;
+      }
+    }
+    expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: expected });
+  },
+);
 
 const supportsExpected = Object.fromEntries(
   [

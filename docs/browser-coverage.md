@@ -21,7 +21,7 @@ tests as well as integration and application tests.
 
 `tooling/browser-live.test.ts` uses a real loopback HTTP origin, actual workerd,
 and the compiled Rust/Wasm engine. It installs no transport replacements,
-service mocks, browser API stubs, or canned engine results. Its 1856 data variants
+service mocks, browser API stubs, or canned engine results. Its 1920 data variants
 exercise external scripts, Unicode/entity decoding, selector identity,
 ancestry, removal/reparenting, attribute mutation and POST response decoding.
 They also exercise parsed and created text/comment nodes, native node identity,
@@ -45,7 +45,7 @@ failures. The eighth set exercises native Web Storage across inline, external
 and module scripts, UTF-16 including lone surrogates, coercion/receiver guards,
 named properties, reflection, removal, clearing and fresh Worker request areas.
 An additional case exercises actual quota exhaustion, atomic failure, independent
-local/session quotas and reuse. These are repeated integration checks, not 1856 independent platform
+local/session quotas and reuse. These are repeated integration checks, not 1920 independent platform
 features. The ninth set checks native media queries against 64 explicit viewport
 and preference configurations, including ranges, three-valued conditions,
 serialization, CSS escapes, receiver guards and synthetic MediaQueryList events.
@@ -53,7 +53,7 @@ The tenth set rejects 64 invalid environment variants before any HTTP navigation
 The eleventh set repeats the same DOMTokenList fixture at 64 distinct URLs,
 checking live attribute reads, ordered token mutations, identity, indices,
 iteration, receiver guards and atomic invalid-token rejection. Including sixty-eight
-resource/deadline/origin checks, the real browser suite has 1924 tests.
+resource/deadline/origin checks, the real browser suite has 1988 tests.
 The twelfth set checks HTML namespace identity and reflected attributes with
 64 distinct synthetic strings. It includes parsed SVG/MathML and an HTML
 subtree inside SVG foreignObject.
@@ -791,6 +791,23 @@ full CSS namespace/rule interfaces and usable full-property support remain
 required work. These tests do not establish complete CSS Conditional or WPT
 conformance. Unsupported rule types within active groups still fail explicitly.
 No Obscura runtime dependency or fallback is involved.
+
+### Nested stylesheet failure diagnostics
+
+Active layer, media and support groups preserve the original engine failure,
+including resource-limit categories. Previously, recursive parsing replaced
+most failures with a generic stylesheet-group error. The parser now carries
+the existing error across the CSS parser boundary without exposing stylesheet
+contents or replacing a resource failure with an unsupported-feature result.
+
+A shared synthetic fixture checks six failure causes at one, two and three
+group levels, measuring a real native box again after removing each failed
+sheet. Its 37 checks also cover an inactive group that contains an unsupported
+rule. The fixture runs in the native browser and at 64 real Worker URLs without
+mocks. These checks verify Nimbo diagnostics and recovery; they do not establish
+browser CSS conformance or implement the unsupported rule and selector forms.
+CSS parsing and recovery remain governed by the
+[CSS Syntax specification](https://www.w3.org/TR/css-syntax-3/).
 
 ## Native dataset attribute views
 

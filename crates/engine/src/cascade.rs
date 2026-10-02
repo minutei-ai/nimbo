@@ -134,6 +134,7 @@ struct Rules<'a> {
     media: &'a MediaEnvironment,
     layers: &'a mut crate::layers::Layers,
     parent: &'a [usize],
+    failure: Option<Error>,
 }
 impl<'i> AtRuleParser<'i> for Rules<'_> {
     type Prelude = Prelude;
@@ -183,11 +184,11 @@ impl<'i> AtRuleParser<'i> for Rules<'_> {
         };
         let rules =
             sheet(input.slice_from(start), self.media, self.layers, &parent).map_err(|error| {
-                input.new_custom_error(match error {
-                    Error::Limit("stylesheet layers") => "stylesheet layers",
-                    Error::Limit("stylesheet layer depth") => "stylesheet layer depth",
-                    _ => "stylesheet group",
-                })
+                // Keep the original engine error across cssparser's static
+                // error boundary. Nested groups must not hide budget failures
+                // or the unsupported feature behind a generic group label.
+                self.failure = Some(error);
+                input.new_custom_error("stylesheet group")
             })?;
         Ok(ParsedRule::Group(rules))
     }
@@ -294,32 +295,36 @@ fn sheet(
     let mut input = ParserInput::new(source);
     let mut parser = Parser::new(&mut input);
     let mut rules = Vec::new();
-    for result in StyleSheetParser::new(
-        &mut parser,
-        &mut Rules {
-            media,
-            layers,
-            parent,
-        },
-    ) {
+    let mut rule_parser = Rules {
+        media,
+        layers,
+        parent,
+        failure: None,
+    };
+    let mut failure = None;
+    for result in StyleSheetParser::new(&mut parser, &mut rule_parser) {
         match result {
             Ok(ParsedRule::Style(rule)) => rules.push(rule),
             Ok(ParsedRule::Group(group)) => rules.extend(group),
             Err((error, _source)) => {
                 if let cssparser::ParseErrorKind::Custom(message) = error.kind {
-                    return Err(
+                    failure = Some(
                         if message == "stylesheet layers" || message == "stylesheet layer depth" {
                             Error::Limit(message)
                         } else {
                             unsupported(message)
                         },
                     );
+                    break;
                 }
             }
         }
         if rules.len() > 1024 {
             return Err(Error::Limit("stylesheet rules"));
         }
+    }
+    if let Some(error) = failure {
+        return Err(rule_parser.failure.unwrap_or(error));
     }
     if let Some(message) = layers.failure {
         return Err(Error::Limit(message));

@@ -83,6 +83,7 @@ fn script_fixture(script: &str) -> String {
 
 fn layout_fixture(path: &str) -> String {
     let script = match path {
+        "/group-errors" => include_str!("fixtures/group-errors.txt"),
         "/dataset" => include_str!("fixtures/dataset.txt"),
         "/supports" => include_str!("fixtures/supports.txt"),
         "/layers" => include_str!("fixtures/layers.txt"),
@@ -156,7 +157,7 @@ fn serve(mut request: Request) -> io::Result<()> {
     let mut status = 200;
     let mut headers = Vec::new();
     let body = match request.url() {
-        "/cascade" | "/variables" | "/node-insertion" | "/intersections" | "/geometry" | "/external-styles" | "/layers" | "/supports" | "/dataset" => layout_fixture(request.url()),
+        "/cascade" | "/variables" | "/node-insertion" | "/intersections" | "/geometry" | "/external-styles" | "/layers" | "/supports" | "/dataset" | "/group-errors" => layout_fixture(request.url()),
         "/style-variables" => script_fixture(include_str!("fixtures/style-variables.txt")),
         "/styles" => script_fixture(include_str!("fixtures/styles.txt")),
         "/anchors" => format!("<base href=\"https://example.com/root/\"><a id=\"link\" href=\"../doc?q=1#fragment\">link</a><svg><a></a></svg><script>{}</script>", include_str!("fixtures/anchors.txt")),
@@ -1132,6 +1133,22 @@ fn dataset_views_read_and_mutate_real_attributes() -> TestResult {
     let result = page.evaluate("comparison")?;
     let fields = result.as_object().ok_or("missing dataset result")?;
     assert_eq!(fields.len(), 34);
+    assert!(
+        fields.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    Ok(())
+}
+
+#[test]
+fn nested_stylesheet_failures_preserve_their_cause_and_recover() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/group-errors"))?;
+    let result = page.evaluate("comparison")?;
+    let fields = result.as_object().ok_or("missing group failure result")?;
+    assert_eq!(fields.len(), 37);
     assert!(
         fields.values().all(|value| *value == json!(true)),
         "{result}"
