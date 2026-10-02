@@ -6,8 +6,9 @@ use crate::{
     styles::{Declarations, Variables},
 };
 
-pub(crate) const PROPERTIES: [&str; 10] = [
+pub(crate) const PROPERTIES: [&str; 11] = [
     "background-image",
+    "background-position",
     "color",
     "font-size",
     "line-height",
@@ -23,11 +24,18 @@ pub(crate) struct Computed {
     fonts: crate::fonts::Context,
     outlines: crate::outlines::Outlines,
     images: crate::backgrounds::Images,
+    positions: crate::background_position::Positions,
+}
+
+pub(crate) fn property(name: &str) -> bool {
+    PROPERTIES.contains(&name) || crate::background_position::property(name)
 }
 impl Computed {
     pub(crate) fn value(&self, name: &str) -> Result<String> {
         if name == "background-image" {
             self.images.value(self.outlines.color())
+        } else if name == "background-position" || crate::background_position::property(name) {
+            self.positions.value(name, self.images.count())
         } else if name == "line-height" {
             self.fonts.line_height()
         } else if name == "tab-size" {
@@ -72,6 +80,7 @@ pub(crate) fn resolve(
     let mut fonts = crate::fonts::Context::new(media);
     let mut outlines = crate::outlines::Outlines::default();
     let mut images = crate::backgrounds::Images::default();
+    let mut positions = crate::background_position::Positions::default();
     for (depth, node) in ancestors.into_iter().enumerate() {
         work.charge()?;
         let inline = sources.inline.get(&node.id).cloned().map_or_else(
@@ -95,10 +104,12 @@ pub(crate) fn resolve(
         fonts = fonts.compute(&declarations, depth == 0, work)?;
         outlines = outlines.compute(&declarations, &fonts, work)?;
         images = images.compute(&declarations, &fonts, work)?;
+        positions = positions.compute(&declarations, &fonts, work)?;
     }
     Ok(Computed {
         fonts,
         outlines,
         images,
+        positions,
     })
 }

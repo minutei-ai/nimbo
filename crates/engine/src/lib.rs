@@ -1,6 +1,7 @@
 //! Primeiro núcleo de scraping do Nimbo: HTTP, DOM e JavaScript sem renderização.
 
 mod animations;
+mod background_position;
 mod backgrounds;
 mod borders;
 mod canvas;
@@ -25,6 +26,8 @@ mod network;
 mod outlines;
 #[cfg(not(target_arch = "wasm32"))]
 mod page;
+mod position_math;
+mod position_value;
 mod registrations;
 mod selectors;
 mod storage;

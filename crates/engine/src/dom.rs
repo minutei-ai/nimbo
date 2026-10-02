@@ -288,13 +288,13 @@ impl Dom {
         let mut value = String::new();
         if operation == "get" && !name.is_empty() && attached {
             if (crate::styles::known_name(name) || name.starts_with("--"))
-                && !properties.contains(&name)
+                && !crate::computed_style::property(name)
             {
                 return Err(Error::Dom(format!(
                     "layout unsupported: computed style {name}"
                 )));
             }
-            if properties.contains(&name) {
+            if crate::computed_style::property(name) {
                 let id = node.id;
                 if !self.computed_styles.contains_key(&id) {
                     let base = self.base_href();

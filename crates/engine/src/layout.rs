@@ -141,6 +141,7 @@ pub(crate) fn supports(declarations: &Declarations) -> bool {
             name,
             "color" | "background-color" | "background-image" | "opacity"
         ) || crate::outlines::property(name)
+            || crate::background_position::property(name)
     }) {
         return false;
     }
@@ -178,6 +179,8 @@ fn non_layout(name: &str) -> bool {
         "color"
             | "background-color"
             | "background-image"
+            | "background-position-x"
+            | "background-position-y"
             | "opacity"
             | "visibility"
             | "container-name"
@@ -357,6 +360,31 @@ struct BoxContext {
     borders: crate::borders::Borders,
     outlines: crate::outlines::Outlines,
     images: crate::backgrounds::Images,
+    positions: crate::background_position::Positions,
+}
+
+impl BoxContext {
+    fn compute(
+        &self,
+        declarations: &Declarations,
+        root: bool,
+        work: &mut Work<'_>,
+    ) -> Result<Self> {
+        let fonts = self.fonts.compute(declarations, root, work)?;
+        let borders = self.borders.compute(declarations, &fonts, work)?;
+        let outlines = self.outlines.compute(declarations, &fonts, work)?;
+        let images = self.images.compute(declarations, &fonts, work)?;
+        images.validate()?;
+        let positions = self.positions.compute(declarations, &fonts, work)?;
+        positions.validate()?;
+        Ok(Self {
+            fonts,
+            borders,
+            outlines,
+            images,
+            positions,
+        })
+    }
 }
 
 struct Tree<'a, 'b> {
@@ -427,16 +455,8 @@ impl Tree<'_, '_> {
             true,
             matches!(parent_display, Display::Flex | Display::Grid),
         )?;
-        let fonts = context.fonts.compute(&declarations, false, self.work)?;
-        context.outlines.compute(&declarations, &fonts, self.work)?;
-        context
-            .images
-            .compute(&declarations, &fonts, self.work)?
-            .validate()?;
-        style.border = context
-            .borders
-            .compute(&declarations, &fonts, self.work)?
-            .geometry()?;
+        let context = context.compute(&declarations, false, self.work)?;
+        style.border = context.borders.geometry()?;
         self.boxes
             .new_leaf(style)
             .map(Some)
@@ -518,20 +538,9 @@ impl Tree<'_, '_> {
         if style.display == Display::None {
             return Ok(None);
         }
-        let fonts = context
-            .fonts
-            .compute(&declarations, depth == 0, self.work)?;
-        let borders = context.borders.compute(&declarations, &fonts, self.work)?;
-        style.border = borders.geometry()?;
-        let outlines = context.outlines.compute(&declarations, &fonts, self.work)?;
-        let images = context.images.compute(&declarations, &fonts, self.work)?;
-        images.validate()?;
-        let context = BoxContext {
-            fonts,
-            borders,
-            outlines,
-            images,
-        };
+        let context = context.compute(&declarations, depth == 0, self.work)?;
+        style.border = context.borders.geometry()?;
+        let fonts = context.fonts;
         let container =
             crate::containers::Container::apply(&declarations, &mut style, parent_display, fonts)?;
         validate_element(node)?;
@@ -646,6 +655,7 @@ fn scene<T>(
                 borders: crate::borders::Borders::default(),
                 outlines: crate::outlines::Outlines::default(),
                 images: crate::backgrounds::Images::default(),
+                positions: crate::background_position::Positions::default(),
             },
         )?;
         if let Some(root_id) = root_id {

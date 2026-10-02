@@ -1909,3 +1909,38 @@ background or complete browser parity.
 
 Public references: [CSS Backgrounds image layers](https://drafts.csswg.org/css-backgrounds/#the-background-image)
 and [CSS Images serialization](https://drafts.csswg.org/css-images/#serialization).
+
+## Native computed background positioning
+
+The native engine computes background-position-x and background-position-y and
+serializes their combined background-position value. The combined property is
+included in computed property enumeration; the axes remain readable individually.
+Coordinates repeat or truncate to the background image layer count, including
+layers whose image loading remains unsupported. Unresolved percentages retain
+an independent positioning basis rather than being converted using font size.
+
+The implementation handles side/center keywords, one through four component
+positions, start/end offsets, contextual lengths, calc arithmetic and min/max/clamp
+expressions. Percentage functions preserve shorthand declaration provenance:
+Chromium retains percentage comparisons from background-position while direct
+axis assignments can reduce them. Cascade, variables, inheritance and subsequent
+axis replacement retain the corresponding native state. Unsupported coordinates
+fail when their scalar or geometry is requested, without blocking unrelated font
+or other-axis reads. Non-finite values fail explicitly; expression nesting and
+expanded computed serialization are bounded at 32 levels and 2 MiB respectively,
+in addition to the shared parsing/work limits.
+
+The public real-HTTP fixture runs 64 variants with 64 checks each in native Rust,
+actual workerd/Wasm and Chromium. The Chromium comparison passed all 4,096 checks;
+[the aggregate records its scope](evidence/background-position-chromium.json).
+The Worker additionally verifies unsupported metric lengths, non-finite values,
+expression depth, output amplification, independent scalar reads and image layer
+count retention. Relative viewport expectations use each runtime's own viewport.
+
+This computes coordinates without painting backgrounds or resolving the final
+used image placement. CSS.supports remains conservative about painting support.
+Complete CSSOM and math expression serialization, additional CSS math functions,
+image loading, sizing, repeat, clip/origin/attachment and scene composition remain
+pending. These checks establish the tested computed-position behavior only.
+
+Public reference: [CSS Backgrounds position](https://drafts.csswg.org/css-backgrounds/#background-position).

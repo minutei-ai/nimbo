@@ -1,3 +1,4 @@
+import { backgroundPositionFixture } from "./background-position-fixture";
 import { backgroundImagesFixture } from "./background-images-fixture";
 import { lineHeightFixture } from "./line-height-fixture";
 import { tabsFixture } from "./tabs-fixture";
@@ -418,6 +419,8 @@ const origin = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     requests.push(`${request.method} ${path}`);
+    const backgroundPosition = await backgroundPositionFixture(path);
+    if (backgroundPosition) return backgroundPosition;
     const backgroundImages = await backgroundImagesFixture(path);
     if (backgroundImages) return backgroundImages;
     const layoutBudget = layoutBudgetFixture(path);
@@ -4725,9 +4728,10 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
   expect(await response.json()).toMatchObject({
     value: {
       font: "18px",
-      count: 10,
+      count: 11,
       names: [
         "background-image",
+        "background-position",
         "color",
         "font-size",
         "line-height",
@@ -4939,4 +4943,92 @@ test("real HTTP → workerd → Wasm: unsupported image geometry stays explicit"
   });
   expect(response.status).toBe(422);
   expect(await response.text()).toContain("URL provenance and loading");
+});
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native background positioning variant %i",
+  async (variant) => {
+    const url = new URL(`background-position/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: `backgroundPositionCase(${variant})` }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null)
+      throw new Error("Missing background positioning values");
+    expect(Object.keys(value)).toHaveLength(64);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each(
+  (
+    [
+      ["2ex", "relative query length"],
+      ["calc(infinity * 1px)", "non-finite value"],
+      [`calc(${Array(40).fill("min(10%, 2px)").join(" + ")})`, "background position nesting"],
+    ] as const
+  ).flatMap(([position, detail]) =>
+    [
+      "getComputedStyle(document.body).backgroundPositionX",
+      "document.body.getBoundingClientRect()",
+    ].map((read) => [position, detail, read] as const),
+  ),
+)(
+  "real HTTP → workerd → Wasm: explicit positioning limit %s / %s / %s",
+  async (position, detail, read) => {
+    const url = new URL("background-position/0", origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url,
+        expression: `(()=>{document.body.style.backgroundPositionX=${JSON.stringify(position)};return ${read}})()`,
+      }),
+    });
+    expect(response.status).toBe(422);
+    expect(await response.text()).toContain(detail);
+    const healthy = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "backgroundPositionCase(0)" }),
+    });
+    expect(healthy.status).toBe(200);
+  },
+);
+
+test("real HTTP → workerd → Wasm: positioning preserves independent scalars and image layer count", async () => {
+  const url = new URL("background-position/0", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression:
+        "(()=>{const e=document.body;e.style.cssText='font-size:18px;background-position:2ex 30%';const s=getComputedStyle(e);const font=s.fontSize,y=s.backgroundPositionY;e.style.cssText='background-image:url(https://example.test/a),url(https://example.test/b);background-position:10px 20%';return {font,y,x:s.backgroundPositionX,layersY:s.backgroundPositionY,paint:CSS.supports('background-position-x','10px')}})()",
+    }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
+    value: { font: "18px", y: "30%", x: "10px, 10px", layersY: "20%, 20%", paint: false },
+  });
+});
+
+test("real HTTP → workerd → Wasm: expanded positioning serialization is bounded", async () => {
+  const url = new URL("background-position/0", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression:
+        "(()=>{const e=document.body;e.style.backgroundImage=Array(2048).fill('none').join(',');e.style.backgroundPosition='min('+Array(512).fill('10%').join(',')+') top';return getComputedStyle(e).backgroundPositionX})()",
+    }),
+  });
+  expect(response.status).toBe(422);
+  expect(await response.text()).toContain("computed background position bytes");
 });

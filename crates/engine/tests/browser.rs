@@ -1390,6 +1390,11 @@ fn registered_custom_properties_validate_before_substitution() -> TestResult {
 }
 
 fn serve_resource(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/background-position/")
+        || request.url().starts_with("/background-position-assets/")
+    {
+        return serve_background_position(request);
+    }
     if request.url().starts_with("/background-images/")
         || request.url().starts_with("/background-images-assets/")
     {
@@ -1562,6 +1567,8 @@ fn is_resource(path: &str) -> bool {
         "/tabs/",
         "/line-height/",
         "/background-images/",
+        "/background-position/",
+        "/background-position-assets/",
         "/background-images-assets/",
         "/line-height-assets/",
         "/tabs-assets/",
@@ -2087,6 +2094,47 @@ fn serve_background_images(request: Request) -> io::Result<()> {
     let source = format!(
         "<!doctype html><meta charset=utf-8><link rel=stylesheet href=/background-images-assets/{variant}><script>{}</script>",
         include_str!("fixtures/background-images.txt")
+    );
+    request.respond(Response::from_string(source).with_header(header("Content-Type", "text/html")?))
+}
+
+#[test]
+fn native_background_position_real_http() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/background-position/{variant}")))?;
+        let result = page.evaluate(&format!("backgroundPositionCase({variant})"))?;
+        let fields = result
+            .as_object()
+            .ok_or("missing background position result")?;
+        assert_eq!(fields.len(), 64);
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+
+fn serve_background_position(request: Request) -> io::Result<()> {
+    if let Some(value) = request.url().strip_prefix("/background-position-assets/") {
+        let variant = value.parse::<u32>().map_err(io::Error::other)?;
+        return request.respond(
+            Response::from_string(format!(
+                "#external{{background-position:{}px 20%}}",
+                variant.saturating_add(3)
+            ))
+            .with_header(header("Content-Type", "text/css")?),
+        );
+    }
+    let variant = request
+        .url()
+        .strip_prefix("/background-position/")
+        .unwrap_or("0");
+    let source = format!(
+        "<!doctype html><meta charset=utf-8><link rel=stylesheet href=/background-position-assets/{variant}><script>{}</script>",
+        include_str!("fixtures/background-position.txt")
     );
     request.respond(Response::from_string(source).with_header(header("Content-Type", "text/html")?))
 }

@@ -25,6 +25,12 @@ struct Pending {
     value: String,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum PositionOrigin {
+    Axis,
+    Shorthand,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 struct Entry {
     name: String,
@@ -36,6 +42,8 @@ struct Entry {
     deferred: bool,
     #[serde(skip)]
     animated: bool,
+    #[serde(skip)]
+    position_origin: PositionOrigin,
 }
 
 impl Entry {
@@ -47,6 +55,7 @@ impl Entry {
             pending: None,
             deferred: false,
             animated: false,
+            position_origin: PositionOrigin::Axis,
         }
     }
 }
@@ -349,6 +358,17 @@ pub(crate) fn function_value(value: &str) -> bool {
 }
 
 fn native_property(name: &str, value: &str, important: bool) -> Option<Vec<Entry>> {
+    if name == "background-position" {
+        let (x, y) = crate::background_position::specified(value)?;
+        let mut entries = vec![
+            Entry::new("background-position-x", x, important),
+            Entry::new("background-position-y", y, important),
+        ];
+        for entry in &mut entries {
+            entry.position_origin = PositionOrigin::Shorthand;
+        }
+        return Some(entries);
+    }
     let value = match name {
         "float" | "clear" | "writing-mode" => native_keyword(name, value)?,
         "content" => content_value(value)?,
@@ -356,6 +376,9 @@ fn native_property(name: &str, value: &str, important: bool) -> Option<Vec<Entry
         "tab-size" => crate::tabs::specified(value)?,
         "line-height" => crate::line_height::specified(value)?,
         "background-image" => crate::backgrounds::specified(value)?,
+        "background-position-x" | "background-position-y" => {
+            crate::background_position::specified_axis(name, value)?
+        }
         "outline-offset" | "outline-color" => outline_native_value(name, value)?,
         _ => return None,
     };
@@ -374,6 +397,9 @@ fn native_declaration(name: &str, value: &str) -> bool {
             | "tab-size"
             | "line-height"
             | "background-image"
+            | "background-position"
+            | "background-position-x"
+            | "background-position-y"
     ) || (name == "outline-color" && value.eq_ignore_ascii_case("auto"))
 }
 
@@ -411,6 +437,7 @@ fn expand(name: &str, value: &str, important: bool) -> Option<Vec<Entry>> {
                     pending: None,
                     deferred: true,
                     animated: false,
+                    position_origin: PositionOrigin::Axis,
                 }]
             },
             |ids| {
@@ -422,6 +449,7 @@ fn expand(name: &str, value: &str, important: bool) -> Option<Vec<Entry>> {
                         pending: Some(Rc::clone(&pending)),
                         deferred: true,
                         animated: false,
+                        position_origin: PositionOrigin::Axis,
                     })
                     .collect()
             },
@@ -435,6 +463,7 @@ fn expand(name: &str, value: &str, important: bool) -> Option<Vec<Entry>> {
             pending: None,
             deferred,
             animated: false,
+            position_origin: PositionOrigin::Axis,
         }]);
     }
     if native_declaration(name, value) {
@@ -635,6 +664,12 @@ impl Declarations {
     }
     pub(crate) fn value(&self, name: &str) -> (String, bool) {
         self.get(name)
+    }
+    pub(crate) fn position_shorthand(&self, name: &str) -> bool {
+        self.entries
+            .iter()
+            .find(|entry| entry.name == name)
+            .is_some_and(|entry| entry.position_origin == PositionOrigin::Shorthand)
     }
     pub(crate) fn clear_animation_controls(&mut self) {
         self.entries

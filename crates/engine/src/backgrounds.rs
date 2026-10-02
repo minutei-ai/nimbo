@@ -44,6 +44,7 @@ enum Layer {
 pub(crate) struct Images {
     layers: Vec<Layer>,
     failure: Option<String>,
+    count: usize,
 }
 
 impl Default for Images {
@@ -51,6 +52,7 @@ impl Default for Images {
         Self {
             layers: vec![Layer::None],
             failure: None,
+            count: 1,
         }
     }
 }
@@ -108,7 +110,6 @@ fn direction(value: &LineDirection) -> Result<String> {
 }
 
 fn layer(image: Image<'_>, fonts: &Context, work: &mut Work<'_>) -> Result<Layer> {
-    work.charge()?;
     let Image::Gradient(gradient) = image else {
         return match image {
             Image::None => Ok(Layer::None),
@@ -171,6 +172,10 @@ impl Images {
                 else {
                     return Err(unsupported("syntax"));
                 };
+                let count = images.len();
+                for _image in &images {
+                    work.charge()?;
+                }
                 let layers = images
                     .into_iter()
                     .map(|image| layer(image, fonts, work))
@@ -179,11 +184,13 @@ impl Images {
                     Ok(layers) => Ok(Self {
                         layers,
                         failure: None,
+                        count,
                     }),
                     Err(Error::Dom(message)) if message.starts_with("layout unsupported:") => {
                         Ok(Self {
                             layers: Vec::new(),
                             failure: Some(message),
+                            count,
                         })
                     }
                     Err(error) => Err(error),
@@ -196,6 +203,10 @@ impl Images {
         self.failure
             .as_ref()
             .map_or(Ok(()), |message| Err(Error::Dom(message.clone())))
+    }
+
+    pub(crate) fn count(&self) -> usize {
+        self.count
     }
 
     pub(crate) fn value(&self, current: &CssColor) -> Result<String> {
