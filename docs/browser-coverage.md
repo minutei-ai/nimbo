@@ -21,7 +21,7 @@ tests as well as integration and application tests.
 
 `tooling/browser-live.test.ts` uses a real loopback HTTP origin, actual workerd,
 and the compiled Rust/Wasm engine. It installs no transport replacements,
-service mocks, browser API stubs, or canned engine results. Its 1728 data variants
+service mocks, browser API stubs, or canned engine results. Its 1792 data variants
 exercise external scripts, Unicode/entity decoding, selector identity,
 ancestry, removal/reparenting, attribute mutation and POST response decoding.
 They also exercise parsed and created text/comment nodes, native node identity,
@@ -45,15 +45,15 @@ failures. The eighth set exercises native Web Storage across inline, external
 and module scripts, UTF-16 including lone surrogates, coercion/receiver guards,
 named properties, reflection, removal, clearing and fresh Worker request areas.
 An additional case exercises actual quota exhaustion, atomic failure, independent
-local/session quotas and reuse. These are repeated integration checks, not 1728 independent platform
+local/session quotas and reuse. These are repeated integration checks, not 1792 independent platform
 features. The ninth set checks native media queries against 64 explicit viewport
 and preference configurations, including ranges, three-valued conditions,
 serialization, CSS escapes, receiver guards and synthetic MediaQueryList events.
 The tenth set rejects 64 invalid environment variants before any HTTP navigation.
 The eleventh set repeats the same DOMTokenList fixture at 64 distinct URLs,
 checking live attribute reads, ordered token mutations, identity, indices,
-iteration, receiver guards and atomic invalid-token rejection. Including sixty
-resource/deadline/origin checks, the real browser suite has 1788 tests.
+iteration, receiver guards and atomic invalid-token rejection. Including sixty-six
+resource/deadline/origin checks, the real browser suite has 1858 tests.
 The twelfth set checks HTML namespace identity and reflected attributes with
 64 distinct synthetic strings. It includes parsed SVG/MathML and an HTML
 subtree inside SVG foreignObject.
@@ -395,7 +395,7 @@ Neither aggregate fixtures nor a layout library establish full CSSOM View/WPT
 parity or rendering support.
 
 Eight real Worker cases require explicit failure for text needing shaping,
-unsupported conditional rules and stylesheet sets, transforms, environment substitution,
+unsupported container rules and stylesheet sets, transforms, environment substitution,
 absolute positioning, unsupported element formatting and relative font units.
 Two more reach the 1024-node and 128-depth limits, and one exhausts the shared
 DOM operation budget through actual repeated layout. Every failure case verifies
@@ -463,8 +463,7 @@ listed input/tree limits; this is not a total-process CPU or memory claim.
 
 This is author style-rule ordering for supported box properties, not a complete
 cascade/computed-style implementation. Missing: stylesheet imports, origins
-and stylesheet sets, full style/link/sheet interfaces, scope/container/
-supports groups, nesting, full selector state/scope/WPT behavior, defaulting and
+and stylesheet sets, full style/link/sheet interfaces, scope/container groups, nesting, full selector state/scope/WPT behavior, defaulting and
 inheritance for ordinary properties, complete variable semantics, registered properties, presentational hints,
 full UA defaults, getComputedStyle, animations/transitions and paint. Font/text
 and all remaining layout/observer gaps stay in scope.
@@ -757,6 +756,41 @@ CSSOM layer interfaces and full CSS/WPT conformance remain required work.
 Unsupported conditional/registration rules inside layers still fail explicitly;
 accepting layer syntax does not make those contents supported. No Obscura
 runtime dependency or fallback is involved.
+
+## Native declaration support conditions
+
+Supported declaration feature queries now drive real author cascade groups.
+The Rust parser evaluates parentheses, not, homogeneous and/or lists,
+forward-compatible general-enclosed terms, comments and escaped identifiers.
+It also backs CSS.supports with one argument, implicit declaration parentheses,
+and two property/value arguments. Conditions are evaluated independently of
+page-overridden CSS.supports functions. Existing layer and media groups compose
+with support conditions rather than returning manufactured geometry.
+
+Queries validate declarations through the existing typed declaration parser and
+native layout conversion. Unknown declarations and unsupported native values
+return false; missing JavaScript arguments and Symbol coercion throw TypeError.
+The two-argument overload preserves property-name whitespace and rejects
+important flags; the condition overload permits an important flag. Empty custom
+property values differ between overloads, as observed in Chromium.
+
+The shared synthetic HTTP fixture passes 32 aggregate checks in the native
+engine, at 64 real Worker URLs and at the same 64 variants in actual Chromium 152. Six additional real Worker checks exercise query/value byte and depth
+bounds with same-page recovery, explicit capability gaps, and page override
+independence. Query/value input is capped at 64 KiB and 32 nested token blocks;
+JavaScript calls charge the shared DOM-operation budget. The public comparison
+record is [supports-chromium.json](evidence/supports-chromium.json).
+
+Support reporting remains partial. Nimbo currently returns false for color
+painting, transforms, unresolved variable values and selector queries; focused
+Chromium probes returned true for color:red, transform:translateX(1px),
+width:var(--x) and selector(div). The unresolved-variable result is a known
+underreporting gap even where subsequent native variable substitution works.
+Font queries, selector queries, registered-property conditions, CSS.escape,
+full CSS namespace/rule interfaces and usable full-property support remain
+required work. These tests do not establish complete CSS Conditional or WPT
+conformance. Unsupported rule types within active groups still fail explicitly.
+No Obscura runtime dependency or fallback is involved.
 
 ## Worker feasibility gates
 

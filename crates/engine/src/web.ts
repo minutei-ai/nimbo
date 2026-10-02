@@ -3098,5 +3098,20 @@
     timerTasks++;
     dispatch(node(handle), new Event(success ? "load" : "error"), true);
   };
+  const CSS = {};
+  Object.defineProperty(CSS, "supports", {
+    enumerable: true,
+    writable: true,
+    configurable: true,
+    value: function supports(property: unknown, ...values: unknown[]): boolean {
+      if (arguments.length === 0) throw new TypeError("supports requires an argument");
+      const name = domString(property);
+      return arguments.length === 1
+        ? raw<boolean>("cssSupports", 0, name)
+        : raw<boolean>("cssSupportsValue", 0, name, domString(values[0]));
+    },
+  });
+  Object.defineProperty(CSS, Symbol.toStringTag, { value: "CSS", configurable: true });
+  Object.defineProperty(globalThis, "CSS", { value: CSS, writable: true, configurable: true });
   return { ready, timer, intersections, resource };
 })();

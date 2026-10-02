@@ -147,6 +147,9 @@ impl<'i> AtRuleParser<'i> for Rules<'_> {
         if name.eq_ignore_ascii_case("layer") {
             return crate::layers::names(input).map(Prelude::Layers);
         }
+        if name.eq_ignore_ascii_case("supports") {
+            return crate::supports::condition(input, 0).map(Prelude::Media);
+        }
         if !name.eq_ignore_ascii_case("media") {
             return Err(input.new_custom_error("stylesheet at-rule"));
         }

@@ -92,6 +92,8 @@ impl Dom {
         self.begin(operation, arg)?;
         let result = match operation {
             "baseHref" => json!(self.base_href()),
+            "cssSupports" => json!(crate::supports::query(arg)?),
+            "cssSupportsValue" => json!(crate::supports::value(arg, value)?),
             "bounds" => self.bounds(handle)?,
             "layoutVersion" => json!(self.layout_version),
             "observerMargin" => serde_json::to_value(crate::layout::Margins::parse(arg)?)?,
@@ -141,17 +143,7 @@ impl Dom {
                             .any(|ancestor| ancestor.id == parent.id)
                 )
             }
-            "create" => {
-                if !valid_element_name(arg) {
-                    return Err(Error::DomException {
-                        name: "InvalidCharacterError",
-                        message: "invalid element name",
-                    });
-                }
-                self.charge_write(arg.len())?;
-                let id = self.document.tree.new_element(&arg.to_ascii_lowercase()).id;
-                json!(self.handle(id))
-            }
+            "create" => self.create(arg)?,
             "get" => self.get(handle, arg)?,
             "attributes" => json!(
                 self.node(handle)?
@@ -187,6 +179,22 @@ impl Dom {
             }
         };
         self.finish(&result, version)
+    }
+
+    fn create(&mut self, name: &str) -> Result<Value> {
+        if !valid_element_name(name) {
+            return Err(Error::DomException {
+                name: "InvalidCharacterError",
+                message: "invalid element name",
+            });
+        }
+        self.charge_write(name.len())?;
+        let id = self
+            .document
+            .tree
+            .new_element(&name.to_ascii_lowercase())
+            .id;
+        Ok(json!(self.handle(id)))
     }
 
     fn finish(&mut self, result: &Value, version: usize) -> Result<String> {

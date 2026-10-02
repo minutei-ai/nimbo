@@ -347,6 +347,15 @@ impl RuleBodyItemParser<'_, (String, Vec<Entry>), ()> for ListParser {
 }
 
 impl Declarations {
+    pub(crate) fn supported(name: &str, value: &str) -> bool {
+        let Some(entries) = expand(&property_name(name), value, false) else {
+            return false;
+        };
+        crate::layout::supports(&Self {
+            entries,
+            shorthands: Vec::new(),
+        })
+    }
     pub(crate) fn cascade<'a>(
         sources: impl IntoIterator<Item = (&'a Self, bool, u32, &'a [usize])>,
     ) -> Result<Self, &'static str> {

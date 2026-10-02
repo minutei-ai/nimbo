@@ -406,6 +406,15 @@ const origin = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     requests.push(`${request.method} ${path}`);
+    if (path.startsWith("/supports/")) {
+      const variant = Number(path.split("/").at(-1));
+      const source = await Bun.file(
+        join(import.meta.dir, "../crates/engine/tests/fixtures/supports.txt"),
+      ).text();
+      return new Response(`<script>globalThis.variant=${variant};${source}</script>`, {
+        headers: { "content-type": "text/html" },
+      });
+    }
     if (path.startsWith("/layers/")) {
       const variant = Number(path.split("/").at(-1));
       const source = await Bun.file(
@@ -2040,7 +2049,7 @@ test.each([
   ["text shaping", "el.textContent='real text';"],
   [
     "stylesheet at-rule",
-    "const css=document.createElement('style');css.textContent='@supports (display: grid) {div {width: 50px;}}';document.body.appendChild(css);",
+    "const css=document.createElement('style');css.textContent='@container (min-width: 10px) {div {width: 50px;}}';document.body.appendChild(css);",
   ],
   [
     "stylesheet sets",
@@ -2819,6 +2828,108 @@ test.each([
 ])("real HTTP → workerd → Wasm: cascade layers bound %s", async (_name, source, detail) => {
   const url = new URL("geometry-empty", origin.url).href;
   const expression = `(()=>{const css=document.createElement('style');css.textContent=${source};document.head.appendChild(css);try{document.body.getBoundingClientRect();return false;}catch(error){return error.message.includes(${JSON.stringify(detail)});}finally{css.remove();}})()`;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: true });
+});
+
+const supportsExpected = Object.fromEntries(
+  [
+    "and",
+    "andFalse",
+    "arguments",
+    "case",
+    "coercion",
+    "comments",
+    "custom",
+    "customInvalid",
+    "detached",
+    "falseRule",
+    "general",
+    "generalNot",
+    "generalQuery",
+    "implicit",
+    "importantRule",
+    "importantValue",
+    "invalid",
+    "layers",
+    "media",
+    "missingTerm",
+    "mixed",
+    "namespace",
+    "nestedNot",
+    "not",
+    "one",
+    "or",
+    "parentheses",
+    "propertyWhitespace",
+    "snapshot",
+    "trueRule",
+    "two",
+    "unwrappedNot",
+  ].map((key) => [key, true]),
+);
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native feature support variant %i",
+  async (variant) => {
+    const url = new URL(`supports/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "comparison" }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      url,
+      engine: "rust-wasm-quickjs",
+      value: supportsExpected,
+    });
+  },
+);
+test.each([
+  ["query bytes", "CSS.supports('x'.repeat(65537))", "supports bytes"],
+  ["value bytes", "CSS.supports('width','x'.repeat(65537))", "supports bytes"],
+  ["query depth", "CSS.supports('('.repeat(34)+'width:1px'+')'.repeat(34))", "supports nesting"],
+  [
+    "value depth",
+    "CSS.supports('width','calc('.repeat(34)+'1px'+')'.repeat(34))",
+    "supports nesting",
+  ],
+])("real HTTP → workerd → Wasm: native feature support bounds %s", async (_name, query, detail) => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const expression = `(()=>{let failed=false;try{${query};}catch(error){failed=error.message.includes(${JSON.stringify(detail)});}return failed&&CSS.supports('width','1px');})()`;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: true });
+});
+test("real HTTP → workerd → Wasm: native feature support leaves unsupported capabilities explicit", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const expression =
+    "['color:red','transform:translateX(1px)','width:var(--x)','selector(div)'].map(query=>CSS.supports(query))";
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({
+    url,
+    engine: "rust-wasm-quickjs",
+    value: [false, false, false, false],
+  });
+});
+test("real HTTP → workerd → Wasm: native feature support ignores overridden page query functions", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const expression =
+    "(()=>{CSS.supports=()=>false;const target=document.createElement('div');document.body.appendChild(target);const sheet=document.createElement('style');sheet.textContent='@supports(width:1px){div{width:50px}}';document.head.appendChild(sheet);return target.getBoundingClientRect().width===50;})()";
   const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
     method: "POST",
     headers: { authorization: "Bearer test-secret" },

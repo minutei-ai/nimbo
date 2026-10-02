@@ -83,6 +83,7 @@ fn script_fixture(script: &str) -> String {
 
 fn layout_fixture(path: &str) -> String {
     let script = match path {
+        "/supports" => include_str!("fixtures/supports.txt"),
         "/layers" => include_str!("fixtures/layers.txt"),
         "/external-styles" => {
             return format!(
@@ -154,7 +155,7 @@ fn serve(mut request: Request) -> io::Result<()> {
     let mut status = 200;
     let mut headers = Vec::new();
     let body = match request.url() {
-        "/cascade" | "/variables" | "/node-insertion" | "/intersections" | "/geometry" | "/external-styles" | "/layers" => layout_fixture(request.url()),
+        "/cascade" | "/variables" | "/node-insertion" | "/intersections" | "/geometry" | "/external-styles" | "/layers" | "/supports" => layout_fixture(request.url()),
         "/style-variables" => script_fixture(include_str!("fixtures/style-variables.txt")),
         "/styles" => script_fixture(include_str!("fixtures/styles.txt")),
         "/anchors" => format!("<base href=\"https://example.com/root/\"><a id=\"link\" href=\"../doc?q=1#fragment\">link</a><svg><a></a></svg><script>{}</script>", include_str!("fixtures/anchors.txt")),
@@ -1102,6 +1103,20 @@ fn cascade_layers_preserve_order_priority_and_nesting() -> TestResult {
     let result = page.evaluate("comparison")?;
     let fields = result.as_object().ok_or("missing layer result")?;
     assert_eq!(fields.len(), 30);
+    assert!(
+        fields.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    Ok(())
+}
+
+#[test]
+fn supports_conditions_query_usable_native_declarations() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/supports"))?;
+    let result = page.evaluate("comparison")?;
+    let fields = result.as_object().ok_or("missing supports result")?;
+    assert_eq!(fields.len(), 32);
     assert!(
         fields.values().all(|value| *value == json!(true)),
         "{result}"

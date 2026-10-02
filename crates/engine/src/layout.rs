@@ -104,6 +104,21 @@ fn validate_overflow(node: NodeRef<'_>, style: &Style) -> Result<()> {
     Ok(())
 }
 
+pub(crate) fn supports(declarations: &Declarations) -> bool {
+    if declarations
+        .layout_entries()
+        .any(|(name, _, _)| matches!(name, "color" | "background-color" | "opacity"))
+    {
+        return false;
+    }
+    let document = Document::from("<div></div>");
+    document
+        .root()
+        .descendants_it()
+        .find(|node| node.has_name("div"))
+        .is_some_and(|node| style(node, declarations).is_ok())
+}
+
 fn style(node: NodeRef<'_>, declarations: &Declarations) -> Result<Style> {
     if node
         .attr("dir")

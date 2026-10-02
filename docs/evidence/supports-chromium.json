@@ -1,0 +1,145 @@
+{
+  "browser": "Chromium 152.0.7977.130",
+  "fixture": "crates/engine/tests/fixtures/supports.txt",
+  "variants": 64,
+  "viewport": {
+    "width": 1024,
+    "height": 768
+  },
+  "assertions": {
+    "and": {
+      "passed": 64,
+      "failed": 0
+    },
+    "andFalse": {
+      "passed": 64,
+      "failed": 0
+    },
+    "arguments": {
+      "passed": 64,
+      "failed": 0
+    },
+    "case": {
+      "passed": 64,
+      "failed": 0
+    },
+    "coercion": {
+      "passed": 64,
+      "failed": 0
+    },
+    "comments": {
+      "passed": 64,
+      "failed": 0
+    },
+    "custom": {
+      "passed": 64,
+      "failed": 0
+    },
+    "customInvalid": {
+      "passed": 64,
+      "failed": 0
+    },
+    "detached": {
+      "passed": 64,
+      "failed": 0
+    },
+    "falseRule": {
+      "passed": 64,
+      "failed": 0
+    },
+    "general": {
+      "passed": 64,
+      "failed": 0
+    },
+    "generalNot": {
+      "passed": 64,
+      "failed": 0
+    },
+    "generalQuery": {
+      "passed": 64,
+      "failed": 0
+    },
+    "implicit": {
+      "passed": 64,
+      "failed": 0
+    },
+    "importantRule": {
+      "passed": 64,
+      "failed": 0
+    },
+    "importantValue": {
+      "passed": 64,
+      "failed": 0
+    },
+    "invalid": {
+      "passed": 64,
+      "failed": 0
+    },
+    "layers": {
+      "passed": 64,
+      "failed": 0
+    },
+    "media": {
+      "passed": 64,
+      "failed": 0
+    },
+    "missingTerm": {
+      "passed": 64,
+      "failed": 0
+    },
+    "mixed": {
+      "passed": 64,
+      "failed": 0
+    },
+    "namespace": {
+      "passed": 64,
+      "failed": 0
+    },
+    "nestedNot": {
+      "passed": 64,
+      "failed": 0
+    },
+    "not": {
+      "passed": 64,
+      "failed": 0
+    },
+    "one": {
+      "passed": 64,
+      "failed": 0
+    },
+    "or": {
+      "passed": 64,
+      "failed": 0
+    },
+    "parentheses": {
+      "passed": 64,
+      "failed": 0
+    },
+    "propertyWhitespace": {
+      "passed": 64,
+      "failed": 0
+    },
+    "snapshot": {
+      "passed": 64,
+      "failed": 0
+    },
+    "trueRule": {
+      "passed": 64,
+      "failed": 0
+    },
+    "two": {
+      "passed": 64,
+      "failed": 0
+    },
+    "unwrappedNot": {
+      "passed": 64,
+      "failed": 0
+    }
+  },
+  "separateFocusedComparison": {
+    "queries": ["color:red", "transform:translateX(1px)", "width:var(--x)", "selector(div)"],
+    "chromium": [true, true, true, true],
+    "nimbo": [false, false, false, false]
+  },
+  "scope": "Declaration conditions and CSS.supports for the usable native layout subset. No full feature support, selector query, CSSOM, variable query or rendering parity claim."
+}
