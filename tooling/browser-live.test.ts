@@ -4352,3 +4352,86 @@ test("real HTTP → workerd → Wasm: rejected canvas resize preserves bitmap an
   expect(response.status).toBe(200);
   expect(await response.json()).toMatchObject({ value: true });
 });
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native canvas upload variant %i",
+  async (variant) => {
+    const url = new URL(`canvas/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: `canvasUploadCase(${variant})` }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing pixels");
+    expect(Object.keys(value)).toHaveLength(30);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each([
+  {
+    name: "pixel work",
+    expression:
+      "(()=>{const x=new OffscreenCanvas(1024,1024).getContext('2d'),d=new ImageData(1024,1024);for(let i=0;i<13;i++)x.reset();x.putImageData(d,0,0)})()",
+    reason: "canvas: pixel work limit",
+  },
+  {
+    name: "operation count",
+    expression:
+      "(()=>{const x=new OffscreenCanvas(1,1).getContext('2d'),d=new ImageData(1,1);for(let i=0;i<10000;i++)x.putImageData(d,0,0)})()",
+    reason: "canvas: operation limit",
+  },
+])(
+  "real HTTP → workerd → Wasm: canvas upload $name boundary and recovery",
+  async ({ expression, reason }) => {
+    const url = new URL("canvas/130", origin.url).href;
+    const failed = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression }),
+    });
+    expect(failed.status).toBe(422);
+    expect(await failed.text()).toContain(reason);
+    const healthy = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "canvasUploadCase(0)" }),
+    });
+    expect(healthy.status).toBe(200);
+    const result: unknown = await healthy.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing recovery");
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test("real HTTP → workerd → Wasm: maximum-size canvas upload writes actual edge pixels", async () => {
+  const url = new URL("canvas/131", origin.url).href;
+  const expression =
+    "(()=>{const c=new OffscreenCanvas(1024,1024),x=c.getContext('2d'),d=new ImageData(1024,1024);d.data.fill(255);x.putImageData(d,0,0);const a=x.getImageData(0,0,1,1).data,b=x.getImageData(1023,1023,1,1).data;return a[0]===255&&a[3]===255&&b[0]===255&&b[3]===255})()";
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ value: true });
+}, 15000);
+
+test("real HTTP → workerd → Wasm: rejected detached upload preserves the existing bitmap", async () => {
+  const url = new URL("canvas/132", origin.url).href;
+  const expression =
+    "(()=>{const x=new OffscreenCanvas(1,1).getContext('2d');x.fillStyle='blue';x.fillRect(0,0,1,1);const d=new ImageData(1,1);d.data.buffer.transfer();let invalid=false;try{x.putImageData(d,0,0)}catch(e){invalid=e.name==='InvalidStateError'}const a=x.getImageData(0,0,1,1).data;return invalid&&a[0]===0&&a[2]===255&&a[3]===255&&x.fillStyle==='#0000ff'})()";
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ value: true });
+});

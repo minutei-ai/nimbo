@@ -8,6 +8,7 @@
   const nativeDecoder = nimboDecoder;
   const nativeLink = nimboLink;
   const nativeCanvas = nimboCanvas;
+  const nativeCanvasPut = nimboCanvasPut;
   const nativeFontData = nimboFontData;
   const nativeFontMeta = nimboFontMeta;
   const nativeFontMatch = nimboFontMatch;
@@ -26,6 +27,7 @@
   Reflect.deleteProperty(globalThis, "nimboDecoder");
   Reflect.deleteProperty(globalThis, "nimboLink");
   Reflect.deleteProperty(globalThis, "nimboCanvas");
+  Reflect.deleteProperty(globalThis, "nimboCanvasPut");
   Reflect.deleteProperty(globalThis, "nimboFontData");
   Reflect.deleteProperty(globalThis, "nimboFontMeta");
   Reflect.deleteProperty(globalThis, "nimboFontMatch");
@@ -3336,6 +3338,7 @@
   }
   const PixelArray = Uint8ClampedArray;
   const pixelType = intrinsicGetter(typedPrototype, Symbol.toStringTag);
+  const pixelResizable = intrinsicGetter(ArrayBuffer.prototype, "resizable");
   const canvasOwners = new WeakMap<
     object,
     { id: number; context: OffscreenCanvasRenderingContext2D | null }
@@ -3414,6 +3417,9 @@
       if (isView(first) && pixelType(first) === "Float16Array")
         throw new Error("unsupported: canvas pixel format");
       if (isView(first) && pixelType(first) === "Uint8ClampedArray") {
+        const buffer = typedBuffer(first);
+        bufferLength(buffer);
+        if (pixelResizable(buffer)) throw new TypeError("ImageData storage must not be resizable");
         const length = Number(typedLength(first));
         width = imageInteger(second);
         height = third === undefined ? length / (4 * width) : imageInteger(third);
@@ -3583,6 +3589,33 @@
         Math.abs(h),
       );
     }
+    putImageData(image: unknown, x: unknown, y: unknown, ...dirty: unknown[]): void {
+      const owner = drawingOwner(this);
+      if (arguments.length < 3 || (arguments.length > 3 && arguments.length < 7))
+        throw new TypeError("putImageData requires three or seven arguments");
+      if (typeof image !== "object" || image === null) throw new TypeError("Expected ImageData");
+      const source = imageOwner(image);
+      const position = [x, y].map((value) => canvasInteger(value, -2147483648, 2147483647));
+      const region =
+        dirty.length >= 4
+          ? dirty.slice(0, 4).map((value) => canvasInteger(value, -2147483648, 2147483647))
+          : [0, 0, source.width, source.height];
+      const length = Number(typedLength(source.data));
+      if (length !== source.width * source.height * 4)
+        throw new DOMException("Invalid image storage", "InvalidStateError");
+      const copy = new ByteArray(length);
+      Reflect.apply(byteSet, copy, [source.data]);
+      nativeCanvasPut(
+        JSON.stringify({
+          id: canvasOwner(owner.canvas).id,
+          width: source.width,
+          height: source.height,
+          position,
+          region,
+        }),
+        copy,
+      );
+    }
     createImageData(width: unknown, height?: unknown, settings?: unknown): ImageData {
       drawingOwner(this);
       if (arguments.length < 1) throw new TypeError("createImageData requires arguments");
@@ -3703,6 +3736,7 @@
     Object.defineProperty(method, "length", { value: length, configurable: true });
   }
   for (const [name, length] of [
+    ["putImageData", 3],
     ["fillRect", 4],
     ["clearRect", 4],
     ["getImageData", 4],
@@ -3717,7 +3751,6 @@
   ] as const)
     Object.defineProperty(prototype, Symbol.toStringTag, { value: name, configurable: true });
   for (const name of [
-    "putImageData",
     "drawImage",
     "measureText",
     "fillText",

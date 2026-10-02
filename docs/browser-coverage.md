@@ -321,8 +321,8 @@ the forwarded request reaches the origin. These checks cover redirects,
 HTTP cookies, POST bodies, response errors, script skipping, isolation,
 resource limits and recovery. The HTTP cookie fixture does not test TLS or
 Secure cookie delivery. The seven lint/infrastructure checks spawn the actual
-pinned tools rather than replacing their behavior. All 3119 Bun tests therefore
-run without transport, browser or tool mocks; 3112 exercise the browser engine
+pinned tools rather than replacing their behavior. All 3187 Bun tests therefore
+run without transport, browser or tool mocks; 3180 exercise the browser engine
 and seven exercise tooling. Neither local suite proves deployed performance,
 TLS fingerprints, rendering or broad browser compatibility.
 
@@ -1541,7 +1541,7 @@ proof of deployed Worker CPU limits. Native raster calls cannot be preempted by
 the JavaScript watchdog; deployed performance remains unverified.
 
 Still missing are HTMLCanvasElement and its DOM linkage, paths, transforms,
-strokes, gradients/patterns, image drawing/writing/decoding, text shaping and
+strokes, gradients/patterns, image drawing/decoding, text shaping and
 metrics, context-dependent/wide-gamut colors, image encoding/transfer, WebGL
 shaders, GPU behavior, video, screenshots, complete Web IDL and unmodified WPT.
 The new bitmap backend is a foundation for those requirements, not their proof.
@@ -1550,3 +1550,54 @@ Public references: [HTML OffscreenCanvas](https://html.spec.whatwg.org/multipage
 [Canvas pixel manipulation](https://html.spec.whatwg.org/multipage/canvas.html#pixel-manipulation),
 [ImageData](https://html.spec.whatwg.org/multipage/imagebitmap-and-animations.html#imagedata),
 [checked numeric conversion](https://docs.rs/num-traits/0.2.19/num_traits/cast/trait.ToPrimitive.html).
+
+### Native ImageData uploads
+
+putImageData now replaces pixels in the same native Rust software bitmap. It
+accepts branded sRGB RGBA8 ImageData, copies actual physical bytes through captured
+JavaScript intrinsics and reads native integer-indexed elements in Rust. Pixel
+input is never serialized as a JSON number array. Uploads do not apply the
+context's global alpha or source-over blending: transparent input replaces the
+old pixel. Dirty rectangles normalize negative dimensions, intersect the source
+and destination bounds, and preserve source coordinates relative to the requested
+destination. Checked i64 arithmetic handles the full signed-long input range.
+
+The three- and seven-argument overloads validate required arguments, brands,
+receivers, numeric range and buffer storage. Four through six arguments fail
+with TypeError. Detached buffers raise InvalidStateError even for an empty dirty
+region; numeric argument conversion precedes the detached-buffer check. ImageData
+rejects resizable storage. Actual byte-offset views and mutations of live input
+storage are covered; subsequent input changes do not mutate an already uploaded
+bitmap. Captured constructors and set methods protect the private byte copy from
+page replacements and iterators.
+
+Thirty checks run on 64 fresh actual HTTP documents in both native and compiled
+Wasm/workerd integration suites. They include real ArrayBuffer.transfer to detach
+storage, not a manufactured error. Two additional actual Worker requests reach
+the pixel-work and native-call quotas and verify healthy-request recovery.
+Another actual Worker case uploads the maximum 1,048,576 pixels and checks both
+bitmap extremes; one more proves a rejected detached upload preserves the old
+pixels and fill style. Equivalent maximum-size and rejection probes also passed
+in Chromium. The native bridge validates storage dimensions and exact byte
+length, charges the entire input and worst-case destination pixel work before copying native elements,
+and shares the existing per-page canvas quotas. The temporary JavaScript byte
+copy is bounded by the ImageData pixel limit but is allocated before this native
+charge; these checks do not establish total-isolate memory or deployed CPU limits.
+
+Chromium matched 28 of the 30 checks in all 64 variants, recorded in
+[canvas-upload-chromium.json](evidence/canvas-upload-chromium.json). Two unresolved
+cases remain. A negative dirty width at the signed-long extremes normalizes to
+an intersecting region in Nimbo, while Chromium does not return those expected
+pixels. Nimbo preserves alpha:false storage with alpha 255 and premultiplied RGB;
+Chromium's willReadFrequently:true context returns alpha 128 for uploaded red
+alpha 128, and transparent black for uploaded white alpha 0. A separate default
+context returns alpha 128 and keeps the zero-alpha white RGB. These are recorded
+behavior differences, without a claim of universal opaque-upload parity.
+SharedArrayBuffer was unavailable in this browser document; no shared-storage
+comparison is claimed.
+
+Full Canvas 2D, transforms/clipping paths, wide color spaces, image decoding,
+text shaping, encoding, screenshots and WebGL remain pending. The implementation
+continues to use only Nimbo's native engine.
+
+Public reference: [HTML Canvas pixel manipulation](https://html.spec.whatwg.org/multipage/canvas.html#pixel-manipulation).

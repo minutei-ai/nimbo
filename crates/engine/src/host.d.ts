@@ -44,3 +44,6 @@ declare function nimboFontMatch(input: string): string;
 
 // Native software canvas metadata or an owned physical byte array.
 declare function nimboCanvas(input: string): string | Uint8Array;
+
+// Separate physical pixel input; no JSON pixel arrays.
+declare function nimboCanvasPut(input: string, bytes: Uint8Array): void;

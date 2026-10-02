@@ -1758,3 +1758,20 @@ fn software_canvas_rasterizes_real_http_pixels() -> TestResult {
     }
     Ok(())
 }
+
+#[test]
+fn software_canvas_uploads_real_http_pixels() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/canvas/{variant}")))?;
+        let result = page.evaluate(&format!("canvasUploadCase({variant})"))?;
+        let fields = result.as_object().ok_or("missing canvas upload result")?;
+        assert_eq!(fields.len(), 30);
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}

@@ -9,6 +9,7 @@ use crate::{Error, Result};
 
 mod bitmap;
 mod pixels;
+mod upload;
 
 fn error(detail: &str) -> Error {
     Error::Dom(format!("canvas: {detail}"))
@@ -155,6 +156,7 @@ impl Bitmaps {
 
 pub(crate) fn install<'js>(ctx: &Ctx<'js>) -> rquickjs::Result<()> {
     let bitmaps = Rc::new(RefCell::new(Bitmaps::default()));
+    upload::install(ctx, Rc::clone(&bitmaps))?;
     ctx.globals().set(
         "nimboCanvas",
         Function::new(
