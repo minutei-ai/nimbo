@@ -36,6 +36,9 @@ const geometryScript = await Bun.file(
 const cascadeScript = await Bun.file(
   join(import.meta.dir, "../crates/engine/tests/fixtures/cascade.txt"),
 ).text();
+const variablesScript = await Bun.file(
+  join(import.meta.dir, "../crates/engine/tests/fixtures/variables.txt"),
+).text();
 const requests: string[] = [];
 const comparisonBinary = process.env.NIMBO_COMPARE_OBSCURA_BINARY;
 async function comparePage(binary: string, url: string): Promise<unknown> {
@@ -396,6 +399,12 @@ const origin = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     requests.push(`${request.method} ${path}`);
+    if (path.startsWith("/variables/")) {
+      const variant = Number(path.split("/").at(-1));
+      return new Response(`<script>globalThis.variant=${variant};${variablesScript}</script>`, {
+        headers: { "content-type": "text/html" },
+      });
+    }
     if (path.startsWith("/cascade/")) {
       const variant = Number(path.split("/").at(-1));
       return new Response(`<script>globalThis.variant=${variant};${cascadeScript}</script>`, {
@@ -2004,7 +2013,7 @@ test.each([
     "const css=document.createElement('link');css.setAttribute('rel','stylesheet');document.body.appendChild(css);",
   ],
   ["transform", "el.style.transform='translateX(10px)';"],
-  ["variable substitution", "el.style.width='var(--size, 10px)';"],
+  ["environment substitution", "el.style.width='env(safe-area-inset-left, 10px)';"],
   ["position", "el.style.position='absolute';"],
   ["element formatting", "const child=document.createElement('span');el.appendChild(child);"],
   ["width", "el.style.width='2em';"],
@@ -2238,4 +2247,117 @@ test("real HTTP → workerd → Wasm: failed stylesheet parsing preserves inline
     engine: "rust-wasm-quickjs",
     value: { failed: true, recovered: true, changed: true, snapshot: true, inline: true },
   });
+});
+
+const variablesExpected = Object.fromEntries(
+  [
+    "local",
+    "specified",
+    "inherited",
+    "parentMutation",
+    "parentRemoval",
+    "computedInheritance",
+    "inheritKeyword",
+    "unsetKeyword",
+    "initialKeyword",
+    "nestedFallback",
+    "chain",
+    "caseSensitive",
+    "functionCase",
+    "escapedName",
+    "unusedFallback",
+    "selfCycle",
+    "mutualCycle",
+    "fallbackCycle",
+    "overlappingCycle",
+    "downstreamFallback",
+    "invalidOverrides",
+    "invalidGrammar",
+    "tokenBoundary",
+    "emptyValue",
+    "emptyFallback",
+    "pendingShorthand",
+    "shorthandOrder",
+    "invalidShorthand",
+    "customPriority",
+    "inlineVariable",
+    "inlineSpecified",
+    "live",
+    "inlineAfterRemoval",
+    "noVariable",
+  ].map((key) => [key, true]),
+);
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native custom property resolution variant %i",
+  async (variant) => {
+    const url = new URL(`variables/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "comparison" }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      url,
+      engine: "rust-wasm-quickjs",
+      value: variablesExpected,
+    });
+    expect(requests).toContain(`GET /variables/${variant}`);
+  },
+);
+
+test.each([
+  [
+    "chain",
+    "const css=document.createElement('style');css.textContent='#target {'+Array.from({length:140},(_,i)=>'--p'+String(i).padStart(3,'0')+':'+(i===139?'1px':'var(--p'+String(i+1).padStart(3,'0')+')')+';').join('')+'width:var(--p000)}';document.body.appendChild(css);el.id='target';",
+    "CSS variable chain",
+  ],
+  [
+    "inherited entries",
+    "for(let depth=0;depth<2;depth++){const child=document.createElement('div');el.appendChild(child);el=child;el.style.cssText=Array.from({length:600},(_,i)=>'--p'+depth+'-'+i+':1px;').join('');}",
+    "CSS computed variables",
+  ],
+  [
+    "inherited bytes",
+    "for(let depth=0;depth<5;depth++){const child=document.createElement('div');el.appendChild(child);el=child;el.style.setProperty('--p'+depth,'x'.repeat(60000));}",
+    "CSS computed variable bytes",
+  ],
+])(
+  "real HTTP → workerd → Wasm: native variable %s limit fails and later requests recover",
+  async (_name, setup, reason) => {
+    const url = new URL("geometry-empty", origin.url).href;
+    const expression = `(() => {let el=document.createElement('div');document.body.appendChild(el);${setup}return el.getBoundingClientRect();})()`;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression }),
+    });
+    expect(response.status).toBe(422);
+    const error: unknown = expect.stringContaining(`resource limit: ${reason}`);
+    expect(await response.json()).toEqual({ error });
+    const recovered = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url,
+        expression:
+          "(() => {const el=document.createElement('div');el.style.cssText='--w:41px;width:var(--w);';document.body.appendChild(el);return el.getBoundingClientRect().width===41;})()",
+      }),
+    });
+    expect(recovered.status).toBe(200);
+    expect(await recovered.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: true });
+  },
+);
+
+test("real HTTP → workerd → Wasm: exponential variable substitution becomes invalid and uses fallback", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const expression =
+    "(() => {const el=document.createElement('div');el.style.cssText='--p0:1px;'+Array.from({length:24},(_,i)=>'--p'+(i+1)+':var(--p'+i+') var(--p'+i+');').join('')+'width:var(--p24,42px);';document.body.appendChild(el);return el.getBoundingClientRect().width===42;})()";
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: true });
 });

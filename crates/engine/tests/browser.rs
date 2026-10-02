@@ -87,6 +87,7 @@ fn serve(mut request: Request) -> io::Result<()> {
     let mut headers = Vec::new();
     let body = match request.url() {
         "/cascade" => script_fixture(include_str!("fixtures/cascade.txt")),
+        "/variables" => script_fixture(include_str!("fixtures/variables.txt")),
         "/geometry" => script_fixture(include_str!("fixtures/geometry.txt")),
         "/style-variables" => script_fixture(include_str!("fixtures/style-variables.txt")),
         "/styles" => script_fixture(include_str!("fixtures/styles.txt")),
@@ -946,6 +947,20 @@ fn author_stylesheet_cascade_drives_real_native_box_measurements() -> TestResult
     let result = page.evaluate("comparison")?;
     let fields = result.as_object().ok_or("missing cascade result")?;
     assert_eq!(fields.len(), 24);
+    assert!(
+        fields.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    Ok(())
+}
+
+#[test]
+fn custom_properties_resolve_inheritance_cycles_and_pending_shorthands() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/variables"))?;
+    let result = page.evaluate("comparison")?;
+    let fields = result.as_object().ok_or("missing variables result")?;
+    assert_eq!(fields.len(), 34);
     assert!(
         fields.values().all(|value| *value == json!(true)),
         "{result}"

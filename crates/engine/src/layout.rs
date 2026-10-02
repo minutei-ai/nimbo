@@ -4,7 +4,10 @@ use dom_query::{Document, NodeId, NodeRef};
 use serde::Serialize;
 use taffy::{TaffyError, prelude::*};
 
-use crate::{Error, MediaEnvironment, Result, styles::Declarations};
+use crate::{
+    Error, MediaEnvironment, Result,
+    styles::{Declarations, Variables},
+};
 
 pub(crate) struct Work<'a> {
     operations: &'a mut usize,
@@ -39,6 +42,28 @@ fn layout_error(error: &TaffyError) -> Error {
     Error::Dom(format!("layout: {error}"))
 }
 
+fn defaulted<'a>(name: &str, value: &'a str) -> &'a str {
+    if matches!(value, "initial" | "unset") {
+        match name {
+            "width" | "height" | "min-width" | "min-height" | "flex-basis" | "left" | "right"
+            | "top" | "bottom" | "align-self" => "auto",
+            "max-width" | "max-height" => "none",
+            "margin-left" | "margin-right" | "margin-top" | "margin-bottom" | "padding-left"
+            | "padding-right" | "padding-top" | "padding-bottom" | "flex-grow" => "0",
+            "flex-shrink" => "1",
+            "position" => "static",
+            "display" => "inline",
+            "box-sizing" => "content-box",
+            "flex-direction" => "row",
+            "flex-wrap" => "nowrap",
+            "visibility" => "visible",
+            _ => value,
+        }
+    } else {
+        value
+    }
+}
+
 // This first layout pass accepts real inline block/flex and auto-grid boxes. Unsupported
 // inputs must fail instead of silently providing manufactured measurements.
 fn style(node: NodeRef<'_>, declarations: &Declarations) -> Result<Style> {
@@ -70,6 +95,7 @@ fn style(node: NodeRef<'_>, declarations: &Declarations) -> Result<Style> {
         }};
     }
     for (name, value, deferred) in declarations.layout_entries() {
+        let value = defaulted(name, value);
         if name == "visibility" && (deferred || value == "collapse") {
             return Err(unsupported("visibility"));
         }
@@ -153,7 +179,12 @@ struct Tree<'a, 'b> {
 }
 
 impl Tree<'_, '_> {
-    fn build(&mut self, node: NodeRef<'_>, depth: usize) -> Result<Option<taffy::NodeId>> {
+    fn build(
+        &mut self,
+        node: NodeRef<'_>,
+        depth: usize,
+        parent: &Variables,
+    ) -> Result<Option<taffy::NodeId>> {
         self.work.charge()?;
         self.visited = self.visited.saturating_add(1);
         if self.visited > 1024 || depth > 128 {
@@ -183,6 +214,7 @@ impl Tree<'_, '_> {
                 .map_err(|message| Error::Dom(message.into()))?
         };
         let declarations = self.cascade.resolve(node, &declarations, self.work)?;
+        let (declarations, variables) = declarations.compute_variables(parent, self.work)?;
         let style = style(node, &declarations)?;
         if style.display == Display::None {
             return Ok(None);
@@ -200,7 +232,10 @@ impl Tree<'_, '_> {
         }
         let children = node
             .children_it(false)
-            .filter_map(|child| self.build(child, depth.saturating_add(1)).transpose())
+            .filter_map(|child| {
+                self.build(child, depth.saturating_add(1), &variables)
+                    .transpose()
+            })
             .collect::<Result<Vec<_>>>()?;
         let id = self
             .boxes
@@ -242,7 +277,7 @@ pub(crate) fn bounds(
         work,
     };
     tree.boxes.disable_rounding();
-    let Some(root_id) = tree.build(root, 0)? else {
+    let Some(root_id) = tree.build(root, 0, &Variables::default())? else {
         return Ok(Bounds::default());
     };
     let width = f32::from(u16::try_from(media.width).map_err(|_error| unsupported("viewport"))?);

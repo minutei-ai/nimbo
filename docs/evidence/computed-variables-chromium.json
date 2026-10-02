@@ -1,0 +1,59 @@
+{
+  "recordedAt": "2026-10-02 01:58:00 UTC",
+  "browser": "Chromium 152.0.7977.130",
+  "execution": "T3 collaborative browser; synthetic srcdoc frame",
+  "viewport": {
+    "width": 1024,
+    "height": 768
+  },
+  "fixture": "crates/engine/tests/fixtures/variables.txt",
+  "variants": {
+    "first": 0,
+    "last": 63,
+    "count": 64
+  },
+  "failureCounts": {
+    "caseSensitive": 0,
+    "chain": 0,
+    "computedInheritance": 0,
+    "customPriority": 0,
+    "downstreamFallback": 0,
+    "emptyFallback": 0,
+    "emptyValue": 0,
+    "escapedName": 0,
+    "fallbackCycle": 64,
+    "functionCase": 0,
+    "inheritKeyword": 0,
+    "inherited": 0,
+    "initialKeyword": 0,
+    "inlineAfterRemoval": 0,
+    "inlineSpecified": 0,
+    "inlineVariable": 0,
+    "invalidGrammar": 0,
+    "invalidOverrides": 0,
+    "invalidShorthand": 0,
+    "live": 0,
+    "local": 0,
+    "mutualCycle": 0,
+    "nestedFallback": 0,
+    "noVariable": 0,
+    "overlappingCycle": 0,
+    "parentMutation": 0,
+    "parentRemoval": 0,
+    "pendingShorthand": 0,
+    "selfCycle": 0,
+    "shorthandOrder": 0,
+    "specified": 0,
+    "tokenBoundary": 0,
+    "unsetKeyword": 0,
+    "unusedFallback": 0
+  },
+  "knownDifference": {
+    "check": "fallbackCycle",
+    "css": "--a:80px;--b:var(--a,var(--b));width:var(--b,102px);",
+    "nimboWidth": 102,
+    "chromiumWidth": 80,
+    "scope": "Nimbo currently follows the published 2022 dependency graph including unused fallbacks. Current draft lazy substitution and Chromium compatibility remain unfinished."
+  },
+  "scope": "Aggregate synthetic checks for custom-property box geometry. This is evidence of 33 matching checks and one known difference across 64 variants, not full Variables, computed-style, CSSOM, WPT or browser parity."
+}

@@ -27,6 +27,41 @@ fn unsupported(detail: &str) -> Error {
     Error::Dom(format!("layout unsupported: {detail}"))
 }
 
+// The DOM matcher's :root predicate tests document nodes rather than their
+// root element. Its document predicate can identify the parent of the root
+// element in connected stylesheet matching. Keep the original AST specificity.
+fn root_predicate<'i>(
+    input: &mut Parser<'i, '_>,
+) -> std::result::Result<String, ParseError<'i, &'static str>> {
+    let mut output = String::new();
+    let mut colon = false;
+    while !input.is_exhausted() {
+        let start = input.position();
+        let token = input.next_including_whitespace_and_comments()?.clone();
+        let source = input.slice_from(start).to_owned();
+        match &token {
+            Token::Ident(name) if colon && name.eq_ignore_ascii_case("root") => {
+                output.push_str("is(:root > *)");
+            }
+            Token::Function(_) | Token::ParenthesisBlock => {
+                output.push_str(&source);
+                output.push_str(&input.parse_nested_block(root_predicate)?);
+                output.push(')');
+            }
+            Token::SquareBracketBlock => {
+                input.parse_nested_block(|nested| {
+                    consume(nested, 0)?;
+                    Ok(())
+                })?;
+                output.push_str(input.slice_from(start));
+            }
+            _ => output.push_str(&source),
+        }
+        colon = matches!(token, Token::Colon);
+    }
+    Ok(output)
+}
+
 fn unknown_selector(selector: &lightningcss::selector::Selector<'_>) -> bool {
     selector
         .iter_raw_match_order()
@@ -157,6 +192,9 @@ impl<'i> QualifiedRuleParser<'i> for Rules<'_> {
             .map(|selector| {
                 let source = selector
                     .to_css_string(PrinterOptions::default())
+                    .map_err(|_error| input.new_custom_error("stylesheet selector"))?;
+                let mut source_input = ParserInput::new(&source);
+                let source = root_predicate(&mut Parser::new(&mut source_input))
                     .map_err(|_error| input.new_custom_error("stylesheet selector"))?;
                 let matcher = Matcher::new(&source)
                     .map_err(|_error| input.new_custom_error("stylesheet selector"))?;

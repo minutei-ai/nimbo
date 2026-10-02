@@ -21,7 +21,7 @@ tests as well as integration and application tests.
 
 `tooling/browser-live.test.ts` uses a real loopback HTTP origin, actual workerd,
 and the compiled Rust/Wasm engine. It installs no transport replacements,
-service mocks, browser API stubs, or canned engine results. Its 1408 data variants
+service mocks, browser API stubs, or canned engine results. Its 1472 data variants
 exercise external scripts, Unicode/entity decoding, selector identity,
 ancestry, removal/reparenting, attribute mutation and POST response decoding.
 They also exercise parsed and created text/comment nodes, native node identity,
@@ -45,15 +45,15 @@ failures. The eighth set exercises native Web Storage across inline, external
 and module scripts, UTF-16 including lone surrogates, coercion/receiver guards,
 named properties, reflection, removal, clearing and fresh Worker request areas.
 An additional case exercises actual quota exhaustion, atomic failure, independent
-local/session quotas and reuse. These are repeated integration checks, not 1408 independent platform
+local/session quotas and reuse. These are repeated integration checks, not 1472 independent platform
 features. The ninth set checks native media queries against 64 explicit viewport
 and preference configurations, including ranges, three-valued conditions,
 serialization, CSS escapes, receiver guards and synthetic MediaQueryList events.
 The tenth set rejects 64 invalid environment variants before any HTTP navigation.
 The eleventh set repeats the same DOMTokenList fixture at 64 distinct URLs,
 checking live attribute reads, ordered token mutations, identity, indices,
-iteration, receiver guards and atomic invalid-token rejection. Including thirty-five
-resource/deadline/origin checks, the real browser suite has 1443 tests.
+iteration, receiver guards and atomic invalid-token rejection. Including thirty-nine
+resource/deadline/origin checks, the real browser suite has 1511 tests.
 The twelfth set checks HTML namespace identity and reflected attributes with
 64 distinct synthetic strings. It includes parsed SVG/MathML and an HTML
 subtree inside SVG foreignObject.
@@ -395,7 +395,7 @@ Neither aggregate fixtures nor a layout library establish full CSSOM View/WPT
 parity or rendering support.
 
 Eight real Worker cases require explicit failure for text needing shaping,
-unsupported conditional rules and external stylesheet links, transforms, unresolved variables,
+unsupported conditional rules and external stylesheet links, transforms, environment substitution,
 absolute positioning, unsupported element formatting and relative font units.
 Two more reach the 1024-node and 128-depth limits, and one exhausts the shared
 DOM operation budget through actual repeated layout. Every failure case verifies
@@ -405,8 +405,8 @@ serialized into fictional zero values. The layout tree is rebuilt and discarded
 per query; this is not an incremental rendering cache or a total-process memory
 bound.
 
-Missing requirements remain: full stylesheet cascade and computed values, variable
-substitution, complete UA defaults, text/font shaping and line boxes, replaced
+Missing requirements remain: full stylesheet cascade and computed values, complete variable semantics,
+complete UA defaults, text/font shaping and line boxes, replaced
 content, borders, explicit/named grid tracks, absolute/fixed/sticky containing
 blocks, logical/writing modes, SVG geometry, transforms, fragmentation, scrolling,
 client-rect lists, pixel-unit rounding parity, painting and intersection/resize
@@ -465,13 +465,61 @@ This is author style-rule ordering for supported box properties, not a complete
 cascade/computed-style implementation. Missing: external sheets/imports, origins
 and stylesheet sets, full style/link/sheet interfaces, layers/scope/container/
 supports groups, nesting, full selector state/scope/WPT behavior, defaulting and
-inheritance, variable substitution, registered properties, presentational hints,
+inheritance for ordinary properties, complete variable semantics, registered properties, presentational hints,
 full UA defaults, getComputedStyle, animations/transitions and paint. Font/text
 and all remaining layout/observer gaps stay in scope.
 
 Public references: [CSS Cascade 5](https://www.w3.org/TR/css-cascade-5/),
 [Selectors 4](https://www.w3.org/TR/selectors-4/) and
 [CSS Syntax](https://www.w3.org/TR/css-syntax-3/).
+
+## Native custom-property computation
+
+Box geometry now resolves custom properties after the author cascade, using
+native CSS tokens and inherited computed values. Ancestor mutation triggers a
+fresh computation; descendant overrides do not re-evaluate inherited references.
+Case-sensitive names, CSS escapes, local/inline variables, nested and empty
+fallbacks, custom-property priority, inherit/unset/initial, and pending shorthand
+expansion are tested through real HTTP, QuickJS and Worker/Wasm execution.
+Substitution preserves token boundaries: `var(--number)px` does not become a
+length token. Invalid substitution/grammar uses the property's unset behavior
+where supported; it never resurrects a lower-priority declaration. Original
+inline CSS and previously returned rectangle snapshots remain unchanged.
+
+The identical synthetic fixture has 34 aggregate checks across 64 variants.
+Native execution accepts all 34. Actual Chromium 152 agrees on 33 checks and
+**differs on the unused-fallback cycle check**: `--a:80px;
+--b:var(--a,var(--b));width:var(--b,102px)` measures 80px in Chromium and
+102px in Nimbo. The current engine uses the published 2022 directed dependency
+graph, including unused fallbacks; the current draft uses substitution contexts
+and evaluates fallbacks conditionally. This is an outstanding compatibility gap,
+not a passed differential check. See the unfiltered
+[computed-variables-chromium.json](evidence/computed-variables-chromium.json).
+Full Variables/WPT parity remains unproven.
+
+Stylesheet matching corrects the DOM library's document-node `:root` predicate
+to identify the connected document element while retaining the original selector
+specificity. This correction is confined to author stylesheet matching; other
+selector APIs still require their own root/scope audit.
+
+Computed custom properties use 1024 entries, 128 dependency levels, 32 token
+nesting levels, 64KiB per substituted value and 256KiB per element's computed
+variable values. Oversized expansion becomes invalid and can use a fallback;
+inherited count/aggregate-byte and dependency-chain exhaustion fail explicitly.
+Parsing, dependency traversal, resolution and declaration computation charge
+the existing shared DOM operation budget. Three real Worker exhaustion cases
+verify recovery with a fresh request, and one real exponential-expansion case
+verifies invalid-value fallback. These bounds are not a total-process memory
+or CPU guarantee.
+
+Ordinary-property inheritance/defaulting, CSS-wide cascade rollback, registered
+properties, environment variables, arbitrary substitution functions, computed
+style APIs, fonts and all remaining layout/observer requirements remain in scope.
+Unsupported defaults and values still fail explicitly.
+
+Public references: [CSS Variables (published)](https://www.w3.org/TR/css-variables-1/),
+[CSS Variables (current draft)](https://drafts.csswg.org/css-variables-1/) and
+[CSS Values 5 substitution contexts](https://drafts.csswg.org/css-values-5/#substitution).
 
 ## Capability matrix
 

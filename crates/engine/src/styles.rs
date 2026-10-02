@@ -14,6 +14,9 @@ const INPUT_LIMIT: usize = 65_536;
 const ENTRY_LIMIT: usize = 1024;
 const DEPTH_LIMIT: usize = 32;
 
+mod computed;
+pub(crate) use computed::Variables;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Pending {
     name: String,
