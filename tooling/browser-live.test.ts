@@ -1,3 +1,4 @@
+import { backgroundLayersFixture } from "./background-layers-fixture";
 import { backgroundSizeFixture } from "./background-size-fixture";
 import { backgroundRepeatFixture } from "./background-repeat-fixture";
 import { backgroundPositionFixture } from "./background-position-fixture";
@@ -421,6 +422,8 @@ const origin = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     requests.push(`${request.method} ${path}`);
+    const backgroundLayers = await backgroundLayersFixture(path);
+    if (backgroundLayers) return backgroundLayers;
     const backgroundSize = await backgroundSizeFixture(path);
     if (backgroundSize) return backgroundSize;
     const backgroundRepeat = await backgroundRepeatFixture(path);
@@ -4734,9 +4737,12 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
   expect(await response.json()).toMatchObject({
     value: {
       font: "18px",
-      count: 13,
+      count: 16,
       names: [
+        "background-attachment",
+        "background-clip",
         "background-image",
+        "background-origin",
         "background-position",
         "background-repeat",
         "background-size",
@@ -5214,3 +5220,74 @@ test("real HTTP → workerd → Wasm: unsupported sizing geometry stays explicit
   expect(response.status).toBe(422);
   expect(await response.text()).toContain("relative query length");
 });
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native background layer context variant %i",
+  async (variant) => {
+    const url = new URL(`background-layers/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: `backgroundLayersCase(${variant})` }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null)
+      throw new Error("Missing background layer values");
+    expect(Object.keys(value)).toHaveLength(143);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test("real HTTP → workerd → Wasm: image errors preserve layer context scalars and conservative paint support", async () => {
+  const url = new URL("background-layers/0", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression:
+        "(()=>{document.body.style.cssText='background-image:url(https://example.test/a),url(https://example.test/b);background-attachment:fixed,local;background-origin:content-box;background-clip:border-area';const s=getComputedStyle(document.body);return {attachment:s.backgroundAttachment,origin:s.backgroundOrigin,clip:s.backgroundClip,paint:['background-attachment','background-origin','background-clip'].map(name=>CSS.supports(name,s.getPropertyValue(name)))}})()",
+    }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
+    value: {
+      attachment: "fixed, local",
+      origin: "content-box, content-box",
+      clip: "border-area, border-area",
+      paint: [false, false, false],
+    },
+  });
+});
+
+test.each([
+  ["background-attachment", "local"],
+  ["background-origin", "content-box"],
+  ["background-clip", "text"],
+] as const)(
+  "real HTTP → workerd → Wasm: background context %s budget and recovery",
+  async (name, value) => {
+    const url = new URL("background-layers/0", origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url,
+        expression: `(()=>{document.body.style.setProperty(${JSON.stringify(name)},Array(10001).fill(${JSON.stringify(value)}).join(','));return getComputedStyle(document.body).getPropertyValue(${JSON.stringify(name)})})()`,
+      }),
+    });
+    expect(response.status).toBe(422);
+    expect(await response.text()).toContain(
+      name === "background-origin" ? "CSS input limit" : "DOM operations",
+    );
+    const healthy = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "backgroundLayersCase(0)" }),
+    });
+    expect(healthy.status).toBe(200);
+  },
+);

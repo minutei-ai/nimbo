@@ -1,6 +1,7 @@
 //! Primeiro núcleo de scraping do Nimbo: HTTP, DOM e JavaScript sem renderização.
 
 mod animations;
+mod background_layers;
 mod background_position;
 mod background_repeat;
 mod background_size;

@@ -146,6 +146,7 @@ pub(crate) fn supports(declarations: &Declarations) -> bool {
                 | "background-size"
                 | "opacity"
         ) || crate::outlines::property(name)
+            || crate::background_layers::property(name)
             || crate::background_position::property(name)
     }) {
         return false;
@@ -179,28 +180,29 @@ fn style(node: NodeRef<'_>, declarations: &Declarations) -> Result<Style> {
 }
 
 fn non_layout(name: &str) -> bool {
-    matches!(
-        name,
-        "color"
-            | "background-color"
-            | "background-image"
-            | "background-position-x"
-            | "background-position-y"
-            | "background-repeat"
-            | "background-size"
-            | "opacity"
-            | "visibility"
-            | "container-name"
-            | "container-type"
-            | "font-size"
-            | "text-size-adjust"
-            | "tab-size"
-            | "line-height"
-            | "border-top-color"
-            | "border-right-color"
-            | "border-bottom-color"
-            | "border-left-color"
-    )
+    crate::background_layers::property(name)
+        || matches!(
+            name,
+            "color"
+                | "background-color"
+                | "background-image"
+                | "background-position-x"
+                | "background-position-y"
+                | "background-repeat"
+                | "background-size"
+                | "opacity"
+                | "visibility"
+                | "container-name"
+                | "container-type"
+                | "font-size"
+                | "text-size-adjust"
+                | "tab-size"
+                | "line-height"
+                | "border-top-color"
+                | "border-right-color"
+                | "border-bottom-color"
+                | "border-left-color"
+        )
 }
 
 fn style_for(
@@ -370,6 +372,7 @@ struct BoxContext {
     positions: crate::background_position::Positions,
     repeats: crate::background_repeat::Repeats,
     sizes: crate::background_size::Sizes,
+    layers: crate::background_layers::Layers,
 }
 
 impl BoxContext {
@@ -391,6 +394,7 @@ impl BoxContext {
             .sizes
             .compute(declarations, images.count(), &fonts, work)?;
         sizes.validate()?;
+        let layers = self.layers.compute(declarations, images.count(), work)?;
         Ok(Self {
             fonts,
             borders,
@@ -399,6 +403,7 @@ impl BoxContext {
             positions,
             repeats,
             sizes,
+            layers,
         })
     }
 }
@@ -674,6 +679,7 @@ fn scene<T>(
                 positions: crate::background_position::Positions::default(),
                 repeats: crate::background_repeat::Repeats::default(),
                 sizes: crate::background_size::Sizes::default(),
+                layers: crate::background_layers::Layers::default(),
             },
         )?;
         if let Some(root_id) = root_id {

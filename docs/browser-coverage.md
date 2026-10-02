@@ -2019,3 +2019,37 @@ because image sizing/painting is unavailable. Empty box geometry checks prove
 only that the stored computed state does not distort the box dimensions.
 
 Public reference: [CSS Backgrounds sizing](https://drafts.csswg.org/css-backgrounds/#background-size).
+
+### Computed background attachment, origin and clip
+
+The native computed-style facade now exposes sixteen enumerated properties,
+including background-attachment, background-origin and background-clip. A closed
+keyword grammar validates attachment scroll/fixed/local, origin box keywords and
+clip box/text/border-area keywords. Clip also accepts either order of the
+border-area/text combination and serializes it as border-area text; duplicate
+keywords and mixed box combinations are rejected. Escaped identifiers and case
+normalization use the native CSS tokenizer.
+
+These lists truncate excess entries to the image count before inheritance, while
+short lists retain their unexpanded sequence. Computed getters cycle that
+sequence to the current image count. This preserves the observed distinction
+from background-size inheritance. Live parent image counts, author cascade,
+variables and registered defaults, external stylesheet edits, inline mutations,
+detachment and reattachment recompute the stored state. Parsing and inherited
+copies charge the shared operation budget; serialization retains the 2 MiB bound.
+
+The shared real-HTTP fixture passes 64 variants with 143 checks each in native
+Rust, actual workerd/Wasm and Chromium. Chromium passed all 9,152 checks;
+[the aggregate records the scope](evidence/background-layers-chromium.json).
+Worker checks also confirm independent scalar reads with unsupported image
+sources, conservative CSS.supports results, input/operation limits and recovery.
+
+This implements computed state only. Image anchoring during scrolling, clipping
+masks, text and border-area rasterization, and background painting remain pending.
+CSS.supports returns false for these properties because rendering is incomplete.
+Empty-box measurements verify that this state preserves dimensions. Prefix
+aliases, complete shorthand/CSSOM serialization and cascade layer rollback also
+remain pending.
+
+Public references: [CSS Backgrounds attachment](https://drafts.csswg.org/css-backgrounds/#background-attachment)
+and [CSS Backgrounds Level 4 clipping](https://drafts.csswg.org/css-backgrounds-4/#background-clip).

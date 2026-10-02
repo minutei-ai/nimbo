@@ -358,6 +358,13 @@ pub(crate) fn function_value(value: &str) -> bool {
 }
 
 fn native_property(name: &str, value: &str, important: bool) -> Option<Vec<Entry>> {
+    if crate::background_layers::property(name) {
+        return Some(vec![Entry::new(
+            name,
+            crate::background_layers::specified(name, value)?,
+            important,
+        )]);
+    }
     if name == "background-position" {
         let (x, y) = crate::background_position::specified(value)?;
         let mut entries = vec![
@@ -387,22 +394,24 @@ fn native_property(name: &str, value: &str, important: bool) -> Option<Vec<Entry
 }
 
 fn native_declaration(name: &str, value: &str) -> bool {
-    matches!(
-        name,
-        "float"
-            | "clear"
-            | "writing-mode"
-            | "content"
-            | "outline-offset"
-            | "text-size-adjust"
-            | "tab-size"
-            | "line-height"
-            | "background-image"
-            | "background-size"
-            | "background-position"
-            | "background-position-x"
-            | "background-position-y"
-    ) || (name == "outline-color" && value.eq_ignore_ascii_case("auto"))
+    crate::background_layers::property(name)
+        || matches!(
+            name,
+            "float"
+                | "clear"
+                | "writing-mode"
+                | "content"
+                | "outline-offset"
+                | "text-size-adjust"
+                | "tab-size"
+                | "line-height"
+                | "background-image"
+                | "background-size"
+                | "background-position"
+                | "background-position-x"
+                | "background-position-y"
+        )
+        || (name == "outline-color" && value.eq_ignore_ascii_case("auto"))
 }
 
 fn expand(name: &str, value: &str, important: bool) -> Option<Vec<Entry>> {
