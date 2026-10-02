@@ -1,6 +1,7 @@
 use serde_json::{Value, json};
 
 use super::{
+    compositing::{self, Mode},
     error,
     pixels::{self, Pixel, State},
 };
@@ -57,6 +58,7 @@ impl Bitmap {
         operation: &str,
         color: &str,
         alpha: Option<f64>,
+        mode: &str,
     ) -> Result<Value> {
         match operation {
             "size" => return Ok(json!([self.width, self.height])),
@@ -69,6 +71,11 @@ impl Bitmap {
             "alpha" => {
                 if let Some(alpha) = alpha.filter(|value| (0.0..=1.0).contains(value)) {
                     self.state.alpha = alpha;
+                }
+            }
+            "composite" => {
+                if let Some(mode) = Mode::parse(mode) {
+                    self.state.mode = mode;
                 }
             }
             "save" => {
@@ -85,7 +92,12 @@ impl Bitmap {
             "reset" => self.reset(),
             _ => return Err(error("unknown operation")),
         }
-        Ok(json!({"fillStyle":pixels::serialize(self.state.color),"globalAlpha":self.state.alpha}))
+        Ok(
+            json!({"fillStyle":pixels::serialize(self.state.color),"globalAlpha":self.state.alpha,"globalCompositeOperation":self.state.mode}),
+        )
+    }
+    pub(super) fn unbounded(&self) -> bool {
+        self.state.mode.unbounded()
     }
     fn pixel(&self, x: i64, y: i64) -> Option<Pixel> {
         if x < 0 || y < 0 || x >= i64::from(self.width) || y >= i64::from(self.height) {
@@ -143,6 +155,7 @@ impl Bitmap {
         ))
     }
     pub(super) fn paint(&mut self, edges: [f64; 4], bounds: [u32; 4], clear: bool) -> Result<()> {
+        let clear = clear || self.state.mode == Mode::Clear;
         let [left, top, right, bottom] = edges;
         let [start_x, start_y, end_x, end_y] = bounds;
         for y in start_y..end_y {
@@ -162,8 +175,17 @@ impl Bitmap {
                     .pixels
                     .get_mut(index)
                     .ok_or_else(|| error("pixel index"))?;
+                if area <= 0.0 {
+                    if !clear && self.state.mode.unbounded() {
+                        *pixel = if self.opaque { [0, 0, 0, 255] } else { [0; 4] };
+                    }
+                    continue;
+                }
                 if area >= 1.0
-                    && (clear || (self.state.alpha >= 1.0 && self.state.color.get(3) == Some(&255)))
+                    && (clear
+                        || (self.state.mode == Mode::SourceOver
+                            && self.state.alpha >= 1.0
+                            && self.state.color.get(3) == Some(&255)))
                 {
                     *pixel = if clear {
                         if self.opaque { [0, 0, 0, 255] } else { [0; 4] }
@@ -185,7 +207,13 @@ impl Bitmap {
                         },
                     ]
                 } else {
-                    pixels::composite(*pixel, self.state.color, area * self.state.alpha)?
+                    compositing::composite(
+                        *pixel,
+                        self.state.color,
+                        area * self.state.alpha,
+                        self.state.mode,
+                        self.opaque,
+                    )?
                 };
             }
         }

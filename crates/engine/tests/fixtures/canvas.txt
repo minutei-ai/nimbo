@@ -169,3 +169,38 @@ function canvasUploadCase(variant) {
   checks.resizable=fail(()=>new ImageData(new Uint8ClampedArray(new ArrayBuffer(4,{maxByteLength:8})),1),TypeError);
   return checks;
 }
+
+function canvasCompositingCase(variant) {
+  const canvas=new OffscreenCanvas(8+variant,2),ctx=canvas.getContext('2d',{willReadFrequently:true});
+  const checks={},exact={},pixels={};
+  const pixel=(x,y)=>Array.from(ctx.getImageData(x,y,1,1).data);
+  const equal=(a,b)=>a.length===b.length&&a.every((v,i)=>v===b[i]);
+  const close=(a,b)=>a.length===b.length&&Math.abs(a[3]-b[3])<=1&&a.slice(0,3).every((v,i)=>Math.abs(Math.round(v*a[3]/255)-Math.round(b[i]*b[3]/255))<=1);
+  const image=new ImageData(new Uint8ClampedArray([0,255,0,255]),1,1);
+  const unbounded=['copy','source-in','source-out','destination-in','destination-atop'];
+  for(const [mode,samples] of Object.entries(canvasCompositingReference.samples)) {
+    ctx.reset();ctx.globalCompositeOperation=mode;ctx.save();ctx.globalCompositeOperation='source-over';ctx.restore();
+    checks['state:'+mode]=ctx.globalCompositeOperation===mode;
+    for(const [kind,expected] of Object.entries(samples)) {
+      ctx.reset();ctx.fillStyle=kind==='opaque'?'blue':kind==='dark'?'#102030':kind==='gray'?'#808080':'#4080c0';
+      ctx.globalAlpha=kind==='backdropAlpha'?.5:1;ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.globalCompositeOperation=mode;ctx.fillStyle=kind==='opaque'?'red':kind==='dark'?'#f0e0d0':kind==='gray'?'#c0c0c0':'#c06020';
+      ctx.globalAlpha=kind==='alpha'||kind==='backdropAlpha'?.5:kind==='gray'?.25:1;ctx.fillRect(1,0,1,1);
+      const actual=pixel(1,0),key=mode+':'+kind;
+      checks['pixels:'+key]=close(actual,expected);exact[key]=equal(actual,expected);pixels[key]=actual;
+      if(kind==='opaque')checks['bounds:'+mode]=equal(pixel(0,0),unbounded.includes(mode)?[0,0,0,0]:[0,0,255,255])&&equal(pixel(canvas.width-1,1),unbounded.includes(mode)?[0,0,0,0]:[0,0,255,255]);
+    }
+    ctx.globalAlpha=0;ctx.putImageData(image,0,0);
+    const uploaded=pixel(0,0);ctx.clearRect(0,0,1,1);
+    checks['direct:'+mode]=equal(uploaded,[0,255,0,255])&&equal(pixel(0,0),[0,0,0,0])&&ctx.globalCompositeOperation===mode;
+  }
+  ctx.reset();ctx.globalCompositeOperation='copy';ctx.fillStyle='blue';ctx.putImageData(image,0,0);ctx.fillRect(1000,1000,1,1);
+  checks.outsideCopy=equal(pixel(0,0),[0,0,0,0]);
+  ctx.putImageData(image,0,0);ctx.fillRect(0,0,0,1);checks.zeroCopy=equal(pixel(0,0),[0,0,0,0]);
+  ctx.globalCompositeOperation={toString(){return 'multiply'}};ctx.globalCompositeOperation='normal';ctx.globalCompositeOperation='invalid';
+  checks.invalidMode=ctx.globalCompositeOperation==='source-over';
+  ctx.save();ctx.reset();ctx.restore();checks.resetMode=ctx.globalCompositeOperation==='source-over';
+  ctx.globalCompositeOperation='copy';ctx.putImageData(image,0,0);ctx.globalAlpha=0;ctx.fillRect(0,0,1,1);checks.transparentCopy=equal(pixel(0,0),[0,0,0,0]);
+  ctx.globalAlpha=1;ctx.globalCompositeOperation='multiply';canvas.width=canvas.width;checks.resizeMode=ctx.globalCompositeOperation==='source-over';
+  return {checks,exact,pixels};
+}

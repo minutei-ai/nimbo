@@ -1736,7 +1736,8 @@ fn physical_borders_compute_real_http_box_geometry() -> TestResult {
 
 fn serve_canvas(request: Request) -> io::Result<()> {
     let source = format!(
-        "<!doctype html><meta charset=utf-8><script>{}</script>",
+        "<!doctype html><meta charset=utf-8><script>const canvasCompositingReference={};{}</script>",
+        include_str!("fixtures/canvas-compositing-reference.json"),
         include_str!("fixtures/canvas.txt")
     );
     request.respond(Response::from_string(source).with_header(header("Content-Type", "text/html")?))
@@ -1768,6 +1769,26 @@ fn software_canvas_uploads_real_http_pixels() -> TestResult {
         let result = page.evaluate(&format!("canvasUploadCase({variant})"))?;
         let fields = result.as_object().ok_or("missing canvas upload result")?;
         assert_eq!(fields.len(), 30);
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn software_canvas_composites_real_http_pixels() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/canvas/{variant}")))?;
+        let result = page.evaluate(&format!("canvasCompositingCase({variant})"))?;
+        let fields = result
+            .get("checks")
+            .and_then(serde_json::Value::as_object)
+            .ok_or("missing compositing checks")?;
+        assert_eq!(fields.len(), 222);
         assert!(
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"

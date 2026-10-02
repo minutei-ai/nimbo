@@ -63,29 +63,18 @@ pub(super) fn straight(pixel: Pixel) -> Result<Pixel> {
     ])
 }
 
-pub(super) fn composite(pixel: Pixel, color: Pixel, amount: f64) -> Result<Pixel> {
-    let [red, green, blue, alpha] = color;
-    let [old_red, old_green, old_blue, old_alpha] = pixel;
-    let alpha = f64::from(alpha) / 255.0 * amount;
-    let remaining = 1.0 - alpha;
-    Ok([
-        byte(f64::from(red) * alpha + f64::from(old_red) * remaining)?,
-        byte(f64::from(green) * alpha + f64::from(old_green) * remaining)?,
-        byte(f64::from(blue) * alpha + f64::from(old_blue) * remaining)?,
-        byte(255.0 * alpha + f64::from(old_alpha) * remaining)?,
-    ])
-}
-
 #[derive(Clone, Copy, Serialize)]
 pub(super) struct State {
     pub color: Pixel,
     pub alpha: f64,
+    pub mode: super::compositing::Mode,
 }
 impl Default for State {
     fn default() -> Self {
         Self {
             color: [0, 0, 0, 255],
             alpha: 1.0,
+            mode: super::compositing::Mode::SourceOver,
         }
     }
 }

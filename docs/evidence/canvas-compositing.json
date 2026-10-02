@@ -1,0 +1,69 @@
+{
+  "date": "2026-10-02",
+  "fixture": "crates/engine/tests/fixtures/canvas.txt",
+  "function": "canvasCompositingCase",
+  "reference": "crates/engine/tests/fixtures/canvas-compositing-reference.json",
+  "referenceBrowser": "Chromium 152.0.7977.130",
+  "execution": "64 actual HTTP documents loaded through the native engine CLI, with different physical bitmap widths",
+  "variants": 64,
+  "checksPerVariant": 222,
+  "numericComparisonsPerVariant": 135,
+  "exactComparisonsInEveryVariant": 127,
+  "comparisonTolerance": {
+    "premultipliedRgbBytes": 1,
+    "alphaBytes": 1
+  },
+  "maximumStraightRgbaByteDifference": 2,
+  "exactDifferences": {
+    "color:backdropAlpha": {
+      "native": [149, 105, 84, 192],
+      "chromium": [147, 105, 84, 192],
+      "differingVariants": 64
+    },
+    "hard-light:alpha": {
+      "native": [113, 112, 120, 255],
+      "chromium": [112, 112, 120, 255],
+      "differingVariants": 64
+    },
+    "hard-light:dark": {
+      "native": [227, 201, 179, 255],
+      "chromium": [226, 200, 178, 255],
+      "differingVariants": 64
+    },
+    "hue:alpha": {
+      "native": [120, 113, 119, 255],
+      "chromium": [120, 113, 120, 255],
+      "differingVariants": 64
+    },
+    "hue:opaque": {
+      "native": [94, 0, 0, 255],
+      "chromium": [93, 0, 0, 255],
+      "differingVariants": 64
+    },
+    "luminosity:backdropAlpha": {
+      "native": [108, 118, 139, 192],
+      "chromium": [106, 118, 139, 192],
+      "differingVariants": 64
+    },
+    "multiply:backdropAlpha": {
+      "native": [101, 90, 82, 192],
+      "chromium": [101, 91, 83, 191],
+      "differingVariants": 64
+    },
+    "saturation:alpha": {
+      "native": [57, 130, 202, 255],
+      "chromium": [58, 130, 202, 255],
+      "differingVariants": 64
+    }
+  },
+  "limitations": [
+    "All 27 exposed modes are calculated by the native Rust bitmap backend. normal aliases source-over. No browser/GPU backend is invoked.",
+    "Numerical checks compare actual returned pixels with an independent actual-Chromium reference, with a tolerance of one premultiplied RGB byte and one alpha byte. Exact equality is recorded separately; this is not a claim of identical RGBA output.",
+    "Coverage is axis-aligned solid-color rectangles, state, full-bitmap masking, clear and direct uploads. Fractional edges, paths, transforms, filters, shadows, color spaces, text/images, screenshots, GPU behavior, timing side channels and complete WPT remain unverified."
+  ],
+  "chromiumRevalidation": {
+    "variants": 64,
+    "checksPassingInEveryVariant": 222,
+    "exactComparisonsInEveryVariant": 135
+  }
+}

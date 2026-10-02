@@ -8,6 +8,7 @@ use serde_json::{Value, json};
 use crate::{Error, Result};
 
 mod bitmap;
+mod compositing;
 mod pixels;
 mod upload;
 
@@ -27,6 +28,8 @@ struct Request {
     height: u32,
     #[serde(default)]
     color: String,
+    #[serde(default)]
+    mode: String,
     #[serde(default)]
     alpha: Option<f64>,
     #[serde(default)]
@@ -118,11 +121,18 @@ impl Bitmaps {
             return self.allocate(request);
         }
         if matches!(request.operation.as_str(), "fill" | "clear") {
-            let (edges, bounds) = self
+            let (edges, mut bounds) = self
                 .values
                 .get(request.id)
                 .ok_or_else(|| error("invalid owner"))?
                 .clipped(request.rect)?;
+            let value = self
+                .values
+                .get(request.id)
+                .ok_or_else(|| error("invalid owner"))?;
+            if request.operation == "fill" && value.unbounded() {
+                bounds = [0, 0, value.width, value.height];
+            }
             let [left, top, right, bottom] = bounds;
             let count = bitmap::count(right.saturating_sub(left), bottom.saturating_sub(top))?;
             self.charge(count)?;
@@ -150,7 +160,12 @@ impl Bitmaps {
             value.reset();
             return Ok(Value::Null);
         }
-        value.settings(&request.operation, &request.color, request.alpha)
+        value.settings(
+            &request.operation,
+            &request.color,
+            request.alpha,
+            &request.mode,
+        )
     }
 }
 

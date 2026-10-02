@@ -4306,11 +4306,6 @@ test.each([
     reason: "unsupported: canvas translate",
   },
   {
-    name: "compositing",
-    expression: "new OffscreenCanvas(1,1).getContext('2d').globalCompositeOperation='copy'",
-    reason: "unsupported: canvas compositing operation",
-  },
-  {
     name: "stroke",
     expression: "new OffscreenCanvas(1,1).getContext('2d').strokeStyle='red'",
     reason: "unsupported: canvas strokeStyle",
@@ -4435,3 +4430,50 @@ test("real HTTP → workerd → Wasm: rejected detached upload preserves the exi
   expect(response.status).toBe(200);
   expect(await response.json()).toMatchObject({ value: true });
 });
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native canvas compositing variant %i",
+  async (variant) => {
+    const url = new URL(`canvas/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: `canvasCompositingCase(${variant})` }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing pixels");
+    const checks: unknown = Reflect.get(value, "checks");
+    if (typeof checks !== "object" || checks === null) throw new Error("Missing checks");
+    expect(Object.keys(checks)).toHaveLength(222);
+    expect(Object.values(checks).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each(["copy", "source-in", "source-out", "destination-in", "destination-atop"])(
+  "real HTTP → workerd → Wasm: canvas compositing %s charges the full bitmap and recovers",
+  async (mode) => {
+    const url = new URL("canvas/140", origin.url).href;
+    const expression = `(()=>{const x=new OffscreenCanvas(1024,1024).getContext('2d');x.globalCompositeOperation='${mode}';for(let i=0;i<20;i++)x.fillRect(5000,5000,1,1)})()`;
+    const failed = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression }),
+    });
+    expect(failed.status).toBe(422);
+    expect(await failed.text()).toContain("canvas: pixel work limit");
+    const healthy = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "canvasCompositingCase(0).checks" }),
+    });
+    expect(healthy.status).toBe(200);
+    const result: unknown = await healthy.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing recovery");
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);

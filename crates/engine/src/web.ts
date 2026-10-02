@@ -3473,7 +3473,11 @@
     imageOwners.set(result, { data, width, height });
     return result;
   }
-  function drawingState(owner: object): { fillStyle: string; globalAlpha: number } {
+  function drawingState(owner: object): {
+    fillStyle: string;
+    globalAlpha: number;
+    globalCompositeOperation: string;
+  } {
     const drawing = drawingOwner(owner);
     return canvasCall("state", canvasOwner(drawing.canvas).id);
   }
@@ -3508,14 +3512,16 @@
         canvasCall("alpha", canvasOwner(owner.canvas).id, { alpha });
     }
     get globalCompositeOperation(): string {
-      drawingOwner(this);
-      return "source-over";
+      return drawingState(this).globalCompositeOperation;
     }
     set globalCompositeOperation(value: unknown) {
-      drawingOwner(this);
-      const mode = domString(value);
+      const owner = drawingOwner(this);
+      const input = domString(value);
+      const mode = input === "normal" ? "source-over" : input;
       if (
         [
+          "clear",
+          "source-over",
           "source-in",
           "source-out",
           "source-atop",
@@ -3543,7 +3549,7 @@
           "luminosity",
         ].includes(mode)
       )
-        throw new Error("unsupported: canvas compositing operation");
+        canvasCall("composite", canvasOwner(owner.canvas).id, { mode });
     }
     getContextAttributes(): Record<string, unknown> {
       return { ...drawingOwner(this).attributes };

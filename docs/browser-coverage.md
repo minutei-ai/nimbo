@@ -321,8 +321,8 @@ the forwarded request reaches the origin. These checks cover redirects,
 HTTP cookies, POST bodies, response errors, script skipping, isolation,
 resource limits and recovery. The HTTP cookie fixture does not test TLS or
 Secure cookie delivery. The seven lint/infrastructure checks spawn the actual
-pinned tools rather than replacing their behavior. All 3187 Bun tests therefore
-run without transport, browser or tool mocks; 3180 exercise the browser engine
+pinned tools rather than replacing their behavior. All 3255 Bun tests therefore
+run without transport, browser or tool mocks; 3248 exercise the browser engine
 and seven exercise tooling. Neither local suite proves deployed performance,
 TLS fingerprints, rendering or broad browser compatibility.
 
@@ -1516,7 +1516,7 @@ different bitmap widths in both native and compiled-Wasm workerd integration
 suites. It checks actual RGBA values for opaque/transparent fills, overlapping
 alpha, clipping, negative rectangles, fractional coverage, clearing, state and
 resize effects, isolated owners, out-of-bounds reads, buffer snapshots and
-hostile page buffer hooks. Twelve additional actual Worker cases reach quotas
+hostile page buffer hooks. Eleven additional actual Worker cases reach quotas
 or reject unsupported behavior and verify fresh-request recovery. Another actual
 Worker case proves that a rejected resize preserves existing pixels and state.
 
@@ -1601,3 +1601,57 @@ text shaping, encoding, screenshots and WebGL remain pending. The implementation
 continues to use only Nimbo's native engine.
 
 Public reference: [HTML Canvas pixel manipulation](https://html.spec.whatwg.org/multipage/canvas.html#pixel-manipulation).
+
+### Native canvas compositing and blending
+
+The software bitmap now implements the 27 exposed compositing/blending modes,
+including clear, the Porter–Duff operators, lighter and the separable and
+non-separable blend modes. The normal alias serializes as source-over; unknown
+or incorrectly cased values leave the current mode unchanged. Mode state is
+saved/restored and resets on reset or bitmap resize. ClearRect and putImageData
+continue to ignore the compositing state.
+
+The Rust backend computes source and backdrop factors on premultiplied sRGB
+RGBA8 storage. Source alpha is quantized to an RGBA8 byte before composition.
+Blend functions use straight color components in the overlapping region, with
+backdrop alpha weighting and source-over composition. Hue, saturation, color and
+luminosity use the specified luminosity/saturation adjustments and color clipping;
+soft-light includes both polynomial and square-root branches. This does not add
+CSS mix-blend-mode or background-blend-mode painting.
+
+Copy, source-in, source-out, destination-in and destination-atop process the full
+bitmap, including transparent source pixels outside a drawn rectangle. Zero-size
+and completely out-of-bounds finite rectangles can therefore clear destination
+pixels in those modes. Clear is bounded to the rectangle, matching the tested
+Chromium behavior; fractional edges still use Nimbo's geometric coverage model.
+Full-bitmap work is charged before mutation. Five actual Worker cases draw outside
+a 1,048,576-pixel bitmap in each masking mode, reach the shared pixel-work limit,
+and verify a healthy fresh request after rejection.
+
+The public fixture runs 222 checks on 64 fresh actual HTTP documents with different
+bitmap widths in both native and compiled Wasm/workerd suites. It covers every
+mode's state, five pixel samples per mode, outside-region effects, direct uploads,
+clear, aliases, reset/resize, transparent copy and zero/outside rectangles. The
+135 numerical references were captured from actual Chromium 152 Canvas pixels,
+not computed by a second copy of Nimbo's formulas; they are stored in
+[canvas-compositing-reference.json](../crates/engine/tests/fixtures/canvas-compositing-reference.json).
+Chromium independently passed all 222 checks and reproduced all 135 references
+on every variant.
+
+The numerical check permits one byte of error in premultiplied RGB and one alpha
+byte. Exact returned RGBA equality is recorded separately in
+[canvas-compositing.json](evidence/canvas-compositing.json). Nimbo exactly matched
+127 of the 135 reference samples in every variant; eight samples differed,
+with at most two bytes of difference in straight RGBA readback. These include
+non-separable blends with a semitransparent backdrop and several rounding cases.
+The passing tolerance checks do not establish identical RGBA output. The evidence
+includes actual native and Chromium bytes for every differing sample.
+
+The scope remains axis-aligned solid rectangles and direct pixels. Fractional-edge
+parity, paths, transforms, gradients, filters, shadows, text/image painting,
+wide color spaces, GPU behavior, screenshots and complete unmodified WPT remain
+pending. Neither the numerical tests nor local workerd quotas prove deployed
+Worker CPU/memory bounds or universal compositing conformance.
+
+Public references: [Compositing and Blending 1](https://www.w3.org/TR/compositing-1/)
+and [HTML Canvas compositing](https://html.spec.whatwg.org/multipage/canvas.html#compositing).
