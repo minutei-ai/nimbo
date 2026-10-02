@@ -198,7 +198,7 @@ fn serve_sheet(request: Request) -> io::Result<()> {
 }
 
 fn serve(mut request: Request) -> io::Result<()> {
-    if request.url().starts_with("/sheets-css/") || request.url().starts_with("/binary/") {
+    if is_resource(request.url()) {
         return serve_resource(request);
     }
 
@@ -1390,6 +1390,9 @@ fn registered_custom_properties_validate_before_substitution() -> TestResult {
 }
 
 fn serve_resource(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/font-assets/") || request.url().starts_with("/font-loading/") {
+        return serve_fonts(request);
+    }
     if request.url().starts_with("/binary/") {
         return serve_binary(request);
     }
@@ -1496,6 +1499,72 @@ fn binary_font_data_parses_real_bytes_and_tracks_status() -> TestResult {
         ))?;
         let fields = result.as_object().ok_or("missing font result")?;
         assert_eq!(fields.len(), 22);
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+
+fn is_resource(path: &str) -> bool {
+    [
+        "/sheets-css/",
+        "/binary/",
+        "/font-assets/",
+        "/font-loading/",
+    ]
+    .iter()
+    .any(|prefix| path.starts_with(prefix))
+}
+
+fn serve_fonts(request: Request) -> io::Result<()> {
+    let path = request.url().to_owned();
+    let mut response = if path.starts_with("/font-loading/font/")
+        || path.starts_with("/font-assets/font/")
+    {
+        Response::from_data(include_bytes!("fixtures/synthetic-font.ttf").to_vec())
+            .with_header(header("Content-Type", "font/ttf")?)
+    } else if let Some(variant) = path.strip_prefix("/font-assets/redirect/") {
+        Response::from_data(Vec::new())
+            .with_status_code(302)
+            .with_header(header(
+                "Location",
+                &format!("/font-assets/styles/entry-{variant}.css"),
+            )?)
+    } else if let Some(variant) = path
+        .strip_prefix("/font-assets/styles/entry-")
+        .and_then(|value| value.strip_suffix(".css"))
+    {
+        Response::from_data(format!("@font-face{{font-family:NimboCSS{variant};src:url('../font/{variant}');font-style:italic;font-weight:700;font-display:swap}}"))
+            .with_header(header("Content-Type", "text/css")?)
+    } else if path.starts_with("/font-assets/invalid/") {
+        Response::from_data(vec![1, 2, 3])
+    } else if let Some(variant) = path.strip_prefix("/font-loading/") {
+        let width = variant
+            .parse::<usize>()
+            .unwrap_or_default()
+            .saturating_add(30);
+        Response::from_data(format!("<!doctype html><link rel=stylesheet href='/font-assets/redirect/{variant}'><style>@font-face{{font-family:NimboInline{variant};src:url('/font-assets/font/{variant}')}}@font-face{{src:url('/font-assets/missing/{variant}')}}#geometry{{width:{width}px;height:10px}}</style><div id=geometry></div><script>{}</script>", include_str!("fixtures/font-loading.txt")))
+            .with_header(header("Content-Type", "text/html")?)
+    } else {
+        Response::from_data(b"missing".to_vec()).with_status_code(404)
+    };
+    if path.starts_with("/font-assets/missing/") {
+        response = response.with_status_code(404);
+    }
+    request.respond(response)
+}
+
+#[test]
+fn css_fonts_register_and_load_through_real_http() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/font-loading/{variant}")))?;
+        let result = page.evaluate(&format!("fontCase({variant})"))?;
+        let fields = result.as_object().ok_or("missing font result")?;
+        assert_eq!(fields.len(), 27);
         assert!(
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"

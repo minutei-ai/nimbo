@@ -8,6 +8,7 @@ use crate::{Error, Result, layout::Work, machine::Response};
 struct Sheet {
     url: String,
     source: String,
+    base: String,
 }
 
 pub(crate) struct Sheets {
@@ -102,6 +103,25 @@ impl Sheets {
             .map(|sheet| sheet.source.as_str()))
     }
 
+    pub(crate) fn source_base(
+        &self,
+        node: NodeRef<'_>,
+        base: Option<&str>,
+    ) -> Result<Option<&str>> {
+        let Some(url) = self.url(node, base)? else {
+            return Ok(None);
+        };
+        Ok(self
+            .loaded
+            .get(&node.id)
+            .filter(|sheet| sheet.url == url)
+            .map(|sheet| sheet.base.as_str()))
+    }
+    pub(crate) fn document_base(&self, base: Option<&str>) -> String {
+        crate::links::base(base, self.origin.as_str())
+            .unwrap_or_else(|| self.origin.clone())
+            .to_string()
+    }
     pub(crate) fn disconnect(&mut self, document: &Document, work: &mut Work<'_>) -> Result<()> {
         let mut removed = Vec::new();
         for id in self.loaded.keys() {
@@ -161,7 +181,8 @@ impl Sheets {
             return Err(Error::Limit("stylesheet total bytes"));
         }
         self.bytes = bytes;
-        self.loaded.insert(id, Sheet { url, source });
+        let base = response.map_or_else(|| url.clone(), |response| response.url.clone());
+        self.loaded.insert(id, Sheet { url, source, base });
         Ok(response.is_some())
     }
 }

@@ -1,0 +1,48 @@
+{
+  "browser": "Chromium 152.0.7977.130",
+  "variants": 64,
+  "checksPerVariant": 27,
+  "passingVariantsByCheck": {
+    "add": 64,
+    "clear": 64,
+    "cssDefinitions": 64,
+    "cssDelete": 64,
+    "cssLoad": 64,
+    "delete": 64,
+    "descriptorMutation": 64,
+    "descriptors": 64,
+    "dynamic": 64,
+    "entries": 64,
+    "fallback": 64,
+    "fontSetCompletion": 64,
+    "forEach": 64,
+    "formatFallback": 64,
+    "frozenBase": 64,
+    "geometry": 64,
+    "identityAfterMutation": 64,
+    "inlineLoad": 64,
+    "keys": 64,
+    "loaded": 64,
+    "loading": 64,
+    "manualUnloaded": 64,
+    "networkFailure": 64,
+    "removal": 0,
+    "setIdentity": 64,
+    "sourceSyntax": 64,
+    "unused": 64
+  },
+  "failures": {
+    "removal": [
+      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
+      26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48,
+      49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63
+    ]
+  },
+  "fixture": "crates/engine/tests/fixtures/font-loading.txt",
+  "execution": "64 separately navigated synthetic documents with actual same-origin HTTP font and stylesheet responses",
+  "limitations": [
+    "One synthetic uncompressed TrueType fixture; compressed formats, rendering and full WPT remain missing.",
+    "The removal check passes in Nimbo but fails in all 64 Chromium variants. The retained CSS face identity differs after another definition is removed; the cause and full CSSOM lifecycle remain unresolved.",
+    "FontFaceSet matching and layout readiness are explicitly unsupported."
+  ]
+}

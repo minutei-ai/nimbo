@@ -1,0 +1,66 @@
+globalThis.fontCase = async (variant) => {
+  const fonts = document.fonts;
+  const before = [...fonts];
+  const css = before.find(face => face.family === 'NimboCSS' + variant);
+  const inline = before.find(face => face.family === 'NimboInline' + variant);
+  const checks = {
+    setIdentity: fonts instanceof EventTarget && fonts instanceof FontFaceSet && document.fonts === fonts && Object.prototype.toString.call(fonts) === '[object FontFaceSet]',
+    cssDefinitions: fonts.size === 2 && css instanceof FontFace && inline instanceof FontFace,
+    unused: before.every(face => face.status === 'unloaded') && fonts.status === 'loaded',
+    descriptors: css.style === 'italic' && css.weight === '700' && css.display === 'swap',
+    geometry: document.getElementById('geometry').getBoundingClientRect().width === variant + 30,
+    cssDelete: fonts.delete(css) === false && fonts.has(css),
+    keys: [...fonts.keys()].every((face, index) => face === before[index]),
+    entries: [...fonts.entries()].every(([first, second], index) => first === second && first === before[index]),
+  };
+  let visits = 0;
+  const receiver = {};
+  fonts.forEach(function (face, key, set) { if (this === receiver && face === key && set === fonts) visits++; }, receiver);
+  checks.forEach = visits === 2;
+  const phases = [];
+  fonts.addEventListener('loading', event => { phases.push(event instanceof FontFaceSetLoadEvent && event.fontfaces.length === 0 ? 'loading' : 'bad'); });
+  fonts.addEventListener('loadingdone', event => { phases.push(event instanceof FontFaceSetLoadEvent && event.fontfaces.includes(manual) && Object.isFrozen(event.fontfaces) ? 'done' : 'bad'); }, {once:true});
+  const manual = new FontFace('Manual' + variant, 'url(/font-assets/font/' + variant + ')');
+  const pending = manual.loaded;
+  checks.manualUnloaded = manual.status === 'unloaded';
+  checks.add = fonts.add(manual) === fonts && fonts.add(manual) === fonts && fonts.size === 3 && fonts.has(manual);
+  const loading = manual.load();
+  checks.loading = manual.status === 'loading' && fonts.status === 'loading' && loading === pending && manual.load() === loading;
+  checks.loaded = (await loading) === manual && manual.status === 'loaded' && fonts.status === 'loading';
+  await new Promise(resolve => setTimeout(resolve, 10));
+  checks.fontSetCompletion = fonts.status === 'loaded' && phases.join(',') === 'loading,done';
+  checks.cssLoad = (await css.load()) === css && css.status === 'loaded';
+  checks.inlineLoad = (await inline.load()) === inline && inline.status === 'loaded';
+  const fallback = new FontFace('Fallback' + variant, 'url(/font-assets/missing/' + variant + '), url(/font-assets/invalid/' + variant + '), local("Absent Nimbo Font"), url(/font-assets/font/' + variant + ') format("truetype")');
+  checks.fallback = (await fallback.load()) === fallback && fallback.status === 'loaded';
+  const bad = new FontFace('Bad' + variant, 'not a source');
+  let syntax;
+  try { await bad.load(); } catch (error) { syntax = error; }
+  checks.sourceSyntax = bad.status === 'error' && syntax instanceof DOMException && syntax.name === 'SyntaxError';
+  const missing = new FontFace('Missing' + variant, 'url(/font-assets/missing/' + variant + ')');
+  let network;
+  try { await missing.load(); } catch (error) { network = error; }
+  checks.networkFailure = missing.status === 'error' && network instanceof DOMException && network.name === 'NetworkError';
+  const hinted = new FontFace('Hinted' + variant, 'url(/font-assets/missing/' + variant + ') format("unknown-format"), url(/font-assets/font/' + variant + ') format("truetype")');
+  checks.formatFallback = (await hinted.load()) === hinted;
+  css.weight = '800';
+  checks.descriptorMutation = css.weight === '800' && css.status === 'loaded';
+  checks.delete = fonts.delete(manual) === true && !fonts.has(manual) && fonts.delete(manual) === false;
+  fonts.add(manual);
+  fonts.clear();
+  checks.clear = fonts.size === 2 && fonts.has(css) && fonts.has(inline) && !fonts.has(manual);
+  const extra = document.createElement('style');
+  extra.textContent = '@font-face{font-family:NimboExtra' + variant + ';src:url(/font-assets/font/' + variant + ')}';
+  document.head.appendChild(extra);
+  checks.dynamic = fonts.size === 3 && [...fonts].some(face => face.family === 'NimboExtra' + variant);
+  checks.identityAfterMutation = [...fonts].includes(css) && css.status === 'loaded';
+  extra.remove();
+  document.getElementById('geometry').getBoundingClientRect();
+  checks.removal = fonts.size === 2 && [...fonts].includes(css);
+  const relative = new FontFace('Relative' + variant, 'url(font/' + variant + ')');
+  const base = document.createElement('base');
+  base.href = '/invalid-font-base/';
+  document.head.prepend(base);
+  try { checks.frozenBase = (await relative.load()) === relative; } finally { base.remove(); }
+  return checks;
+};

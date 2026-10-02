@@ -8,6 +8,7 @@
   const nativeDecoder = nimboDecoder;
   const nativeLink = nimboLink;
   const nativeFontData = nimboFontData;
+  const nativeFontMeta = nimboFontMeta;
   // Values are validated by Rust before installing the page bindings.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const mediaEnvironment = JSON.parse(nimboMediaEnvironment) as { width: number; height: number };
@@ -23,6 +24,7 @@
   Reflect.deleteProperty(globalThis, "nimboDecoder");
   Reflect.deleteProperty(globalThis, "nimboLink");
   Reflect.deleteProperty(globalThis, "nimboFontData");
+  Reflect.deleteProperty(globalThis, "nimboFontMeta");
   Reflect.deleteProperty(globalThis, "nimboMediaEnvironment");
   Reflect.deleteProperty(globalThis, "nimboUrl");
   Reflect.deleteProperty(globalThis, "nimboNow");
@@ -3230,15 +3232,23 @@
     ascentOverride: "normal",
     descentOverride: "normal",
     lineGapOverride: "normal",
+    sizeAdjust: "100%",
   };
+  type FontResource = { url: string | null; format: string | null; technology: boolean };
   type FontState = {
     family: string;
-    status: "loaded" | "error";
+    status: "unloaded" | "loading" | "loaded" | "error";
     promise: Promise<FontFace>;
-    data: Uint8Array;
+    resolve: (value: FontFace) => void;
+    reject: (reason: unknown) => void;
+    data: Uint8Array | null;
+    resources: FontResource[] | null;
+    descriptors: Record<string, string>;
+    base: string;
   };
   const fontFaces = new WeakMap<object, FontState>();
-  const fontResolve = Promise.resolve.bind(Promise);
+  const FontPromise = Promise;
+  function fontNoop(): void {}
   const fontReject = Promise.reject.bind(Promise);
   // Internal status promises are marked handled, as required by CSS Font Loading.
   // oxlint-disable-next-line typescript/unbound-method
@@ -3278,24 +3288,95 @@
     Reflect.apply(byteSet, copy, [view]);
     return copy;
   }
+  function fontDescriptor(name: string, value: unknown): string {
+    const source = domString(value);
+    if (["style", "weight", "stretch", "unicodeRange", "display"].includes(name)) {
+      const parsed: unknown = JSON.parse(nativeFontMeta(name, source));
+      if (typeof parsed === "string") return parsed;
+      throw new DOMException("Invalid font descriptor", "SyntaxError");
+    }
+    const expected: unknown = Reflect.get(fontDefaults, name);
+    if (source !== expected) throw new Error(`unsupported: font descriptor ${name}`);
+    return source;
+  }
+  function failFont(state: FontState, reason: unknown): void {
+    state.status = "error";
+    state.reject(reason);
+    fontSetSettled(state, false);
+  }
+  async function loadFont(owner: FontFace, state: FontState): Promise<void> {
+    try {
+      for (const resource of state.resources ?? []) {
+        if (resource.url === null) continue; // No platform fonts are installed in this engine.
+        if (resource.technology) throw new Error("unsupported: font source technology");
+        if (resource.format !== null && !['"truetype"', '"opentype"'].includes(resource.format))
+          continue;
+        const url = linkValue("get", "href", resource.url, state.base) ?? resource.url;
+        // Fallback sources must be requested in order, after the preceding source fails.
+        // oxlint-disable-next-line eslint/no-await-in-loop
+        const response = await nativeRequest(url, "GET", "");
+        if (response.status < 200 || response.status >= 300 || response.body === null) continue;
+        const data = fontBytes(response.body);
+        if (!nativeFontData(data)) continue;
+        state.data = data;
+        state.status = "loaded";
+        state.resolve(owner);
+        fontSetSettled(state, true);
+        return;
+      }
+      failFont(state, new DOMException("Font sources failed to load", "NetworkError"));
+    } catch (error) {
+      failFont(state, error);
+    }
+  }
   class FontFace {
     constructor(family: unknown, source: unknown, descriptors?: unknown) {
       if (arguments.length < 2) throw new TypeError("FontFace requires family and source");
       const name = domString(family);
       const options = encodingOptions(descriptors);
-      for (const [key, defaultValue] of Object.entries(fontDefaults)) {
-        const value = Reflect.get(options, key);
-        if (value !== undefined && domString(value) !== defaultValue)
-          throw new Error(`unsupported: font descriptor ${key}`);
-      }
-      if (typeof source === "string") throw new Error("unsupported: font URL sources");
-      const data = fontBytes(source);
-      const valid = nativeFontData(data);
-      const promise = valid
-        ? fontResolve(this)
-        : fontReject<FontFace>(new DOMException("Invalid font data", "SyntaxError"));
-      fontFaces.set(this, { family: name, status: valid ? "loaded" : "error", promise, data });
+      let resolve: (value: FontFace) => void = fontNoop;
+      let reject: (reason: unknown) => void = fontNoop;
+      const promise = new FontPromise<FontFace>((yes, no) => {
+        resolve = yes;
+        reject = no;
+      });
+      const state: FontState = {
+        family: name,
+        status: "unloaded",
+        promise,
+        resolve,
+        reject,
+        data: null,
+        resources: null,
+        descriptors: {},
+        base: documentBase(),
+      };
+      fontFaces.set(this, state);
       void Reflect.apply(fontCatch, promise, [() => {}]);
+      try {
+        for (const [key, defaultValue] of Object.entries(fontDefaults)) {
+          const value = Reflect.get(options, key);
+          state.descriptors[key] = fontDescriptor(key, value === undefined ? defaultValue : value);
+        }
+      } catch (error) {
+        if (!(error instanceof DOMException) || error.name !== "SyntaxError") throw error;
+        failFont(state, error);
+        return;
+      }
+      if (typeof source === "string") {
+        // Parsed shape belongs exclusively to the native source grammar.
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        state.resources = JSON.parse(nativeFontMeta("source", source)) as FontResource[] | null;
+        if (state.resources === null)
+          failFont(state, new DOMException("Invalid font source", "SyntaxError"));
+      } else {
+        const data = fontBytes(source);
+        if (nativeFontData(data)) {
+          state.data = data;
+          state.status = "loaded";
+          state.resolve(this);
+        } else failFont(state, new DOMException("Invalid font data", "SyntaxError"));
+      }
     }
     get family(): string {
       return fontState(this).family;
@@ -3311,7 +3392,13 @@
     }
     load(): Promise<FontFace> {
       try {
-        return fontState(this).promise;
+        const state = fontState(this);
+        if (state.status === "unloaded") {
+          state.status = "loading";
+          fontSetLoading(this);
+          void loadFont(this, state);
+        }
+        return state.promise;
       } catch (error) {
         return fontReject<FontFace>(error);
       }
@@ -3320,13 +3407,11 @@
   for (const [key, defaultValue] of Object.entries(fontDefaults)) {
     Object.defineProperty(FontFace.prototype, key, {
       get(this: FontFace): string {
-        fontState(this);
-        return defaultValue;
+        return fontState(this).descriptors[key] ?? defaultValue;
       },
       set(this: FontFace, value: unknown) {
-        fontState(this);
-        if (domString(value) !== defaultValue)
-          throw new Error(`unsupported: font descriptor ${key}`);
+        const state = fontState(this);
+        state.descriptors[key] = fontDescriptor(key, value);
       },
       enumerable: true,
       configurable: true,
@@ -3334,6 +3419,228 @@
   }
   Object.defineProperty(FontFace.prototype, Symbol.toStringTag, {
     value: "FontFace",
+    configurable: true,
+  });
+  type FontDefinition = {
+    owner: string;
+    ordinal: number;
+    family: string;
+    source: string;
+    base: string;
+    descriptors: Record<string, string>;
+  };
+  type FontSetState = {
+    status: "loaded" | "loading";
+    pending: Set<FontFace>;
+    completed: FontFace[];
+    failed: FontFace[];
+    finishing: boolean;
+    css: Map<string, FontFace>;
+    manual: Set<FontFace>;
+    all: Set<FontFace>;
+    version: number;
+  };
+  const fontSets = new WeakMap<object, FontSetState>();
+  const fontSetKey = {};
+  const fontEventFaces = new WeakMap<object, readonly FontFace[]>();
+  class FontFaceSetLoadEvent extends Event {
+    constructor(type: unknown, init?: unknown) {
+      if (arguments.length === 0) throw new TypeError("FontFaceSetLoadEvent requires a type");
+      const options = encodingOptions(init);
+      super(type, {
+        bubbles: options.bubbles,
+        cancelable: options.cancelable,
+        composed: options.composed,
+      });
+      const input: unknown = Reflect.get(options, "fontfaces");
+      const faces: FontFace[] = [];
+      if (input !== undefined) {
+        if (typeof input !== "object" || input === null || !(Symbol.iterator in input))
+          throw new TypeError("fontfaces must be a sequence");
+        // Web IDL sequences use the supplied object's iterator.
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        for (const face of input as Iterable<FontFace>) {
+          fontState(face);
+          faces.push(face);
+        }
+      }
+      fontEventFaces.set(this, Object.freeze(faces));
+    }
+    get fontfaces(): readonly FontFace[] {
+      const faces = fontEventFaces.get(this);
+      if (!faces) throw new TypeError("Illegal FontFaceSetLoadEvent invocation");
+      return faces;
+    }
+  }
+  Object.defineProperty(FontFaceSetLoadEvent.prototype, Symbol.toStringTag, {
+    value: "FontFaceSetLoadEvent",
+    configurable: true,
+  });
+  function fontSetLoading(face: FontFace): void {
+    const state = fontSets.get(documentFonts);
+    if (!state || !state.all.has(face) || state.pending.has(face)) return;
+    state.pending.add(face);
+    if (state.status === "loaded") {
+      state.status = "loading";
+      setTimeout(() => {
+        dispatch(documentFonts, new FontFaceSetLoadEvent("loading"), true);
+      }, 0);
+    }
+  }
+  function finishFontSet(state: FontSetState): void {
+    if (state.finishing || state.pending.size !== 0 || state.status !== "loading") return;
+    state.finishing = true;
+    setTimeout(() => {
+      state.finishing = false;
+      if (state.pending.size !== 0) return;
+      state.status = "loaded";
+      const completed = state.completed.splice(0);
+      const failed = state.failed.splice(0);
+      dispatch(
+        documentFonts,
+        new FontFaceSetLoadEvent("loadingdone", { fontfaces: completed }),
+        true,
+      );
+      if (failed.length !== 0)
+        dispatch(
+          documentFonts,
+          new FontFaceSetLoadEvent("loadingerror", { fontfaces: failed }),
+          true,
+        );
+    }, 0);
+  }
+  function fontSetSettled(font: FontState, success: boolean): void {
+    const state = fontSets.get(documentFonts);
+    if (!state) return;
+    for (const face of state.pending) {
+      if (fontState(face) !== font) continue;
+      state.pending.delete(face);
+      (success ? state.completed : state.failed).push(face);
+      finishFontSet(state);
+      return;
+    }
+  }
+
+  function fontSetState(owner: object): FontSetState {
+    const state = fontSets.get(owner);
+    if (!state) throw new TypeError("Illegal FontFaceSet invocation");
+    const version = raw<number>("layoutVersion", 0);
+    if (state.version !== version) {
+      const fontDefinitions = raw<FontDefinition[]>("fontFaces", 0);
+      const next = new Map<string, FontFace>();
+      for (const definition of fontDefinitions) {
+        const key = JSON.stringify(definition);
+        let face = state.css.get(key);
+        if (!face) {
+          face = new FontFace(definition.family, definition.source, definition.descriptors);
+          fontState(face).base = definition.base;
+        }
+        next.set(key, face);
+      }
+      state.css = next;
+      state.all.clear();
+      for (const face of next.values()) state.all.add(face);
+      for (const face of state.manual) state.all.add(face);
+      state.version = version;
+    }
+    return state;
+  }
+  class FontFaceSet extends EventTarget {
+    constructor(key: unknown) {
+      super();
+      if (key !== fontSetKey) throw new Error("unsupported: FontFaceSet construction");
+      fontSets.set(this, {
+        css: new Map(),
+        manual: new Set(),
+        all: new Set(),
+        version: -1,
+        status: "loaded",
+        pending: new Set(),
+        completed: [],
+        failed: [],
+        finishing: false,
+      });
+    }
+    get size(): number {
+      return fontSetState(this).all.size;
+    }
+    get status(): string {
+      return fontSetState(this).status;
+    }
+    get ready(): never {
+      fontSetState(this);
+      throw new Error("unsupported: font layout readiness");
+    }
+    add(face: FontFace): this {
+      const state = fontSetState(this);
+      fontState(face);
+      if (![...state.css.values()].includes(face)) state.manual.add(face);
+      state.all.add(face);
+      if (fontState(face).status === "loading") fontSetLoading(face);
+      return this;
+    }
+    delete(face: FontFace): boolean {
+      const state = fontSetState(this);
+      fontState(face);
+      if ([...state.css.values()].includes(face)) return false;
+      state.all.delete(face);
+      state.pending.delete(face);
+      finishFontSet(state);
+      return state.manual.delete(face);
+    }
+    clear(): void {
+      const state = fontSetState(this);
+      for (const face of state.manual) {
+        state.all.delete(face);
+        state.pending.delete(face);
+      }
+      finishFontSet(state);
+      state.manual.clear();
+    }
+    has(face: FontFace): boolean {
+      fontState(face);
+      return fontSetState(this).all.has(face);
+    }
+    values(): SetIterator<FontFace> {
+      return fontSetState(this).all.values();
+    }
+    keys(): SetIterator<FontFace> {
+      return this.values();
+    }
+    entries(): SetIterator<[FontFace, FontFace]> {
+      return fontSetState(this).all.entries();
+    }
+    [Symbol.iterator](): SetIterator<FontFace> {
+      return this.values();
+    }
+    forEach(
+      callback: (value: FontFace, key: FontFace, set: FontFaceSet) => unknown,
+      thisArg?: unknown,
+    ): void {
+      if (typeof callback !== "function") throw new TypeError("callback must be callable");
+      for (const face of fontSetState(this).all)
+        Reflect.apply(callback, thisArg, [face, face, this]);
+    }
+    load(): Promise<never> {
+      return fontReject(new Error("unsupported: font matching"));
+    }
+    check(): never {
+      fontSetState(this);
+      throw new Error("unsupported: font matching");
+    }
+  }
+  Object.defineProperty(FontFaceSet.prototype, Symbol.toStringTag, {
+    value: "FontFaceSet",
+    configurable: true,
+  });
+  const documentFonts = new FontFaceSet(fontSetKey);
+  Object.defineProperty(Document.prototype, "fonts", {
+    get(this: Document): FontFaceSet {
+      if (this !== document) throw new Error("unsupported: independent document font sets");
+      fontSetState(documentFonts);
+      return documentFonts;
+    },
+    enumerable: true,
     configurable: true,
   });
   Object.assign(globalThis, {
@@ -3378,6 +3685,8 @@
     fetch,
     Response,
     FontFace,
+    FontFaceSet,
+    FontFaceSetLoadEvent,
     setTimeout,
     setInterval,
     clearTimeout,

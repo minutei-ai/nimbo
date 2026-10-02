@@ -1,3 +1,4 @@
+import { fontFixture } from "./font-fixture";
 import { binaryFixture } from "./binary-fixture";
 import { externalStylePage, externalStyleResponse } from "./external-styles-fixture";
 import { afterAll, beforeAll, expect, test } from "bun:test";
@@ -407,6 +408,8 @@ const origin = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     requests.push(`${request.method} ${path}`);
+    const font = await fontFixture(path);
+    if (font) return font;
     const binary = binaryFixture(path);
     if (binary) return binary;
     if (path.startsWith("/font-cases/")) {
@@ -3898,8 +3901,11 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
 );
 
 test.each([
-  ["new FontFace('Example', 'url(/binary/font.ttf)')", "font URL sources"],
-  ["new FontFace('Example', new Uint8Array(), {weight:'700'})", "font descriptor weight"],
+  ["document.fonts.ready", "font layout readiness"],
+  [
+    "new FontFace('Example', new Uint8Array(), {featureSettings:'\"liga\" 0'})",
+    "font descriptor featureSettings",
+  ],
   [
     "new FontFace('Example', new Uint8Array([119,79,70,50]))",
     "compressed, CFF or collection fonts",
@@ -3935,3 +3941,85 @@ test.each([
     expect(await healthy.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: "loaded" });
   },
 );
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: CSS font registry and URL loading variant %i",
+  async (variant) => {
+    const url = new URL(`font-loading/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: `fontCase(${variant})` }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing comparison");
+    expect(Object.keys(value)).toHaveLength(27);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test("real HTTP → workerd → Wasm: unused CSS fonts make no font requests", async () => {
+  const url = new URL("font-loading/128", origin.url).href;
+  const start = requests.length;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression:
+        "({size:document.fonts.size,statuses:[...document.fonts].map(face=>face.status),width:document.getElementById('geometry').getBoundingClientRect().width})",
+    }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
+    value: { size: 2, statuses: ["unloaded", "unloaded"], width: 158 },
+  });
+  const actual = requests.slice(start);
+  expect(actual).toContain("GET /font-assets/redirect/128");
+  expect(actual).toContain("GET /font-assets/styles/entry-128.css");
+  expect(actual.some((path) => path.startsWith("GET /font-assets/font/"))).toBe(false);
+});
+
+test.each([
+  [
+    "new FontFace('Example',Array(33).fill('url(/font-assets/font/0)').join(','))",
+    "font source limit",
+  ],
+  ["new FontFace('Example','url(\"'+ 'a'.repeat(4097) +'\")')", "font metadata limit"],
+  [
+    "new FontFace('Example', 'url(/font-assets/font/0) tech(color-COLRv1)').load()",
+    "font source technology",
+  ],
+  [
+    `(()=>{const style=document.createElement('style');style.textContent='@font-face{font-family:Example;src:url(/font-assets/font/0);font-feature-settings:"liga" 0}';document.head.append(style);return document.fonts.size;})()`,
+    "font descriptor featureSettings",
+  ],
+  [
+    "(()=>{const style=document.createElement('style');style.textContent='@font-face{font-family:Example;src:url(/font-assets/font/0)}'.repeat(1025);document.head.append(style);return document.fonts.size;})()",
+    "font-face definitions",
+  ],
+] as const)("real HTTP → workerd → Wasm: CSS font boundary %s", async (expression, reason) => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression }),
+  });
+  expect(response.status).toBe(422);
+  const error: unknown = expect.stringContaining(reason);
+  expect(await response.json()).toMatchObject({ error });
+  const healthy = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression:
+        "new FontFace('Example','url(/font-assets/font/0)').load().then(face=>face.status)",
+    }),
+  });
+  expect(healthy.status).toBe(200);
+  expect(await healthy.json()).toMatchObject({ value: "loaded" });
+});

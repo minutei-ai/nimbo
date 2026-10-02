@@ -92,6 +92,7 @@ impl Dom {
         self.begin(operation, arg)?;
         let result = match operation {
             "baseHref" => json!(self.base_href()),
+            "fontFaces" => self.font_faces()?,
             "cssSupports" => json!(crate::supports::query(arg)?),
             "cssSupportsValue" => json!(crate::supports::value(arg, value)?),
             "bounds" => self.bounds(handle)?,
@@ -232,6 +233,20 @@ impl Dom {
         let success = self.sheets.respond(id, url, response)?;
         self.layout_version = self.layout_version.saturating_add(1);
         Ok(success)
+    }
+
+    fn font_faces(&mut self) -> Result<Value> {
+        let base = self.base_href();
+        let mut work =
+            crate::layout::Work::new(&mut self.operations, self.limits.max_dom_operations);
+        let cascade = crate::cascade::Cascade::collect(
+            &self.document,
+            &self.sheets,
+            base.as_deref(),
+            &self.media,
+            &mut work,
+        )?;
+        Ok(serde_json::to_value(cascade.font_faces.values)?)
     }
 
     fn observe(&mut self, handle: usize, request: &str) -> Result<Value> {

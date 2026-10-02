@@ -31,6 +31,6 @@
   "limitations": [
     "One original synthetic uncompressed TrueType fixture; no full font corpus or upstream WPT.",
     "Structural parsing is not full OpenType Sanitizer validation.",
-    "Nondefault descriptors, URL/CSS font loading and shaping/rendering remain missing."
+    "This comparison exercises default descriptors and binary sources only; additional URL/CSS and descriptor coverage is recorded separately. Shaping/rendering remain missing."
   ]
 }

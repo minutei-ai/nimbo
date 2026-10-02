@@ -6,6 +6,7 @@ mod containers;
 mod dom;
 mod encoding;
 mod font_data;
+mod font_faces;
 mod fonts;
 mod layers;
 mod layout;

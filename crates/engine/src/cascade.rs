@@ -39,6 +39,7 @@ pub(crate) struct Cascade {
     index: Index,
     pub(crate) animations: crate::animations::Definitions,
     pub(crate) registrations: crate::registrations::Definitions,
+    pub(crate) font_faces: crate::font_faces::Definitions,
 }
 
 type Position = (usize, usize);
@@ -170,7 +171,15 @@ enum ParsedRule {
     Style(Rule),
     Group(Vec<Rule>),
 }
+#[derive(Default)]
+struct Definitions {
+    layers: crate::layers::Layers,
+    animations: crate::animations::Definitions,
+    registrations: crate::registrations::Definitions,
+    font_faces: crate::font_faces::Definitions,
+}
 enum Prelude {
+    FontFace,
     Media(bool),
     Layers(Vec<Vec<String>>),
     Keyframes(String),
@@ -179,9 +188,7 @@ enum Prelude {
 }
 struct Rules<'a> {
     media: &'a MediaEnvironment,
-    layers: &'a mut crate::layers::Layers,
-    animations: &'a mut crate::animations::Definitions,
-    registrations: &'a mut crate::registrations::Definitions,
+    definitions: &'a mut Definitions,
     parent: &'a [usize],
     containers: &'a [std::rc::Rc<crate::containers::Query>],
     failure: Option<Error>,
@@ -195,6 +202,10 @@ impl<'i> AtRuleParser<'i> for Rules<'_> {
         name: CowRcStr<'i>,
         input: &mut Parser<'i, 't>,
     ) -> std::result::Result<Prelude, ParseError<'i, Self::Error>> {
+        if name.eq_ignore_ascii_case("font-face") {
+            input.expect_exhausted()?;
+            return Ok(Prelude::FontFace);
+        }
         if name.eq_ignore_ascii_case("keyframes") || name.eq_ignore_ascii_case("-webkit-keyframes")
         {
             let start = input.position();
@@ -248,8 +259,19 @@ impl<'i> AtRuleParser<'i> for Rules<'_> {
         consume(input, 0)?;
         let mut containers = self.containers.to_vec();
         let parent = match prelude {
+            Prelude::FontFace => {
+                self.definitions
+                    .font_faces
+                    .register(input.slice_from(start))
+                    .map_err(|error| {
+                        self.failure = Some(error);
+                        input.new_custom_error("stylesheet font-face definition")
+                    })?;
+                return Ok(ParsedRule::Group(Vec::new()));
+            }
             Prelude::Property(name) => {
-                self.registrations
+                self.definitions
+                    .registrations
                     .register(&name, input.slice_from(start), self.parent)
                     .map_err(|error| {
                         self.failure = Some(error);
@@ -262,7 +284,8 @@ impl<'i> AtRuleParser<'i> for Rules<'_> {
                 self.parent.to_vec()
             }
             Prelude::Keyframes(name) => {
-                self.animations
+                self.definitions
+                    .animations
                     .register(&name, input.slice_from(start), self.parent)
                     .map_err(|error| {
                         self.failure = Some(error);
@@ -278,7 +301,8 @@ impl<'i> AtRuleParser<'i> for Rules<'_> {
                         input.new_error(cssparser::BasicParseErrorKind::QualifiedRuleInvalid)
                     );
                 }
-                self.layers
+                self.definitions
+                    .layers
                     .register(self.parent, names.first().map(Vec::as_slice))
                     .map_err(|message| input.new_custom_error(message))?
             }
@@ -286,9 +310,7 @@ impl<'i> AtRuleParser<'i> for Rules<'_> {
         let rules = sheet(
             input.slice_from(start),
             self.media,
-            self.layers,
-            self.animations,
-            self.registrations,
+            self.definitions,
             &parent,
             &containers,
         )
@@ -313,7 +335,8 @@ impl<'i> AtRuleParser<'i> for Rules<'_> {
             return Err(());
         }
         for name in names {
-            self.layers
+            self.definitions
+                .layers
                 .register(self.parent, Some(&name))
                 .map_err(|_message| ())?;
         }
@@ -422,9 +445,7 @@ impl<'i> QualifiedRuleParser<'i> for Rules<'_> {
 fn sheet(
     source: &str,
     media: &MediaEnvironment,
-    layers: &mut crate::layers::Layers,
-    animations: &mut crate::animations::Definitions,
-    registrations: &mut crate::registrations::Definitions,
+    definitions: &mut Definitions,
     parent: &[usize],
     containers: &[std::rc::Rc<crate::containers::Query>],
 ) -> Result<Vec<Rule>> {
@@ -439,9 +460,7 @@ fn sheet(
     let mut rules = Vec::new();
     let mut rule_parser = Rules {
         media,
-        layers,
-        animations,
-        registrations,
+        definitions,
         parent,
         containers,
         failure: None,
@@ -471,7 +490,7 @@ fn sheet(
     if let Some(error) = failure {
         return Err(rule_parser.failure.unwrap_or(error));
     }
-    if let Some(message) = layers.failure {
+    if let Some(message) = definitions.layers.failure {
         return Err(Error::Limit(message));
     }
     Ok(rules)
@@ -494,9 +513,7 @@ impl Cascade {
         let mut bytes = 0_usize;
         let mut nodes = 0_usize;
         let mut selectors = 0_usize;
-        let mut layers = crate::layers::Layers::default();
-        let mut animations = crate::animations::Definitions::default();
-        let mut registrations = crate::registrations::Definitions::default();
+        let mut definitions = Definitions::default();
         for node in document.root().descendants_it() {
             work.charge()?;
             nodes = nodes.saturating_add(1);
@@ -534,15 +551,18 @@ impl Cascade {
             if bytes > 262_144 {
                 return Err(Error::Limit("stylesheet total bytes"));
             }
-            let parsed = sheet(
-                &source,
-                media,
-                &mut layers,
-                &mut animations,
-                &mut registrations,
-                &[],
-                &[],
-            )?;
+            let source_base = if external {
+                sheets
+                    .source_base(node, base)?
+                    .unwrap_or_default()
+                    .to_owned()
+            } else {
+                sheets.document_base(base)
+            };
+            definitions
+                .font_faces
+                .sheet(format!("{:?}", node.id), source_base);
+            let parsed = sheet(&source, media, &mut definitions, &[], &[])?;
             selectors = selectors.saturating_add(
                 parsed
                     .iter()
@@ -557,8 +577,9 @@ impl Cascade {
         Ok(Self {
             index: Index::new(&rules),
             rules,
-            animations,
-            registrations,
+            animations: definitions.animations,
+            registrations: definitions.registrations,
+            font_faces: definitions.font_faces,
         })
     }
 
