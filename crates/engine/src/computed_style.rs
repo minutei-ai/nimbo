@@ -6,9 +6,10 @@ use crate::{
     styles::{Declarations, Variables},
 };
 
-pub(crate) const PROPERTIES: [&str; 11] = [
+pub(crate) const PROPERTIES: [&str; 12] = [
     "background-image",
     "background-position",
+    "background-repeat",
     "color",
     "font-size",
     "line-height",
@@ -25,6 +26,7 @@ pub(crate) struct Computed {
     outlines: crate::outlines::Outlines,
     images: crate::backgrounds::Images,
     positions: crate::background_position::Positions,
+    repeats: crate::background_repeat::Repeats,
 }
 
 pub(crate) fn property(name: &str) -> bool {
@@ -36,6 +38,8 @@ impl Computed {
             self.images.value(self.outlines.color())
         } else if name == "background-position" || crate::background_position::property(name) {
             self.positions.value(name, self.images.count())
+        } else if name == "background-repeat" {
+            self.repeats.value(self.images.count())
         } else if name == "line-height" {
             self.fonts.line_height()
         } else if name == "tab-size" {
@@ -81,6 +85,7 @@ pub(crate) fn resolve(
     let mut outlines = crate::outlines::Outlines::default();
     let mut images = crate::backgrounds::Images::default();
     let mut positions = crate::background_position::Positions::default();
+    let mut repeats = crate::background_repeat::Repeats::default();
     for (depth, node) in ancestors.into_iter().enumerate() {
         work.charge()?;
         let inline = sources.inline.get(&node.id).cloned().map_or_else(
@@ -105,11 +110,13 @@ pub(crate) fn resolve(
         outlines = outlines.compute(&declarations, &fonts, work)?;
         images = images.compute(&declarations, &fonts, work)?;
         positions = positions.compute(&declarations, &fonts, work)?;
+        repeats = repeats.compute(&declarations, images.count(), work)?;
     }
     Ok(Computed {
         fonts,
         outlines,
         images,
         positions,
+        repeats,
     })
 }

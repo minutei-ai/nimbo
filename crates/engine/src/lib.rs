@@ -2,6 +2,7 @@
 
 mod animations;
 mod background_position;
+mod background_repeat;
 mod backgrounds;
 mod borders;
 mod canvas;

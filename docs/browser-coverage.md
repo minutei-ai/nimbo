@@ -1944,3 +1944,37 @@ image loading, sizing, repeat, clip/origin/attachment and scene composition rema
 pending. These checks establish the tested computed-position behavior only.
 
 Public reference: [CSS Backgrounds position](https://drafts.csswg.org/css-backgrounds/#background-position).
+
+## Native computed background repeat axes
+
+The engine retains typed background-repeat axes for repeat, no-repeat, space and
+round, including all sixteen pairs and the repeat-x/repeat-y aliases. Computed
+values repeat or truncate to the actual image layer count. Inheritance discards
+excess parent values before copying the list, while preserving an unexpanded list
+when it is shorter than the parent's image count. Subsequent parent/child image
+count mutations recompute these states. Parsing and inherited list copies consume
+the shared work budget; computed serialization retains the 2 MiB output bound.
+
+The live getComputedStyle facade exposes background-repeat as its twelfth
+enumerated property. Empty non-text box geometry accepts the computed repeat
+state. An unsupported image still produces an explicit geometry error, while its
+repeat scalar remains readable. The native default is repeat on both axes;
+initial/unset and author-origin revert restore it. Layer rollback via revert-layer
+remains unsupported rather than being treated as an arbitrary repeat keyword.
+
+The shared public real-HTTP fixture executes 64 variants with 66 checks each in
+native Rust, actual workerd/Wasm and Chromium. Chromium passed all 4,224 checks;
+[the aggregate records the scope](evidence/background-repeat-chromium.json).
+Checks cover keyword pairs, aliases, layer cycling/truncation, inherited list
+behavior, cascade, variables and registration, escaped identifiers, shorthand
+reset, external stylesheets, and live style/DOM/resource mutations. Worker tests
+also cover unsupported image independence, conservative CSS.supports behavior,
+and excessive repeat layer work followed by a successful fresh request.
+
+This computes the axes without painting image tiles. Space requires distributing
+tiles and round requires rescaling them; both used-value algorithms, actual image
+loading/sizing, clipping/origin/attachment and scene composition remain pending.
+CSS.supports continues to return false for background-repeat because tiling and
+painting are unavailable. The checks prove the tested computed state only.
+
+Public reference: [CSS Backgrounds repeat](https://drafts.csswg.org/css-backgrounds/#background-repeat).

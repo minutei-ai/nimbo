@@ -1,3 +1,4 @@
+import { backgroundRepeatFixture } from "./background-repeat-fixture";
 import { backgroundPositionFixture } from "./background-position-fixture";
 import { backgroundImagesFixture } from "./background-images-fixture";
 import { lineHeightFixture } from "./line-height-fixture";
@@ -419,6 +420,8 @@ const origin = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     requests.push(`${request.method} ${path}`);
+    const backgroundRepeat = await backgroundRepeatFixture(path);
+    if (backgroundRepeat) return backgroundRepeat;
     const backgroundPosition = await backgroundPositionFixture(path);
     if (backgroundPosition) return backgroundPosition;
     const backgroundImages = await backgroundImagesFixture(path);
@@ -4728,10 +4731,11 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
   expect(await response.json()).toMatchObject({
     value: {
       font: "18px",
-      count: 11,
+      count: 12,
       names: [
         "background-image",
         "background-position",
+        "background-repeat",
         "color",
         "font-size",
         "line-height",
@@ -5032,3 +5036,77 @@ test("real HTTP → workerd → Wasm: expanded positioning serialization is boun
   expect(response.status).toBe(422);
   expect(await response.text()).toContain("computed background position bytes");
 });
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native background repeat variant %i",
+  async (variant) => {
+    const url = new URL(`background-repeat/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: `backgroundRepeatCase(${variant})` }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null)
+      throw new Error("Missing background repeat values");
+    expect(Object.keys(value)).toHaveLength(66);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test("real HTTP → workerd → Wasm: image errors preserve repeat scalars and conservative tiling support", async () => {
+  const url = new URL("background-repeat/0", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression:
+        "(()=>{document.body.style.cssText='background-image:url(https://example.test/a),url(https://example.test/b);background-repeat:space round';return {repeat:getComputedStyle(document.body).backgroundRepeat,tiling:CSS.supports('background-repeat','space round')}})()",
+    }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
+    value: { repeat: "space round, space round", tiling: false },
+  });
+  const geometry = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression:
+        "(()=>{document.body.style.cssText='background-image:url(https://example.test/a);background-repeat:space round';return document.body.getBoundingClientRect()})()",
+    }),
+  });
+  expect(geometry.status).toBe(422);
+  expect(await geometry.text()).toContain("URL provenance and loading");
+});
+
+test.each([
+  [12000, "space round", "CSS input limit"],
+  [10001, "round", "DOM operations"],
+] as const)(
+  "real HTTP → workerd → Wasm: repeat layer budget %i / %s and fresh recovery",
+  async (count, repeat, detail) => {
+    const url = new URL("background-repeat/0", origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url,
+        expression: `(()=>{document.body.style.backgroundRepeat=Array(${count}).fill(${JSON.stringify(repeat)}).join(',');return getComputedStyle(document.body).backgroundRepeat})()`,
+      }),
+    });
+    expect(response.status).toBe(422);
+    expect(await response.text()).toContain(detail);
+    const healthy = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "backgroundRepeatCase(0)" }),
+    });
+    expect(healthy.status).toBe(200);
+  },
+);
