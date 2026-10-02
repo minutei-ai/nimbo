@@ -1,34 +1,64 @@
 import { expect, test } from "bun:test";
 import { join } from "node:path";
-import { Miniflare, type Request as WorkerRequest } from "miniflare";
+import { Miniflare } from "miniflare";
 
 const root = join(import.meta.dir, "..");
 const html = (body: string, headers: Record<string, string> = {}) =>
   new Response(body, { headers: { "content-type": "text/html", ...headers } });
 
+const origins = new WeakMap<Miniflare, string>();
+const originFor = (worker: Miniflare) => {
+  const origin = origins.get(worker);
+  if (!origin) throw new Error("Missing HTTP fixture origin");
+  return origin;
+};
+
 async function fixture(
-  outbound: (request: WorkerRequest) => Response | Promise<Response>,
+  serve: (request: Request) => Response | Promise<Response>,
   run: (worker: Miniflare) => Promise<void>,
-  serviceBindings: Record<string, (request: WorkerRequest) => Response | Promise<Response>> = {},
+  egress = false,
 ) {
-  const worker = new Miniflare({
+  const origin = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: serve });
+  const main = {
+    name: "nimbo",
     modules: [
-      { type: "ESModule", path: join(root, "dist/worker/index.js") },
-      { type: "CompiledWasm", path: join(root, "dist/worker/nimbo_engine_bg.wasm") },
+      { type: "ESModule" as const, path: join(root, "dist/worker/index.js") },
+      { type: "CompiledWasm" as const, path: join(root, "dist/worker/nimbo_engine_bg.wasm") },
     ],
     compatibilityDate: "2026-07-30",
     bindings: { API_TOKEN: "test-secret" },
-    outboundService: outbound,
-    serviceBindings,
+    ...(egress ? { serviceBindings: { EGRESS: "egress" } } : {}),
+  };
+  const worker = new Miniflare({
+    workers: [
+      main,
+      ...(egress
+        ? [
+            {
+              name: "egress",
+              modules: true,
+              compatibilityDate: "2026-07-30",
+              script: `export default { fetch(request) {
+              const headers = new Headers(request.headers);
+              headers.set('x-nimbo-test-egress', 'forwarded');
+              return fetch(new Request(request, { headers }));
+            } };`,
+            },
+          ]
+        : []),
+    ],
   });
+  origins.set(worker, origin.url.href);
   try {
     await run(worker);
   } finally {
+    origins.delete(worker);
     await worker.dispose();
+    await origin.stop(true);
   }
 }
 
-const scrape = (worker: Miniflare, expression: string, url = "https://source.test/") =>
+const scrape = (worker: Miniflare, expression: string, url = originFor(worker)) =>
   worker.dispatchFetch("https://nimbo.test/scrape", {
     method: "POST",
     headers: { authorization: "Bearer test-secret" },
@@ -72,7 +102,7 @@ test("external scripts and Promise fetch use Worker transport with cookies and P
       if (path === "/")
         return new Response(null, {
           status: 302,
-          headers: { location: "/page", "set-cookie": "session=one; HttpOnly; Secure; Path=/" },
+          headers: { location: "/page", "set-cookie": "session=one; HttpOnly; Path=/" },
         });
       if (path === "/page") return html('<h1></h1><script src="/app.js"></script>');
       if (path === "/app.js")
@@ -88,7 +118,7 @@ test("external scripts and Promise fetch use Worker transport with cookies and P
       );
       expect(response.status).toBe(200);
       expect(await json(response)).toMatchObject({
-        url: "https://source.test/page",
+        url: new URL("/page", originFor(worker)).href,
         value: "async Rust",
       });
       expect(requests.map((request) => request.path)).toEqual(["/", "/page", "/app.js", "/api"]);
@@ -129,7 +159,7 @@ test("explicit script skipping extracts server HTML without running or loading p
         method: "POST",
         headers: { authorization: "Bearer test-secret" },
         body: JSON.stringify({
-          url: "https://source.test/",
+          url: originFor(worker),
           scripts: "skip",
           expression:
             "({heading: document.querySelector('h1').textContent, href: document.querySelector('a').getAttribute('href'), guest: typeof API_TOKEN})",
@@ -146,7 +176,7 @@ test("explicit script skipping extracts server HTML without running or loading p
       const invalid = await worker.dispatchFetch("https://nimbo.test/scrape", {
         method: "POST",
         headers: { authorization: "Bearer test-secret" },
-        body: JSON.stringify({ url: "https://source.test/", expression: "1", scripts: "auto" }),
+        body: JSON.stringify({ url: originFor(worker), expression: "1", scripts: "auto" }),
       });
       expect(invalid.status).toBe(400);
       expect(requests).toEqual(["/", "/"]);
@@ -154,15 +184,27 @@ test("explicit script skipping extracts server HTML without running or loading p
   );
 });
 
-test("EGRESS delivers server HTML to Wasm without falling back to direct fetch", async () => {
+test("EGRESS forwards through a real workerd service binding and HTTP origin", async () => {
+  const requests: string[] = [];
   await fixture(
-    () => new Response("Direct transport must not be used", { status: 502 }),
+    (request) => {
+      requests.push(request.headers.get("x-nimbo-test-egress") ?? "direct");
+      if (
+        new URL(request.url).pathname !== "/document" ||
+        request.method !== "GET" ||
+        request.headers.get("x-nimbo-test-egress") !== "forwarded"
+      )
+        return new Response("Unexpected transport request", { status: 502 });
+      return html(
+        '<article>Published through egress</article><script type="module" src="/app.js"></script>',
+      );
+    },
     async (worker) => {
       const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
         method: "POST",
         headers: { authorization: "Bearer test-secret" },
         body: JSON.stringify({
-          url: "https://source.test/document",
+          url: new URL("/document", originFor(worker)).href,
           scripts: "skip",
           expression: "document.querySelector('article').textContent",
         }),
@@ -172,16 +214,9 @@ test("EGRESS delivers server HTML to Wasm without falling back to direct fetch",
         value: "Published through egress",
         engine: "rust-wasm-quickjs",
       });
+      expect(requests).toEqual(["forwarded"]);
     },
-    {
-      EGRESS: (request) => {
-        if (new URL(request.url).pathname !== "/document" || request.method !== "GET")
-          return new Response("Unexpected egress request", { status: 400 });
-        return html(
-          '<article>Published through egress</article><script type="module" src="/app.js"></script>',
-        );
-      },
-    },
+    true,
   );
 });
 
@@ -215,7 +250,7 @@ test("cross-origin redirects and challenges fail explicitly", async () => {
       expect(await json(await scrape(worker, "1"))).toMatchObject({
         error: "cross-origin request blocked",
       });
-      const challenged = await scrape(worker, "1", "https://source.test/challenge");
+      const challenged = await scrape(worker, "1", new URL("/challenge", originFor(worker)).href);
       expect(challenged.status).toBe(422);
       expect(await json(challenged)).toMatchObject({ error: "upstream challenge" });
     },

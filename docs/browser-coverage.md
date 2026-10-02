@@ -312,9 +312,17 @@ This is not full Web IDL or DOM conformance. Static selector results now expose
 NodeList instead of Array; use Array.from when array methods are needed.
 
 The existing native Rust integration suite also uses a real HTTP listener.
-The older `tooling/worker.test.ts` suite includes callback-based transport
-fixtures. Those checks remain useful for boundary failures but do not count as
-mock-free transport evidence. Neither local suite proves deployed performance,
+`tooling/worker.test.ts` adds twelve boundary tests through real loopback HTTP
+listeners and the compiled Rust/Wasm engine in workerd. It uses no outbound
+transport callbacks. Its EGRESS check runs a second actual workerd Worker,
+forwards through a service binding to the HTTP origin, and asserts that only
+the forwarded request reaches the origin. These checks cover redirects,
+HTTP cookies, POST bodies, response errors, script skipping, isolation,
+resource limits and recovery. The HTTP cookie fixture does not test TLS or
+Secure cookie delivery. The seven lint/infrastructure checks spawn the actual
+pinned tools rather than replacing their behavior. All 2342 Bun tests therefore
+run without transport, browser or tool mocks; 2335 exercise the browser engine
+and seven exercise tooling. Neither local suite proves deployed performance,
 TLS fingerprints, rendering or broad browser compatibility.
 
 Inline CSS declarations now use a pinned native Lightning CSS property grammar
