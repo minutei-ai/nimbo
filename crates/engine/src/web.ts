@@ -2540,6 +2540,302 @@
     return 0;
   }
 
+  type ObserverMargin = { values: { value: number; percent: boolean }[]; css: string };
+  type IntersectionGeometry = {
+    rootBounds: RectValues;
+    boundingClientRect: RectValues;
+    intersectionRect: RectValues;
+    intersectionRatio: number;
+    isIntersecting: boolean;
+  };
+  type IntersectionEntryState = {
+    time: number;
+    rootBounds: DOMRectReadOnly | null;
+    boundingClientRect: DOMRectReadOnly;
+    intersectionRect: DOMRectReadOnly;
+    intersectionRatio: number;
+    isIntersecting: boolean;
+    isVisible: boolean;
+    target: Element;
+  };
+  const intersectionEntries = new WeakMap<IntersectionObserverEntry, IntersectionEntryState>();
+  function entryState(entry: IntersectionObserverEntry): IntersectionEntryState {
+    const state = intersectionEntries.get(entry);
+    if (!state) throw new TypeError("Illegal invocation");
+    return state;
+  }
+  function finiteDouble(value: unknown): number {
+    const number = rectNumber(value);
+    if (!Number.isFinite(number)) throw new TypeError("Expected finite double");
+    return number;
+  }
+  function observerElement(value: unknown): Element {
+    if (!(value instanceof Element)) throw new TypeError("Expected Element");
+    idOf(value);
+    return value;
+  }
+  function initMember(init: object | null, key: string): unknown {
+    return init === null ? undefined : Reflect.get(init, key);
+  }
+  function requiredMember(init: object | null, key: string): unknown {
+    const value = initMember(init, key);
+    if (value === undefined) throw new TypeError(`Missing required member: ${key}`);
+    return value;
+  }
+  function entryRect(value: unknown): DOMRectReadOnly {
+    const init = dictionary(value);
+    return new DOMRectReadOnly(
+      initMember(init, "x"),
+      initMember(init, "y"),
+      initMember(init, "width"),
+      initMember(init, "height"),
+    );
+  }
+  class IntersectionObserverEntry {
+    constructor(options: unknown) {
+      const init = encodingOptions(options);
+      const boundingClientRect = entryRect(requiredMember(init, "boundingClientRect"));
+      const intersectionRatio = finiteDouble(requiredMember(init, "intersectionRatio"));
+      const intersectionRect = entryRect(requiredMember(init, "intersectionRect"));
+      const isIntersecting = Boolean(requiredMember(init, "isIntersecting"));
+      const isVisible = Boolean(initMember(init, "isVisible"));
+      const bounds = initMember(init, "rootBounds");
+      const rootBounds = bounds === undefined || bounds === null ? null : entryRect(bounds);
+      const target = observerElement(requiredMember(init, "target"));
+      const time = finiteDouble(requiredMember(init, "time"));
+      intersectionEntries.set(this, {
+        time,
+        rootBounds,
+        boundingClientRect,
+        intersectionRect,
+        intersectionRatio,
+        isIntersecting,
+        isVisible,
+        target,
+      });
+    }
+    get time() {
+      return entryState(this).time;
+    }
+    get rootBounds() {
+      return entryState(this).rootBounds;
+    }
+    get boundingClientRect() {
+      return entryState(this).boundingClientRect;
+    }
+    get intersectionRect() {
+      return entryState(this).intersectionRect;
+    }
+    get isIntersecting() {
+      return entryState(this).isIntersecting;
+    }
+    get isVisible() {
+      return entryState(this).isVisible;
+    }
+    get intersectionRatio() {
+      return entryState(this).intersectionRatio;
+    }
+    get target() {
+      return entryState(this).target;
+    }
+  }
+  type IntersectionCallback = (
+    this: IntersectionObserver,
+    entries: IntersectionObserverEntry[],
+    observer: IntersectionObserver,
+  ) => unknown;
+  type ObservedTarget = { threshold: number; intersects: boolean | null };
+  type ObserverState = {
+    callback: IntersectionCallback;
+    root: Element | Document | null;
+    margin: ObserverMargin;
+    scrollMargin: ObserverMargin;
+    thresholds: readonly number[];
+    targets: Map<Element, ObservedTarget>;
+    entries: IntersectionObserverEntry[];
+    version: number;
+  };
+  const observers = new WeakMap<IntersectionObserver, ObserverState>();
+  const activeObservers = new Set<IntersectionObserver>();
+  const intersectionLimit = 1024;
+  let observedTargets = 0;
+  function observerState(observer: IntersectionObserver): ObserverState {
+    const state = observers.get(observer);
+    if (!state) throw new TypeError("Illegal invocation");
+    return state;
+  }
+  class IntersectionObserver {
+    constructor(callback: unknown, options: unknown = {}) {
+      if (typeof callback !== "function") throw new TypeError("Expected observer callback");
+      const init = encodingOptions(options);
+      const delay = initMember(init, "delay");
+      const parsedDelay = delay === undefined ? 0 : long(delay);
+      const rootValue = initMember(init, "root");
+      let root: Element | Document | null = null;
+      if (rootValue !== undefined && rootValue !== null) {
+        if (rootValue === document) root = document;
+        else root = observerElement(rootValue);
+      }
+      const marginValue = initMember(init, "rootMargin");
+      const margin = raw<ObserverMargin>(
+        "observerMargin",
+        0,
+        marginValue === undefined ? "0px" : domString(marginValue),
+      );
+      const scrollValue = initMember(init, "scrollMargin");
+      const scrollMargin = raw<ObserverMargin>(
+        "observerMargin",
+        0,
+        scrollValue === undefined ? "0px" : domString(scrollValue),
+      );
+      const threshold = initMember(init, "threshold");
+      const thresholds: number[] = [];
+      if (
+        threshold !== undefined &&
+        threshold !== null &&
+        (typeof threshold === "object" || typeof threshold === "function")
+      ) {
+        const iterable: unknown = Reflect.get(threshold, Symbol.iterator);
+        if (typeof iterable !== "function") throw new TypeError("Expected threshold sequence");
+        // Web IDL validates the iterator before converting its yielded doubles.
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        for (const value of threshold as Iterable<unknown>) {
+          if (thresholds.length >= intersectionLimit)
+            throw new Error("intersection threshold limit");
+          thresholds.push(finiteDouble(value));
+        }
+      } else thresholds.push(finiteDouble(threshold === undefined ? 0 : threshold));
+      if (thresholds.some((value) => value < 0 || value > 1))
+        throw new RangeError("Threshold outside [0,1]");
+      thresholds.sort((left, right) => left - right);
+      if (thresholds.length === 0) thresholds.push(0);
+      const trackVisibility = Boolean(initMember(init, "trackVisibility"));
+      if (trackVisibility)
+        throw new Error("intersection observation unsupported: visibility tracking");
+      if (parsedDelay !== 0) throw new Error("intersection observation unsupported: delay");
+      if (scrollMargin.values.some((value) => value.value !== 0))
+        throw new Error("intersection observation unsupported: scroll margins");
+      // The callback was validated as callable above; it remains page owned.
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+      const observerCallback = callback as IntersectionCallback;
+      observers.set(this, {
+        callback: observerCallback,
+        root,
+        margin,
+        scrollMargin,
+        thresholds: Object.freeze(thresholds),
+        targets: new Map(),
+        entries: [],
+        version: -1,
+      });
+    }
+    get root() {
+      return observerState(this).root;
+    }
+    get rootMargin() {
+      return observerState(this).margin.css;
+    }
+    get scrollMargin() {
+      return observerState(this).scrollMargin.css;
+    }
+    get thresholds() {
+      return observerState(this).thresholds;
+    }
+    get delay() {
+      observerState(this);
+      return 0;
+    }
+    get trackVisibility() {
+      observerState(this);
+      return false;
+    }
+    observe(value: unknown): void {
+      const state = observerState(this);
+      const target = observerElement(value);
+      if (state.targets.has(target)) return;
+      if (
+        observedTargets >= intersectionLimit ||
+        (!activeObservers.has(this) && activeObservers.size >= intersectionLimit)
+      )
+        throw new Error("intersection registration limit");
+      state.targets.set(target, { threshold: -1, intersects: null });
+      observedTargets++;
+      state.version = -1;
+      activeObservers.add(this);
+    }
+    unobserve(value: unknown): void {
+      const state = observerState(this);
+      const target = observerElement(value);
+      if (state.targets.delete(target)) observedTargets--;
+      if (state.targets.size === 0) activeObservers.delete(this);
+    }
+    disconnect(): void {
+      const state = observerState(this);
+      observedTargets -= state.targets.size;
+      state.targets.clear();
+      activeObservers.delete(this);
+    }
+    takeRecords(): IntersectionObserverEntry[] {
+      return observerState(this).entries.splice(0);
+    }
+  }
+  for (const [prototype, tag] of [
+    [IntersectionObserver.prototype, "IntersectionObserver"],
+    [IntersectionObserverEntry.prototype, "IntersectionObserverEntry"],
+  ] as const) {
+    Object.defineProperty(prototype, Symbol.toStringTag, { value: tag, configurable: true });
+    for (const key of Object.getOwnPropertyNames(prototype)) {
+      if (key === "constructor") continue;
+      const descriptor = Object.getOwnPropertyDescriptor(prototype, key);
+      if (descriptor) Object.defineProperty(prototype, key, { ...descriptor, enumerable: true });
+    }
+  }
+  function intersections(): boolean {
+    if (activeObservers.size === 0) return false;
+    const version = raw<number>("layoutVersion", 0);
+    const pending: IntersectionObserver[] = [];
+    for (const observer of activeObservers) {
+      const state = observerState(observer);
+      if (state.version !== version) {
+        for (const [target, previous] of state.targets) {
+          const result = raw<IntersectionGeometry>(
+            "observerMeasure",
+            idOf(target),
+            JSON.stringify({
+              root: state.root === null ? null : idOf(state.root),
+              margin: state.margin,
+            }),
+          );
+          const threshold = state.thresholds.findIndex((value) => value > result.intersectionRatio);
+          const index = threshold === -1 ? state.thresholds.length : threshold;
+          if (index !== previous.threshold || result.isIntersecting !== previous.intersects) {
+            state.entries.push(
+              new IntersectionObserverEntry({ ...result, target, time: now(), isVisible: false }),
+            );
+            previous.threshold = index;
+            previous.intersects = result.isIntersecting;
+          }
+        }
+        state.version = version;
+      }
+      if (state.entries.length > 0) pending.push(observer);
+    }
+    if (pending.length === 0) return false;
+    if (timerTasks >= timerTaskLimit) throw new Error("timer task limit");
+    timerTasks++;
+    for (const observer of pending) {
+      const state = observerState(observer);
+      const entries = state.entries.splice(0);
+      if (entries.length === 0) continue;
+      try {
+        state.callback.call(observer, entries, observer);
+      } catch (error) {
+        reportListenerError(error);
+      }
+    }
+    return true;
+  }
+
   const fetch = async (url: string, options: { method?: string; body?: string } = {}) => {
     for (const key of Object.keys(options)) {
       if (!["method", "body"].includes(key)) throw new Error(`unsupported fetch option: ${key}`);
@@ -2592,6 +2888,8 @@
     DOMTokenList,
     DOMRect,
     DOMRectReadOnly,
+    IntersectionObserver,
+    IntersectionObserverEntry,
     CharacterData,
     Text,
     Comment,
@@ -2621,5 +2919,5 @@
     readyState = "complete";
     dispatch(globalThis, new Event("load"), true, true);
   };
-  return { ready, timer };
+  return { ready, timer, intersections };
 })();

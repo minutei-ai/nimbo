@@ -80,6 +80,7 @@ pub(crate) struct Machine {
     // All persistent values, including callback-owned queues, must be cleared before Context.
     ready: Option<Persistent<Function<'static>>>,
     timer: Option<Persistent<Function<'static>>>,
+    intersections: Option<Persistent<Function<'static>>>,
     clock: Rc<Cell<f64>>,
     evaluation: Option<Persistent<Promise<'static>>>,
     active: Option<Request>,
@@ -106,6 +107,32 @@ impl Drop for Machine {
         // Native callbacks also retain this queue: explicitly break that reference cycle.
         self.pending.borrow_mut().clear();
     }
+}
+
+fn install_clock(ctx: &Ctx<'_>, clock: Rc<Cell<f64>>, limits: Limits) -> Result<()> {
+    let globals = ctx.globals();
+    js(
+        ctx,
+        globals.set(
+            "nimboNow",
+            js(ctx, Function::new(ctx.clone(), move || clock.get()))?,
+        ),
+    )?;
+    js(ctx, globals.set("nimboTimerLimit", limits.max_timers))?;
+    js(
+        ctx,
+        globals.set("nimboTimerTaskLimit", limits.max_timer_tasks),
+    )?;
+    Ok(())
+}
+
+fn callback<'js>(
+    ctx: &Ctx<'js>,
+    callbacks: &rquickjs::Object<'js>,
+    name: &str,
+) -> Result<Persistent<Function<'static>>> {
+    let function: Function<'_> = js(ctx, callbacks.get(name))?;
+    Ok(Persistent::save(ctx, function))
 }
 
 impl Machine {
@@ -154,6 +181,7 @@ impl Machine {
         let mut machine = Self {
             ready: None,
             timer: None,
+            intersections: None,
             clock: Rc::new(Cell::new(0.0)),
             evaluation: None,
             active: None,
@@ -193,20 +221,9 @@ impl Machine {
         let dom_check = Arc::clone(&self.check);
         let requests = Rc::new(Cell::new(0_usize));
         let clock = Rc::clone(&self.clock);
-        let (ready, timer) = self.context.with(|ctx| -> Result<_> {
+        let (ready, timer, intersections) = self.context.with(|ctx| -> Result<_> {
             let globals = ctx.globals();
-            js(
-                &ctx,
-                globals.set(
-                    "nimboNow",
-                    js(&ctx, Function::new(ctx.clone(), move || clock.get()))?,
-                ),
-            )?;
-            js(&ctx, globals.set("nimboTimerLimit", limits.max_timers))?;
-            js(
-                &ctx,
-                globals.set("nimboTimerTaskLimit", limits.max_timer_tasks),
-            )?;
+            install_clock(&ctx, clock, limits)?;
             let dom_function = Function::new(
                 ctx.clone(),
                 move |ctx: Ctx<'_>, op: String, handle: usize, arg: String, value: String| {
@@ -278,12 +295,15 @@ impl Machine {
                     "/web.js"
                 ))),
             )?;
-            let ready: Function<'_> = js(&ctx, callbacks.get("ready"))?;
-            let timer: Function<'_> = js(&ctx, callbacks.get("timer"))?;
-            Ok((Persistent::save(&ctx, ready), Persistent::save(&ctx, timer)))
+            Ok((
+                callback(&ctx, &callbacks, "ready")?,
+                callback(&ctx, &callbacks, "timer")?,
+                callback(&ctx, &callbacks, "intersections")?,
+            ))
         })?;
         self.ready = Some(ready);
         self.timer = Some(timer);
+        self.intersections = Some(intersections);
         Ok(())
     }
 
@@ -295,6 +315,19 @@ impl Machine {
         }
         self.clock.set(milliseconds);
         Ok(())
+    }
+
+    fn intersection_step(&self) -> Result<bool> {
+        let callback = self
+            .intersections
+            .as_ref()
+            .ok_or_else(|| Error::JavaScript("missing intersection scheduler".into()))?;
+        self.context.with(|ctx| {
+            js(
+                &ctx,
+                js(&ctx, callback.clone().restore(&ctx))?.call::<_, bool>(()),
+            )
+        })
     }
 
     fn timer_step(&self, run: bool) -> Result<Option<f64>> {
@@ -465,12 +498,18 @@ impl Machine {
                     self.phase = Phase::Ready;
                 }
                 Phase::Ready => {
+                    if self.intersection_step()? {
+                        continue;
+                    }
                     if self.timer_step(true)? == Some(0.0) {
                         continue;
                     }
                     return Ok(Action::Ready);
                 }
                 Phase::Evaluating => {
+                    if self.intersection_step()? {
+                        continue;
+                    }
                     let pending = self.context.with(|ctx| -> Result<bool> {
                         let promise = self
                             .evaluation

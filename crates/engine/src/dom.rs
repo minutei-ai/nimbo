@@ -14,6 +14,7 @@ pub(crate) struct Dom {
     styles: HashMap<NodeId, crate::styles::Declarations>,
     style_bytes: usize,
     operations: usize,
+    layout_version: usize,
     writes: usize,
     limits: Limits,
     media: crate::MediaEnvironment,
@@ -31,6 +32,7 @@ impl Dom {
             styles: HashMap::new(),
             style_bytes: 0,
             operations: 0,
+            layout_version: 0,
             writes: 0,
             limits,
             media,
@@ -48,6 +50,28 @@ impl Dom {
             .ok_or_else(|| Error::Dom("invalid node handle".into()))
     }
 
+    fn begin(&mut self, operation: &str, arg: &str) -> Result<()> {
+        if self.operations >= self.limits.max_dom_operations {
+            return Err(Error::Limit("DOM operations"));
+        }
+        self.operations = self.operations.saturating_add(1);
+        if matches!(
+            operation,
+            "set"
+                | "setAttr"
+                | "removeAttr"
+                | "append"
+                | "insert"
+                | "replace"
+                | "removeChild"
+                | "remove"
+        ) || (operation == "style" && matches!(arg, "set" | "remove" | "text"))
+        {
+            self.layout_version = self.layout_version.saturating_add(1);
+        }
+        Ok(())
+    }
+
     pub(crate) fn call(
         &mut self,
         operation: &str,
@@ -55,13 +79,13 @@ impl Dom {
         arg: &str,
         value: &str,
     ) -> Result<String> {
-        if self.operations >= self.limits.max_dom_operations {
-            return Err(Error::Limit("DOM operations"));
-        }
-        self.operations = self.operations.saturating_add(1);
+        self.begin(operation, arg)?;
         let result = match operation {
             "baseHref" => json!(self.base_href()),
             "bounds" => self.bounds(handle)?,
+            "layoutVersion" => json!(self.layout_version),
+            "observerMargin" => serde_json::to_value(crate::layout::Margins::parse(arg)?)?,
+            "observerMeasure" => self.observe(handle, arg)?,
             "query" => self.query(handle, arg)?,
             "customCandidates" => self.custom_candidates(handle, arg)?,
             "queryOne" => self.query_one(handle, arg)?,
@@ -153,6 +177,43 @@ impl Dom {
             }
         };
         Ok(serde_json::to_string(&result)?)
+    }
+
+    fn observe(&mut self, handle: usize, request: &str) -> Result<Value> {
+        #[derive(serde::Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Request {
+            root: Option<usize>,
+            margin: crate::layout::Margins,
+        }
+        let request: Request = serde_json::from_str(request)?;
+        let target = self
+            .handles
+            .get(handle)
+            .and_then(|id| self.document.tree.get(id))
+            .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
+        let root = request
+            .root
+            .filter(|handle| *handle != 0)
+            .map(|handle| {
+                self.handles
+                    .get(handle)
+                    .and_then(|id| self.document.tree.get(id))
+                    .ok_or_else(|| Error::Dom("invalid node handle".into()))
+            })
+            .transpose()?;
+        let mut work =
+            crate::layout::Work::new(&mut self.operations, self.limits.max_dom_operations);
+        let observation = crate::layout::observe(
+            &self.document,
+            target,
+            root,
+            &request.margin,
+            &self.styles,
+            &self.media,
+            &mut work,
+        )?;
+        Ok(serde_json::to_value(observation)?)
     }
 
     fn bounds(&mut self, handle: usize) -> Result<Value> {

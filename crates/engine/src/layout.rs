@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use dom_query::{Document, NodeId, NodeRef};
 use serde::Serialize;
-use taffy::{TaffyError, prelude::*};
+use taffy::{Overflow, TaffyError, prelude::*};
 
 use crate::{
     Error, MediaEnvironment, Result,
@@ -26,7 +26,7 @@ impl<'a> Work<'a> {
     }
 }
 
-#[derive(Default, Serialize)]
+#[derive(Clone, Default, Serialize)]
 pub(crate) struct Bounds {
     x: f64,
     y: f64,
@@ -64,15 +64,7 @@ fn defaulted<'a>(name: &str, value: &'a str) -> &'a str {
     }
 }
 
-// This first layout pass accepts real inline block/flex and auto-grid boxes. Unsupported
-// inputs must fail instead of silently providing manufactured measurements.
-fn style(node: NodeRef<'_>, declarations: &Declarations) -> Result<Style> {
-    if node
-        .attr("dir")
-        .is_some_and(|value| value.eq_ignore_ascii_case("rtl"))
-    {
-        return Err(unsupported("direction"));
-    }
+fn initial_style(node: NodeRef<'_>) -> Style {
     let mut style = Style {
         display: Display::Block,
         box_sizing: BoxSizing::ContentBox,
@@ -84,6 +76,42 @@ fn style(node: NodeRef<'_>, declarations: &Declarations) -> Result<Style> {
     if node.has_attr("hidden") {
         style.display = Display::None;
     }
+    style
+}
+
+// This first layout pass accepts real inline block/flex and auto-grid boxes. Unsupported
+// inputs must fail instead of silently providing manufactured measurements.
+fn overflow(value: &str) -> Result<Overflow> {
+    match value {
+        "visible" => Ok(Overflow::Visible),
+        "clip" => Ok(Overflow::Clip),
+        "hidden" => Ok(Overflow::Hidden),
+        _ => Err(unsupported("scrolling overflow")),
+    }
+}
+
+fn validate_overflow(node: NodeRef<'_>, style: &Style) -> Result<()> {
+    if (style.overflow.x == Overflow::Hidden && style.overflow.y == Overflow::Visible)
+        || (style.overflow.y == Overflow::Hidden && style.overflow.x == Overflow::Visible)
+    {
+        return Err(unsupported("mixed scrolling overflow"));
+    }
+    if (node.has_name("html") || node.has_name("body"))
+        && (style.overflow.x != Overflow::Visible || style.overflow.y != Overflow::Visible)
+    {
+        return Err(unsupported("viewport overflow propagation"));
+    }
+    Ok(())
+}
+
+fn style(node: NodeRef<'_>, declarations: &Declarations) -> Result<Style> {
+    if node
+        .attr("dir")
+        .is_some_and(|value| value.eq_ignore_ascii_case("rtl"))
+    {
+        return Err(unsupported("direction"));
+    }
+    let mut style = initial_style(node);
     macro_rules! assign {
         ($field:expr, $value:expr, $name:expr) => {{
             let value = if $value == "0" && !matches!($name, "flex-grow" | "flex-shrink") {
@@ -127,6 +155,14 @@ fn style(node: NodeRef<'_>, declarations: &Declarations) -> Result<Style> {
             "padding-right" => assign!(style.padding.right, value, name),
             "padding-top" => assign!(style.padding.top, value, name),
             "padding-bottom" => assign!(style.padding.bottom, value, name),
+            "overflow-x" | "overflow-y" => {
+                let overflow = overflow(value)?;
+                if name == "overflow-x" {
+                    style.overflow.x = overflow;
+                } else {
+                    style.overflow.y = overflow;
+                }
+            }
             "position" if matches!(value, "static" | "relative") => {}
             "left" => assign!(style.inset.left, value, name),
             "right" => assign!(style.inset.right, value, name),
@@ -158,6 +194,7 @@ fn style(node: NodeRef<'_>, declarations: &Declarations) -> Result<Style> {
             _ => return Err(unsupported(name)),
         }
     }
+    validate_overflow(node, &style)?;
     // Static positioning ignores inset properties. Taffy represents static and
     // relative boxes with the same positioning enum, so clear the insets here.
     if !declarations
@@ -179,6 +216,37 @@ struct Tree<'a, 'b> {
 }
 
 impl Tree<'_, '_> {
+    fn rect(&self, target: NodeRef<'_>) -> Result<Bounds> {
+        let Some(id) = self.ids.get(&target.id) else {
+            return Ok(Bounds::default());
+        };
+        let measured = self
+            .boxes
+            .layout(*id)
+            .map_err(|error| layout_error(&error))?;
+        let mut result = Bounds {
+            width: f64::from(measured.size.width),
+            height: f64::from(measured.size.height),
+            ..Bounds::default()
+        };
+        for node in std::iter::once(target).chain(target.ancestors_it(None)) {
+            if let Some(id) = self.ids.get(&node.id) {
+                let measured = self
+                    .boxes
+                    .layout(*id)
+                    .map_err(|error| layout_error(&error))?;
+                result.x += f64::from(measured.location.x);
+                result.y += f64::from(measured.location.y);
+            }
+        }
+        if ![result.x, result.y, result.width, result.height]
+            .iter()
+            .all(|value| value.is_finite())
+        {
+            return Err(unsupported("non-finite geometry"));
+        }
+        Ok(result)
+    }
     fn build(
         &mut self,
         node: NodeRef<'_>,
@@ -262,6 +330,16 @@ pub(crate) fn bounds(
     {
         return Ok(Bounds::default());
     }
+    scene(document, styles, media, work, |tree| tree.rect(target))
+}
+
+fn scene<T>(
+    document: &Document,
+    styles: &HashMap<NodeId, Declarations>,
+    media: &MediaEnvironment,
+    work: &mut Work<'_>,
+    measure: impl FnOnce(&mut Tree<'_, '_>) -> Result<T>,
+) -> Result<T> {
     let cascade = crate::cascade::Cascade::collect(document, media, work)?;
     let root = document
         .root()
@@ -277,47 +355,36 @@ pub(crate) fn bounds(
         work,
     };
     tree.boxes.disable_rounding();
-    let Some(root_id) = tree.build(root, 0, &Variables::default())? else {
-        return Ok(Bounds::default());
-    };
+    let root_id = tree.build(root, 0, &Variables::default())?;
     let width = f32::from(u16::try_from(media.width).map_err(|_error| unsupported("viewport"))?);
     let height = f32::from(u16::try_from(media.height).map_err(|_error| unsupported("viewport"))?);
-    tree.boxes
-        .compute_layout(
-            root_id,
-            Size {
-                width: AvailableSpace::Definite(width),
-                height: AvailableSpace::Definite(height),
-            },
-        )
-        .map_err(|error| layout_error(&error))?;
-    let Some(id) = tree.ids.get(&target.id) else {
-        return Ok(Bounds::default());
-    };
-    let measured = tree
-        .boxes
-        .layout(*id)
-        .map_err(|error| layout_error(&error))?;
-    let mut result = Bounds {
-        width: f64::from(measured.size.width),
-        height: f64::from(measured.size.height),
-        ..Bounds::default()
-    };
-    for node in std::iter::once(target).chain(target.ancestors_it(None)) {
-        if let Some(id) = tree.ids.get(&node.id) {
-            let measured = tree
-                .boxes
-                .layout(*id)
-                .map_err(|error| layout_error(&error))?;
-            result.x += f64::from(measured.location.x);
-            result.y += f64::from(measured.location.y);
-        }
+    if let Some(root_id) = root_id {
+        tree.boxes
+            .compute_layout(
+                root_id,
+                Size {
+                    width: AvailableSpace::Definite(width),
+                    height: AvailableSpace::Definite(height),
+                },
+            )
+            .map_err(|error| layout_error(&error))?;
     }
-    if ![result.x, result.y, result.width, result.height]
-        .iter()
-        .all(|value| value.is_finite())
-    {
-        return Err(unsupported("non-finite geometry"));
-    }
-    Ok(result)
+    measure(&mut tree)
+}
+
+mod intersection;
+pub(crate) use intersection::{Margins, Observation};
+
+pub(crate) fn observe(
+    document: &Document,
+    target: NodeRef<'_>,
+    root: Option<NodeRef<'_>>,
+    margins: &Margins,
+    styles: &HashMap<NodeId, Declarations>,
+    media: &MediaEnvironment,
+    work: &mut Work<'_>,
+) -> Result<Observation> {
+    scene(document, styles, media, work, |tree| {
+        intersection::observe(tree, target, root, margins, media)
+    })
 }

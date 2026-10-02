@@ -88,6 +88,7 @@ fn serve(mut request: Request) -> io::Result<()> {
     let body = match request.url() {
         "/cascade" => script_fixture(include_str!("fixtures/cascade.txt")),
         "/variables" => script_fixture(include_str!("fixtures/variables.txt")),
+        "/intersections" => script_fixture(include_str!("fixtures/intersections.txt")),
         "/geometry" => script_fixture(include_str!("fixtures/geometry.txt")),
         "/style-variables" => script_fixture(include_str!("fixtures/style-variables.txt")),
         "/styles" => script_fixture(include_str!("fixtures/styles.txt")),
@@ -961,6 +962,22 @@ fn custom_properties_resolve_inheritance_cycles_and_pending_shorthands() -> Test
     let result = page.evaluate("comparison")?;
     let fields = result.as_object().ok_or("missing variables result")?;
     assert_eq!(fields.len(), 42);
+    assert!(
+        fields.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    Ok(())
+}
+
+#[test]
+fn intersection_observers_measure_real_boxes_and_deliver_threshold_changes() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/intersections"))?;
+    let result = page.evaluate("comparison")?;
+    let fields = result.as_object().ok_or("missing intersection result")?;
+    assert_eq!(fields.len(), 36);
     assert!(
         fields.values().all(|value| *value == json!(true)),
         "{result}"

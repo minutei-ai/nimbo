@@ -39,6 +39,9 @@ const cascadeScript = await Bun.file(
 const variablesScript = await Bun.file(
   join(import.meta.dir, "../crates/engine/tests/fixtures/variables.txt"),
 ).text();
+const intersectionScript = await Bun.file(
+  join(import.meta.dir, "../crates/engine/tests/fixtures/intersections.txt"),
+).text();
 const requests: string[] = [];
 const comparisonBinary = process.env.NIMBO_COMPARE_OBSCURA_BINARY;
 async function comparePage(binary: string, url: string): Promise<unknown> {
@@ -399,6 +402,12 @@ const origin = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     requests.push(`${request.method} ${path}`);
+    if (path.startsWith("/intersections/")) {
+      const variant = Number(path.split("/").at(-1));
+      return new Response(`<script>globalThis.variant=${variant};${intersectionScript}</script>`, {
+        headers: { "content-type": "text/html" },
+      });
+    }
     if (path.startsWith("/variables/")) {
       const variant = Number(path.split("/").at(-1));
       return new Response(`<script>globalThis.variant=${variant};${variablesScript}</script>`, {
@@ -2361,6 +2370,149 @@ test("real HTTP → workerd → Wasm: exponential variable substitution becomes 
   const url = new URL("geometry-empty", origin.url).href;
   const expression =
     "(() => {const el=document.createElement('div');el.style.cssText='--p0:1px;'+Array.from({length:24},(_,i)=>'--p'+(i+1)+':var(--p'+i+') var(--p'+i+');').join('')+'width:var(--p24,42px);';document.body.appendChild(el);return el.getBoundingClientRect().width===42;})()";
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: true });
+});
+
+const intersectionExpected = Object.fromEntries(
+  [
+    "initial",
+    "geometry",
+    "entryBrands",
+    "time",
+    "sorted",
+    "rootIdentity",
+    "half",
+    "exactThreshold",
+    "edge",
+    "excluded",
+    "snapshots",
+    "positiveMargin",
+    "percentages",
+    "negativeMargin",
+    "clipping",
+    "ancestorExclusion",
+    "hidden",
+    "zeroArea",
+    "detached",
+    "detachedRootBounds",
+    "unrelated",
+    "documentRoot",
+    "noRepeat",
+    "unobserved",
+    "reobserve",
+    "disconnected",
+    "emptyThreshold",
+    "guards",
+    "invalidMargins",
+    "ranges",
+    "finiteThreshold",
+    "marginShorthand",
+    "absoluteMargin",
+    "constructedEntry",
+    "records",
+    "contexts",
+  ].map((key) => [key, true]),
+);
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native intersection observation variant %i",
+  async (variant) => {
+    const url = new URL(`intersections/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "comparison" }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      url,
+      engine: "rust-wasm-quickjs",
+      value: intersectionExpected,
+    });
+    expect(requests).toContain(`GET /intersections/${variant}`);
+  },
+);
+
+const intersectionRecovery =
+  "new Promise(resolve=>{const el=document.createElement('div');el.style.cssText='width:20px;height:20px';document.body.appendChild(el);const observer=new IntersectionObserver(entries=>{observer.disconnect();resolve(entries.length===1 && entries[0].isIntersecting);});observer.observe(el);})";
+test.each([
+  ["delay", "new IntersectionObserver(()=>{},{delay:1})", "unsupported: delay"],
+  [
+    "visibility",
+    "new IntersectionObserver(()=>{},{trackVisibility:true})",
+    "unsupported: visibility tracking",
+  ],
+  [
+    "scroll margin",
+    "new IntersectionObserver(()=>{},{scrollMargin:'1px'})",
+    "unsupported: scroll margins",
+  ],
+  [
+    "threshold cap",
+    "new IntersectionObserver(()=>{},{threshold:Array(1025).fill(.5)})",
+    "intersection threshold limit",
+  ],
+  [
+    "margin cap",
+    "new IntersectionObserver(()=>{},{rootMargin:' '.repeat(1025)})",
+    "intersection margin bytes",
+  ],
+  [
+    "registration cap",
+    "(()=>{const observer=new IntersectionObserver(()=>{});for(let i=0;i<1025;i++)observer.observe(document.createElement('div'));})()",
+    "intersection registration limit",
+  ],
+  [
+    "scrolling layout",
+    "new Promise(()=>{const el=document.createElement('div');el.style.cssText='width:20px;height:20px;overflow:auto';document.body.appendChild(el);new IntersectionObserver(()=>{}).observe(el);})",
+    "layout unsupported: scrolling overflow",
+  ],
+  [
+    "viewport overflow",
+    "new Promise(()=>{document.body.style.overflow='hidden';new IntersectionObserver(()=>{}).observe(document.body);})",
+    "layout unsupported: viewport overflow propagation",
+  ],
+  [
+    "text layout",
+    "new Promise(()=>{const el=document.createElement('div');el.textContent='real text';document.body.appendChild(el);new IntersectionObserver(()=>{}).observe(el);})",
+    "layout unsupported: text shaping",
+  ],
+])(
+  "real HTTP → workerd → Wasm: intersection rejects %s and recovers",
+  async (_name, expression, detail) => {
+    const url = new URL("geometry-empty", origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression }),
+    });
+    expect(response.status).toBe(422);
+    const message: unknown = expect.stringContaining(detail);
+    expect(await response.json()).toEqual({ error: message });
+    const recovered = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: intersectionRecovery }),
+    });
+    expect(recovered.status).toBe(200);
+    expect(await recovered.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: true });
+  },
+);
+
+test("real HTTP → workerd → Wasm: intersection callbacks report exceptions and use native geometry", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const expression = `new Promise(resolve=>{
+    const el=document.createElement('div');el.style.cssText='width:20px;height:20px';document.body.appendChild(el);
+    let errors=0;window.addEventListener('error',event=>{if(event.message.includes('observer failure'))errors++;});
+    el.getBoundingClientRect=()=>{throw new Error('page override');};
+    const first=new IntersectionObserver(()=>{first.disconnect();throw new Error('observer failure');});first.observe(el);
+    const second=new IntersectionObserver(entries=>{second.disconnect();resolve(errors===1 && entries[0].boundingClientRect.width===20);});second.observe(el);
+  })`;
   const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
     method: "POST",
     headers: { authorization: "Bearer test-secret" },

@@ -21,7 +21,7 @@ tests as well as integration and application tests.
 
 `tooling/browser-live.test.ts` uses a real loopback HTTP origin, actual workerd,
 and the compiled Rust/Wasm engine. It installs no transport replacements,
-service mocks, browser API stubs, or canned engine results. Its 1472 data variants
+service mocks, browser API stubs, or canned engine results. Its 1536 data variants
 exercise external scripts, Unicode/entity decoding, selector identity,
 ancestry, removal/reparenting, attribute mutation and POST response decoding.
 They also exercise parsed and created text/comment nodes, native node identity,
@@ -45,15 +45,15 @@ failures. The eighth set exercises native Web Storage across inline, external
 and module scripts, UTF-16 including lone surrogates, coercion/receiver guards,
 named properties, reflection, removal, clearing and fresh Worker request areas.
 An additional case exercises actual quota exhaustion, atomic failure, independent
-local/session quotas and reuse. These are repeated integration checks, not 1472 independent platform
+local/session quotas and reuse. These are repeated integration checks, not 1536 independent platform
 features. The ninth set checks native media queries against 64 explicit viewport
 and preference configurations, including ranges, three-valued conditions,
 serialization, CSS escapes, receiver guards and synthetic MediaQueryList events.
 The tenth set rejects 64 invalid environment variants before any HTTP navigation.
 The eleventh set repeats the same DOMTokenList fixture at 64 distinct URLs,
 checking live attribute reads, ordered token mutations, identity, indices,
-iteration, receiver guards and atomic invalid-token rejection. Including thirty-nine
-resource/deadline/origin checks, the real browser suite has 1511 tests.
+iteration, receiver guards and atomic invalid-token rejection. Including forty-nine
+resource/deadline/origin checks, the real browser suite has 1585 tests.
 The twelfth set checks HTML namespace identity and reflected attributes with
 64 distinct synthetic strings. It includes parsed SVG/MathML and an HTML
 subtree inside SVG foreignObject.
@@ -337,7 +337,7 @@ inheritance, animation taint and computed values remain missing. Tokenization is
 64 KiB inputs and 1024 expanded declarations. CSSOM color/zero-length canonicalization, complete property
 aliases, semantic range validation and IDL reflection, generic shorthand recompression, foreign namespace
 inline-style interfaces, stylesheet/rule APIs, cascade, getComputedStyle,
-complete layout/geometry and IntersectionObserver remain incomplete or absent. Accepting
+complete layout/geometry and IntersectionObserver remain incomplete. Accepting
 and storing a declaration does not prove its rendering behavior. Bundler,
 source-map, Node and threading features are disabled. Hash-map entropy on Wasm
 comes from the Worker's native Web Crypto; page scripts cannot access this bridge.
@@ -627,6 +627,42 @@ The upstream dispatcher also accepts several domains with empty acknowledgements
 not evidence of implemented domain behavior. Nimbo's acceptance requires the
 requested effects and resulting state, even where the upstream baseline omits
 them.
+
+## Native intersection observation subset
+
+IntersectionObserver now measures the same Rust/Taffy boxes as DOM geometry.
+Native host checkpoints deliver initial entries and threshold/intersection changes
+asynchronously, drain microtasks between callbacks and report callback exceptions
+through window error events. Page-overridden geometry methods do not control these
+measurements. Mutations invalidate observations; stable observations do not
+repeatedly enqueue entries. Disconnect, unobserve, reobserve, takeRecords,
+receiver guards, sorted frozen thresholds and immutable entry snapshots are covered.
+
+The real HTTP/workerd/Wasm suite repeats 36 assertions at 64 synthetic URLs.
+It exercises element and document roots, positive/negative/percentage margins,
+ancestor overflow clipping, hidden/detached/zero-area targets and native scheduling.
+Ten additional real Worker cases cover explicit unsupported-feature errors,
+registration/threshold/margin caps, fresh-request recovery and callback errors.
+The native HTTP suite executes the same fixture. These tests use actual engine
+execution, not observer stubs. Legacy adapter-boundary tests remain separate.
+
+A focused Chromium comparison returned 31 of the 36 assertions true. Known
+comparison gaps include edge adjacency with a nonzero minimum threshold,
+detached root bounds, unrelated-target delivery within the harness timeout,
+absolute-unit margin parsing and direct entry construction. Ratios are compared
+with a 1e-6 tolerance; this does not establish exact floating-point or threshold
+parity. Attempts to repeat this fixture in the background collaborative browser
+hit notification/evaluation deadlines, so mass Chromium equivalence is unproven.
+The current [IntersectionObserver draft](https://w3c.github.io/IntersectionObserver/)
+defines absolute length margins and an entry constructor; accepting those APIs
+is not evidence of matching the compared Chromium implementation.
+
+Visibility tracking, nonzero delay and scroll margins fail explicitly. Scrolling,
+viewport overflow propagation, fonts/text shaping, transforms, frames, external
+stylesheets and all other unsupported native layout inputs remain unsupported.
+This host scheduling subset does not establish rendering-frame cadence, v2
+visibility tracking, ResizeObserver or full IntersectionObserver conformance.
+No Obscura runtime dependency or fallback is involved.
 
 ## Worker feasibility gates
 
