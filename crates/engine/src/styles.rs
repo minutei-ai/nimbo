@@ -34,6 +34,8 @@ struct Entry {
     pending: Option<Rc<Pending>>,
     #[serde(skip)]
     deferred: bool,
+    #[serde(skip)]
+    animated: bool,
 }
 
 impl Entry {
@@ -44,6 +46,7 @@ impl Entry {
             important,
             pending: None,
             deferred: false,
+            animated: false,
         }
     }
 }
@@ -151,6 +154,10 @@ fn native_keyword(name: &str, value: &str) -> Option<String> {
             keyword.as_str(),
             "left" | "right" | "none" | "both" | "inline-start" | "inline-end"
         ),
+        "writing-mode" => matches!(
+            keyword.as_str(),
+            "horizontal-tb" | "vertical-rl" | "vertical-lr" | "sideways-rl" | "sideways-lr"
+        ),
         _ => false,
     };
     valid.then_some(keyword)
@@ -169,7 +176,7 @@ fn custom_name(name: &str) -> bool {
 }
 
 fn known_name(name: &str) -> bool {
-    matches!(name, "float" | "clear" | "content")
+    matches!(name, "float" | "clear" | "content" | "writing-mode")
         || !matches!(PropertyId::from(name), PropertyId::Custom(_))
 }
 
@@ -351,6 +358,7 @@ fn expand(name: &str, value: &str, important: bool) -> Option<Vec<Entry>> {
                     important,
                     pending: None,
                     deferred: true,
+                    animated: false,
                 }]
             },
             |ids| {
@@ -361,6 +369,7 @@ fn expand(name: &str, value: &str, important: bool) -> Option<Vec<Entry>> {
                         important,
                         pending: Some(Rc::clone(&pending)),
                         deferred: true,
+                        animated: false,
                     })
                     .collect()
             },
@@ -373,9 +382,10 @@ fn expand(name: &str, value: &str, important: bool) -> Option<Vec<Entry>> {
             important,
             pending: None,
             deferred,
+            animated: false,
         }]);
     }
-    if matches!(name, "float" | "clear") {
+    if matches!(name, "float" | "clear" | "writing-mode") {
         return Some(vec![Entry::new(
             name,
             native_keyword(name, value)?,
@@ -469,8 +479,9 @@ impl Declarations {
         sources: impl IntoIterator<Item = (&'a Self, bool, u32, &'a [usize])>,
     ) -> Result<Self, &'static str> {
         let mut winners = std::collections::HashMap::new();
-        for (source, inline, specificity, layer) in sources {
-            for entry in &source.entries {
+        for (source_index, (source, inline, specificity, layer)) in sources.into_iter().enumerate()
+        {
+            for (entry_index, entry) in source.entries.iter().enumerate() {
                 let order: Vec<_> = layer
                     .iter()
                     .map(|value| {
@@ -481,7 +492,14 @@ impl Declarations {
                         }
                     })
                     .collect();
-                let rank = (entry.important, inline, order, specificity);
+                let rank = (
+                    entry.important,
+                    inline,
+                    order,
+                    specificity,
+                    source_index,
+                    entry_index,
+                );
                 let winner = winners
                     .entry(entry.name.clone())
                     .or_insert_with(|| (rank.clone(), entry.clone()));
@@ -493,8 +511,10 @@ impl Declarations {
                 }
             }
         }
+        let mut ordered: Vec<_> = winners.into_values().collect();
+        ordered.sort_by(|a, b| a.0.cmp(&b.0));
         Ok(Self {
-            entries: winners.into_values().map(|(_rank, entry)| entry).collect(),
+            entries: ordered.into_iter().map(|(_rank, entry)| entry).collect(),
             shorthands: Vec::new(),
         })
     }
@@ -502,6 +522,18 @@ impl Declarations {
         self.entries
             .iter()
             .map(|entry| (entry.name.as_str(), entry.value.as_str(), entry.deferred))
+    }
+    pub(crate) fn layout_priorities(
+        &self,
+    ) -> impl Iterator<Item = (&str, &str, bool, (bool, bool, usize))> {
+        self.entries.iter().enumerate().map(|(index, entry)| {
+            (
+                entry.name.as_str(),
+                entry.value.as_str(),
+                entry.deferred,
+                (entry.important, entry.animated, index),
+            )
+        })
     }
     pub(crate) fn parse(source: &str) -> Result<Self, &'static str> {
         if source.len() > INPUT_LIMIT {
@@ -516,6 +548,7 @@ impl Declarations {
                 result.put(entry, true)?;
             }
         }
+        result.entries.sort_by_key(|entry| entry.important);
         Ok(result)
     }
     fn remember(&mut self, name: &str) {
@@ -526,9 +559,23 @@ impl Declarations {
         }
     }
     fn put(&mut self, entry: Entry, cascading: bool) -> Result<(), &'static str> {
+        let reorder = cascading
+            || self.entries.iter().any(|old| {
+                old.name != entry.name
+                    && crate::layout::logical::group(&old.name).is_some()
+                    && crate::layout::logical::group(&old.name)
+                        == crate::layout::logical::group(&entry.name)
+                    && (crate::layout::logical::physical(&old.name) != old.name
+                        || crate::layout::logical::physical(&entry.name) != entry.name)
+            });
         if let Some(old) = self.entries.iter_mut().find(|old| old.name == entry.name) {
             if !cascading || entry.important || !old.important {
-                *old = entry;
+                if reorder {
+                    self.entries.retain(|old| old.name != entry.name);
+                    self.entries.push(entry);
+                } else {
+                    *old = entry;
+                }
             }
         } else {
             if self.entries.len() >= ENTRY_LIMIT {
@@ -552,7 +599,8 @@ impl Declarations {
         let entries = expand(name, value, false).ok_or_else(|| {
             crate::Error::Dom("layout unsupported: animation interpolated declaration".into())
         })?;
-        for entry in entries {
+        for mut entry in entries {
+            entry.animated = true;
             self.put(entry, false)
                 .map_err(|message| crate::Error::Dom(message.into()))?;
         }
@@ -830,19 +878,19 @@ mod tests {
         assert_eq!(output.value, "1px 2px");
         assert_eq!(
             output.css_text,
-            "width: 1px !important; height: 2px; margin: 1px 2px;"
+            "height: 2px; margin: 1px 2px; width: 1px !important;"
         );
         let changed = operate("set", &output.css_text, "width", "4px", "")?;
         assert_eq!(
             changed.css_text,
-            "width: 4px; height: 2px; margin: 1px 2px;"
+            "height: 2px; margin: 1px 2px; width: 4px;"
         );
         assert!(changed.changed);
         let invalid = operate("set", &changed.css_text, "width", "5px !important", "")?;
         assert!(!invalid.changed);
         let removed = operate("remove", &changed.css_text, "margin", "", "")?;
         assert_eq!(removed.value, "1px 2px");
-        assert_eq!(removed.css_text, "width: 4px; height: 2px;");
+        assert_eq!(removed.css_text, "height: 2px; width: 4px;");
         Ok(())
     }
     #[test]
@@ -932,7 +980,7 @@ mod tests {
         assert_eq!(output.value, "inherit");
         assert_eq!(
             output.css_text,
-            "--A: three !important; --a: two; padding: inherit;"
+            "--a: two; padding: inherit; --A: three !important;"
         );
         assert_eq!(
             operate("get", &output.css_text, "--A", "", "")?.value,

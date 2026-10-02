@@ -1,4 +1,5 @@
 import { layoutBudgetFixture } from "./layout-budget-fixture";
+import { logicalSizeFixture } from "./logical-size-fixture";
 import { canvasFixture } from "./canvas-fixture";
 import { borderFixture } from "./border-fixture";
 import { cssBudgetFixture } from "./css-budget-fixture";
@@ -414,6 +415,8 @@ const origin = Bun.serve({
     requests.push(`${request.method} ${path}`);
     const layoutBudget = layoutBudgetFixture(path);
     if (layoutBudget) return layoutBudget;
+    const logicalSize = await logicalSizeFixture(path);
+    if (logicalSize) return logicalSize;
     const canvas = await canvasFixture(path);
     if (canvas) return canvas;
     const border = await borderFixture(path);
@@ -4596,3 +4599,48 @@ test("real HTTP → workerd → Wasm: configured node budget counts generated bo
   expect(healthy.status).toBe(200);
   expect(await healthy.json()).toMatchObject({ value: true });
 });
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: logical dimensions and cascade variant %i",
+  async (variant) => {
+    const url = new URL(`logical-size/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: `logicalSizeCase(${variant})` }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing logical geometry");
+    expect(Object.keys(value)).toHaveLength(45);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each([
+  ["writing-mode:vertical-rl;inline-size:20px", "writing-mode"],
+  ["direction:rtl;inline-size:20px", "direction"],
+  ["inline-size:2em", "width"],
+  ["inline-size:inherit", "width"],
+])(
+  "real HTTP → workerd → Wasm: unsupported logical geometry %s fails explicitly",
+  async (css, reason) => {
+    const url = new URL("logical-size/0", origin.url).href;
+    const expression = `(()=>{const box=document.createElement('div');box.style.cssText=${JSON.stringify(css)};document.body.append(box);return box.getBoundingClientRect()})()`;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression }),
+    });
+    expect(response.status).toBe(422);
+    expect(await response.text()).toContain(`layout unsupported: ${reason}`);
+    const healthy = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "logicalSizeCase(0)" }),
+    });
+    expect(healthy.status).toBe(200);
+  },
+);

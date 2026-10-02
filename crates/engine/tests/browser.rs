@@ -1390,6 +1390,15 @@ fn registered_custom_properties_validate_before_substitution() -> TestResult {
 }
 
 fn serve_resource(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/logical-size/") {
+        let source = format!(
+            "<!doctype html><meta charset=utf-8><script>{}</script>",
+            include_str!("fixtures/logical-size.txt")
+        );
+        return request.respond(
+            Response::from_string(source).with_header(header("Content-Type", "text/html")?),
+        );
+    }
     if request.url().starts_with("/layout-budget/") {
         return serve_layout_budget(request);
     }
@@ -1527,6 +1536,7 @@ fn is_resource(path: &str) -> bool {
     [
         "/sheets-css/",
         "/layout-budget/",
+        "/logical-size/",
         "/canvas/",
         "/borders/",
         "/css-budget/",
@@ -1842,5 +1852,24 @@ fn configured_layout_node_budget_measures_large_real_http_trees() -> TestResult 
         page.evaluate("layoutBudgetCase(0)")
             .is_err_and(|error| error.to_string().contains("layout tree: nodes"))
     );
+    Ok(())
+}
+
+#[test]
+fn logical_dimensions_cascade_real_http_boxes() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/logical-size/{variant}")))?;
+        let result = page.evaluate(&format!("logicalSizeCase({variant})"))?;
+        let fields = result
+            .as_object()
+            .ok_or("missing logical dimensions result")?;
+        assert_eq!(fields.len(), 45);
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
     Ok(())
 }

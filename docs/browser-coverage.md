@@ -321,8 +321,8 @@ the forwarded request reaches the origin. These checks cover redirects,
 HTTP cookies, POST bodies, response errors, script skipping, isolation,
 resource limits and recovery. The HTTP cookie fixture does not test TLS or
 Secure cookie delivery. The seven lint/infrastructure checks spawn the actual
-pinned tools rather than replacing their behavior. All 3332 Bun tests therefore
-run without transport, browser or tool mocks; 3325 exercise the browser engine
+pinned tools rather than replacing their behavior. All 3400 Bun tests therefore
+run without transport, browser or tool mocks; 3393 exercise the browser engine
 and seven exercise tooling. Neither local suite proves deployed performance,
 TLS fingerprints, rendering or broad browser compatibility.
 
@@ -1688,3 +1688,41 @@ checking that the reported current version matches the installed package and the
 recommended version matches the notice. Other stderr output still fails. This
 keeps upstream release announcements from breaking dependency validation without
 replacing the CLI or its native dependencies with mocks.
+
+## Logical dimensions and cascade ordering
+
+The native horizontal-tb, left-to-right box layout now maps inline-size,
+block-size, min-inline-size, min-block-size, max-inline-size and max-block-size
+to their corresponding physical dimensions. Logical and physical declarations
+compete using importance, inline origin, layer priority, specificity, rule order
+and declaration order. Cascade collection now retains that ordering instead of
+emitting hash-map iteration order. Only the winning mapped dimension is parsed
+for layout; a losing declaration with an unsupported length no longer prevents
+measurement. Variable substitution still occurs before mapped winners are picked.
+Animation samples outrank normal declarations and remain below important ones.
+
+Parsing a repeated declaration preserves its final accepted source position;
+parsed normal declarations serialize before important declarations.
+CSSOM updates preserve ordinary declaration positions but move sizing entries
+when the same logical property group contains a logical counterpart. The stored
+CSSOM names remain logical; conversion occurs only for box layout. Maximum-size
+none, including initial/unset defaults, now imposes no maximum constraint.
+
+The real shared HTTP fixture passes 45 assertions across 64 native Rust
+navigations and 64 workerd/Wasm requests. It covers both axes and constraints,
+source order, repeated declarations, importance, specificity, inline origin,
+normal/important cascade layers, percentages, content/border boxes, variables,
+invalid computed values, paused animations and CSSOM mutation/removal/order.
+All 2880 assertions also pass in Chromium; see
+[the aggregate](evidence/logical-size-chromium.json). Four further real Worker
+requests reject unsupported vertical writing, RTL, a relative dimension and
+inherited sizing, then recover through fresh successful requests.
+
+Writing-mode is now syntax-checked natively because the pinned declaration
+parser does not recognize it. Horizontal-tb is admitted; vertical and sideways
+values remain explicit layout failures. Complete writing-mode/direction layout,
+logical margins/padding/borders/insets, inherited sizing, contextual lengths,
+intrinsic-size coverage, text shaping/painting and unmodified WPT remain pending.
+These checks do not prove complete CSS logical-property conformance.
+
+Public reference: [CSS Logical Properties and Values](https://www.w3.org/TR/css-logical-1/).

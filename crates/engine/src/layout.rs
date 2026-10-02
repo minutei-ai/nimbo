@@ -9,6 +9,8 @@ use crate::{
     styles::{Declarations, Variables},
 };
 
+pub(crate) mod logical;
+
 pub(crate) struct Work<'a> {
     operations: &'a mut usize,
     limit: usize,
@@ -51,11 +53,13 @@ fn layout_error(error: &TaffyError) -> Error {
 }
 
 fn defaulted<'a>(name: &str, value: &'a str) -> &'a str {
+    if matches!(name, "max-width" | "max-height") && value == "none" {
+        return "auto";
+    }
     if matches!(value, "initial" | "unset") {
         match name {
             "width" | "height" | "min-width" | "min-height" | "flex-basis" | "left" | "right"
-            | "top" | "bottom" | "align-self" => "auto",
-            "max-width" | "max-height" => "none",
+            | "top" | "bottom" | "align-self" | "max-width" | "max-height" => "auto",
             "margin-left" | "margin-right" | "margin-top" | "margin-bottom" | "padding-left"
             | "padding-right" | "padding-top" | "padding-bottom" | "flex-grow" => "0",
             "flex-shrink" => "1",
@@ -200,7 +204,7 @@ fn style_for(
             $field = value.parse().map_err(|_error| unsupported($name))?;
         }};
     }
-    for (name, value, deferred) in declarations.layout_entries() {
+    for (name, value, deferred) in logical::entries(declarations) {
         if generated && name == "content" {
             continue;
         }
@@ -219,6 +223,9 @@ fn style_for(
             continue;
         }
         match name {
+            "writing-mode"
+                if matches!(value, "horizontal-tb" | "initial" | "unset" | "inherit") => {}
+            "direction" if matches!(value, "ltr" | "initial" | "unset" | "inherit") => {}
             "display" => assign!(style.display, value, name),
             "box-sizing" => assign!(style.box_sizing, value, name),
             "width" => assign!(style.size.width, value, name),
