@@ -1,0 +1,38 @@
+globalThis.comparison=(()=>{
+  const variant=globalThis.variant??0, token='value-'+variant;
+  const result={};
+  function setup(){const p=document.createElement('div');document.body.appendChild(p);const a=document.createElement('a'),b=document.createElement('b'),c=document.createElement('i');a.textContent='a';b.textContent='b';c.textContent='c';p.appendChild(a);p.appendChild(b);p.appendChild(c);return {p,a,b,c};}
+  function text(p){return p.textContent;}
+  let {p,a,b,c}=setup();const live=p.childNodes;
+  result.before=b.before(token)===undefined && text(p)==='a'+token+'bc' && live.length===4 && live[1].nodeType===3;
+  result.after=b.after('tail',7)===undefined && text(p)==='a'+token+'btail7c';p.remove();
+  ({p,a,b,c}=setup());b.before(c,a);result.reorderBefore=text(p)==='cab' && p.firstChild===c && a.nextSibling===b;p.remove();
+  ({p,a,b,c}=setup());b.after(c,a);result.reorderAfter=text(p)==='bca' && p.firstChild===b;p.remove();
+  ({p,a,b,c}=setup());b.before(b,a,b);result.selfBefore=text(p)==='abc' && p.childNodes.length===3;p.remove();
+  ({p,a,b,c}=setup());b.after(b,c,b);result.selfAfter=text(p)==='acb' && p.lastChild===b;p.remove();
+  ({p,a,b,c}=setup());b.replaceWith(a,b,c,b);result.selfReplace=text(p)==='acb' && p.lastChild===b;p.remove();
+  ({p,a,b,c}=setup());b.replaceWith(c,a);result.replace=text(p)==='ca' && b.parentNode===null;p.remove();
+  ({p,a,b,c}=setup());b.replaceWith();result.emptyReplace=text(p)==='ac' && b.parentNode===null;a.before();a.after();result.emptySibling=p.childNodes.length===2;p.remove();
+  ({p,a,b,c}=setup());const fragment=document.createDocumentFragment();const x=document.createElement('u');x.textContent='x';fragment.appendChild(x);fragment.appendChild(new Text('y'));b.before(fragment);result.fragment=text(p)==='axybc' && fragment.childNodes.length===0 && x.parentNode===p;p.remove();
+  ({p,a,b,c}=setup());p.append(c,'d',a);result.append=text(p)==='bcda' && p.lastChild===a;p.prepend(a,'e',b);result.prepend=text(p)==='aebcd' && p.firstChild===a;p.remove();
+  const holder=document.createDocumentFragment();holder.append('a','b');holder.prepend('c');result.fragmentParent=holder.textContent==='cab';
+  const t=new Text('text'),comment=new Comment('note');holder.append(t,comment);t.before('before');t.after('after');comment.replaceWith('replacement');result.characters=holder.textContent==='cabbeforetextafterreplacement' && comment.parentNode===null;
+  const detached=document.createElement('div'),kept=new Text('kept');let coercions=0;detached.before(kept,{toString(){coercions++;return token;}});result.detached=kept.parentNode===null && detached.childNodes.length===0 && coercions===1;
+  result.symbol=[()=>detached.before(Symbol()),()=>detached.after(Symbol()),()=>detached.replaceWith(Symbol()),()=>holder.append(Symbol()),()=>holder.prepend(Symbol())].every(run=>{try{run();return false;}catch(e){return e instanceof TypeError;}});
+  ({p,a,b,c}=setup());try{b.before(a,{toString(){throw new Error('conversion');}});}catch{}result.conversionAtomic=text(p)==='abc' && a.parentNode===p;p.remove();
+  ({p,a,b,c}=setup());const changed={toString(){b.remove();return token;}};b.after(changed);result.conversionReentry=text(p)==='ac';p.remove();
+  ({p,a,b,c}=setup());let cycle=false;try{b.before(p);}catch(e){cycle=e.name==='HierarchyRequestError';}result.cycle=cycle && b.parentNode===p && text(p)==='abc';p.remove();
+  result.guards=[()=>Element.prototype.before.call({}),()=>Element.prototype.before.call(new Text('')),()=>CharacterData.prototype.after.call(document.body),()=>document.body.append.call(new Text(''))].every(run=>{try{run();return false;}catch(e){return e instanceof TypeError;}});
+  result.exposure=typeof document.before==='undefined' && typeof holder.after==='undefined' && typeof t.append==='undefined';
+  result.unscopables=[document.body,t,holder,document].every(n=>{const u=n[Symbol.unscopables];return u && Object.getPrototypeOf(u)===null && (!('before' in n)||u.before===true) && (!('append' in n)||u.append===true);});
+  const d=Object.getOwnPropertyDescriptor(Element.prototype,'before');result.descriptor=d.enumerable && d.writable && d.configurable && Element.prototype.before.length===0;
+  ({p,a,b,c}=setup());a.appendChild=()=>{throw new Error('override');};a.insertBefore=()=>{throw new Error('override');};Object.defineProperty(b,'parentNode',{value:null});a.append('d');b.before('e');result.nativeOps=text(p)==='adebc';p.remove();
+  const dt=document.childNodes[0];result.doctype=dt.nodeType===10 && typeof dt.before==='function' && dt instanceof DocumentType && Object.prototype.toString.call(dt)==='[object DocumentType]';let documentHierarchy=false;try{dt.before('invalid');}catch(e){documentHierarchy=e.name==='HierarchyRequestError';}result.documentHierarchy=documentHierarchy && dt.parentNode===document;
+  result.parentDescriptors=[Element,Document,DocumentFragment].every(type=>['append','prepend'].every(key=>{const d=Object.getOwnPropertyDescriptor(type.prototype,key);return d && d.enumerable && d.writable && d.configurable;}));
+  result.parentBrands=[()=>Document.prototype.append.call(document.body),()=>Element.prototype.prepend.call(holder),()=>DocumentFragment.prototype.append.call(document)].every(run=>{try{run();return false;}catch(e){return e instanceof TypeError;}});
+  const log=[],name='x-insert-'+variant;let destination;
+  customElements.define(name,class extends HTMLElement {connectedCallback(){log.push(['connected',this.parentNode===destination]);}disconnectedCallback(){log.push(['disconnected',this.parentNode===destination]);}});
+  const ce=document.createElement(name);document.body.appendChild(ce);({p,a,b,c}=setup());destination=p;log.length=0;b.before(ce,token);
+  result.reactions=JSON.stringify(log)===JSON.stringify([['disconnected',true],['connected',true]]) && ce.nextSibling.nodeValue===token && ce.nextSibling.nextSibling===b;p.remove();
+  return result;
+})();

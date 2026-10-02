@@ -81,15 +81,28 @@ fn script_fixture(script: &str) -> String {
     format!("<script>{script}</script>")
 }
 
+fn layout_fixture(path: &str) -> String {
+    let script = match path {
+        "/cascade" => include_str!("fixtures/cascade.txt"),
+        "/variables" => include_str!("fixtures/variables.txt"),
+        "/intersections" => include_str!("fixtures/intersections.txt"),
+        "/geometry" => include_str!("fixtures/geometry.txt"),
+        _ => {
+            return format!(
+                "<!doctype html>{}",
+                script_fixture(include_str!("fixtures/node-insertion.txt"))
+            );
+        }
+    };
+    script_fixture(script)
+}
+
 fn serve(mut request: Request) -> io::Result<()> {
     let mut content_type = "text/html; charset=utf-8";
     let mut status = 200;
     let mut headers = Vec::new();
     let body = match request.url() {
-        "/cascade" => script_fixture(include_str!("fixtures/cascade.txt")),
-        "/variables" => script_fixture(include_str!("fixtures/variables.txt")),
-        "/intersections" => script_fixture(include_str!("fixtures/intersections.txt")),
-        "/geometry" => script_fixture(include_str!("fixtures/geometry.txt")),
+        "/cascade" | "/variables" | "/node-insertion" | "/intersections" | "/geometry" => layout_fixture(request.url()),
         "/style-variables" => script_fixture(include_str!("fixtures/style-variables.txt")),
         "/styles" => script_fixture(include_str!("fixtures/styles.txt")),
         "/anchors" => format!("<base href=\"https://example.com/root/\"><a id=\"link\" href=\"../doc?q=1#fragment\">link</a><svg><a></a></svg><script>{}</script>", include_str!("fixtures/anchors.txt")),
@@ -978,6 +991,22 @@ fn intersection_observers_measure_real_boxes_and_deliver_threshold_changes() -> 
     let result = page.evaluate("comparison")?;
     let fields = result.as_object().ok_or("missing intersection result")?;
     assert_eq!(fields.len(), 36);
+    assert!(
+        fields.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    Ok(())
+}
+
+#[test]
+fn node_insertion_converts_strings_and_moves_native_children() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/node-insertion"))?;
+    let result = page.evaluate("comparison")?;
+    let fields = result.as_object().ok_or("missing insertion result")?;
+    assert_eq!(fields.len(), 30);
     assert!(
         fields.values().all(|value| *value == json!(true)),
         "{result}"

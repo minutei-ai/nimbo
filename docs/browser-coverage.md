@@ -21,7 +21,7 @@ tests as well as integration and application tests.
 
 `tooling/browser-live.test.ts` uses a real loopback HTTP origin, actual workerd,
 and the compiled Rust/Wasm engine. It installs no transport replacements,
-service mocks, browser API stubs, or canned engine results. Its 1536 data variants
+service mocks, browser API stubs, or canned engine results. Its 1600 data variants
 exercise external scripts, Unicode/entity decoding, selector identity,
 ancestry, removal/reparenting, attribute mutation and POST response decoding.
 They also exercise parsed and created text/comment nodes, native node identity,
@@ -45,15 +45,15 @@ failures. The eighth set exercises native Web Storage across inline, external
 and module scripts, UTF-16 including lone surrogates, coercion/receiver guards,
 named properties, reflection, removal, clearing and fresh Worker request areas.
 An additional case exercises actual quota exhaustion, atomic failure, independent
-local/session quotas and reuse. These are repeated integration checks, not 1536 independent platform
+local/session quotas and reuse. These are repeated integration checks, not 1600 independent platform
 features. The ninth set checks native media queries against 64 explicit viewport
 and preference configurations, including ranges, three-valued conditions,
 serialization, CSS escapes, receiver guards and synthetic MediaQueryList events.
 The tenth set rejects 64 invalid environment variants before any HTTP navigation.
 The eleventh set repeats the same DOMTokenList fixture at 64 distinct URLs,
 checking live attribute reads, ordered token mutations, identity, indices,
-iteration, receiver guards and atomic invalid-token rejection. Including forty-nine
-resource/deadline/origin checks, the real browser suite has 1585 tests.
+iteration, receiver guards and atomic invalid-token rejection. Including fifty-one
+resource/deadline/origin checks, the real browser suite has 1651 tests.
 The twelfth set checks HTML namespace identity and reflected attributes with
 64 distinct synthetic strings. It includes parsed SVG/MathML and an HTML
 subtree inside SVG foreignObject.
@@ -627,6 +627,31 @@ The upstream dispatcher also accepts several domains with empty acknowledgements
 not evidence of implemented domain behavior. Nimbo's acceptance requires the
 requested effects and resulting state, even where the upstream baseline omits
 them.
+
+## Variadic native node insertion
+
+Element, CharacterData and parsed DocumentType nodes now expose before, after
+and replaceWith. Element, Document and DocumentFragment expose append and prepend
+on their own prototypes. String arguments become actual native Text nodes;
+multiple arguments move through a real native fragment. Viable sibling selection
+handles self-insertion, duplicated arguments and reordered existing siblings.
+Argument coercion finishes before structural mutation; detached receivers still convert
+arguments without moving nodes. Native insertion validates hierarchy constraints
+and keeps node identity and live collections intact. Page-overridden mutation
+methods and parentNode properties do not control these internal operations.
+
+The shared fixture contains 30 aggregate checks, repeated at 64 real HTTP URLs
+through workerd/Wasm and also through 64 fresh Chromium document realms. The
+Chromium run returned every aggregate true without browser or transport stubs.
+The native HTTP adapter executes the same fixture. Two additional Worker tests
+exhaust the shared DOM write/operation budgets and verify fresh-request recovery.
+Checks include receiver brands, Symbols and conversion errors/reentry, fragment
+emptying, text/comment operations, descriptors, unscopables and custom-element
+connection reactions after the complete variadic mutation. This is focused
+agreement, not complete DOM/WPT conformance. Full DocumentType construction and
+metadata, replaceChildren, moveBefore, shadow trees and the other outstanding
+DOM requirements remain in scope. No Obscura runtime is involved.
+Public reference: [DOM mutation algorithms](https://dom.spec.whatwg.org/#mixin-childnode).
 
 ## Native intersection observation subset
 

@@ -39,6 +39,9 @@ const cascadeScript = await Bun.file(
 const variablesScript = await Bun.file(
   join(import.meta.dir, "../crates/engine/tests/fixtures/variables.txt"),
 ).text();
+const insertionScript = await Bun.file(
+  join(import.meta.dir, "../crates/engine/tests/fixtures/node-insertion.txt"),
+).text();
 const intersectionScript = await Bun.file(
   join(import.meta.dir, "../crates/engine/tests/fixtures/intersections.txt"),
 ).text();
@@ -402,6 +405,13 @@ const origin = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     requests.push(`${request.method} ${path}`);
+    if (path.startsWith("/node-insertion/")) {
+      const variant = Number(path.split("/").at(-1));
+      return new Response(
+        `<!doctype html><script>globalThis.variant=${variant};${insertionScript}</script>`,
+        { headers: { "content-type": "text/html" } },
+      );
+    }
     if (path.startsWith("/intersections/")) {
       const variant = Number(path.split("/").at(-1));
       return new Response(`<script>globalThis.variant=${variant};${intersectionScript}</script>`, {
@@ -2521,3 +2531,93 @@ test("real HTTP → workerd → Wasm: intersection callbacks report exceptions a
   expect(response.status).toBe(200);
   expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: true });
 });
+
+const insertionExpected = Object.fromEntries(
+  [
+    "before",
+    "after",
+    "reorderBefore",
+    "reorderAfter",
+    "selfBefore",
+    "selfAfter",
+    "selfReplace",
+    "replace",
+    "emptyReplace",
+    "emptySibling",
+    "fragment",
+    "append",
+    "prepend",
+    "fragmentParent",
+    "characters",
+    "detached",
+    "symbol",
+    "conversionAtomic",
+    "conversionReentry",
+    "cycle",
+    "guards",
+    "exposure",
+    "unscopables",
+    "descriptor",
+    "nativeOps",
+    "doctype",
+    "documentHierarchy",
+    "parentDescriptors",
+    "parentBrands",
+    "reactions",
+  ].map((key) => [key, true]),
+);
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native variadic node insertion variant %i",
+  async (variant) => {
+    const url = new URL(`node-insertion/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "comparison" }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      url,
+      engine: "rust-wasm-quickjs",
+      value: insertionExpected,
+    });
+    expect(requests).toContain(`GET /node-insertion/${variant}`);
+  },
+);
+
+test.each([
+  [
+    "write bytes",
+    "document.body.append('x'.repeat(4*1024*1024+1))",
+    "resource limit: DOM write bytes",
+  ],
+  [
+    "operations",
+    "(()=>{for(let i=0;i<10000;i++)document.body.append('');})()",
+    "resource limit: DOM operations",
+  ],
+])(
+  "real HTTP → workerd → Wasm: variadic insertion enforces %s and recovers",
+  async (_name, expression, detail) => {
+    const url = new URL("geometry-empty", origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression }),
+    });
+    expect(response.status).toBe(422);
+    const message: unknown = expect.stringContaining(detail);
+    expect(await response.json()).toEqual({ error: message });
+    const recovered = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url,
+        expression:
+          "(()=>{const p=document.createElement('div');document.body.append(p);p.append('b');p.firstChild.before('a');p.firstChild.after('c');return p.textContent==='acb';})()",
+      }),
+    });
+    expect(recovered.status).toBe(200);
+    expect(await recovered.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: true });
+  },
+);

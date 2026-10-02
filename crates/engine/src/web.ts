@@ -1112,6 +1112,71 @@
       call("remove", idOf(this));
     }
   }
+  function nodeArguments(values: unknown[]): (Node | string)[] {
+    return values.map((value) => {
+      if (value instanceof Node) {
+        idOf(value);
+        return value;
+      }
+      return domString(value);
+    });
+  }
+  function convertedNode(values: (Node | string)[]): Node {
+    const converted = values.map((value) => (typeof value === "string" ? new Text(value) : value));
+    const single = converted[0];
+    if (converted.length === 1 && single) return single;
+    const fragment = new DocumentFragment();
+    for (const child of converted) insertNode(fragment, child, null);
+    return fragment;
+  }
+  function relative(target: Node, relation: string): Node | null {
+    const result = call<number | null>("relativeNode", idOf(target), relation);
+    return result === null ? null : node(result);
+  }
+  function insertNode(parent: Node, child: Node, reference: Node | null): void {
+    customMutation<void>(
+      "insert",
+      idOf(parent),
+      reference === null ? "" : String(idOf(reference)),
+      String(idOf(child)),
+      true,
+    );
+  }
+  function childOperation(
+    target: Node,
+    operation: "before" | "after" | "replaceWith",
+    values: unknown[],
+  ): void {
+    idOf(target);
+    const args = nodeArguments(values);
+    reactions(() => {
+      const parent = relative(target, "parent");
+      if (!parent) return;
+      let viable = relative(target, operation === "before" ? "previous" : "next");
+      while (viable && args.includes(viable))
+        viable = relative(viable, operation === "before" ? "previous" : "next");
+      const child = convertedNode(args);
+      if (operation === "before")
+        insertNode(parent, child, viable ? relative(viable, "next") : relative(parent, "first"));
+      else if (operation === "replaceWith" && relative(target, "parent") === parent)
+        customMutation<void>(
+          "replace",
+          idOf(parent),
+          String(idOf(target)),
+          String(idOf(child)),
+          true,
+        );
+      else insertNode(parent, child, viable);
+    });
+  }
+  function parentOperation(target: Node, prepend: boolean, values: unknown[]): void {
+    idOf(target);
+    const args = nodeArguments(values);
+    reactions(() => {
+      const child = convertedNode(args);
+      insertNode(target, child, prepend ? relative(target, "first") : null);
+    });
+  }
   class ParentNode extends Node {
     get children(): HTMLCollection {
       let list = elementLists.get(this);
@@ -1468,6 +1533,28 @@
     Object.defineProperty(prototype, Symbol.toStringTag, { value: tag, configurable: true });
   }
   class Element extends ParentNode {
+    append(...values: unknown[]): void {
+      if (!(this instanceof Element)) throw new TypeError("Illegal invocation");
+      parentOperation(this, false, values);
+    }
+    prepend(...values: unknown[]): void {
+      if (!(this instanceof Element)) throw new TypeError("Illegal invocation");
+      parentOperation(this, true, values);
+    }
+
+    before(...values: unknown[]): void {
+      if (!(this instanceof Element)) throw new TypeError("Illegal invocation");
+      childOperation(this, "before", values);
+    }
+    after(...values: unknown[]): void {
+      if (!(this instanceof Element)) throw new TypeError("Illegal invocation");
+      childOperation(this, "after", values);
+    }
+    replaceWith(...values: unknown[]): void {
+      if (!(this instanceof Element)) throw new TypeError("Illegal invocation");
+      childOperation(this, "replaceWith", values);
+    }
+
     getBoundingClientRect(): DOMRect {
       const result = call<RectValues>("bounds", idOf(this));
       return new DOMRect(result.x, result.y, result.width, result.height);
@@ -2239,7 +2326,13 @@
   });
   const customElements = new CustomElementRegistry(internal);
   // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
-  function customMutation<T>(operation: string, id: number, arg: string, value: string): T {
+  function customMutation<T>(
+    operation: string,
+    id: number,
+    arg: string,
+    value: string,
+    deferred = false,
+  ): T {
     if (
       definitions.size === 0 ||
       ![
@@ -2255,7 +2348,7 @@
       ].includes(operation)
     )
       return raw<T>(operation, id, arg, value);
-    return reactions(() => {
+    const mutate = () => {
       if (operation === "style") {
         const target = nodes.get(id);
         const old = raw<string | null>("attr", id, "style");
@@ -2308,9 +2401,23 @@
           enqueue(target, () => upgrade(target));
       }
       return result;
-    });
+    };
+    return deferred ? mutate() : reactions(mutate);
   }
   class CharacterData extends Node {
+    before(...values: unknown[]): void {
+      if (!(this instanceof CharacterData)) throw new TypeError("Illegal invocation");
+      childOperation(this, "before", values);
+    }
+    after(...values: unknown[]): void {
+      if (!(this instanceof CharacterData)) throw new TypeError("Illegal invocation");
+      childOperation(this, "after", values);
+    }
+    replaceWith(...values: unknown[]): void {
+      if (!(this instanceof CharacterData)) throw new TypeError("Illegal invocation");
+      childOperation(this, "replaceWith", values);
+    }
+
     get data(): string {
       return this.nodeValue ?? "";
     }
@@ -2319,6 +2426,20 @@
     }
     get length(): number {
       return this.data.length;
+    }
+  }
+  class DocumentType extends Node {
+    before(...values: unknown[]): void {
+      if (!(this instanceof DocumentType)) throw new TypeError("Illegal invocation");
+      childOperation(this, "before", values);
+    }
+    after(...values: unknown[]): void {
+      if (!(this instanceof DocumentType)) throw new TypeError("Illegal invocation");
+      childOperation(this, "after", values);
+    }
+    replaceWith(...values: unknown[]): void {
+      if (!(this instanceof DocumentType)) throw new TypeError("Illegal invocation");
+      childOperation(this, "replaceWith", values);
     }
   }
   class Text extends CharacterData {
@@ -2351,6 +2472,8 @@
         return new Text("", internal, id);
       case 8:
         return new Comment("", internal, id);
+      case 10:
+        return new DocumentType(internal, id);
       case 11:
         return new DocumentFragment(internal, id);
       default:
@@ -2359,6 +2482,15 @@
   }
 
   class DocumentFragment extends ParentNode {
+    append(...values: unknown[]): void {
+      if (!(this instanceof DocumentFragment)) throw new TypeError("Illegal invocation");
+      parentOperation(this, false, values);
+    }
+    prepend(...values: unknown[]): void {
+      if (!(this instanceof DocumentFragment)) throw new TypeError("Illegal invocation");
+      parentOperation(this, true, values);
+    }
+
     constructor(key?: symbol, id?: number) {
       super(internal, key === internal && id !== undefined ? id : call("createFragment", 0));
     }
@@ -2369,8 +2501,44 @@
     return result;
   }
 
+  for (const prototype of [
+    Element.prototype,
+    CharacterData.prototype,
+    DocumentType.prototype,
+    DocumentFragment.prototype,
+  ]) {
+    const unscopables: Record<string, boolean> = {};
+    Object.setPrototypeOf(unscopables, null);
+    for (const key of ["append", "prepend", "before", "after", "replaceWith", "remove"]) {
+      if (key in prototype) unscopables[key] = true;
+      const descriptor = Object.getOwnPropertyDescriptor(prototype, key);
+      if (descriptor) Object.defineProperty(prototype, key, { ...descriptor, enumerable: true });
+    }
+    Object.defineProperty(prototype, Symbol.unscopables, {
+      value: unscopables,
+      configurable: true,
+    });
+  }
+  Object.defineProperty(ParentNode.prototype, Symbol.unscopables, {
+    value: Object.assign(Object.create(null), { append: true, prepend: true }),
+    configurable: true,
+  });
+  Object.defineProperty(DocumentType.prototype, Symbol.toStringTag, {
+    value: "DocumentType",
+    configurable: true,
+  });
+
   let readyState = "loading";
   class Document extends ParentNode {
+    append(...values: unknown[]): void {
+      if (!(this instanceof Document)) throw new TypeError("Illegal invocation");
+      parentOperation(this, false, values);
+    }
+    prepend(...values: unknown[]): void {
+      if (!(this instanceof Document)) throw new TypeError("Illegal invocation");
+      parentOperation(this, true, values);
+    }
+
     get body() {
       return this.querySelector("body");
     }
@@ -2444,6 +2612,11 @@
       }
       return target;
     }
+  }
+  for (const key of ["append", "prepend"]) {
+    const descriptor = Object.getOwnPropertyDescriptor(Document.prototype, key);
+    if (descriptor)
+      Object.defineProperty(Document.prototype, key, { ...descriptor, enumerable: true });
   }
   const document = new Document(internal, 0);
   nodes.set(0, document);
@@ -2883,6 +3056,7 @@
     CustomElementRegistry,
     Document,
     DocumentFragment,
+    DocumentType,
     NodeList,
     HTMLCollection,
     DOMTokenList,
