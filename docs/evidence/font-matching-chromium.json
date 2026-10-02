@@ -71,6 +71,8 @@
     "Nimbo selects font resources by declared descriptors and unicode-range; successful check/load does not demonstrate glyph coverage, shaping, font readiness or text rendering.",
     "The fixture uses an owned static TrueType font with descriptor intervals, not an actual variable font. Variable font behavior is unproven.",
     "The comparator returns both italic and default-oblique faces for the italic query in the focused probe, whereas Nimbo selects the italic face. The focused interval probe selects the exact 450 face while Nimbo retains all containing weight intervals. No browser defect is inferred.",
-    "The first comparator run omitted an explicit UTF-8 declaration. Its two additional Unicode failures were invalid comparison evidence; this aggregate comes from the corrected UTF-8 run."
-  ]
+    "The first comparator run omitted an explicit UTF-8 declaration. Its two additional Unicode failures were invalid comparison evidence; this aggregate comes from the corrected UTF-8 run.",
+    "This historical aggregate refers to the 49-assertion fixture at sourceCommit; the later grouped matcher and expanded fixture are recorded separately in font-groups-chromium.json."
+  ],
+  "sourceCommit": "98a18088cbfb3ff48eec5494523d5c924516c700"
 }

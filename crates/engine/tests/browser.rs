@@ -1597,7 +1597,7 @@ fn font_matching_selects_and_loads_real_http_fonts() -> TestResult {
         let page = browser.navigate(&fixture.path(&format!("/font-matching/{variant}")))?;
         let result = page.evaluate(&format!("fontMatchCase({variant})"))?;
         let fields = result.as_object().ok_or("missing font matching result")?;
-        assert_eq!(fields.len(), 49);
+        assert_eq!(fields.len(), 55);
         assert!(
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"

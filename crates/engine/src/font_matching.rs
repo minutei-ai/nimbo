@@ -126,6 +126,22 @@ impl Face {
             .iter()
             .any(|range| points.range(range.start..=range.end).next().is_some())
     }
+    fn same_group(&self, other: &Self) -> bool {
+        same_range(self.width, other.width)
+            && same_range(self.weight, other.weight)
+            && match (self.style, other.style) {
+                (Style::Normal, Style::Normal) | (Style::Italic, Style::Italic) => true,
+                (Style::Oblique(a), Style::Oblique(b)) => same_range(a, b),
+                _ => false,
+            }
+    }
+    fn specificity(&self) -> [f64; 3] {
+        let angle = match self.style {
+            Style::Oblique([a, b]) => b - a,
+            _ => 0.0,
+        };
+        [span(self.width), angle, span(self.weight)]
+    }
     fn rank(&self, width: f64, style: Style, weight: f64) -> Rank {
         [
             direction(width, self.width, width > 1.0),
@@ -133,6 +149,21 @@ impl Face {
             weight_score(weight, self.weight),
         ]
     }
+}
+fn span([low, high]: [f64; 2]) -> f64 {
+    high - low
+}
+fn same_range([a, b]: [f64; 2], [c, d]: [f64; 2]) -> bool {
+    a.total_cmp(&c) == Ordering::Equal && b.total_cmp(&d) == Ordering::Equal
+}
+fn compare_specificity(first: &Face, second: &Face) -> Ordering {
+    first
+        .specificity()
+        .iter()
+        .zip(second.specificity())
+        .map(|(a, b)| a.total_cmp(&b))
+        .find(|order| *order != Ordering::Equal)
+        .unwrap_or(Ordering::Equal)
 }
 fn compare(first: &Score, second: &Score) -> Ordering {
     first
@@ -257,13 +288,14 @@ fn select(request: &Request) -> Result<Option<Vec<usize>>> {
                 )
             })
             .collect::<Vec<_>>();
-        let best = candidates
-            .iter()
-            .map(|(_, _, rank)| rank)
-            .min_by(|a, b| compare_rank(a, b));
-        if let Some(best) = best {
-            for (index, face, rank) in &candidates {
-                if compare_rank(rank, best) == Ordering::Equal && face.covers(&points) {
+        // A tie between distinct descriptor groups must choose one consistent face.
+        // Prefer narrower intervals; preserve set order if their specificity is equal.
+        let best = candidates.iter().min_by(|(_, a, ar), (_, b, br)| {
+            compare_rank(ar, br).then_with(|| compare_specificity(a, b))
+        });
+        if let Some((_, best, _)) = best {
+            for (index, face, _) in &candidates {
+                if face.same_group(best) && face.covers(&points) {
                     selected.push(*index);
                 }
             }

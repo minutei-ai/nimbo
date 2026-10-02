@@ -4041,7 +4041,7 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     if (typeof result !== "object" || result === null) throw new Error("Missing response");
     const value: unknown = Reflect.get(result, "value");
     if (typeof value !== "object" || value === null) throw new Error("Missing comparison");
-    expect(Object.keys(value)).toHaveLength(49);
+    expect(Object.keys(value)).toHaveLength(55);
     expect(Object.values(value).every((check) => check === true)).toBe(true);
   },
 );

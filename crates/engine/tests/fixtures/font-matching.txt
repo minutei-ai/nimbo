@@ -20,12 +20,12 @@ globalThis.fontMatchCase = async (variant) => {
   await choose('weight500', [{weight:'400'},{weight:'600'}], '500 12px $', [0]);
   await choose('weight350', [{weight:'300'},{weight:'400'}], '350 12px $', [0]);
   await choose('weight550', [{weight:'500'},{weight:'600'}], '550 12px $', [1]);
-  await choose('weightRange', [{weight:'300 600'},{weight:'400 500'},{weight:'450'}], '450 12px $', [0,1,2]);
+  await choose('weightRange', [{weight:'300 600'},{weight:'400 500'},{weight:'450'}], '450 12px $', [2]);
   await choose('bolder', [{weight:'400'},{weight:'700'}], 'bolder 12px $', [1]);
   await choose('lighter', [{weight:'100'},{weight:'400'}], 'lighter 12px $', [0]);
   await choose('widthBelow', [{stretch:'75%'},{stretch:'125%'}], 'normal 12px $', [0]);
   await choose('widthAbove', [{stretch:'100%'},{stretch:'150%'}], 'expanded 12px $', [1]);
-  await choose('widthRange', [{stretch:'75% 125%'},{stretch:'normal'}], '12px $', [0,1]);
+  await choose('widthRange', [{stretch:'75% 125%'},{stretch:'normal'}], '12px $', [1]);
   await choose('widthBeforeStyle', [{stretch:'condensed',style:'normal'},{stretch:'expanded',style:'italic'}], 'italic 12px $', [0]);
   await choose('styleBeforeWeight', [{style:'italic',weight:'100'},{style:'normal',weight:'700'}], 'italic bold 12px $', [0]);
   await choose('italic', [{style:'normal'},{style:'italic'},{style:'oblique'}], 'italic 12px $', [1]);
@@ -36,7 +36,7 @@ globalThis.fontMatchCase = async (variant) => {
   await choose('obliqueHigh', [{style:'oblique 5deg'},{style:'oblique 30deg'}], 'oblique 20deg 12px $', [1]);
   await choose('obliqueLow', [{style:'oblique 5deg'},{style:'oblique 30deg'}], 'oblique 8deg 12px $', [0]);
   await choose('obliqueNegative', [{style:'oblique -30deg'},{style:'oblique -5deg'}], 'oblique -20deg 12px $', [0]);
-  await choose('obliqueRange', [{style:'oblique 0deg 30deg'},{style:'oblique 20deg'}], 'oblique 20deg 12px $', [0,1]);
+  await choose('obliqueRange', [{style:'oblique 0deg 30deg'},{style:'oblique 20deg'}], 'oblique 20deg 12px $', [1]);
   await choose('rangesA', [{unicodeRange:'U+41'},{unicodeRange:'U+42'},{unicodeRange:'U+41'}], '12px $', [0,2]);
   await choose('rangesAB', [{unicodeRange:'U+41'},{unicodeRange:'U+42'},{unicodeRange:'U+41'}], '12px $', [0,1,2], 'AB');
   await choose('rangeEmpty', [{unicodeRange:'U+0-10FFFF'}], '12px $', [], '');
@@ -44,6 +44,12 @@ globalThis.fontMatchCase = async (variant) => {
   await choose('astral', [{unicodeRange:'U+1F600'},{unicodeRange:'U+41'}], '12px $', [0], '\uD83D\uDE00');
   await choose('surrogate', [{unicodeRange:'U+D800'},{unicodeRange:'U+FFFD'}], '12px $', [0], '\uD800');
   await choose('rangeAfterWeight', [{weight:'400',unicodeRange:'U+42'},{weight:'700',unicodeRange:'U+41'}], '12px $', []);
+  await choose('compositeWeight', [{weight:'300 600',unicodeRange:'U+41'},{weight:'300 600',unicodeRange:'U+42'}], '450 12px $', [0,1], 'AB');
+  await choose('compositeWidth', [{stretch:'75% 125%',unicodeRange:'U+41'},{stretch:'75% 125%',unicodeRange:'U+42'}], '12px $', [0,1], 'AB');
+  await choose('compositeAngle', [{style:'oblique 0deg 30deg',unicodeRange:'U+41'},{style:'oblique 0deg 30deg',unicodeRange:'U+42'}], 'oblique 20deg 12px $', [0,1], 'AB');
+  await choose('groupBeforeRange', [{weight:'300 600',unicodeRange:'U+41'},{weight:'450',unicodeRange:'U+42'}], '450 12px $', []);
+  await choose('narrowInterval', [{weight:'300 600'},{weight:'400 500'}], '450 12px $', [1]);
+  await choose('reversedIntervalOrder', [{weight:'400 500'},{weight:'300 600'}], '450 12px $', [0]);
   const quoted = add(`${prefix} Quoted`);
   checks.quoted = (await document.fonts.load(`12px "${prefix} Quoted"`, 'A'))[0] === quoted;
   const fold = add(`${prefix}Straße`);

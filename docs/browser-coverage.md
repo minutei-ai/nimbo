@@ -1343,12 +1343,12 @@ The matcher bounds the native payload at 1 MiB, the shorthand at 4096 bytes,
 the sample at 65536 UTF-16 units and the face list at 1024 entries. Sample
 codepoints are indexed once rather than rescanned for each face. Four actual
 Worker cases exercise payload, shorthand, sample and face-count exhaustion and
-fresh-request recovery. The shared fixture performs 49 assertions in 64 actual
+fresh-request recovery. The original shared fixture performs 49 assertions in 64 actual
 native HTTP navigations and 64 workerd/Wasm requests using owned TrueType bytes,
 with real successful and failed font downloads. Descriptor ranges in that static
 font test do not prove variable-font decoding or rendering.
 
-The collaborative Chromium 152 comparison used 64 fresh UTF-8 pages and the
+The original collaborative Chromium 152 comparison used 64 fresh UTF-8 pages and the
 same real HTTP font fixture. Forty-two assertions matched in every variant.
 Seven differed in every variant: weightRange, widthRange, italic, oblique,
 obliqueRange, surrogate and caseFold. The focused browser probe returned both
@@ -1403,3 +1403,45 @@ The same real fixture was independently run in 64 fresh collaborative Chromium
 [the aggregate](evidence/css-budget-chromium.json). This does not prove full
 CSS parsing, dense rule support, text layout, general browser parity or deployed
 capacity. The broad implementation goal and existing differences remain open.
+
+## Composite font descriptor groups
+
+The matcher now selects one descriptor group when multiple distinct ranges
+remain tied after width/style/weight matching. CSS Fonts 4 requires choosing
+one remaining font consistently; it does not permit treating every different
+range as one composite face. Nimbo prefers narrower width, angle and weight
+intervals among tied candidates, then preserves insertion order. This is a
+consistent selection policy, not a universal browser tie-breaking rule.
+Only faces with identical style/weight/stretch descriptors form a composite
+for this API; unicode-range filters its members after group selection. Repeated
+families still preserve list order and duplicates.
+
+The real HTTP fixture now has 55 assertions in each of 64 native navigations
+and 64 workerd/Wasm requests. Its additional cases cover equal descriptor
+intervals with separate Unicode segments, group selection before range
+filtering, and insertion-independent preference for narrower intervals.
+All assertions pass in those engines without mock transport or font data.
+The static owned TrueType font does not prove variable font decoding.
+
+In 64 fresh collaborative Chromium 152 documents, 49 assertions match in every
+variant. The three original exact interval checks (weightRange, widthRange,
+obliqueRange) now match, as do all new composite and range-filter checks.
+Four original differences remain (italic, oblique, surrogate, caseFold).
+Two new overlapping-range tie checks differ in every variant; choosing different
+remaining groups is allowed by the consistent-choice rule. These observations
+are preserved in [the current aggregate](evidence/font-groups-chromium.json).
+The earlier 49-assertion report retains its source commit and historical results.
+
+CSSOM permits either DOMString or USVString for CSSOMString; the implementation
+currently preserves UTF-16 sample units. Further surrogate interpretation and
+style equivalence remain unverified. Default Unicode caseless family matching
+still follows the full C/F mapping without normalization, as specified by CSS
+Fonts. No Chromium defect or full browser parity is inferred from differences.
+The upstream CSS-wide-keyword, var() and CSS-connected font-loading WPT sources
+were inspected as references; the unmodified WPT suite has not been run here.
+Full CSS parsing, CSSOM linkage, shaping/readiness/rendering and the original
+broad implementation goal remain open.
+
+Public references: [CSS Fonts single-face and composite selection](https://www.w3.org/TR/css-fonts-4/#font-style-matching),
+[CSSOMString choices](https://www.w3.org/TR/cssom-1/#cssomstring),
+[upstream font-loading tests](https://github.com/web-platform-tests/wpt/tree/master/css/css-font-loading).
