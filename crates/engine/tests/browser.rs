@@ -1390,6 +1390,9 @@ fn registered_custom_properties_validate_before_substitution() -> TestResult {
 }
 
 fn serve_resource(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/outlines/") || request.url().starts_with("/outline-assets/") {
+        return serve_outlines(request);
+    }
     if request.url().starts_with("/logical-size/") {
         let source = format!(
             "<!doctype html><meta charset=utf-8><script>{}</script>",
@@ -1537,6 +1540,8 @@ fn is_resource(path: &str) -> bool {
         "/sheets-css/",
         "/layout-budget/",
         "/logical-size/",
+        "/outlines/",
+        "/outline-assets/",
         "/canvas/",
         "/borders/",
         "/css-budget/",
@@ -1872,4 +1877,43 @@ fn logical_dimensions_cascade_real_http_boxes() -> TestResult {
         );
     }
     Ok(())
+}
+
+#[test]
+fn computed_outlines_real_http_live_styles() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/outlines/{variant}")))?;
+        let result = page.evaluate(&format!("outlineCase({variant})"))?;
+        let fields = result
+            .as_object()
+            .ok_or("missing computed outlines result")?;
+        assert_eq!(fields.len(), 60);
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+
+fn serve_outlines(request: Request) -> io::Result<()> {
+    if let Some(value) = request.url().strip_prefix("/outline-assets/") {
+        let variant = value.parse::<u32>().map_err(io::Error::other)?;
+        return request.respond(
+            Response::from_string(format!(
+                "#external{{outline:{}px solid red;outline-offset:{}px}}",
+                variant.saturating_add(2),
+                variant.saturating_add(1)
+            ))
+            .with_header(header("Content-Type", "text/css")?),
+        );
+    }
+    let variant = request.url().strip_prefix("/outlines/").unwrap_or("0");
+    let source = format!(
+        "<!doctype html><meta charset=utf-8><link rel=stylesheet href=/outline-assets/{variant}><script>{}</script>",
+        include_str!("fixtures/outlines.txt")
+    );
+    request.respond(Response::from_string(source).with_header(header("Content-Type", "text/html")?))
 }

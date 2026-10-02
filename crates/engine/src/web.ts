@@ -1668,6 +1668,7 @@
     changed: boolean;
   };
   const styleOwners = new WeakMap<object, number>();
+  const computedStyles = new WeakSet<object>();
   const inlineStyles = new WeakMap<object, CSSStyleProperties>();
   function styleOperation(
     owner: object,
@@ -1678,6 +1679,11 @@
   ): StyleOutput {
     const id = styleOwners.get(owner);
     if (id === undefined) throw new TypeError("Illegal invocation");
+    if (computedStyles.has(owner)) {
+      if (operation !== "get" && operation !== "name")
+        throw new DOMException("computed styles are read-only", "NoModificationAllowedError");
+      return call<StyleOutput>("computedStyle", id, operation, name);
+    }
     return call<StyleOutput>("style", id, operation, JSON.stringify({ name, value, priority }));
   }
   class CSSStyleDeclaration {
@@ -1717,6 +1723,10 @@
     getPropertyPriority(property: unknown): string {
       styleOperation(this);
       if (arguments.length < 1) throw new TypeError("property is required");
+      if (computedStyles.has(this)) {
+        domString(property);
+        return "";
+      }
       return styleOperation(this, "get", domString(property)).important ? "important" : "";
     }
     setProperty(property: unknown, value: unknown, priority?: unknown): void {
@@ -1754,16 +1764,19 @@
   });
   function styleName(key: PropertyKey): string | null {
     if (typeof key !== "string" || key.startsWith("--")) return null;
+    if (key === "cssFloat") return "float";
     return key.includes("-") ? key : key.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
   }
-  function inlineStyle(owner: object): CSSStyleProperties {
-    const id = htmlId(owner);
-    const cached = inlineStyles.get(owner);
+  function inlineStyle(owner: object, computed = false): CSSStyleProperties {
+    const id = computed ? idOf(owner) : htmlId(owner);
+    const cached = computed ? undefined : inlineStyles.get(owner);
     if (cached) return cached;
-    // Inline declarations are manufactured only by the branded element getter.
+    const prototype = computed ? CSSStyleDeclaration.prototype : CSSStyleProperties.prototype;
+    // Declarations are manufactured only by branded element APIs.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    const target = Object.create(CSSStyleProperties.prototype) as CSSStyleProperties;
+    const target = Object.create(prototype) as CSSStyleProperties;
     styleOwners.set(target, id);
+    if (computed) computedStyles.add(target);
     const proxy = new Proxy(target, {
       get(object, key, receiver): unknown {
         const index = propertyIndex(key);
@@ -1811,6 +1824,9 @@
           : { value, writable: false, enumerable: true, configurable: true };
       },
       defineProperty(object, key, descriptor) {
+        const name = styleName(key);
+        if (computed && name !== null && styleOperation(object, "name", name).value)
+          throw new DOMException("computed styles are read-only", "NoModificationAllowedError");
         return propertyIndex(key) === null && Reflect.defineProperty(object, key, descriptor);
       },
       deleteProperty(object, key) {
@@ -1824,8 +1840,18 @@
       },
     });
     styleOwners.set(proxy, id);
-    inlineStyles.set(owner, proxy);
+    if (computed) computedStyles.add(proxy);
+    else inlineStyles.set(owner, proxy);
     return proxy;
+  }
+  function getComputedStyle(ownerElement: object, pseudo?: unknown): CSSStyleDeclaration {
+    if (arguments.length < 1) throw new TypeError("element is required");
+    const id = idOf(ownerElement);
+    if (call<number>("get", id, "nodeType") !== 1) throw new TypeError("element is required");
+    const name = pseudo === null || pseudo === undefined ? "" : domString(pseudo);
+    if (name !== "")
+      throw new DOMException("computed pseudo-elements are not implemented", "NotSupportedError");
+    return inlineStyle(ownerElement, true);
   }
   const datasets = new WeakMap<object, DOMStringMap>();
   const svgElements = new WeakSet<object>();
@@ -4185,6 +4211,7 @@
     DOMStringMap,
     CSSStyleDeclaration,
     CSSStyleProperties,
+    getComputedStyle,
     CustomElementRegistry,
     Document,
     DocumentFragment,

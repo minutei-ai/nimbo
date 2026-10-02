@@ -4,6 +4,7 @@ mod animations;
 mod borders;
 mod canvas;
 mod cascade;
+mod computed_style;
 mod containers;
 mod dom;
 mod encoding;
@@ -19,6 +20,7 @@ mod media;
 mod modules;
 #[cfg(not(target_arch = "wasm32"))]
 mod network;
+mod outlines;
 #[cfg(not(target_arch = "wasm32"))]
 mod page;
 mod registrations;

@@ -175,9 +175,11 @@ fn custom_name(name: &str) -> bool {
         && parser.expect_exhausted().is_ok()
 }
 
-fn known_name(name: &str) -> bool {
-    matches!(name, "float" | "clear" | "content" | "writing-mode")
-        || !matches!(PropertyId::from(name), PropertyId::Custom(_))
+pub(crate) fn known_name(name: &str) -> bool {
+    matches!(
+        name,
+        "float" | "clear" | "content" | "writing-mode" | "outline-offset"
+    ) || !matches!(PropertyId::from(name), PropertyId::Custom(_))
 }
 
 fn content_value(value: &str) -> Option<String> {
@@ -325,6 +327,27 @@ fn animation_longhand<'i>(parsed: &Property<'i>, id: &PropertyId<'_>) -> Option<
     })
 }
 
+fn outline_native_value(name: &str, value: &str) -> Option<String> {
+    use lightningcss::{traits::ToCss, values::length::Length};
+    if name == "outline-color" {
+        return Some("auto".into());
+    }
+    Length::parse_string(value)
+        .ok()?
+        .to_css_string(PrinterOptions::default())
+        .ok()
+}
+
+fn native_property(name: &str, value: &str, important: bool) -> Option<Vec<Entry>> {
+    let value = match name {
+        "float" | "clear" | "writing-mode" => native_keyword(name, value)?,
+        "content" => content_value(value)?,
+        "outline-offset" | "outline-color" => outline_native_value(name, value)?,
+        _ => return None,
+    };
+    Some(vec![Entry::new(name, value, important)])
+}
+
 fn expand(name: &str, value: &str, important: bool) -> Option<Vec<Entry>> {
     let value = trimmed(value)?;
     let id = PropertyId::from(name);
@@ -385,20 +408,20 @@ fn expand(name: &str, value: &str, important: bool) -> Option<Vec<Entry>> {
             animated: false,
         }]);
     }
-    if matches!(name, "float" | "clear" | "writing-mode") {
-        return Some(vec![Entry::new(
-            name,
-            native_keyword(name, value)?,
-            important,
-        )]);
-    }
-    if name == "content" {
-        return Some(vec![Entry::new(name, content_value(value)?, important)]);
+    if matches!(
+        name,
+        "float" | "clear" | "writing-mode" | "content" | "outline-offset"
+    ) || (name == "outline-color" && value.eq_ignore_ascii_case("auto"))
+    {
+        return native_property(name, value, important);
     }
     let parsed = Property::parse_string(id.clone(), value, ParserOptions::default()).ok()?;
     // The transformer accepts invalid ordinary values as Unparsed. Only the
     // syntax-checked variable branch above may bypass a property's typed grammar.
-    if matches!(parsed, Property::Unparsed(_)) || !crate::borders::valid_literals(name, value) {
+    if matches!(parsed, Property::Unparsed(_))
+        || !crate::borders::valid_literals(name, value)
+        || !crate::outlines::valid(&parsed)
+    {
         return None;
     }
     id.longhands().map_or_else(

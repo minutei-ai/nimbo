@@ -136,10 +136,9 @@ fn validate_overflow(node: NodeRef<'_>, style: &Style) -> Result<()> {
 }
 
 pub(crate) fn supports(declarations: &Declarations) -> bool {
-    if declarations
-        .layout_entries()
-        .any(|(name, _, _)| matches!(name, "color" | "background-color" | "opacity"))
-    {
+    if declarations.layout_entries().any(|(name, _, _)| {
+        matches!(name, "color" | "background-color" | "opacity") || crate::outlines::property(name)
+    }) {
         return false;
     }
     let mut operations = 0;
@@ -219,7 +218,7 @@ fn style_for(
         if deferred {
             return Err(unsupported("variable substitution"));
         }
-        if crate::borders::property(name) {
+        if crate::borders::property(name) || crate::outlines::property(name) {
             continue;
         }
         match name {
@@ -349,6 +348,7 @@ fn validate_element(node: NodeRef<'_>) -> Result<()> {
 struct BoxContext {
     fonts: crate::fonts::Context,
     borders: crate::borders::Borders,
+    outlines: crate::outlines::Outlines,
 }
 
 struct Tree<'a, 'b> {
@@ -420,6 +420,7 @@ impl Tree<'_, '_> {
             matches!(parent_display, Display::Flex | Display::Grid),
         )?;
         let fonts = context.fonts.compute(&declarations, false, self.work)?;
+        context.outlines.compute(&declarations, &fonts, self.work)?;
         style.border = context
             .borders
             .compute(&declarations, &fonts, self.work)?
@@ -510,7 +511,12 @@ impl Tree<'_, '_> {
             .compute(&declarations, depth == 0, self.work)?;
         let borders = context.borders.compute(&declarations, &fonts, self.work)?;
         style.border = borders.geometry()?;
-        let context = BoxContext { fonts, borders };
+        let outlines = context.outlines.compute(&declarations, &fonts, self.work)?;
+        let context = BoxContext {
+            fonts,
+            borders,
+            outlines,
+        };
         let container =
             crate::containers::Container::apply(&declarations, &mut style, parent_display, fonts)?;
         validate_element(node)?;
@@ -623,6 +629,7 @@ fn scene<T>(
             &BoxContext {
                 fonts: crate::fonts::Context::new(media),
                 borders: crate::borders::Borders::default(),
+                outlines: crate::outlines::Outlines::default(),
             },
         )?;
         if let Some(root_id) = root_id {

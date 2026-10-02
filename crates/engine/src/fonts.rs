@@ -22,6 +22,9 @@ pub(crate) struct Context {
     height: f64,
 }
 impl Context {
+    pub(crate) fn size(&self) -> f64 {
+        self.size
+    }
     pub(crate) fn new(media: &MediaEnvironment) -> Self {
         let size = f64::from(media.default_font_size);
         Self {

@@ -12,6 +12,7 @@ pub(crate) struct Dom {
     // Cache compiled selectors only; DOM results must always reflect mutations.
     matchers: HashMap<String, Matcher>,
     styles: HashMap<NodeId, crate::styles::Declarations>,
+    computed_styles: HashMap<NodeId, crate::computed_style::Computed>,
     style_bytes: usize,
     operations: usize,
     layout_version: usize,
@@ -37,6 +38,7 @@ impl Dom {
             ids: HashMap::from([(root, 0)]),
             matchers: HashMap::new(),
             styles: HashMap::new(),
+            computed_styles: HashMap::new(),
             style_bytes: 0,
             operations: 0,
             layout_version: 0,
@@ -77,6 +79,7 @@ impl Dom {
         ) || (operation == "style" && matches!(arg, "set" | "remove" | "text"))
         {
             self.layout_version = self.layout_version.saturating_add(1);
+            self.computed_styles.clear();
         }
         Ok(())
     }
@@ -96,6 +99,7 @@ impl Dom {
             "cssSupports" => json!(crate::supports::query(arg)?),
             "cssSupportsValue" => json!(crate::supports::value(arg, value)?),
             "bounds" => self.bounds(handle)?,
+            "computedStyle" => self.computed_style(handle, arg, value)?,
             "layoutVersion" => json!(self.layout_version),
             "observerMargin" => serde_json::to_value(crate::layout::Margins::parse(arg)?)?,
             "observerMeasure" => self.observe(handle, arg)?,
@@ -238,6 +242,7 @@ impl Dom {
         let id = self.node(handle)?.id;
         let success = self.sheets.respond(id, url, response)?;
         self.layout_version = self.layout_version.saturating_add(1);
+        self.computed_styles.clear();
         Ok(success)
     }
 
@@ -256,6 +261,75 @@ impl Dom {
             &mut work,
         )?;
         Ok(serde_json::to_value(cascade.font_faces.values)?)
+    }
+
+    fn computed_style(&mut self, handle: usize, operation: &str, name: &str) -> Result<Value> {
+        let property_name = if name.starts_with("--") {
+            name.to_owned()
+        } else {
+            name.to_ascii_lowercase()
+        };
+        let name = property_name.as_str();
+        let node = self
+            .handles
+            .get(handle)
+            .and_then(|id| self.document.tree.get(id))
+            .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
+        if !node.is_element() {
+            return Err(Error::Dom("computed style requires an element".into()));
+        }
+        let attached = node.ancestors_it(None).any(|node| node.is_document());
+        if operation == "name" {
+            return Ok(
+                json!({"entries":[],"css_text":"","value":if crate::styles::known_name(name) { "true" } else { "" },"important":false,"changed":false}),
+            );
+        }
+        let properties = if attached {
+            crate::computed_style::PROPERTIES.as_slice()
+        } else {
+            &[]
+        };
+        let mut value = String::new();
+        if operation == "get" && !name.is_empty() && attached {
+            if (crate::styles::known_name(name) || name.starts_with("--"))
+                && !properties.contains(&name)
+            {
+                return Err(Error::Dom(format!(
+                    "layout unsupported: computed style {name}"
+                )));
+            }
+            if properties.contains(&name) {
+                let id = node.id;
+                if !self.computed_styles.contains_key(&id) {
+                    let base = self.base_href();
+                    let mut work = crate::layout::Work::new(
+                        &mut self.operations,
+                        self.limits.max_dom_operations,
+                        self.limits.max_layout_nodes,
+                    );
+                    let values = crate::computed_style::resolve(
+                        &self.document,
+                        node,
+                        &crate::layout::Sources {
+                            inline: &self.styles,
+                            external: &self.sheets,
+                            base: base.as_deref(),
+                        },
+                        &self.media,
+                        &mut work,
+                    )?;
+                    self.computed_styles.insert(id, values);
+                }
+                value = self
+                    .computed_styles
+                    .get(&id)
+                    .ok_or_else(|| Error::Dom("missing computed style".into()))?
+                    .value(name)?;
+            }
+        }
+        Ok(
+            json!({"entries":properties.iter().map(|name|json!({"name":name,"value":"","important":false})).collect::<Vec<_>>(),"css_text":"","value":value,"important":false,"changed":false}),
+        )
     }
 
     fn observe(&mut self, handle: usize, request: &str) -> Result<Value> {

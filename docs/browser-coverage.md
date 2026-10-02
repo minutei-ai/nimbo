@@ -1726,3 +1726,40 @@ intrinsic-size coverage, text shaping/painting and unmodified WPT remain pending
 These checks do not prove complete CSS logical-property conformance.
 
 Public reference: [CSS Logical Properties and Values](https://www.w3.org/TR/css-logical-1/).
+
+## Native resolved outline values
+
+Native outline computation now resolves width, style, color and offset through
+the existing author cascade, variables and contextual font lengths. Outlines
+remain outside box dimensions. Positive widths snap down to whole pixels with
+a one-pixel minimum; offsets truncate toward zero at the engine's current fixed
+scale. This does not implement outline painting or configurable device scale.
+
+The new read-only, live `getComputedStyle(element)` facade exposes six resolved
+properties: color, font-size, outline-color, outline-offset, outline-style and
+outline-width. DOM, inline-style, stylesheet and external CSS changes invalidate
+the native cache. Inherited outline values carry the parent's computed lengths
+and colors rather than being recomputed against the child's font. Detached
+elements expose empty values and no indexed properties. Known unsupported
+computed properties fail explicitly; unknown property names return empty strings.
+Enumeration exposes only these six properties, not a browser's complete property
+list. Nonempty pseudo-elements remain explicit NotSupportedError failures.
+
+The shared synthetic fixture passes 60 checks across 64 real HTTP native Rust
+navigations and 64 workerd/Wasm requests, including external CSS fetched over
+HTTP. All 3840 checks pass in Chromium; see
+[the aggregate](evidence/outlines-chromium.json). The checks cover outline styles,
+contextual lengths and math, RGBA/currentColor, layers and importance, computed
+inheritance, invalid declarations, live mutations, detach/reattach, brands and
+read-only writes. Four further Worker cases reject unsupported width/custom
+computed properties, advanced computed color spaces and container-query style
+resolution, then verify fresh-request recovery. A separate Worker case verifies
+that reading font-size does not eagerly serialize an unsupported color space.
+
+This is partial native resolved style support. Full CSS property enumeration,
+computed shorthands/custom properties, pseudo-elements, UA/platform color defaults,
+complete color spaces, container-query resolution, text shaping, painting,
+screenshots and broad browser/WPT parity remain pending.
+
+Public references: [CSS UI outlines](https://drafts.csswg.org/css-ui/#outline-width)
+and [CSSOM getComputedStyle](https://drafts.csswg.org/cssom/#dom-window-getcomputedstyle).

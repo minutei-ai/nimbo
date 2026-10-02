@@ -1,3 +1,4 @@
+import { outlineFixture } from "./outline-fixture";
 import { layoutBudgetFixture } from "./layout-budget-fixture";
 import { logicalSizeFixture } from "./logical-size-fixture";
 import { canvasFixture } from "./canvas-fixture";
@@ -415,6 +416,8 @@ const origin = Bun.serve({
     requests.push(`${request.method} ${path}`);
     const layoutBudget = layoutBudgetFixture(path);
     if (layoutBudget) return layoutBudget;
+    const outline = await outlineFixture(path);
+    if (outline) return outline;
     const logicalSize = await logicalSizeFixture(path);
     if (logicalSize) return logicalSize;
     const canvas = await canvasFixture(path);
@@ -4644,3 +4647,81 @@ test.each([
     expect(healthy.status).toBe(200);
   },
 );
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: computed outlines variant %i",
+  async (variant) => {
+    const url = new URL(`outlines/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: `outlineCase(${variant})` }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing computed outlines");
+    expect(Object.keys(value)).toHaveLength(60);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each([
+  ["getComputedStyle(document.body).width", "computed style width"],
+  ["getComputedStyle(document.body).getPropertyValue('--custom')", "computed style --custom"],
+  [
+    "(()=>{document.body.style.color='color(display-p3 1 0 0)';return getComputedStyle(document.body).color})()",
+    "computed color space",
+  ],
+  [
+    "(()=>{const sheet=document.createElement('style');sheet.textContent='@container (width > 1px){body{outline-width:2px}}';document.head.append(sheet);return getComputedStyle(document.body).outlineWidth})()",
+    "computed style container queries",
+  ],
+])(
+  "real HTTP → workerd → Wasm: unsupported computed values %s fail explicitly",
+  async (expression, reason) => {
+    const url = new URL("outlines/0", origin.url).href;
+    const failed = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression }),
+    });
+    expect(failed.status).toBe(422);
+    expect(await failed.text()).toContain(reason);
+    const healthy = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "outlineCase(0)" }),
+    });
+    expect(healthy.status).toBe(200);
+  },
+);
+
+test("real HTTP → workerd → Wasm: computed style scope and lazy color serialization", async () => {
+  const url = new URL("outlines/0", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression:
+        "(()=>{document.body.style.cssText='font-size:18px;color:color(display-p3 1 0 0)';const s=getComputedStyle(document.body);return {font:s.fontSize,count:s.length,names:Array.from({length:s.length},(_,i)=>s.item(i))}})()",
+    }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
+    value: {
+      font: "18px",
+      count: 6,
+      names: [
+        "color",
+        "font-size",
+        "outline-color",
+        "outline-offset",
+        "outline-style",
+        "outline-width",
+      ],
+    },
+  });
+});

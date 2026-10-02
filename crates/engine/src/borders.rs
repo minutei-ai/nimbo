@@ -120,6 +120,8 @@ pub(crate) fn valid_literals(name: &str, value: &str) -> bool {
     if !matches!(
         name,
         "border"
+            | "outline"
+            | "outline-width"
             | "border-top"
             | "border-right"
             | "border-bottom"
