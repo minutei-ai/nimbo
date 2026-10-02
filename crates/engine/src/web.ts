@@ -1817,12 +1817,117 @@
     inlineStyles.set(owner, proxy);
     return proxy;
   }
+  const datasets = new WeakMap<object, DOMStringMap>();
+  const svgElements = new WeakSet<object>();
+  // The nonconstructible Web IDL interface still exposes a constructor/prototype pair.
+  // oxlint-disable-next-line typescript/no-extraneous-class
+  class DOMStringMap {
+    constructor() {
+      throw new TypeError("Illegal constructor");
+    }
+  }
+  Object.defineProperty(DOMStringMap.prototype, Symbol.toStringTag, {
+    value: "DOMStringMap",
+    configurable: true,
+  });
+  function dataAttribute(name: string, validate = false): string {
+    if (validate && /-[a-z]/.test(name))
+      throw new DOMException("invalid dataset name", "SyntaxError");
+    const attribute = "data-" + name.replace(/[A-Z]/g, (char) => "-" + char.toLowerCase());
+    if (validate && (attribute.includes("\0") || /[\t\n\f\r />=]/.test(attribute)))
+      throw new DOMException("invalid attribute name", "InvalidCharacterError");
+    return attribute;
+  }
+  function dataset(owner: object): DOMStringMap {
+    if (!htmlElements.has(owner) && !svgElements.has(owner))
+      throw new TypeError("Illegal invocation");
+    const cached = datasets.get(owner);
+    if (cached) return cached;
+    const id = idOf(owner);
+    const entries = (): [string, string][] =>
+      raw<[string, string, string | null][]>("attributes", id)
+        .filter(([name]) => name.startsWith("data-") && !/[A-Z]/.test(name.slice(5)))
+        .map(([name, value]) => [
+          name.slice(5).replace(/-([a-z])/g, (_whole: string, char: string) => char.toUpperCase()),
+          value,
+        ]);
+    const read = (key: PropertyKey): string | undefined =>
+      typeof key === "string" ? entries().find(([name]) => name === key)?.[1] : undefined;
+    const write = (key: string, value: unknown): boolean => {
+      const converted = domString(value);
+      const attribute = dataAttribute(key, true);
+      call("setAttr", id, attribute, converted);
+      return true;
+    };
+    // Only branded native element getters construct the legacy attribute view.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const target = Object.create(DOMStringMap.prototype) as DOMStringMap;
+    const proxy: DOMStringMap = new Proxy(target, {
+      get(object, key, receiver): unknown {
+        return read(key) ?? Reflect.get(object, key, receiver);
+      },
+      has(object, key) {
+        return read(key) !== undefined || Reflect.has(object, key);
+      },
+      set(object, key, value, receiver) {
+        return typeof key === "string" && receiver === proxy
+          ? write(key, value)
+          : Reflect.set(object, key, value, receiver);
+      },
+      ownKeys(object) {
+        return [...entries().map(([name]) => name), ...Reflect.ownKeys(object)];
+      },
+      getOwnPropertyDescriptor(object, key) {
+        const value = read(key);
+        return value === undefined
+          ? Reflect.getOwnPropertyDescriptor(object, key)
+          : { value, writable: true, enumerable: true, configurable: true };
+      },
+      defineProperty(object, key, descriptor) {
+        if (typeof key !== "string") return Reflect.defineProperty(object, key, descriptor);
+        if ("get" in descriptor || "set" in descriptor || descriptor.configurable === false)
+          return false;
+        return write(key, descriptor.value);
+      },
+      deleteProperty(object, key) {
+        if (typeof key === "string" && read(key) !== undefined) {
+          call("removeAttr", id, dataAttribute(key));
+          return true;
+        }
+        return Reflect.deleteProperty(object, key);
+      },
+      preventExtensions() {
+        return false;
+      },
+    });
+    datasets.set(owner, proxy);
+    return proxy;
+  }
+  class SVGElement extends Element {
+    constructor(key?: symbol, id?: number) {
+      if (key !== internal || id === undefined) throw new TypeError("Illegal constructor");
+      super(internal, id);
+      svgElements.add(this);
+    }
+    get dataset(): DOMStringMap {
+      if (!svgElements.has(this)) throw new TypeError("Illegal invocation");
+      return dataset(this);
+    }
+  }
+  Object.defineProperty(SVGElement.prototype, Symbol.toStringTag, {
+    value: "SVGElement",
+    configurable: true,
+  });
   class HTMLElement extends Element {
     constructor(key?: symbol, id?: number) {
       if (key !== internal || id === undefined) return constructHTML(new.target);
       super(internal, id);
       htmlElements.add(this);
       return this;
+    }
+    get dataset(): DOMStringMap {
+      htmlId(this);
+      return dataset(this);
     }
     get style(): CSSStyleProperties {
       return inlineStyle(this);
@@ -1891,6 +1996,11 @@
     value: "HTMLElement",
     configurable: true,
   });
+  for (const prototype of [HTMLElement.prototype, SVGElement.prototype]) {
+    const descriptor = Object.getOwnPropertyDescriptor(prototype, "dataset");
+    if (descriptor)
+      Object.defineProperty(prototype, "dataset", { ...descriptor, enumerable: true });
+  }
   function usvString(value: unknown): string {
     return domString(value).replace(
       /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g,
@@ -2467,7 +2577,9 @@
           ? call<string>("get", id, "localName") === "a"
             ? new HTMLAnchorElement(internal, id)
             : new HTMLElement(internal, id)
-          : new Element(internal, id);
+          : call<string>("get", id, "namespaceURI") === "http://www.w3.org/2000/svg"
+            ? new SVGElement(internal, id)
+            : new Element(internal, id);
       case 3:
         return new Text("", internal, id);
       case 8:
@@ -3051,6 +3163,8 @@
     Element,
     HTMLElement,
     HTMLAnchorElement,
+    SVGElement,
+    DOMStringMap,
     CSSStyleDeclaration,
     CSSStyleProperties,
     CustomElementRegistry,

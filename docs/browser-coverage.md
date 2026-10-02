@@ -21,7 +21,7 @@ tests as well as integration and application tests.
 
 `tooling/browser-live.test.ts` uses a real loopback HTTP origin, actual workerd,
 and the compiled Rust/Wasm engine. It installs no transport replacements,
-service mocks, browser API stubs, or canned engine results. Its 1792 data variants
+service mocks, browser API stubs, or canned engine results. Its 1856 data variants
 exercise external scripts, Unicode/entity decoding, selector identity,
 ancestry, removal/reparenting, attribute mutation and POST response decoding.
 They also exercise parsed and created text/comment nodes, native node identity,
@@ -45,15 +45,15 @@ failures. The eighth set exercises native Web Storage across inline, external
 and module scripts, UTF-16 including lone surrogates, coercion/receiver guards,
 named properties, reflection, removal, clearing and fresh Worker request areas.
 An additional case exercises actual quota exhaustion, atomic failure, independent
-local/session quotas and reuse. These are repeated integration checks, not 1792 independent platform
+local/session quotas and reuse. These are repeated integration checks, not 1856 independent platform
 features. The ninth set checks native media queries against 64 explicit viewport
 and preference configurations, including ranges, three-valued conditions,
 serialization, CSS escapes, receiver guards and synthetic MediaQueryList events.
 The tenth set rejects 64 invalid environment variants before any HTTP navigation.
 The eleventh set repeats the same DOMTokenList fixture at 64 distinct URLs,
 checking live attribute reads, ordered token mutations, identity, indices,
-iteration, receiver guards and atomic invalid-token rejection. Including sixty-six
-resource/deadline/origin checks, the real browser suite has 1858 tests.
+iteration, receiver guards and atomic invalid-token rejection. Including sixty-eight
+resource/deadline/origin checks, the real browser suite has 1924 tests.
 The twelfth set checks HTML namespace identity and reflected attributes with
 64 distinct synthetic strings. It includes parsed SVG/MathML and an HTML
 subtree inside SVG foreignObject.
@@ -790,6 +790,39 @@ Font queries, selector queries, registered-property conditions, CSS.escape,
 full CSS namespace/rule interfaces and usable full-property support remain
 required work. These tests do not establish complete CSS Conditional or WPT
 conformance. Unsupported rule types within active groups still fail explicitly.
+No Obscura runtime dependency or fallback is involved.
+
+## Native dataset attribute views
+
+HTMLElement.dataset and SVGElement.dataset now expose a stable DOMStringMap
+view backed by the native element's actual attributes. Reads and enumeration
+observe current attribute changes; writes and deletes use native DOM mutations
+and the existing custom-element reaction path. No parallel dataset store,
+transport replacement or page API stub supplies the data. Native SVG nodes now
+receive a branded SVGElement wrapper; this does not implement the full SVG API.
+
+A shared synthetic HTTP fixture passes 34 aggregate checks in the native
+engine and at 64 real Worker URLs. It covers camel-case/dash conversion, empty,
+numeric, Unicode and punctuation keys, live identity, descriptors, own/inherited
+lookup, prototype-name collisions, symbol expandos, explicit receivers, define,
+delete, coercion and atomic errors, detached nodes, HTML/SVG brands, read-only
+getters, JSON/key snapshots and custom-element reactions. Two additional real
+Worker checks cover rejected exotic descriptors and the existing DOM write
+budget with fresh-request recovery. Reads charge native DOM operations; writes
+also charge the shared attribute-write budget.
+
+Actual Chromium 152 ran the identical fixture at all 64 variants: 33 of 34
+checks passed in every variant. The difference concerns uppercase SVG data
+attributes: Chromium excludes those names from enumeration but its direct
+named lookup and Object.hasOwn still find them; Nimbo excludes them consistently.
+Focused probes also exposed descriptor differences: Chromium accepts certain
+nonconfigurable/accessor definitions while Nimbo rejects those definitions.
+The public record is [dataset-chromium.json](evidence/dataset-chromium.json).
+
+Full Web IDL legacy exotic semantics, nonconfigurable/accessor definitions,
+namespaced attributes, XML document behavior, complete SVG interfaces and
+WPT conformance remain required work. The HTML data-attribute mapping is
+specified by the [HTML Standard](https://html.spec.whatwg.org/multipage/dom.html#dom-dataset).
 No Obscura runtime dependency or fallback is involved.
 
 ## Worker feasibility gates

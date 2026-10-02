@@ -1,0 +1,152 @@
+{
+  "browser": "Chromium 152.0.7977.130",
+  "fixture": "crates/engine/tests/fixtures/dataset.txt",
+  "variants": 64,
+  "viewport": {
+    "width": 1024,
+    "height": 768
+  },
+  "assertions": {
+    "brand": {
+      "passed": 64,
+      "failed": 0
+    },
+    "coercion": {
+      "passed": 64,
+      "failed": 0
+    },
+    "collisions": {
+      "passed": 64,
+      "failed": 0
+    },
+    "constructor": {
+      "passed": 64,
+      "failed": 0
+    },
+    "define": {
+      "passed": 64,
+      "failed": 0
+    },
+    "delete": {
+      "passed": 64,
+      "failed": 0
+    },
+    "descriptor": {
+      "passed": 64,
+      "failed": 0
+    },
+    "detached": {
+      "passed": 64,
+      "failed": 0
+    },
+    "doubleDash": {
+      "passed": 64,
+      "failed": 0
+    },
+    "empty": {
+      "passed": 64,
+      "failed": 0
+    },
+    "errors": {
+      "passed": 64,
+      "failed": 0
+    },
+    "extensible": {
+      "passed": 64,
+      "failed": 0
+    },
+    "getter": {
+      "passed": 64,
+      "failed": 0
+    },
+    "has": {
+      "passed": 64,
+      "failed": 0
+    },
+    "identity": {
+      "passed": 64,
+      "failed": 0
+    },
+    "json": {
+      "passed": 64,
+      "failed": 0
+    },
+    "keys": {
+      "passed": 64,
+      "failed": 0
+    },
+    "live": {
+      "passed": 64,
+      "failed": 0
+    },
+    "missingDelete": {
+      "passed": 64,
+      "failed": 0
+    },
+    "numeric": {
+      "passed": 64,
+      "failed": 0
+    },
+    "object": {
+      "passed": 64,
+      "failed": 0
+    },
+    "parsed": {
+      "passed": 64,
+      "failed": 0
+    },
+    "punctuation": {
+      "passed": 64,
+      "failed": 0
+    },
+    "reactions": {
+      "passed": 64,
+      "failed": 0
+    },
+    "receiver": {
+      "passed": 64,
+      "failed": 0
+    },
+    "removed": {
+      "passed": 64,
+      "failed": 0
+    },
+    "snapshot": {
+      "passed": 64,
+      "failed": 0
+    },
+    "svg": {
+      "passed": 64,
+      "failed": 0
+    },
+    "svgCase": {
+      "passed": 0,
+      "failed": 64
+    },
+    "svgWrite": {
+      "passed": 64,
+      "failed": 0
+    },
+    "symbol": {
+      "passed": 64,
+      "failed": 0
+    },
+    "unicode": {
+      "passed": 64,
+      "failed": 0
+    },
+    "upper": {
+      "passed": 64,
+      "failed": 0
+    },
+    "write": {
+      "passed": 64,
+      "failed": 0
+    }
+  },
+  "differences": {
+    "svgCase": "Chromium omits uppercase SVG data attributes from Object.keys but returns them through direct named reads and Object.hasOwn. Nimbo excludes those names from all dataset named lookup.",
+    "descriptors": "Focused Chromium probes accepted configurable:false data descriptors and accessor descriptors. Nimbo rejects these definitions rather than emulating unsupported legacy exotic object semantics."
+  },
+  "scope": "Live data attribute views on native HTML/SVG wrappers. No full Web IDL exotic object, SVG interface, namespaced attribute, XML document or browser conformance claim."
+}

@@ -406,6 +406,15 @@ const origin = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     requests.push(`${request.method} ${path}`);
+    if (path.startsWith("/dataset/")) {
+      const variant = Number(path.split("/").at(-1));
+      const source = await Bun.file(
+        join(import.meta.dir, "../crates/engine/tests/fixtures/dataset.txt"),
+      ).text();
+      return new Response(`<script>globalThis.variant=${variant};${source}</script>`, {
+        headers: { "content-type": "text/html" },
+      });
+    }
     if (path.startsWith("/supports/")) {
       const variant = Number(path.split("/").at(-1));
       const source = await Bun.file(
@@ -2937,4 +2946,93 @@ test("real HTTP → workerd → Wasm: native feature support ignores overridden 
   });
   expect(response.status).toBe(200);
   expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: true });
+});
+
+const datasetExpected = Object.fromEntries(
+  [
+    "brand",
+    "coercion",
+    "collisions",
+    "constructor",
+    "define",
+    "delete",
+    "descriptor",
+    "detached",
+    "doubleDash",
+    "empty",
+    "errors",
+    "extensible",
+    "getter",
+    "has",
+    "identity",
+    "json",
+    "keys",
+    "live",
+    "missingDelete",
+    "numeric",
+    "object",
+    "parsed",
+    "punctuation",
+    "reactions",
+    "receiver",
+    "removed",
+    "snapshot",
+    "svg",
+    "svgCase",
+    "svgWrite",
+    "symbol",
+    "unicode",
+    "upper",
+    "write",
+  ].map((key) => [key, true]),
+);
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native dataset variant %i",
+  async (variant) => {
+    const url = new URL(`dataset/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "comparison" }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      url,
+      engine: "rust-wasm-quickjs",
+      value: datasetExpected,
+    });
+  },
+);
+test("real HTTP → workerd → Wasm: native dataset exposes unsupported exotic descriptors", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const expression =
+    "(()=>{const e=document.createElement('div'),d=e.dataset;return !Reflect.defineProperty(d,'locked',{value:'x',configurable:false})&&!Reflect.defineProperty(d,'accessor',{get(){return 'x';}})&&!e.hasAttribute('data-locked')&&!e.hasAttribute('data-accessor');})()";
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: true });
+});
+test("real HTTP → workerd → Wasm: native dataset charges the DOM write budget", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: "document.body.dataset.large='x'.repeat(4194305)" }),
+  });
+  expect(response.status).toBe(422);
+  const message: unknown = expect.stringContaining("DOM write bytes");
+  expect(await response.json()).toEqual({ error: message });
+  const recovered = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression: "(document.body.dataset.state='ready',document.body.getAttribute('data-state'))",
+    }),
+  });
+  expect(recovered.status).toBe(200);
+  expect(await recovered.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: "ready" });
 });
