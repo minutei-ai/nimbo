@@ -21,7 +21,7 @@ tests as well as integration and application tests.
 
 `tooling/browser-live.test.ts` uses a real loopback HTTP origin, actual workerd,
 and the compiled Rust/Wasm engine. It installs no transport replacements,
-service mocks, browser API stubs, or canned engine results. Its 1152 data variants
+service mocks, browser API stubs, or canned engine results. Its 1216 data variants
 exercise external scripts, Unicode/entity decoding, selector identity,
 ancestry, removal/reparenting, attribute mutation and POST response decoding.
 They also exercise parsed and created text/comment nodes, native node identity,
@@ -45,15 +45,15 @@ failures. The eighth set exercises native Web Storage across inline, external
 and module scripts, UTF-16 including lone surrogates, coercion/receiver guards,
 named properties, reflection, removal, clearing and fresh Worker request areas.
 An additional case exercises actual quota exhaustion, atomic failure, independent
-local/session quotas and reuse. These are repeated integration checks, not 1152 independent platform
+local/session quotas and reuse. These are repeated integration checks, not 1216 independent platform
 features. The ninth set checks native media queries against 64 explicit viewport
 and preference configurations, including ranges, three-valued conditions,
 serialization, CSS escapes, receiver guards and synthetic MediaQueryList events.
 The tenth set rejects 64 invalid environment variants before any HTTP navigation.
 The eleventh set repeats the same DOMTokenList fixture at 64 distinct URLs,
 checking live attribute reads, ordered token mutations, identity, indices,
-iteration, receiver guards and atomic invalid-token rejection. Including eight
-resource/deadline/origin checks, the real browser suite has 1160 tests.
+iteration, receiver guards and atomic invalid-token rejection. Including eleven
+resource/deadline/origin checks, the real browser suite has 1227 tests.
 The twelfth set checks HTML namespace identity and reflected attributes with
 64 distinct synthetic strings. It includes parsed SVG/MathML and an HTML
 subtree inside SVG foreignObject.
@@ -317,54 +317,79 @@ fixtures. Those checks remain useful for boundary failures but do not count as
 mock-free transport evidence. Neither local suite proves deployed performance,
 TLS fingerprints, rendering or broad browser compatibility.
 
+Inline CSS declarations now use a pinned native Lightning CSS property grammar
+and cssparser tokenization. A nineteenth set of 64 real HTTP/workerd/Wasm cases
+checks SameObject style identity, live attribute reads, grammar rejection,
+priority and duplicate ordering, shorthand expansion/reconstruction, custom
+property case, CSS-wide keywords, mutation/removal, indices, Web IDL conversions,
+receiver guards, internal operations and custom-element attribute reactions.
+The native HTTP adapter runs the same synthetic fixture. Three additional real
+Worker cases reject oversized values/attributes and more than 1024 declarations,
+then verify page-state release and fresh style objects on the next request.
+
+This is an inline declaration subset, not a layout engine or complete CSSOM.
+The grammar transformer accepts unparsed invalid ordinary values, so the engine
+explicitly rejects that fallback. Deferred var()/env() values are currently
+rejected for ordinary properties; substitution, computed values and variable
+shorthand handling remain missing. Tokenization is bounded to 32 nested blocks,
+64 KiB inputs and 1024 expanded declarations. Custom-property token whitespace,
+empty token values, CSSOM color/zero-length canonicalization, complete property
+aliases, semantic range validation and IDL reflection, generic shorthand recompression, foreign namespace
+inline-style interfaces, stylesheet/rule APIs, cascade, getComputedStyle,
+layout/geometry and IntersectionObserver remain incomplete or absent. Accepting
+and storing a declaration does not prove its rendering behavior. Bundler,
+source-map, Node and threading features are disabled. Hash-map entropy on Wasm
+comes from the Worker's native Web Crypto; page scripts cannot access this bridge.
+
 ## Capability matrix
 
 `Subset` means only the currently tested operations. `Missing` means there is no
 implementation providing the listed behavior. `Unverified` means the current
 evidence cannot establish it.
 
-| Capability                                            | Nimbo      | Required acceptance evidence                                                       |
-| ----------------------------------------------------- | ---------- | ---------------------------------------------------------------------------------- |
-| HTML parsing, entities, selector queries              | Subset     | HTML and selector WPT cases, malformed input, namespaces                           |
-| DOM mutation, identity and ancestry                   | Subset     | Live mutation results, detached nodes, tree-cycle rejection, WPT                   |
-| Node/Text/Comment/Fragment, live collections          | Subset     | Live child collections and static selector lists; remaining Node APIs and full WPT |
-| Event dispatch and lifecycle                          | Subset     | Capture/bubble, cancellation, once/passive, native input ordering                  |
-| Classic scripts and Promise jobs                      | Subset     | Source ordering, exception propagation, resource exhaustion                        |
-| Modules, import maps, JSON modules, dynamic import    | Subset     | Native graphs tested; import maps, JSON and new dynamic fetching missing           |
-| Timers, animation frames and scheduling               | Subset     | Real-clock timers/cancellation tested; frames, idle and full event loop missing    |
-| Custom elements autônomos                             | Subset     | Native upgrades, lifecycle and failed construction; scoped/built-in/form gaps      |
-| Shadow DOM                                            | Missing    | Slots, composed paths, shadow boundaries and isolation                             |
-| Frames and independent execution worlds               | Missing    | Same/cross-origin frames, navigation, world isolation                              |
-| Fetch and HTTP navigation                             | Subset     | Real GET/POST, cookies, redirects, bodies; full headers/abort/streams              |
-| XMLHttpRequest, forms, files and binary responses     | Missing    | Real uploads/downloads, encodings, progress and cancellation                       |
-| CORS, CSP, mixed content and origin policy            | Subset     | Current same-origin restriction is not a browser policy implementation             |
-| Network interception, response fulfillment, blocking  | Missing    | Actual request pause/continue/fail/fulfill and event/body correlation              |
-| Cookies and per-navigation isolation                  | Subset     | Path/domain/expiry/Secure/HttpOnly/SameSite, independent contexts                  |
-| Persistent sessions, cookies and storage              | Missing    | Restart/eviction recovery and tenant isolation via durable state                   |
-| localStorage/sessionStorage/IndexedDB                 | Subset     | Web Storage/quota tested; IndexedDB, durable state and storage events missing      |
-| HTMLAnchorElement and document base                   | Subset     | Native links/relList and real script/module/fetch loads; navigation gaps           |
-| TextEncoder/TextDecoder                               | Subset     | Native bytes/codecs, Unicode, streams of chunks and fatal queue tests; WPT gaps    |
-| URL, encoding streams, File APIs and WebCrypto        | Missing    | Pinned WPT with actual algorithms and binary round trips                           |
-| Page WebAssembly and Web Workers                      | Missing    | Guest modules, imports, worker messages, termination and isolation                 |
-| Media queries and logical viewport                    | Subset     | Native queries/configuration tested; live updates and full CSSOM/MQ WPT missing    |
-| CSS cascade, CSSOM, typed styles, layout and geometry | Missing    | Computed styles and shared layout driving queries and paint                        |
-| Fonts, images, SVG and Canvas 2D                      | Missing    | Resource loading, shaping, raster output and pixel comparisons                     |
-| Screenshots, PDF and screencasts                      | Missing    | Real paint output, pagination, frame changes and backpressure                      |
-| Accessibility tree and snapshots                      | Missing    | Roles, names, hidden nodes, state changes and stable references                    |
-| Mouse, keyboard, focus, selection and scrolling       | Missing    | Hit-testing, trusted host input and resulting page behavior                        |
-| Browser/target/context lifecycle and CDP              | Missing    | Real client connections, objects, events and context isolation                     |
-| Puppeteer/Playwright/DevTools compatibility           | Missing    | Unmodified clients navigating and interacting with fixtures                        |
-| MCP navigation, reading, actions and diagnostics      | Missing    | Real MCP transports, page state and authenticated remote use                       |
-| Markdown, links, structured extraction and crawling   | Subset     | Current JS extraction only; native outputs and real crawl jobs missing             |
-| CLI batch scraping and library API                    | Subset     | Existing single-page CLI/library; bounded batches and cancellation                 |
-| HTTP/CONNECT and SOCKS proxy support                  | Missing    | Generic authenticated proxy integration; no operational config in source           |
-| TLS fingerprint and transport control                 | Unverified | Capture ClientHello/ALPN and verify scripted subrequests use the same transport    |
-| WebGL and GPU-dependent pages                         | Missing    | Actual shader execution and pixels; software rendering must be labelled            |
-| Audio/video playback and codecs                       | Missing    | Decode real media, advance playback and produce frames/samples                     |
-| Challenge-dependent authentication                    | Unverified | Real authorized source behavior, with challenge failure explicit                   |
-| Browser profiles and stealth surfaces                 | Missing    | Consistency with implemented behavior and measured transport; no fake API success  |
-| SSRF protections and resource budgets                 | Subset     | Resolved-address policy, private IPv4/IPv6, limits and recovery                    |
-| Metrics, concurrency, deployment and recovery         | Subset     | CPU/RAM/wall-clock on equal fixtures, live deployment, process recovery            |
+| Capability                                           | Nimbo      | Required acceptance evidence                                                       |
+| ---------------------------------------------------- | ---------- | ---------------------------------------------------------------------------------- |
+| HTML parsing, entities, selector queries             | Subset     | HTML and selector WPT cases, malformed input, namespaces                           |
+| DOM mutation, identity and ancestry                  | Subset     | Live mutation results, detached nodes, tree-cycle rejection, WPT                   |
+| Node/Text/Comment/Fragment, live collections         | Subset     | Live child collections and static selector lists; remaining Node APIs and full WPT |
+| Event dispatch and lifecycle                         | Subset     | Capture/bubble, cancellation, once/passive, native input ordering                  |
+| Classic scripts and Promise jobs                     | Subset     | Source ordering, exception propagation, resource exhaustion                        |
+| Modules, import maps, JSON modules, dynamic import   | Subset     | Native graphs tested; import maps, JSON and new dynamic fetching missing           |
+| Timers, animation frames and scheduling              | Subset     | Real-clock timers/cancellation tested; frames, idle and full event loop missing    |
+| Custom elements autônomos                            | Subset     | Native upgrades, lifecycle and failed construction; scoped/built-in/form gaps      |
+| Shadow DOM                                           | Missing    | Slots, composed paths, shadow boundaries and isolation                             |
+| Frames and independent execution worlds              | Missing    | Same/cross-origin frames, navigation, world isolation                              |
+| Fetch and HTTP navigation                            | Subset     | Real GET/POST, cookies, redirects, bodies; full headers/abort/streams              |
+| XMLHttpRequest, forms, files and binary responses    | Missing    | Real uploads/downloads, encodings, progress and cancellation                       |
+| CORS, CSP, mixed content and origin policy           | Subset     | Current same-origin restriction is not a browser policy implementation             |
+| Network interception, response fulfillment, blocking | Missing    | Actual request pause/continue/fail/fulfill and event/body correlation              |
+| Cookies and per-navigation isolation                 | Subset     | Path/domain/expiry/Secure/HttpOnly/SameSite, independent contexts                  |
+| Persistent sessions, cookies and storage             | Missing    | Restart/eviction recovery and tenant isolation via durable state                   |
+| localStorage/sessionStorage/IndexedDB                | Subset     | Web Storage/quota tested; IndexedDB, durable state and storage events missing      |
+| HTMLAnchorElement and document base                  | Subset     | Native links/relList and real script/module/fetch loads; navigation gaps           |
+| TextEncoder/TextDecoder                              | Subset     | Native bytes/codecs, Unicode, streams of chunks and fatal queue tests; WPT gaps    |
+| URL, encoding streams, File APIs and WebCrypto       | Missing    | Pinned WPT with actual algorithms and binary round trips                           |
+| Page WebAssembly and Web Workers                     | Missing    | Guest modules, imports, worker messages, termination and isolation                 |
+| Media queries and logical viewport                   | Subset     | Native queries/configuration tested; live updates and full CSSOM/MQ WPT missing    |
+| Inline CSS declarations                              | Subset     | Native property grammar and live HTML style mutations tested; full CSSOM missing   |
+| CSS cascade, typed styles, layout and geometry       | Missing    | Computed styles and shared layout driving queries and paint                        |
+| Fonts, images, SVG and Canvas 2D                     | Missing    | Resource loading, shaping, raster output and pixel comparisons                     |
+| Screenshots, PDF and screencasts                     | Missing    | Real paint output, pagination, frame changes and backpressure                      |
+| Accessibility tree and snapshots                     | Missing    | Roles, names, hidden nodes, state changes and stable references                    |
+| Mouse, keyboard, focus, selection and scrolling      | Missing    | Hit-testing, trusted host input and resulting page behavior                        |
+| Browser/target/context lifecycle and CDP             | Missing    | Real client connections, objects, events and context isolation                     |
+| Puppeteer/Playwright/DevTools compatibility          | Missing    | Unmodified clients navigating and interacting with fixtures                        |
+| MCP navigation, reading, actions and diagnostics     | Missing    | Real MCP transports, page state and authenticated remote use                       |
+| Markdown, links, structured extraction and crawling  | Subset     | Current JS extraction only; native outputs and real crawl jobs missing             |
+| CLI batch scraping and library API                   | Subset     | Existing single-page CLI/library; bounded batches and cancellation                 |
+| HTTP/CONNECT and SOCKS proxy support                 | Missing    | Generic authenticated proxy integration; no operational config in source           |
+| TLS fingerprint and transport control                | Unverified | Capture ClientHello/ALPN and verify scripted subrequests use the same transport    |
+| WebGL and GPU-dependent pages                        | Missing    | Actual shader execution and pixels; software rendering must be labelled            |
+| Audio/video playback and codecs                      | Missing    | Decode real media, advance playback and produce frames/samples                     |
+| Challenge-dependent authentication                   | Unverified | Real authorized source behavior, with challenge failure explicit                   |
+| Browser profiles and stealth surfaces                | Missing    | Consistency with implemented behavior and measured transport; no fake API success  |
+| SSRF protections and resource budgets                | Subset     | Resolved-address policy, private IPv4/IPv6, limits and recovery                    |
+| Metrics, concurrency, deployment and recovery        | Subset     | CPU/RAM/wall-clock on equal fixtures, live deployment, process recovery            |
 
 ## Kitesurf references and scope
 

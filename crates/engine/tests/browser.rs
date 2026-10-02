@@ -77,11 +77,16 @@ fn header(name: &str, value: &str) -> io::Result<Header> {
     Header::from_bytes(name, value).map_err(|()| io::Error::other("invalid fixture header"))
 }
 
+fn script_fixture(script: &str) -> String {
+    format!("<script>{script}</script>")
+}
+
 fn serve(mut request: Request) -> io::Result<()> {
     let mut content_type = "text/html; charset=utf-8";
     let mut status = 200;
     let mut headers = Vec::new();
     let body = match request.url() {
+        "/styles" => script_fixture(include_str!("fixtures/styles.txt")),
         "/anchors" => format!("<base href=\"https://example.com/root/\"><a id=\"link\" href=\"../doc?q=1#fragment\">link</a><svg><a></a></svg><script>{}</script>", include_str!("fixtures/anchors.txt")),
         "/encoding" => format!("<script>{}</script>", include_str!("fixtures/encoding.txt")),
         "/custom-elements" => format!("<x-root></x-root><x-parsed data-native=\"source\"></x-parsed><script>{}</script>", include_str!("fixtures/custom-elements.txt")),
@@ -171,6 +176,16 @@ fn serve(mut request: Request) -> io::Result<()> {
             "<main>Not found</main>".into()
         }
     };
+    respond(request, body, status, content_type, headers)
+}
+
+fn respond(
+    request: Request,
+    body: String,
+    status: u16,
+    content_type: &str,
+    headers: Vec<Header>,
+) -> io::Result<()> {
     let mut response = Response::from_string(body)
         .with_status_code(status)
         .with_header(header("Content-Type", content_type)?);
@@ -873,6 +888,20 @@ fn document_base_urls_drive_real_scripts_modules_and_fetch() -> TestResult {
             .navigate(&fixture.path("/base-fetch"))?
             .evaluate("baseFetch")?,
         json!("base response")
+    );
+    Ok(())
+}
+
+#[test]
+fn inline_styles_use_native_declarations_and_live_dom_attributes() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/styles"))?;
+    let result = page.evaluate("comparison")?;
+    let fields = result.as_object().ok_or("missing styles result")?;
+    assert_eq!(fields.len(), 20);
+    assert!(
+        fields.values().all(|value| *value == json!(true)),
+        "{result}"
     );
     Ok(())
 }

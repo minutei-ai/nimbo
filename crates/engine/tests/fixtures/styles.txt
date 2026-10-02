@@ -1,0 +1,74 @@
+globalThis.comparison = (() => {
+  const variant = globalThis.variant ?? 0;
+  const el = document.createElement('div'); const style = el.style;
+  const fails = fn => {try {fn(); return false;} catch(error) {return error instanceof TypeError;}};
+  const identity = style === el.style && style instanceof CSSStyleDeclaration && style instanceof CSSStyleProperties
+    && Object.prototype.toString.call(style) === '[object CSSStyleProperties]';
+  const empty = style.length === 0 && style.cssText === '' && style.item(0) === '' && style[0] === undefined
+    && style.parentRule === null && style.width === '' && style.unknownProperty === undefined && !el.hasAttribute('style');
+  const width = `${variant+1}px`;
+  style.width = width; style.height = '20px'; style.setProperty('WIDTH','9px','ImPoRtAnT');
+  const mutations = el.getAttribute('style') === 'width: 9px !important; height: 20px;'
+    && style.width === '9px' && style.getPropertyPriority('width') === 'important';
+  el.setAttribute('style',`height: 10px; width: ${width} !important; width: 3px; bogus: 1; height: nope`);
+  const external = style.height === '10px' && style.width === width && style.length === 2
+    && style.cssText === `height: 10px; width: ${width} !important;`
+    && el.getAttribute('style').endsWith('height: nope');
+  const raw = el.getAttribute('style');
+  for (const value of ['nope','2px !important','2px; height: 8px']) style.width = value;
+  style.setProperty('width','3px','bad'); style.setProperty('unknown','anything');
+  for (const name of ['--','--x y','--x; width','--x: height','--x\\0']) style.setProperty(name,'2px');
+  const invalid = el.getAttribute('style') === raw && style.width === width;
+  style.setProperty('width','4px');
+  const overridePriority = style.width === '4px' && style.getPropertyPriority('width') === '';
+  style.cssText = 'margin: 1px 2px 3px 4px; padding: 2px;';
+  const shorthand = style.margin === '1px 2px 3px 4px' && style.marginTop === '1px'
+    && style.marginRight === '2px' && style.marginBottom === '3px' && style.marginLeft === '4px'
+    && style.length === 8 && style.cssText === 'margin: 1px 2px 3px 4px; padding: 2px;';
+  style.marginLeft = '5px';
+  const longhand = style.margin === '1px 2px 3px 5px' && style.marginLeft === '5px';
+  style.setProperty('margin-top','6px','important');
+  const mixedPriority = style.margin === '' && style.getPropertyPriority('margin') === ''
+    && style.getPropertyPriority('margin-top') === 'important';
+  const removed = style.removeProperty('padding') === '2px' && style.paddingTop === '' && style.length === 4;
+  style.cssText = '--A: one; --a: two; --A: three !important; padding: INHERIT';
+  const custom = style.getPropertyValue('--A') === 'three' && style.getPropertyValue('--a') === 'two'
+    && style.getPropertyPriority('--A') === 'important' && style.paddingTop === 'inherit';
+  style.setProperty('--A','','invalid');
+  const emptyRemoval = style.getPropertyValue('--A') === '' && style.getPropertyValue('--a') === 'two';
+  style.cssText = 'width: 1px; height: 2px;';
+  const indexed = style.length === 2 && style[0] === 'width' && style[1] === 'height'
+    && style.item(-1) === '' && style.item(4294967296) === 'width' && style.item(undefined) === 'width'
+    && style.item({valueOf(){return 1;}}) === 'height'
+    && Object.keys(style).join(',') === '0,1' && '0' in style && !('2' in style)
+    && !Reflect.set(style,'0','bad') && !Reflect.defineProperty(style,'1',{value:'bad'})
+    && !Reflect.deleteProperty(style,'0') && Reflect.deleteProperty(style,'9');
+  style.width = null; style.height = undefined;
+  const coercion = style.width === '' && style.height === '2px';
+  style.cssText = null;
+  const textCoercion = style.cssText === '' && el.getAttribute('style') === '';
+  style.setProperty = () => {throw new Error('author override');};
+  style.width = '7px'; style.cssFloat = 'left';
+  const internal = style.width === '7px' && style.cssFloat === 'left' && style.getPropertyValue('float') === 'left';
+  el.style = 'height: 8px';
+  const forwarded = style === el.style && style.height === '8px' && style.width === '';
+  const getter = Object.getOwnPropertyDescriptor(HTMLElement.prototype,'style').get;
+  const cssGetter = Object.getOwnPropertyDescriptor(CSSStyleDeclaration.prototype,'cssText').get;
+  const guarded = [() => new CSSStyleDeclaration(), () => new CSSStyleProperties(), () => getter.call({}),
+    () => cssGetter.call({}), () => style.getPropertyValue(), () => style.removeProperty(),
+    () => CSSStyleDeclaration.prototype.setProperty.call(style,'width'), () => style.item(),
+    () => style.item(1n), () => style.item(Object(1n)), () => style.item(Symbol()),
+    () => style.getPropertyValue(Symbol()), () => {style.width = Symbol();},
+    () => {el.style = Symbol();}].every(fails);
+  class NativeStyleElement extends HTMLElement {
+    static get observedAttributes(){return ['style'];}
+    attributeChangedCallback(name,oldValue,newValue){this.changes = (this.changes ?? 0)+1; this.last=newValue;}
+  }
+  customElements.define(`x-style-${variant}`,NativeStyleElement);
+  const customEl=document.createElement(`x-style-${variant}`); customEl.style.width=width;
+  const reactions=customEl.changes === 1 && customEl.last === `width: ${width};`;
+  el.removeAttribute('style');
+  const removal = style === el.style && style.cssText === '' && style.length === 0;
+  return {identity,empty,mutations,external,invalid,overridePriority,shorthand,longhand,mixedPriority,removed,
+    custom,emptyRemoval,indexed,coercion,textCoercion,internal,forwarded,guarded,reactions,removal};
+})();

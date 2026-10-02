@@ -24,6 +24,9 @@ const encodingScript = await Bun.file(
 const anchorScript = await Bun.file(
   join(import.meta.dir, "../crates/engine/tests/fixtures/anchors.txt"),
 ).text();
+const styleScript = await Bun.file(
+  join(import.meta.dir, "../crates/engine/tests/fixtures/styles.txt"),
+).text();
 const requests: string[] = [];
 const comparisonBinary = process.env.NIMBO_COMPARE_OBSCURA_BINARY;
 async function comparePage(binary: string, url: string): Promise<unknown> {
@@ -384,6 +387,12 @@ const origin = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     requests.push(`${request.method} ${path}`);
+    if (path.startsWith("/styles/")) {
+      const variant = Number(path.split("/").at(-1));
+      return new Response(`<script>globalThis.variant=${variant};${styleScript}</script>`, {
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
+    }
     if (path.startsWith("/anchors/")) {
       const variant = Number(path.split("/").at(-1));
       return new Response(
@@ -1724,5 +1733,85 @@ test.each(["classic", "module"])(
     const result: unknown = await response.json();
     expect(JSON.stringify(result)).toContain("origin policy");
     expect(requests).toContain(`GET /base-origin/${mode}`);
+  },
+);
+
+const stylesExpected = Object.fromEntries(
+  [
+    "identity",
+    "empty",
+    "mutations",
+    "external",
+    "invalid",
+    "overridePriority",
+    "shorthand",
+    "longhand",
+    "mixedPriority",
+    "removed",
+    "custom",
+    "emptyRemoval",
+    "indexed",
+    "coercion",
+    "textCoercion",
+    "internal",
+    "forwarded",
+    "guarded",
+    "reactions",
+    "removal",
+  ].map((key) => [key, true]),
+);
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native inline declarations and live CSS styles variant %i",
+  async (variant) => {
+    const url = new URL(`styles/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "comparison" }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      url,
+      engine: "rust-wasm-quickjs",
+      value: stylesExpected,
+    });
+    expect(requests).toContain(`GET /styles/${variant}`);
+  },
+);
+
+test.each(["value", "attribute", "entries"])(
+  "real HTTP → workerd → Wasm: CSS %s limits release page state",
+  async (mode) => {
+    const url = new URL("styles/0", origin.url).href;
+    const expression =
+      mode === "value"
+        ? "document.createElement('div').style.setProperty('--large','x'.repeat(65537))"
+        : mode === "attribute"
+          ? "(()=>{const el=document.createElement('div');el.setAttribute('style','x'.repeat(65537));return el.style.length;})()"
+          : "document.createElement('div').style.cssText=Array.from({length:1025},(_,i)=>'--n'+i+': x').join(';')";
+    const failed = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression }),
+    });
+    expect(failed.status).toBe(422);
+    const message: unknown = expect.stringMatching(
+      /^JavaScript: Error: CSS (?:input|declaration) limit(?:\n|$)/,
+    );
+    expect(await failed.json()).toEqual({ error: message });
+    const recovered = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url,
+        expression: "[document.createElement('div').style.length, typeof nimboStyle]",
+      }),
+    });
+    expect(recovered.status).toBe(200);
+    expect(await recovered.json()).toEqual({
+      url,
+      engine: "rust-wasm-quickjs",
+      value: [0, "undefined"],
+    });
   },
 );

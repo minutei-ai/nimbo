@@ -11,6 +11,7 @@ mod network;
 #[cfg(not(target_arch = "wasm32"))]
 mod page;
 mod storage;
+mod styles;
 #[cfg(target_arch = "wasm32")]
 mod wasm;
 

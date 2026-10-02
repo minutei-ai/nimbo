@@ -7,6 +7,7 @@
   const nativeEncode = nimboEncode;
   const nativeDecoder = nimboDecoder;
   const nativeLink = nimboLink;
+  const nativeStyle = nimboStyle;
   // Values are validated by Rust before installing the page bindings.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const mediaEnvironment = JSON.parse(nimboMediaEnvironment) as { width: number; height: number };
@@ -21,6 +22,7 @@
   Reflect.deleteProperty(globalThis, "nimboEncode");
   Reflect.deleteProperty(globalThis, "nimboDecoder");
   Reflect.deleteProperty(globalThis, "nimboLink");
+  Reflect.deleteProperty(globalThis, "nimboStyle");
   Reflect.deleteProperty(globalThis, "nimboMediaEnvironment");
   Reflect.deleteProperty(globalThis, "nimboUrl");
   Reflect.deleteProperty(globalThis, "nimboNow");
@@ -1446,12 +1448,190 @@
     const id = htmlId(owner);
     call(value ? "setAttr" : "removeAttr", id, name);
   }
+  type StyleOutput = {
+    entries: { name: string; value: string; important: boolean }[];
+    css_text: string;
+    value: string;
+    important: boolean;
+    changed: boolean;
+  };
+  const styleOwners = new WeakMap<object, number>();
+  const inlineStyles = new WeakMap<object, CSSStyleProperties>();
+  function styleOperation(
+    owner: object,
+    operation = "get",
+    name = "",
+    value = "",
+    priority = "",
+  ): StyleOutput {
+    const id = styleOwners.get(owner);
+    if (id === undefined) throw new TypeError("Illegal invocation");
+    const source = call<string | null>("attr", id, "style") ?? "";
+    // The native declaration parser owns this JSON contract.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const output = JSON.parse(nativeStyle(operation, source, name, value, priority)) as StyleOutput;
+    if (operation === "text" || output.changed) call("setAttr", id, "style", output.css_text);
+    return output;
+  }
+  class CSSStyleDeclaration {
+    constructor() {
+      throw new TypeError("Illegal constructor");
+    }
+    get cssText(): string {
+      return styleOperation(this).css_text;
+    }
+    set cssText(value: unknown) {
+      styleOperation(this, "text", "", domString(value));
+    }
+    get length(): number {
+      return styleOperation(this).entries.length;
+    }
+    get parentRule(): null {
+      styleOperation(this);
+      return null;
+    }
+    item(index: unknown): string {
+      styleOperation(this);
+      if (arguments.length < 1) throw new TypeError("index is required");
+      if (typeof index === "bigint") throw new TypeError("index must be a number");
+      // Unary plus applies Web IDL ToNumber, including object coercion.
+      // TypeScript cannot express Web IDL numeric coercion of arbitrary values.
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion, typescript/no-unnecessary-type-conversion
+      const converted = +(index as number);
+      const integer = Number.isFinite(converted) ? Math.trunc(converted) : 0;
+      const unsigned = ((integer % 4294967296) + 4294967296) % 4294967296;
+      return styleOperation(this).entries[unsigned]?.name ?? "";
+    }
+    getPropertyValue(property: unknown): string {
+      styleOperation(this);
+      if (arguments.length < 1) throw new TypeError("property is required");
+      return styleOperation(this, "get", domString(property)).value;
+    }
+    getPropertyPriority(property: unknown): string {
+      styleOperation(this);
+      if (arguments.length < 1) throw new TypeError("property is required");
+      return styleOperation(this, "get", domString(property)).important ? "important" : "";
+    }
+    setProperty(property: unknown, value: unknown, priority?: unknown): void {
+      styleOperation(this);
+      if (arguments.length < 2) throw new TypeError("property and value are required");
+      styleOperation(
+        this,
+        "set",
+        domString(property),
+        value === null ? "" : domString(value),
+        priority === null || priority === undefined ? "" : domString(priority),
+      );
+    }
+    removeProperty(property: unknown): string {
+      styleOperation(this);
+      if (arguments.length < 1) throw new TypeError("property is required");
+      return styleOperation(this, "remove", domString(property)).value;
+    }
+  }
+  class CSSStyleProperties extends CSSStyleDeclaration {
+    get cssFloat(): string {
+      return styleOperation(this, "get", "float").value;
+    }
+    set cssFloat(value: unknown) {
+      styleOperation(this, "set", "float", value === null ? "" : domString(value));
+    }
+  }
+  Object.defineProperty(CSSStyleDeclaration.prototype, Symbol.toStringTag, {
+    value: "CSSStyleDeclaration",
+    configurable: true,
+  });
+  Object.defineProperty(CSSStyleProperties.prototype, Symbol.toStringTag, {
+    value: "CSSStyleProperties",
+    configurable: true,
+  });
+  function styleName(key: PropertyKey): string | null {
+    if (typeof key !== "string" || key.startsWith("--")) return null;
+    return key.includes("-") ? key : key.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
+  }
+  function inlineStyle(owner: object): CSSStyleProperties {
+    const id = htmlId(owner);
+    const cached = inlineStyles.get(owner);
+    if (cached) return cached;
+    // Inline declarations are manufactured only by the branded element getter.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const target = Object.create(CSSStyleProperties.prototype) as CSSStyleProperties;
+    styleOwners.set(target, id);
+    const proxy = new Proxy(target, {
+      get(object, key, receiver): unknown {
+        const index = propertyIndex(key);
+        if (index !== null) return styleOperation(object).entries[index]?.name;
+        if (Reflect.has(object, key)) return Reflect.get(object, key, receiver);
+        const name = styleName(key);
+        return name !== null && styleOperation(object, "name", name).value
+          ? styleOperation(object, "get", name).value
+          : undefined;
+      },
+      set(object, key, value, receiver) {
+        if (propertyIndex(key) !== null) return false;
+        const name = styleName(key);
+        if (
+          !Reflect.has(object, key) &&
+          name !== null &&
+          styleOperation(object, "name", name).value
+        ) {
+          styleOperation(object, "set", name, value === null ? "" : domString(value));
+          return true;
+        }
+        return Reflect.set(object, key, value, receiver);
+      },
+      has(object, key) {
+        const index = propertyIndex(key);
+        if (index !== null) return index < styleOperation(object).entries.length;
+        const name = styleName(key);
+        return (
+          Reflect.has(object, key) ||
+          (name !== null && !!styleOperation(object, "name", name).value)
+        );
+      },
+      ownKeys(object) {
+        return [
+          ...styleOperation(object).entries.map((_, index) => String(index)),
+          ...Reflect.ownKeys(object),
+        ];
+      },
+      getOwnPropertyDescriptor(object, key) {
+        const index = propertyIndex(key);
+        if (index === null) return Reflect.getOwnPropertyDescriptor(object, key);
+        const value = styleOperation(object).entries[index]?.name;
+        return value === undefined
+          ? undefined
+          : { value, writable: false, enumerable: true, configurable: true };
+      },
+      defineProperty(object, key, descriptor) {
+        return propertyIndex(key) === null && Reflect.defineProperty(object, key, descriptor);
+      },
+      deleteProperty(object, key) {
+        const index = propertyIndex(key);
+        return index === null
+          ? Reflect.deleteProperty(object, key)
+          : index >= styleOperation(object).entries.length;
+      },
+      preventExtensions() {
+        return false;
+      },
+    });
+    styleOwners.set(proxy, id);
+    inlineStyles.set(owner, proxy);
+    return proxy;
+  }
   class HTMLElement extends Element {
     constructor(key?: symbol, id?: number) {
       if (key !== internal || id === undefined) return constructHTML(new.target);
       super(internal, id);
       htmlElements.add(this);
       return this;
+    }
+    get style(): CSSStyleProperties {
+      return inlineStyle(this);
+    }
+    set style(value: unknown) {
+      styleOperation(inlineStyle(this), "text", "", domString(value));
     }
     get title(): string {
       return htmlAttribute(this, "title") ?? "";
@@ -2280,6 +2460,8 @@
     Element,
     HTMLElement,
     HTMLAnchorElement,
+    CSSStyleDeclaration,
+    CSSStyleProperties,
     CustomElementRegistry,
     Document,
     DocumentFragment,

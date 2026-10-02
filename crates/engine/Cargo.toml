@@ -12,6 +12,7 @@ crate-type = ["rlib", "cdylib"]
 cssparser = "=0.37.0"
 dom_query = { version = "=0.28.0", default-features = false }
 encoding_rs = "=0.8.42"
+lightningcss = { version = "=1.0.0-alpha.72", default-features = false }
 rquickjs = { version = "=0.14.0", features = ["loader"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -27,6 +28,8 @@ reqwest = { version = "=0.13.5", default-features = false, features = [
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "=0.2.129"
+# Lightning CSS hash maps use the host Web Crypto entropy on Workers.
+getrandom = { version = "=0.3.4", features = ["wasm_js"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 tiny_http = "=0.12.0"
