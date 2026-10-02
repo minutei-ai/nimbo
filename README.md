@@ -57,6 +57,8 @@ Para HTML renderizado no servidor, envie `"scripts": "skip"`: scripts inline, ex
 
 O campo opcional `maxStylesheetBytes` configura o orçamento de CSS por página, de 1 byte a 2 MiB no Worker; o padrão é 256 KiB. Ele limita cada stylesheet, o texto CSS das folhas ativas e o cache de respostas CSS carregadas. Por exemplo, `"maxStylesheetBytes": 1048576` permite até 1 MiB. O orçamento de respostas HTTP, as cotas de regras/seletores e o deadline continuam aplicáveis. Na biblioteca Rust, configure `Limits::max_stylesheet_bytes`.
 
+O campo opcional `maxLayoutNodes` configura de 1 a 4096 visitas por coleta CSS ou passe de layout no Worker; o padrão é 1024. A coleta conta também nós de texto e doctype; o layout conta caixas de conteúdo gerado. Por exemplo, `"maxLayoutNodes": 2048` admite documentos maiores. A profundidade máxima de 128 e o orçamento compartilhado de operações DOM continuam aplicáveis. Na biblioteca Rust, configure `Limits::max_layout_nodes`.
+
 O artefato inclui o módulo Wasm pré-compilado e o secret `API_TOKEN`. A stack em `apps/infrastructure/alchemy.run.ts` usa o recurso nativo Worker do Alchemy com `bundle: false`, preservando o JavaScript e o módulo Wasm produzidos pelo build. `NIMBO_API_TOKEN` vem do ambiente privado e é declarado como secret via `Config.Redacted`; autenticação Cloudflare usa o fluxo nativo do Alchemy. Nenhuma credencial acompanha o projeto.
 
 ```sh

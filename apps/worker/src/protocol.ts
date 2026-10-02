@@ -23,6 +23,9 @@ export const Input = Schema.Struct({
   maxStylesheetBytes: Schema.optional(
     Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 2 * 1024 * 1024 })),
   ),
+  maxLayoutNodes: Schema.optional(
+    Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 4096 })),
+  ),
   scripts: Schema.optional(Schema.Literals(["execute", "skip"])),
 });
 export const Action = Schema.Union([
@@ -41,6 +44,7 @@ export const Limits = Schema.Struct({
   timeoutMs: Schema.Finite,
   maxResponseBytes: Schema.Finite,
   maxStylesheetBytes: Schema.Finite,
+  maxLayoutNodes: Schema.Finite,
   maxRequests: Schema.Finite,
   maxExpressionBytes: Schema.Finite,
 });

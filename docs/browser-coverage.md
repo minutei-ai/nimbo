@@ -321,8 +321,8 @@ the forwarded request reaches the origin. These checks cover redirects,
 HTTP cookies, POST bodies, response errors, script skipping, isolation,
 resource limits and recovery. The HTTP cookie fixture does not test TLS or
 Secure cookie delivery. The seven lint/infrastructure checks spawn the actual
-pinned tools rather than replacing their behavior. All 3255 Bun tests therefore
-run without transport, browser or tool mocks; 3248 exercise the browser engine
+pinned tools rather than replacing their behavior. All 3332 Bun tests therefore
+run without transport, browser or tool mocks; 3325 exercise the browser engine
 and seven exercise tooling. Neither local suite proves deployed performance,
 TLS fingerprints, rendering or broad browser compatibility.
 
@@ -1655,3 +1655,36 @@ Worker CPU/memory bounds or universal compositing conformance.
 
 Public references: [Compositing and Blending 1](https://www.w3.org/TR/compositing-1/)
 and [HTML Canvas compositing](https://html.spec.whatwg.org/multipage/canvas.html#compositing).
+
+## Configurable layout traversal budget
+
+Limits::max_layout_nodes sets the visit budget for each CSS collection and each
+native layout pass. Optional Worker input maxLayoutNodes accepts integers from
+1 through 4096; omission retains 1024. Invalid inputs reject before navigation.
+The native Rust library accepts a nonzero caller-selected budget. CSS collection
+counts all visited DOM nodes, including doctype and text; layout also counts
+generated pseudo-element boxes. Each pass has its own visit counter, while the
+shared DOM operation budget continues to accumulate across calls. Depth remains
+bounded at 128. Exceeding these bounds reports layout tree: nodes or layout tree:
+depth, respectively, under the existing resource limit error prefix.
+
+The real HTTP fixture contains 1100 child elements. Sixty-four native Rust
+navigations and 64 workerd/Wasm requests with a 2048-node budget pass eight
+geometry/tree checks each. The same 512 assertions pass in Chromium; see
+[the recorded aggregate](evidence/layout-budget-chromium.json). Chromium evidence
+covers those HTML assertions, not Nimbo's resource policy.
+
+Eight Worker cases reject invalid input without an HTTP request. Further real
+Worker cases verify unchanged default rejection, a configured budget one visit
+below admission, depth rejection even at 4096, cumulative DOM operation rejection
+and recovery in a fresh request. The plain fixture needs exactly 1107 CSS visits
+and succeeds at that inclusive budget. A separate fixture with 300 elements and
+generated before/after boxes fits CSS collection at 512 but exceeds layout visits;
+it rejects there and succeeds at 2048. Larger budgets do not add CSS support or
+prove deployed CPU, memory sizing or broad rendering compatibility.
+
+The real pinned Alchemy CLI check also permits its exact npm upgrade notification,
+checking that the reported current version matches the installed package and the
+recommended version matches the notice. Other stderr output still fails. This
+keeps upstream release announcements from breaking dependency validation without
+replacing the CLI or its native dependencies with mocks.

@@ -463,7 +463,7 @@ mod tests {
         let mut definitions = Definitions::default();
         definitions.register("demo", "from{width:10px}to{width:90px}", &[])?;
         let mut operations = 0;
-        let mut work = Work::new(&mut operations, 10000);
+        let mut work = Work::new(&mut operations, 10000, 1024);
         let sampled = definitions.sample(&declarations, &Variables::default(), &mut work)?;
         assert_eq!(sampled.value("width").0, "50px");
         Ok(())

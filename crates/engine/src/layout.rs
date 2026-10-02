@@ -12,10 +12,18 @@ use crate::{
 pub(crate) struct Work<'a> {
     operations: &'a mut usize,
     limit: usize,
+    max_nodes: usize,
 }
 impl<'a> Work<'a> {
-    pub(crate) fn new(operations: &'a mut usize, limit: usize) -> Self {
-        Self { operations, limit }
+    pub(crate) fn new(operations: &'a mut usize, limit: usize, max_nodes: usize) -> Self {
+        Self {
+            operations,
+            limit,
+            max_nodes,
+        }
+    }
+    pub(crate) fn node_limit(&self) -> usize {
+        self.max_nodes
     }
     pub(crate) fn charge(&mut self) -> Result<()> {
         if *self.operations >= self.limit {
@@ -131,7 +139,7 @@ pub(crate) fn supports(declarations: &Declarations) -> bool {
         return false;
     }
     let mut operations = 0;
-    let mut work = Work::new(&mut operations, 10_000);
+    let mut work = Work::new(&mut operations, 10_000, 1024);
     let Ok(fonts) = crate::fonts::Context::new(&MediaEnvironment::default()).compute(
         declarations,
         false,
@@ -348,6 +356,17 @@ struct Tree<'a, 'b> {
 }
 
 impl Tree<'_, '_> {
+    fn visit(&mut self, depth: usize) -> Result<()> {
+        self.work.charge()?;
+        self.visited = self.visited.saturating_add(1);
+        if self.visited > self.work.max_nodes {
+            return Err(Error::Limit("layout tree: nodes"));
+        }
+        if depth > 128 {
+            return Err(Error::Limit("layout tree: depth"));
+        }
+        Ok(())
+    }
     fn generated(
         &mut self,
         node: NodeRef<'_>,
@@ -386,11 +405,7 @@ impl Tree<'_, '_> {
         {
             return Err(unsupported("generated inline formatting"));
         }
-        self.work.charge()?;
-        self.visited = self.visited.saturating_add(1);
-        if self.visited > 1024 || depth > 128 {
-            return Err(Error::Limit("layout tree"));
-        }
+        self.visit(depth)?;
         let mut style = style_for(
             node,
             &declarations,
@@ -446,11 +461,7 @@ impl Tree<'_, '_> {
         parent_display: Display,
         context: &BoxContext,
     ) -> Result<Option<taffy::NodeId>> {
-        self.work.charge()?;
-        self.visited = self.visited.saturating_add(1);
-        if self.visited > 1024 || depth > 128 {
-            return Err(Error::Limit("layout tree"));
-        }
+        self.visit(depth)?;
         if !node.is_element() {
             if node.is_text()
                 && !node

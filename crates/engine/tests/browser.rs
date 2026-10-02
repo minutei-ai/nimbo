@@ -1390,6 +1390,9 @@ fn registered_custom_properties_validate_before_substitution() -> TestResult {
 }
 
 fn serve_resource(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/layout-budget/") {
+        return serve_layout_budget(request);
+    }
     if request.url().starts_with("/canvas/") {
         return serve_canvas(request);
     }
@@ -1523,6 +1526,7 @@ fn binary_font_data_parses_real_bytes_and_tracks_status() -> TestResult {
 fn is_resource(path: &str) -> bool {
     [
         "/sheets-css/",
+        "/layout-budget/",
         "/canvas/",
         "/borders/",
         "/css-budget/",
@@ -1794,5 +1798,49 @@ fn software_canvas_composites_real_http_pixels() -> TestResult {
             "variant {variant}: {result}"
         );
     }
+    Ok(())
+}
+
+fn serve_layout_budget(request: Request) -> io::Result<()> {
+    let variant = request
+        .url()
+        .rsplit('/')
+        .next()
+        .and_then(|value| value.parse::<u32>().ok())
+        .unwrap_or_default();
+    let nodes = "<div></div>".repeat(1100);
+    let source = format!(
+        "<!doctype html><main id=\"root\" style=\"width:{}px;height:3px\">{nodes}</main><script>function layoutBudgetCase(v){{const root=document.querySelector('#root'),r=root.getBoundingClientRect();return {{width:r.width===8+v,height:r.height===3,edges:r.right-r.left===r.width&&r.bottom-r.top===r.height,origin:Number.isFinite(r.x)&&Number.isFinite(r.y),owner:root.children.length===1100,first:root.firstElementChild.tagName==='DIV',last:root.lastElementChild.tagName==='DIV',nodes:document.querySelectorAll('*').length===1105}}}}</script>",
+        variant.saturating_add(8)
+    );
+    request.respond(Response::from_string(source).with_header(header("Content-Type", "text/html")?))
+}
+
+#[test]
+fn configured_layout_node_budget_measures_large_real_http_trees() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = Browser::new(
+        &fixture.path("/"),
+        Limits {
+            max_layout_nodes: 2048,
+            ..Limits::default()
+        },
+    )?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/layout-budget/{variant}")))?;
+        let result = page.evaluate(&format!("layoutBudgetCase({variant})"))?;
+        let fields = result.as_object().ok_or("missing layout budget result")?;
+        assert_eq!(fields.len(), 8);
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    let limited = fixture.browser()?;
+    let page = limited.navigate(&fixture.path("/layout-budget/0"))?;
+    assert!(
+        page.evaluate("layoutBudgetCase(0)")
+            .is_err_and(|error| error.to_string().contains("layout tree: nodes"))
+    );
     Ok(())
 }

@@ -45,6 +45,7 @@ impl Browser {
             || limits.max_response_bytes == 0
             || limits.max_stylesheet_bytes == 0
             || limits.max_requests == 0
+            || limits.max_layout_nodes == 0
             || limits.max_dom_operations == 0
             || limits.max_dom_write_bytes == 0
             || limits.max_storage_bytes == 0

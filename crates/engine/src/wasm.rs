@@ -26,6 +26,7 @@ impl WasmPage {
     /// Cria uma página com os limites padrão e sem acesso direto ao runtime do Worker.
     /// `execute_scripts` omitido executa scripts; false extrai somente o HTML recebido.
     /// `max_stylesheet_bytes` configura o orçamento CSS, até o teto de resposta padrão.
+    /// `max_layout_nodes` configura visitas por coleta CSS/layout, de 1 até 4096.
     ///
     /// # Errors
     /// Retorna falha de URL, HTML, scripts, alocação ou inicialização do motor.
@@ -36,6 +37,7 @@ impl WasmPage {
         execute_scripts: Option<bool>,
         media: Option<String>,
         max_stylesheet_bytes: Option<usize>,
+        max_layout_nodes: Option<usize>,
     ) -> Result<Self, String> {
         let media: MediaEnvironment = media
             .map_or_else(
@@ -50,6 +52,12 @@ impl WasmPage {
                 return Err("resource limit: invalid stylesheet byte configuration".into());
             }
             limits.max_stylesheet_bytes = bytes;
+        }
+        if let Some(nodes) = max_layout_nodes {
+            if nodes == 0 || nodes > 4096 {
+                return Err("resource limit: invalid layout node configuration".into());
+            }
+            limits.max_layout_nodes = nodes;
         }
         Machine::new(
             html,
@@ -122,5 +130,5 @@ impl WasmPage {
 #[must_use]
 pub fn engine_limits() -> String {
     let limits = Limits::default();
-    serde_json::json!({ "timeoutMs": limits.timeout.as_millis(), "maxResponseBytes": limits.max_response_bytes, "maxStylesheetBytes": limits.max_stylesheet_bytes, "maxRequests": limits.max_requests, "maxExpressionBytes": limits.max_expression_bytes }).to_string()
+    serde_json::json!({ "timeoutMs": limits.timeout.as_millis(), "maxResponseBytes": limits.max_response_bytes, "maxStylesheetBytes": limits.max_stylesheet_bytes, "maxLayoutNodes": limits.max_layout_nodes, "maxRequests": limits.max_requests, "maxExpressionBytes": limits.max_expression_bytes }).to_string()
 }

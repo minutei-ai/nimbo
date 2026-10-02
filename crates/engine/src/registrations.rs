@@ -123,7 +123,7 @@ impl Definitions {
             return Ok(());
         };
         let mut operations = 0;
-        let mut work = Work::new(&mut operations, 10_000);
+        let mut work = Work::new(&mut operations, 10_000, 1024);
         let initial = match descriptors.initial {
             Some(value) => {
                 if crate::styles::wide_keyword(&value).is_some() {

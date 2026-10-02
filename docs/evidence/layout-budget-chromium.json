@@ -1,0 +1,12 @@
+{
+  "date": "2026-10-02",
+  "fixture": "tooling/layout-budget-fixture.ts",
+  "browser": "Chromium 152 via collaborative preview",
+  "transport": "Real HTTP",
+  "variants": 64,
+  "checksPerVariant": 8,
+  "passed": 512,
+  "failed": 0,
+  "checks": ["edges", "first", "height", "last", "nodes", "origin", "owner", "width"],
+  "scope": "HTML geometry and tree assertions only. Chromium does not implement Nimbo's configurable node quota; quota boundaries are tested separately in native Rust and workerd/Wasm."
+}

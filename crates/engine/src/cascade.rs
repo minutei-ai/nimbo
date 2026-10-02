@@ -515,8 +515,8 @@ impl Cascade {
         for node in document.root().descendants_it() {
             work.charge()?;
             nodes = nodes.saturating_add(1);
-            if nodes > 1024 {
-                return Err(Error::Limit("layout tree"));
+            if nodes > work.node_limit() {
+                return Err(Error::Limit("layout tree: nodes"));
             }
             let external = crate::stylesheets::is_stylesheet(node);
             if !external && !node.has_name("style") {

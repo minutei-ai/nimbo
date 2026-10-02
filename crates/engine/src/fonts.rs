@@ -157,7 +157,7 @@ fn calculate<V>(
 
 pub(crate) fn validate(value: &Length) -> Result<()> {
     let mut operations = 0;
-    let mut work = Work::new(&mut operations, 1024);
+    let mut work = Work::new(&mut operations, 1024, 1024);
     Context::new(&MediaEnvironment::default())
         .length(value, &mut work)
         .map(|_value| ())

@@ -1,3 +1,4 @@
+import { layoutBudgetFixture } from "./layout-budget-fixture";
 import { canvasFixture } from "./canvas-fixture";
 import { borderFixture } from "./border-fixture";
 import { cssBudgetFixture } from "./css-budget-fixture";
@@ -411,6 +412,8 @@ const origin = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     requests.push(`${request.method} ${path}`);
+    const layoutBudget = layoutBudgetFixture(path);
+    if (layoutBudget) return layoutBudget;
     const canvas = await canvasFixture(path);
     if (canvas) return canvas;
     const border = await borderFixture(path);
@@ -3122,7 +3125,7 @@ test.each([
 
 test("real HTTP → workerd → Wasm: generated boxes share the native layout tree budget", async () => {
   const url = new URL("geometry-empty", origin.url).href;
-  const expression = `(()=>{const container=document.createElement('div');for(let i=0;i<500;i++)container.appendChild(document.createElement('div'));document.body.appendChild(container);const sheet=document.createElement('style');sheet.textContent='div::before,div::after{content:"";display:block;height:1px}';document.head.appendChild(sheet);let failed=false;try{container.getBoundingClientRect();}catch(error){failed=error.message.endsWith('resource limit: layout tree');}sheet.remove();container.remove();return failed&&Number.isFinite(document.body.getBoundingClientRect().height);})()`;
+  const expression = `(()=>{const container=document.createElement('div');for(let i=0;i<500;i++)container.appendChild(document.createElement('div'));document.body.appendChild(container);const sheet=document.createElement('style');sheet.textContent='div::before,div::after{content:"";display:block;height:1px}';document.head.appendChild(sheet);let failed=false;try{container.getBoundingClientRect();}catch(error){failed=error.message.endsWith('resource limit: layout tree: nodes');}sheet.remove();container.remove();return failed&&Number.isFinite(document.body.getBoundingClientRect().height);})()`;
   const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
     method: "POST",
     headers: { authorization: "Bearer test-secret" },
@@ -4477,3 +4480,119 @@ test.each(["copy", "source-in", "source-out", "destination-in", "destination-ato
     expect(Object.values(value).every((check) => check === true)).toBe(true);
   },
 );
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: configured layout node budget variant %i",
+  async (variant) => {
+    const url = new URL(`layout-budget/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url,
+        maxLayoutNodes: 2048,
+        expression: `layoutBudgetCase(${variant})`,
+      }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing geometry");
+    expect(Object.keys(value)).toHaveLength(8);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each([0, -1, 1.5, 4097, "2048", true, null, {}])(
+  "real HTTP → workerd → Wasm: invalid layout node budget %j is rejected before navigation",
+  async (maxLayoutNodes) => {
+    const url = new URL("layout-budget/0", origin.url).href,
+      count = requests.length;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, maxLayoutNodes, expression: "true" }),
+    });
+    expect(response.status).toBe(400);
+    expect(requests.length).toBe(count);
+  },
+);
+
+test.each([
+  {
+    name: "default nodes",
+    path: "layout-budget/0",
+    maxLayoutNodes: undefined,
+    expression: "layoutBudgetCase(0)",
+    reason: "layout tree: nodes",
+  },
+  {
+    name: "below exact node count",
+    path: "layout-budget/0",
+    maxLayoutNodes: 1106,
+    expression: "layoutBudgetCase(0)",
+    reason: "layout tree: nodes",
+  },
+  {
+    name: "depth",
+    path: "layout-budget/depth/0",
+    maxLayoutNodes: 4096,
+    expression: "document.querySelector('#root').getBoundingClientRect()",
+    reason: "layout tree: depth",
+  },
+  {
+    name: "independent DOM operations",
+    path: "layout-budget/0",
+    maxLayoutNodes: 4096,
+    expression:
+      "(()=>{const r=document.querySelector('#root');for(let i=0;i<100;i++)r.getBoundingClientRect()})()",
+    reason: "DOM operations",
+  },
+])(
+  "real HTTP → workerd → Wasm: layout budget $name boundary and recovery",
+  async ({ path, maxLayoutNodes, expression, reason }) => {
+    const url = new URL(path, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, maxLayoutNodes, expression }),
+    });
+    expect(response.status).toBe(422);
+    expect(await response.text()).toContain(reason);
+    const healthy = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL("layout-budget/0", origin.url).href,
+        maxLayoutNodes: 1107,
+        expression: "layoutBudgetCase(0)",
+      }),
+    });
+    expect(healthy.status).toBe(200);
+    const result: unknown = await healthy.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing recovery");
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test("real HTTP → workerd → Wasm: configured node budget counts generated boxes", async () => {
+  const url = new URL("layout-budget/generated/0", origin.url).href;
+  const expression = "document.querySelector('#root').getBoundingClientRect().width===8";
+  const failed = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, maxLayoutNodes: 512, expression }),
+  });
+  expect(failed.status).toBe(422);
+  expect(await failed.text()).toContain("layout tree: nodes");
+  const healthy = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, maxLayoutNodes: 2048, expression }),
+  });
+  expect(healthy.status).toBe(200);
+  expect(await healthy.json()).toMatchObject({ value: true });
+});

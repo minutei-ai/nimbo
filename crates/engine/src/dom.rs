@@ -200,8 +200,11 @@ impl Dom {
 
     fn finish(&mut self, result: &Value, version: usize) -> Result<String> {
         if version != self.layout_version {
-            let mut work =
-                crate::layout::Work::new(&mut self.operations, self.limits.max_dom_operations);
+            let mut work = crate::layout::Work::new(
+                &mut self.operations,
+                self.limits.max_dom_operations,
+                self.limits.max_layout_nodes,
+            );
             self.sheets.disconnect(&self.document, &mut work)?;
         }
         Ok(serde_json::to_string(result)?)
@@ -212,8 +215,11 @@ impl Dom {
             return Ok(None);
         }
         let base = self.base_href();
-        let mut work =
-            crate::layout::Work::new(&mut self.operations, self.limits.max_dom_operations);
+        let mut work = crate::layout::Work::new(
+            &mut self.operations,
+            self.limits.max_dom_operations,
+            self.limits.max_layout_nodes,
+        );
         let request = self
             .sheets
             .next(&self.document, base.as_deref(), &mut work)?;
@@ -237,8 +243,11 @@ impl Dom {
 
     fn font_faces(&mut self) -> Result<Value> {
         let base = self.base_href();
-        let mut work =
-            crate::layout::Work::new(&mut self.operations, self.limits.max_dom_operations);
+        let mut work = crate::layout::Work::new(
+            &mut self.operations,
+            self.limits.max_dom_operations,
+            self.limits.max_layout_nodes,
+        );
         let cascade = crate::cascade::Cascade::collect(
             &self.document,
             &self.sheets,
@@ -273,8 +282,11 @@ impl Dom {
             })
             .transpose()?;
         let base = self.base_href();
-        let mut work =
-            crate::layout::Work::new(&mut self.operations, self.limits.max_dom_operations);
+        let mut work = crate::layout::Work::new(
+            &mut self.operations,
+            self.limits.max_dom_operations,
+            self.limits.max_layout_nodes,
+        );
         let observation = crate::layout::observe(
             &self.document,
             target,
@@ -302,8 +314,11 @@ impl Dom {
             .get(id)
             .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
         let base = self.base_href();
-        let mut work =
-            crate::layout::Work::new(&mut self.operations, self.limits.max_dom_operations);
+        let mut work = crate::layout::Work::new(
+            &mut self.operations,
+            self.limits.max_dom_operations,
+            self.limits.max_layout_nodes,
+        );
         let rect = crate::layout::bounds(
             &self.document,
             target,

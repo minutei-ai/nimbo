@@ -60,6 +60,8 @@ pub struct Limits {
     pub max_requests: usize,
     /// Chamadas máximas da ponte DOM, incluindo leituras.
     pub max_dom_operations: usize,
+    /// Nós visitados por coleta CSS ou passe de layout, incluindo conteúdo gerado.
+    pub max_layout_nodes: usize,
     /// Bytes máximos acumulados em mutações de DOM.
     pub max_dom_write_bytes: usize,
     /// Bytes UTF-16 máximos por área de Web Storage (chaves e valores).
@@ -81,6 +83,7 @@ impl Default for Limits {
             max_stylesheet_bytes: 256 * 1024,
             max_requests: 32,
             max_dom_operations: 10_000,
+            max_layout_nodes: 1024,
             max_dom_write_bytes: 4 * 1024 * 1024,
             max_storage_bytes: 64 * 1024,
             javascript_memory_bytes: 32 * 1024 * 1024,
