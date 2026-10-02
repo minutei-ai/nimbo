@@ -225,7 +225,7 @@ impl<'i> QualifiedRuleParser<'i> for Rules<'_> {
 }
 
 fn sheet(source: &str, media: &MediaEnvironment) -> Result<Vec<Rule>> {
-    if source.len() > 65_536 {
+    if source.len() > 262_144 {
         return Err(Error::Limit("stylesheet bytes"));
     }
     let mut input = ParserInput::new(source);
@@ -259,6 +259,8 @@ fn matches_media(media: &MediaEnvironment, source: &str) -> Result<bool> {
 impl Cascade {
     pub(crate) fn collect(
         document: &Document,
+        sheets: &crate::stylesheets::Sheets,
+        base: Option<&str>,
         media: &MediaEnvironment,
         work: &mut Work<'_>,
     ) -> Result<Self> {
@@ -272,16 +274,8 @@ impl Cascade {
             if nodes > 1024 {
                 return Err(Error::Limit("layout tree"));
             }
-            if node.has_name("link")
-                && node.attr("rel").is_some_and(|value| {
-                    value
-                        .split_ascii_whitespace()
-                        .any(|part| part.eq_ignore_ascii_case("stylesheet"))
-                })
-            {
-                return Err(unsupported("external stylesheet"));
-            }
-            if !node.has_name("style") {
+            let external = crate::stylesheets::is_stylesheet(node);
+            if !external && !node.has_name("style") {
                 continue;
             }
             if node
@@ -296,7 +290,17 @@ impl Cascade {
             if node.has_attr("title") {
                 return Err(unsupported("stylesheet sets"));
             }
-            let source = node.text();
+            let source = if external {
+                let Some(source) = sheets.source(node, base)? else {
+                    continue;
+                };
+                source.to_owned()
+            } else {
+                node.text().to_string()
+            };
+            if source.len() > 262_144 {
+                return Err(Error::Limit("stylesheet bytes"));
+            }
             bytes = bytes.saturating_add(source.len());
             if bytes > 262_144 {
                 return Err(Error::Limit("stylesheet total bytes"));

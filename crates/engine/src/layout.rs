@@ -314,10 +314,16 @@ impl Tree<'_, '_> {
     }
 }
 
+pub(crate) struct Sources<'a> {
+    pub inline: &'a HashMap<NodeId, Declarations>,
+    pub external: &'a crate::stylesheets::Sheets,
+    pub base: Option<&'a str>,
+}
+
 pub(crate) fn bounds(
     document: &Document,
     target: NodeRef<'_>,
-    styles: &HashMap<NodeId, Declarations>,
+    styles: &Sources<'_>,
     media: &MediaEnvironment,
     work: &mut Work<'_>,
 ) -> Result<Bounds> {
@@ -335,12 +341,13 @@ pub(crate) fn bounds(
 
 fn scene<T>(
     document: &Document,
-    styles: &HashMap<NodeId, Declarations>,
+    styles: &Sources<'_>,
     media: &MediaEnvironment,
     work: &mut Work<'_>,
     measure: impl FnOnce(&mut Tree<'_, '_>) -> Result<T>,
 ) -> Result<T> {
-    let cascade = crate::cascade::Cascade::collect(document, media, work)?;
+    let cascade =
+        crate::cascade::Cascade::collect(document, styles.external, styles.base, media, work)?;
     let root = document
         .root()
         .children_it(false)
@@ -349,7 +356,7 @@ fn scene<T>(
     let mut tree = Tree {
         boxes: TaffyTree::new(),
         ids: HashMap::new(),
-        styles,
+        styles: styles.inline,
         visited: 0,
         cascade: &cascade,
         work,
@@ -380,7 +387,7 @@ pub(crate) fn observe(
     target: NodeRef<'_>,
     root: Option<NodeRef<'_>>,
     margins: &Margins,
-    styles: &HashMap<NodeId, Declarations>,
+    styles: &Sources<'_>,
     media: &MediaEnvironment,
     work: &mut Work<'_>,
 ) -> Result<Observation> {

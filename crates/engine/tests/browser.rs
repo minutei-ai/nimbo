@@ -83,6 +83,12 @@ fn script_fixture(script: &str) -> String {
 
 fn layout_fixture(path: &str) -> String {
     let script = match path {
+        "/external-styles" => {
+            return format!(
+                "<!doctype html><html><head><link id=\"initial\" rel=\"stylesheet\" href=\"/sheets-css/main?v=0\"></head><body><script>{}</script></body></html>",
+                include_str!("fixtures/external-styles.txt")
+            );
+        }
         "/cascade" => include_str!("fixtures/cascade.txt"),
         "/variables" => include_str!("fixtures/variables.txt"),
         "/intersections" => include_str!("fixtures/intersections.txt"),
@@ -97,12 +103,57 @@ fn layout_fixture(path: &str) -> String {
     script_fixture(script)
 }
 
+fn serve_sheet(request: Request) -> io::Result<()> {
+    let path = request.url().split('?').next().unwrap_or_default();
+    let name = path.rsplit('/').next().unwrap_or_default();
+    let (body, status, mime) = match name {
+        "main" => ("#target{width:40px;height:30px}", 200, "text/css"),
+        "later" => ("#target{width:70px;height:30px}", 200, "text/css"),
+        "important" => (
+            "#target{width:80px !important;height:30px}",
+            200,
+            "text/css",
+        ),
+        "variables" => (
+            "body{--external:90px}#target{width:var(--external)}",
+            200,
+            "text/css",
+        ),
+        "final" => ("#target{width:60px;height:30px}", 200, "text/css"),
+        "charset" => (
+            "#target{width:55px;height:30px}",
+            200,
+            "TEXT/CSS; charset=utf-8",
+        ),
+        "wrong-mime" => ("#target{width:500px}", 200, "text/plain"),
+        "redirect" => ("", 302, "text/css"),
+        _ => ("missing", 404, "text/css"),
+    };
+    let mut response = Response::from_string(body)
+        .with_status_code(status)
+        .with_header(
+            Header::from_bytes("Content-Type", mime)
+                .map_err(|()| io::Error::other("invalid header"))?,
+        );
+    if status == 302 {
+        response.add_header(
+            Header::from_bytes("Location", "/sheets-css/final")
+                .map_err(|()| io::Error::other("invalid header"))?,
+        );
+    }
+    request.respond(response)
+}
+
 fn serve(mut request: Request) -> io::Result<()> {
+    if request.url().starts_with("/sheets-css/") {
+        return serve_sheet(request);
+    }
+
     let mut content_type = "text/html; charset=utf-8";
     let mut status = 200;
     let mut headers = Vec::new();
     let body = match request.url() {
-        "/cascade" | "/variables" | "/node-insertion" | "/intersections" | "/geometry" => layout_fixture(request.url()),
+        "/cascade" | "/variables" | "/node-insertion" | "/intersections" | "/geometry" | "/external-styles" => layout_fixture(request.url()),
         "/style-variables" => script_fixture(include_str!("fixtures/style-variables.txt")),
         "/styles" => script_fixture(include_str!("fixtures/styles.txt")),
         "/anchors" => format!("<base href=\"https://example.com/root/\"><a id=\"link\" href=\"../doc?q=1#fragment\">link</a><svg><a></a></svg><script>{}</script>", include_str!("fixtures/anchors.txt")),
@@ -541,9 +592,20 @@ fn dom_operation_budget_and_expired_page_are_enforced() -> TestResult {
             ..Limits::default()
         },
     )?;
+    assert!(matches!(
+        browser.navigate(&fixture.path("/static")),
+        Err(Error::Limit("DOM operations"))
+    ));
+    let browser = Browser::new(
+        &fixture.url,
+        Limits {
+            max_dom_operations: 64,
+            ..Limits::default()
+        },
+    )?;
     let page = browser.navigate(&fixture.path("/static"))?;
     assert!(
-        page.evaluate("Array.from({length: 20}, () => document.querySelector('li'))")
+        page.evaluate("Array.from({length: 128}, () => document.querySelector('li'))")
             .is_err()
     );
     let browser = Browser::new(
@@ -1007,6 +1069,24 @@ fn node_insertion_converts_strings_and_moves_native_children() -> TestResult {
     let result = page.evaluate("comparison")?;
     let fields = result.as_object().ok_or("missing insertion result")?;
     assert_eq!(fields.len(), 30);
+    assert!(
+        fields.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    Ok(())
+}
+
+#[test]
+fn external_stylesheets_load_through_http_and_update_native_cascade() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/external-styles"))?;
+    let result = page.evaluate("comparison")?;
+    let fields = result
+        .as_object()
+        .ok_or("missing external stylesheet result")?;
+    assert_eq!(fields.len(), 29);
     assert!(
         fields.values().all(|value| *value == json!(true)),
         "{result}"

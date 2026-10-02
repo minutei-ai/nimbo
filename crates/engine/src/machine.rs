@@ -58,6 +58,7 @@ struct Request {
 enum RequestPurpose {
     Fetch(Resolver),
     ClassicScript,
+    Stylesheet(usize),
     Module(String),
 }
 
@@ -81,6 +82,7 @@ pub(crate) struct Machine {
     ready: Option<Persistent<Function<'static>>>,
     timer: Option<Persistent<Function<'static>>>,
     intersections: Option<Persistent<Function<'static>>>,
+    resource: Option<Persistent<Function<'static>>>,
     clock: Rc<Cell<f64>>,
     evaluation: Option<Persistent<Promise<'static>>>,
     active: Option<Request>,
@@ -149,7 +151,12 @@ impl Machine {
             return Err(Error::Limit("HTML bytes"));
         }
         let base = parse_url(url)?;
-        let dom = Rc::new(RefCell::new(Dom::new(html, limits, media.clone())));
+        let dom = Rc::new(RefCell::new(Dom::new(
+            html,
+            limits,
+            media.clone(),
+            base.clone(),
+        )));
         let scripts = collect_scripts(&dom.borrow(), execute_scripts)?;
         let runtime = Runtime::new().map_err(|error| Error::JavaScript(error.to_string()))?;
         let modules = Modules::new(base.clone());
@@ -182,6 +189,7 @@ impl Machine {
             ready: None,
             timer: None,
             intersections: None,
+            resource: None,
             clock: Rc::new(Cell::new(0.0)),
             evaluation: None,
             active: None,
@@ -221,7 +229,7 @@ impl Machine {
         let dom_check = Arc::clone(&self.check);
         let requests = Rc::new(Cell::new(0_usize));
         let clock = Rc::clone(&self.clock);
-        let (ready, timer, intersections) = self.context.with(|ctx| -> Result<_> {
+        let (ready, timer, intersections, resource) = self.context.with(|ctx| -> Result<_> {
             let globals = ctx.globals();
             install_clock(&ctx, clock, limits)?;
             let dom_function = Function::new(
@@ -299,11 +307,13 @@ impl Machine {
                 callback(&ctx, &callbacks, "ready")?,
                 callback(&ctx, &callbacks, "timer")?,
                 callback(&ctx, &callbacks, "intersections")?,
+                callback(&ctx, &callbacks, "resource")?,
             ))
         })?;
         self.ready = Some(ready);
         self.timer = Some(timer);
         self.intersections = Some(intersections);
+        self.resource = Some(resource);
         Ok(())
     }
 
@@ -315,6 +325,28 @@ impl Machine {
         }
         self.clock.set(milliseconds);
         Ok(())
+    }
+
+    fn sheet_response(
+        &self,
+        handle: usize,
+        url: String,
+        response: Option<&Response>,
+    ) -> Result<()> {
+        let success = self
+            .dom
+            .borrow_mut()
+            .sheet_response(handle, url, response)?;
+        let callback = self
+            .resource
+            .as_ref()
+            .ok_or_else(|| Error::JavaScript("missing resource callback".into()))?;
+        self.context.with(|ctx| {
+            js(
+                &ctx,
+                js(&ctx, callback.clone().restore(&ctx))?.call::<_, ()>((handle, success)),
+            )
+        })
     }
 
     fn intersection_step(&self) -> Result<bool> {
@@ -445,6 +477,18 @@ impl Machine {
         Ok(None)
     }
 
+    fn next_sheet(&mut self) -> Result<Option<Action>> {
+        let sheet = self.dom.borrow_mut().next_sheet()?;
+        Ok(sheet.map(|(handle, url)| {
+            self.activate(Request {
+                url,
+                method: "GET".into(),
+                body: String::new(),
+                purpose: RequestPurpose::Stylesheet(handle),
+            })
+        }))
+    }
+
     pub(crate) fn step(&mut self) -> Result<Action> {
         if self.active.is_some() {
             return Err(Error::Unsupported(
@@ -471,6 +515,9 @@ impl Machine {
                     }
                     Ok(())
                 })?;
+            }
+            if let Some(action) = self.next_sheet()? {
+                return Ok(action);
             }
             let request = self.pending.borrow_mut().pop_front();
             if let Some(request) = request {
@@ -565,7 +612,9 @@ impl Machine {
         if response.body.len() > self.limits.max_response_bytes {
             return Err(Error::Limit("response bytes"));
         }
-        if let RequestPurpose::Module(name) = request.purpose {
+        if let RequestPurpose::Stylesheet(handle) = request.purpose {
+            self.sheet_response(handle, request.url, Some(response))?;
+        } else if let RequestPurpose::Module(name) = request.purpose {
             self.modules.respond(name, response)?;
         } else if let RequestPurpose::Fetch(resolver) = request.purpose {
             let payload = serde_json::to_string(response)?;
@@ -589,6 +638,9 @@ impl Machine {
             .active
             .take()
             .ok_or_else(|| Error::Unsupported("no pending request".into()))?;
+        if let RequestPurpose::Stylesheet(handle) = request.purpose {
+            return self.sheet_response(handle, request.url, None);
+        }
         let RequestPurpose::Fetch(resolver) = request.purpose else {
             return Err(Error::JavaScript(message.to_owned()));
         };

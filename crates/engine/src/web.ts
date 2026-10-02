@@ -3093,5 +3093,10 @@
     readyState = "complete";
     dispatch(globalThis, new Event("load"), true, true);
   };
-  return { ready, timer, intersections };
+  const resource = (handle: number, success: boolean) => {
+    if (timerTasks >= timerTaskLimit) throw new Error("timer task limit");
+    timerTasks++;
+    dispatch(node(handle), new Event(success ? "load" : "error"), true);
+  };
+  return { ready, timer, intersections, resource };
 })();

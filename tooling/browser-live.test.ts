@@ -1,3 +1,4 @@
+import { externalStylePage, externalStyleResponse } from "./external-styles-fixture";
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { join } from "node:path";
 import { TextDecoder as ReferenceTextDecoder } from "node:util";
@@ -405,6 +406,11 @@ const origin = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     requests.push(`${request.method} ${path}`);
+    if (path.startsWith("/external-styles/")) {
+      return externalStylePage(Number(path.split("/").at(-1)));
+    }
+    const stylesheet = externalStyleResponse(request);
+    if (stylesheet) return stylesheet;
     if (path.startsWith("/node-insertion/")) {
       const variant = Number(path.split("/").at(-1));
       return new Response(
@@ -2028,8 +2034,8 @@ test.each([
     "const css=document.createElement('style');css.textContent='@supports (display: grid) {div {width: 50px;}}';document.body.appendChild(css);",
   ],
   [
-    "external stylesheet",
-    "const css=document.createElement('link');css.setAttribute('rel','stylesheet');document.body.appendChild(css);",
+    "stylesheet sets",
+    "const css=document.createElement('link');css.setAttribute('rel','stylesheet');css.setAttribute('title','alternate');document.body.appendChild(css);",
   ],
   ["transform", "el.style.transform='translateX(10px)';"],
   ["environment substitution", "el.style.width='env(safe-area-inset-left, 10px)';"],
@@ -2158,7 +2164,7 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
 );
 
 test.each([
-  ["bytes", "'x'.repeat(65537)", "resource limit: stylesheet bytes"],
+  ["bytes", "'x'.repeat(262145)", "resource limit: stylesheet bytes"],
   [
     "selectors",
     "Array.from({length:65},(_,i)=>'.x'+i).join(',')+'{width:1px}'",
@@ -2250,7 +2256,7 @@ test("real HTTP → workerd → Wasm: failed stylesheet parsing preserves inline
   const expression = `(() => {
     document.body.style.margin='0';const el=document.createElement('div');el.id='target';el.style.cssText='width:10px;height:5px';document.body.appendChild(el);
     const css=document.createElement('style');css.textContent='#target {width:50px !important;}';document.body.appendChild(css);
-    const snapshot=el.getBoundingClientRect();const invalid=document.createElement('style');invalid.textContent='x'.repeat(65537);document.body.appendChild(invalid);
+    const snapshot=el.getBoundingClientRect();const invalid=document.createElement('style');invalid.textContent='x'.repeat(262145);document.body.appendChild(invalid);
     let failed=false;try{el.getBoundingClientRect();}catch(error){failed=error.message.includes('resource limit: stylesheet bytes');}
     invalid.remove();const recovered=el.getBoundingClientRect().width===50;css.textContent='#target {width:60px !important;}';
     return {failed,recovered,changed:el.getBoundingClientRect().width===60,snapshot:snapshot.width===50,inline:el.style.width==='10px'};
@@ -2621,3 +2627,120 @@ test.each([
     expect(await recovered.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: true });
   },
 );
+
+const externalStyleExpected = Object.fromEntries(
+  [
+    "initial",
+    "loaded",
+    "event",
+    "order",
+    "reordered",
+    "restoredOrder",
+    "inlineSheet",
+    "inline",
+    "important",
+    "inlineImportant",
+    "variables",
+    "mediaOff",
+    "mediaOn",
+    "disabled",
+    "enabled",
+    "removed",
+    "reinserted",
+    "redirect",
+    "httpError",
+    "mimeError",
+    "mimeParameters",
+    "typeOff",
+    "typeOn",
+    "relOff",
+    "relOn",
+    "base",
+    "snapshot",
+    "asynchronous",
+    "multiple",
+  ].map((key) => [key, true]),
+);
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: real external stylesheets variant %i",
+  async (variant) => {
+    const url = new URL(`external-styles/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "comparison" }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      url,
+      engine: "rust-wasm-quickjs",
+      value: externalStyleExpected,
+    });
+    expect(requests).toContain(`GET /sheets-css/main`);
+  },
+);
+
+const sheetPromise = (path: string) =>
+  `new Promise(resolve=>{const link=document.createElement('link');link.setAttribute('rel','stylesheet');link.setAttribute('href',${JSON.stringify(path)});link.addEventListener('load',()=>resolve(true),{once:true});document.head.appendChild(link);})`;
+test.each([
+  [
+    "response bytes",
+    sheetPromise("/sheets-css/oversized"),
+    "resource limit: stylesheet total bytes",
+  ],
+  [
+    "aggregate bytes",
+    `Promise.all([${sheetPromise("/sheets-css/total-a")},${sheetPromise("/sheets-css/total-b")}])`,
+    "resource limit: stylesheet total bytes",
+  ],
+  [
+    "integrity",
+    "new Promise(()=>{const link=document.createElement('link');link.setAttribute('rel','stylesheet');link.setAttribute('href','/sheets-css/main');link.setAttribute('integrity','sha256-invalid');document.head.appendChild(link);})",
+    "stylesheet integrity is not implemented",
+  ],
+  ["origin", sheetPromise("https://example.com/stylesheet.css"), "origin"],
+])(
+  "real HTTP → workerd → Wasm: external stylesheets reject %s and recover",
+  async (_name, expression, detail) => {
+    const url = new URL("geometry-empty", origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression }),
+    });
+    expect(response.status).toBe(422);
+    const message: unknown = expect.stringContaining(detail);
+    expect(await response.json()).toEqual({ error: message });
+    const recovered = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: sheetPromise("/sheets-css/main") }),
+    });
+    expect(recovered.status).toBe(200);
+    expect(await recovered.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: true });
+  },
+);
+
+test("real HTTP → workerd → Wasm: a 128 KiB external stylesheet computes real geometry", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const expression = `(()=>{const target=document.createElement('div');target.setAttribute('id','target');document.body.appendChild(target);return ${sheetPromise("/sheets-css/large")}.then(()=>target.getBoundingClientRect().width===65);})()`;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: true });
+});
+
+test("real HTTP → workerd → Wasm: external imports remain explicit layout failures", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const expression = `${sheetPromise("/sheets-css/has-import")}.then(()=>{try{document.body.getBoundingClientRect();return false;}catch(error){return error.message.includes('layout unsupported: stylesheet at-rule');}})`;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: true });
+});

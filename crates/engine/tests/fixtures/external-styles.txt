@@ -1,0 +1,35 @@
+globalThis.comparison=(async()=>{
+  const variant=globalThis.variant??0, result={};
+  document.body.style.cssText='margin:0;width:800px;height:600px;';
+  const target=document.createElement('div');target.setAttribute('id','target');document.body.appendChild(target);
+  const initial=document.querySelector('#initial');
+  const width=()=>target.getBoundingClientRect().width;
+  result.initial=width()===40+variant && target.getBoundingClientRect().height===30;
+  function reload(link,action){return new Promise(resolve=>{const loaded=event=>finish('load',event),failed=event=>finish('error',event);function finish(kind,event){link.removeEventListener('load',loaded);link.removeEventListener('error',failed);resolve({kind,target:event.target===link,bubbles:event.bubbles,trusted:event.isTrusted});}link.addEventListener('load',loaded);link.addEventListener('error',failed);action();});}
+  function change(link,name){return reload(link,()=>{link.setAttribute('href','/sheets-css/'+name+'?v='+variant);if(!link.parentNode)document.head.appendChild(link);});}
+  const settle=()=>new Promise(resolve=>setTimeout(resolve,40));
+  const later=document.createElement('link');later.setAttribute('rel','StyleSheet');
+  let event=await change(later,'later');result.loaded=event.kind==='load';result.event=event.target && !event.bubbles && event.trusted;result.order=width()===70+variant;
+  document.head.insertBefore(later,initial);result.reordered=width()===40+variant;
+  document.head.appendChild(later);result.restoredOrder=width()===70+variant;await settle();
+  const inline=document.createElement('style');inline.textContent='#target {width: 91px}';document.head.appendChild(inline);result.inlineSheet=width()===91;inline.remove();
+  target.style.width='92px';result.inline=width()===92;target.style.removeProperty('width');
+  event=await change(later,'important');target.style.width='93px';result.important=width()===80+variant;target.style.setProperty('width','94px','important');result.inlineImportant=width()===94;target.style.removeProperty('width');
+  event=await change(later,'variables');result.variables=width()===90+variant;
+  later.setAttribute('media','(min-width: 2000px)');result.mediaOff=width()===40+variant;later.setAttribute('media','(min-width: 1000px)');result.mediaOn=width()===90+variant;
+  later.setAttribute('disabled','');result.disabled=width()===40+variant;await reload(later,()=>later.removeAttribute('disabled'));result.enabled=width()===90+variant;
+  later.remove();result.removed=width()===40+variant;await reload(later,()=>document.head.appendChild(later));result.reinserted=width()===90+variant;await settle();
+  event=await change(later,'redirect');result.redirect=event.kind==='load' && width()===60+variant;
+  event=await change(later,'missing');result.httpError=event.kind==='error' && width()===40+variant;
+  event=await change(later,'wrong-mime');result.mimeError=event.kind==='error' && width()===40+variant;
+  event=await change(later,'charset');result.mimeParameters=event.kind==='load' && width()===55+variant;
+  later.setAttribute('type','text/plain');result.typeOff=width()===40+variant;await reload(later,()=>later.setAttribute('type','text/css'));result.typeOn=width()===55+variant;
+  later.setAttribute('rel','preload');result.relOff=width()===40+variant;await reload(later,()=>later.setAttribute('rel','stylesheet'));result.relOn=width()===55+variant;
+  later.remove();initial.remove();
+  const base=document.createElement('base');base.setAttribute('href','/sheets-css/');document.head.appendChild(base);
+  const relative=document.createElement('link');relative.setAttribute('rel','stylesheet');const relativeLoaded=new Promise(resolve=>relative.addEventListener('load',()=>resolve(true),{once:true}));relative.setAttribute('href','main?v='+variant);document.head.appendChild(relative);await relativeLoaded;result.base=width()===40+variant;
+  const snapshot=target.getBoundingClientRect();event=await change(relative,'later');result.snapshot=snapshot.width===40+variant && width()===70+variant;
+  let sameStack=true;const asyncLoad=new Promise(resolve=>relative.addEventListener('load',()=>resolve(!sameStack),{once:true}));relative.setAttribute('href','charset?v='+variant);sameStack=false;result.asynchronous=await asyncLoad;
+  const order=[];const a=document.createElement('link'),b=document.createElement('link');a.setAttribute('rel','stylesheet');b.setAttribute('rel','stylesheet');a.setAttribute('href','main?v='+variant);b.setAttribute('href','later?v='+variant);const done=Promise.all([new Promise(resolve=>a.addEventListener('load',()=>{order.push('a');resolve();},{once:true})),new Promise(resolve=>b.addEventListener('load',()=>{order.push('b');resolve();},{once:true}))]);document.head.append(a,b);await done;result.multiple=order.length===2 && width()===70+variant;
+  return result;
+})();

@@ -15,13 +15,20 @@ pub(crate) struct Dom {
     style_bytes: usize,
     operations: usize,
     layout_version: usize,
+    sheet_scan: Option<usize>,
+    sheets: crate::stylesheets::Sheets,
     writes: usize,
     limits: Limits,
     media: crate::MediaEnvironment,
 }
 
 impl Dom {
-    pub(crate) fn new(html: &str, limits: Limits, media: crate::MediaEnvironment) -> Self {
+    pub(crate) fn new(
+        html: &str,
+        limits: Limits,
+        media: crate::MediaEnvironment,
+        base: url::Url,
+    ) -> Self {
         let document = Document::from(html);
         let root = document.root().id;
         Self {
@@ -33,6 +40,8 @@ impl Dom {
             style_bytes: 0,
             operations: 0,
             layout_version: 0,
+            sheet_scan: None,
+            sheets: crate::stylesheets::Sheets::new(base),
             writes: 0,
             limits,
             media,
@@ -79,6 +88,7 @@ impl Dom {
         arg: &str,
         value: &str,
     ) -> Result<String> {
+        let version = self.layout_version;
         self.begin(operation, arg)?;
         let result = match operation {
             "baseHref" => json!(self.base_href()),
@@ -176,7 +186,44 @@ impl Dom {
                 )));
             }
         };
-        Ok(serde_json::to_string(&result)?)
+        self.finish(&result, version)
+    }
+
+    fn finish(&mut self, result: &Value, version: usize) -> Result<String> {
+        if version != self.layout_version {
+            let mut work =
+                crate::layout::Work::new(&mut self.operations, self.limits.max_dom_operations);
+            self.sheets.disconnect(&self.document, &mut work)?;
+        }
+        Ok(serde_json::to_string(result)?)
+    }
+
+    pub(crate) fn next_sheet(&mut self) -> Result<Option<(usize, String)>> {
+        if self.sheet_scan == Some(self.layout_version) {
+            return Ok(None);
+        }
+        let base = self.base_href();
+        let mut work =
+            crate::layout::Work::new(&mut self.operations, self.limits.max_dom_operations);
+        let request = self
+            .sheets
+            .next(&self.document, base.as_deref(), &mut work)?;
+        if let Some((id, url)) = request {
+            return Ok(Some((self.handle(id), url)));
+        }
+        self.sheet_scan = Some(self.layout_version);
+        Ok(None)
+    }
+    pub(crate) fn sheet_response(
+        &mut self,
+        handle: usize,
+        url: String,
+        response: Option<&crate::machine::Response>,
+    ) -> Result<bool> {
+        let id = self.node(handle)?.id;
+        let success = self.sheets.respond(id, url, response)?;
+        self.layout_version = self.layout_version.saturating_add(1);
+        Ok(success)
     }
 
     fn observe(&mut self, handle: usize, request: &str) -> Result<Value> {
@@ -202,6 +249,7 @@ impl Dom {
                     .ok_or_else(|| Error::Dom("invalid node handle".into()))
             })
             .transpose()?;
+        let base = self.base_href();
         let mut work =
             crate::layout::Work::new(&mut self.operations, self.limits.max_dom_operations);
         let observation = crate::layout::observe(
@@ -209,7 +257,11 @@ impl Dom {
             target,
             root,
             &request.margin,
-            &self.styles,
+            &crate::layout::Sources {
+                inline: &self.styles,
+                external: &self.sheets,
+                base: base.as_deref(),
+            },
             &self.media,
             &mut work,
         )?;
@@ -226,11 +278,48 @@ impl Dom {
             .tree
             .get(id)
             .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
+        let base = self.base_href();
         let mut work =
             crate::layout::Work::new(&mut self.operations, self.limits.max_dom_operations);
-        let rect =
-            crate::layout::bounds(&self.document, target, &self.styles, &self.media, &mut work)?;
+        let rect = crate::layout::bounds(
+            &self.document,
+            target,
+            &crate::layout::Sources {
+                inline: &self.styles,
+                external: &self.sheets,
+                base: base.as_deref(),
+            },
+            &self.media,
+            &mut work,
+        )?;
         Ok(serde_json::to_value(rect)?)
+    }
+
+    fn invalidate_sheet(
+        &mut self,
+        operation: &str,
+        handle: usize,
+        arg: &str,
+        value: &str,
+    ) -> Result<()> {
+        if !matches!(operation, "setAttr" | "removeAttr") {
+            return Ok(());
+        }
+        let node = self.node(handle)?;
+        if !node.has_name("link")
+            || !["href", "rel", "type", "disabled"]
+                .iter()
+                .any(|name| name.eq_ignore_ascii_case(arg))
+        {
+            return Ok(());
+        }
+        let old = node.attr(arg);
+        if (operation == "removeAttr" && old.is_some())
+            || (operation == "setAttr" && old.as_deref() != Some(value))
+        {
+            self.sheets.invalidate(node.id);
+        }
+        Ok(())
     }
 
     fn write_value(
@@ -246,6 +335,7 @@ impl Dom {
                     && self.node(handle)?.attr("style").as_deref() != Some(value)));
         let attribute_bytes = if operation == "setAttr" { arg.len() } else { 0 };
         self.charge_write(attribute_bytes.saturating_add(value.len()))?;
+        self.invalidate_sheet(operation, handle, arg, value)?;
         self.set(operation, handle, arg, value)?;
         if style_changed {
             let id = self.node(handle)?.id;

@@ -1,0 +1,131 @@
+{
+  "browser": "Chromium 152",
+  "fixture": "crates/engine/tests/fixtures/external-styles.txt",
+  "variants": 64,
+  "viewport": {
+    "width": 1024,
+    "height": 768
+  },
+  "assertions": {
+    "asynchronous": {
+      "passed": 64,
+      "failed": 0
+    },
+    "base": {
+      "passed": 64,
+      "failed": 0
+    },
+    "disabled": {
+      "passed": 64,
+      "failed": 0
+    },
+    "enabled": {
+      "passed": 64,
+      "failed": 0
+    },
+    "event": {
+      "passed": 64,
+      "failed": 0
+    },
+    "httpError": {
+      "passed": 64,
+      "failed": 0
+    },
+    "important": {
+      "passed": 64,
+      "failed": 0
+    },
+    "initial": {
+      "passed": 64,
+      "failed": 0
+    },
+    "inline": {
+      "passed": 64,
+      "failed": 0
+    },
+    "inlineImportant": {
+      "passed": 64,
+      "failed": 0
+    },
+    "inlineSheet": {
+      "passed": 64,
+      "failed": 0
+    },
+    "loaded": {
+      "passed": 64,
+      "failed": 0
+    },
+    "mediaOff": {
+      "passed": 64,
+      "failed": 0
+    },
+    "mediaOn": {
+      "passed": 64,
+      "failed": 0
+    },
+    "mimeError": {
+      "passed": 0,
+      "failed": 64
+    },
+    "mimeParameters": {
+      "passed": 64,
+      "failed": 0
+    },
+    "multiple": {
+      "passed": 64,
+      "failed": 0
+    },
+    "order": {
+      "passed": 64,
+      "failed": 0
+    },
+    "redirect": {
+      "passed": 64,
+      "failed": 0
+    },
+    "reinserted": {
+      "passed": 64,
+      "failed": 0
+    },
+    "relOff": {
+      "passed": 64,
+      "failed": 0
+    },
+    "relOn": {
+      "passed": 64,
+      "failed": 0
+    },
+    "removed": {
+      "passed": 64,
+      "failed": 0
+    },
+    "reordered": {
+      "passed": 64,
+      "failed": 0
+    },
+    "restoredOrder": {
+      "passed": 64,
+      "failed": 0
+    },
+    "snapshot": {
+      "passed": 64,
+      "failed": 0
+    },
+    "typeOff": {
+      "passed": 64,
+      "failed": 0
+    },
+    "typeOn": {
+      "passed": 64,
+      "failed": 0
+    },
+    "variables": {
+      "passed": 64,
+      "failed": 0
+    }
+  },
+  "differences": {
+    "mimeError": "A successful text/plain response is ignored by both engines; Chromium emits load, Nimbo emits error."
+  },
+  "scope": "External stylesheet HTTP loading and supported native author cascade. No complete loading, CSSOM, parser, rendering or browser parity claim."
+}

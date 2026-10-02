@@ -21,7 +21,7 @@ tests as well as integration and application tests.
 
 `tooling/browser-live.test.ts` uses a real loopback HTTP origin, actual workerd,
 and the compiled Rust/Wasm engine. It installs no transport replacements,
-service mocks, browser API stubs, or canned engine results. Its 1600 data variants
+service mocks, browser API stubs, or canned engine results. Its 1664 data variants
 exercise external scripts, Unicode/entity decoding, selector identity,
 ancestry, removal/reparenting, attribute mutation and POST response decoding.
 They also exercise parsed and created text/comment nodes, native node identity,
@@ -45,15 +45,15 @@ failures. The eighth set exercises native Web Storage across inline, external
 and module scripts, UTF-16 including lone surrogates, coercion/receiver guards,
 named properties, reflection, removal, clearing and fresh Worker request areas.
 An additional case exercises actual quota exhaustion, atomic failure, independent
-local/session quotas and reuse. These are repeated integration checks, not 1600 independent platform
+local/session quotas and reuse. These are repeated integration checks, not 1664 independent platform
 features. The ninth set checks native media queries against 64 explicit viewport
 and preference configurations, including ranges, three-valued conditions,
 serialization, CSS escapes, receiver guards and synthetic MediaQueryList events.
 The tenth set rejects 64 invalid environment variants before any HTTP navigation.
 The eleventh set repeats the same DOMTokenList fixture at 64 distinct URLs,
 checking live attribute reads, ordered token mutations, identity, indices,
-iteration, receiver guards and atomic invalid-token rejection. Including fifty-one
-resource/deadline/origin checks, the real browser suite has 1651 tests.
+iteration, receiver guards and atomic invalid-token rejection. Including fifty-seven
+resource/deadline/origin checks, the real browser suite has 1721 tests.
 The twelfth set checks HTML namespace identity and reflected attributes with
 64 distinct synthetic strings. It includes parsed SVG/MathML and an HTML
 subtree inside SVG foreignObject.
@@ -395,7 +395,7 @@ Neither aggregate fixtures nor a layout library establish full CSSOM View/WPT
 parity or rendering support.
 
 Eight real Worker cases require explicit failure for text needing shaping,
-unsupported conditional rules and external stylesheet links, transforms, environment substitution,
+unsupported conditional rules and stylesheet sets, transforms, environment substitution,
 absolute positioning, unsupported element formatting and relative font units.
 Two more reach the 1024-node and 128-depth limits, and one exhausts the shared
 DOM operation budget through actual repeated layout. Every failure case verifies
@@ -454,7 +454,7 @@ shared bytes/selectors/expanded declaration limits, nesting limits, unsupported
 layers and nested rules, and unsupported forgiving recovery. Failure cases
 verify a fresh request; a separate case removes an oversized sheet and reuses
 the same page while preserving inline state and old rectangle snapshots.
-Limits are 64 KiB per active sheet, 256 KiB total active sheet text, 1024 rules
+Limits are 256 KiB per active sheet, 256 KiB total active sheet text, 1024 rules
 per sheet, 64 selectors per rule, 1024 selectors across active sheets, 32 nested
 blocks and 1024 winning expanded declarations per element. DOM traversal and
 selector comparisons charge the shared operation budget before doing the work,
@@ -462,7 +462,7 @@ including failed geometry queries. CSS parsing is separately bounded by the
 listed input/tree limits; this is not a total-process CPU or memory claim.
 
 This is author style-rule ordering for supported box properties, not a complete
-cascade/computed-style implementation. Missing: external sheets/imports, origins
+cascade/computed-style implementation. Missing: stylesheet imports, origins
 and stylesheet sets, full style/link/sheet interfaces, layers/scope/container/
 supports groups, nesting, full selector state/scope/WPT behavior, defaulting and
 inheritance for ordinary properties, complete variable semantics, registered properties, presentational hints,
@@ -683,11 +683,49 @@ defines absolute length margins and an entry constructor; accepting those APIs
 is not evidence of matching the compared Chromium implementation.
 
 Visibility tracking, nonzero delay and scroll margins fail explicitly. Scrolling,
-viewport overflow propagation, fonts/text shaping, transforms, frames, external
-stylesheets and all other unsupported native layout inputs remain unsupported.
+viewport overflow propagation, fonts/text shaping, transforms, frames and all other unsupported native layout inputs remain unsupported.
 This host scheduling subset does not establish rendering-frame cadence, v2
 visibility tracking, ResizeObserver or full IntersectionObserver conformance.
 No Obscura runtime dependency or fallback is involved.
+
+## External stylesheet transport and cascade
+
+Connected stylesheet links now issue actual HTTP requests through the engine
+transport. Loaded CSS enters the existing native author cascade in DOM order;
+pending resources contribute no rules. Attribute changes invalidate retained
+sources, and removing links or their containing subtree releases their sources.
+Reinsertion loads again. Native host tasks dispatch trusted, non-bubbling
+load/error events, including dynamic resources, without page API replacements.
+
+The shared synthetic fixture passes 29 aggregate checks at 64 actual Worker
+URLs and in the native HTTP suite. It covers initial loading, dynamic changes,
+reordering, inline/important precedence, inherited variables, media eligibility,
+disabling, removal/reinsertion, same-origin redirects, HTTP failures, MIME
+parameters, type/rel changes, base URLs and immutable geometry snapshots.
+Six further real Worker cases cover four explicit resource/security failures
+with fresh-request recovery, successful 128 KiB CSS, and caught rejection of
+unsupported imports when geometry evaluates the sheet.
+
+Actual Chromium 152 ran the identical fixture at all 64 variants: 28 of 29
+checks passed in every variant. For a successful response with text/plain MIME,
+both engines ignore its CSS, but Chromium emitted load and Nimbo emitted error.
+The fixture's mimeError assertion consequently failed in all Chromium variants.
+This records a behavioral difference; it does not establish full equivalence.
+The public aggregate record is
+[external-styles-chromium.json](evidence/external-styles-chromium.json).
+
+Requests retain the strict same-origin policy and existing HTTP request/response
+budgets. Retained external sources share a 256 KiB cap and 1024 resource cap;
+active inline/external CSS shares the cascade limits above. Scanning and
+connection checks charge the shared DOM operation budget. Nonempty integrity
+metadata fails explicitly. Current text decoding is UTF-8.
+
+Initial connected sheets are fetched before classic script execution using the
+engine's parsed document snapshot. This is not parser-blocking or concurrent
+browser loading conformance. HTTP caching, global URL deduplication, imports,
+SRI verification, cross-origin sheets, alternate stylesheet sets, CSSOM sheet
+interfaces, fonts, full CSS parsing and rendering remain unimplemented. No
+Obscura runtime dependency or fallback is involved.
 
 ## Worker feasibility gates
 
