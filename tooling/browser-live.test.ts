@@ -1,3 +1,4 @@
+import { backgroundImagesFixture } from "./background-images-fixture";
 import { lineHeightFixture } from "./line-height-fixture";
 import { tabsFixture } from "./tabs-fixture";
 import { textAdjustFixture } from "./text-adjust-fixture";
@@ -417,6 +418,8 @@ const origin = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     requests.push(`${request.method} ${path}`);
+    const backgroundImages = await backgroundImagesFixture(path);
+    if (backgroundImages) return backgroundImages;
     const layoutBudget = layoutBudgetFixture(path);
     if (layoutBudget) return layoutBudget;
     const lineHeight = await lineHeightFixture(path);
@@ -4722,8 +4725,9 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
   expect(await response.json()).toMatchObject({
     value: {
       font: "18px",
-      count: 9,
+      count: 10,
       names: [
+        "background-image",
         "color",
         "font-size",
         "line-height",
@@ -4737,6 +4741,26 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
     },
   });
 });
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native background image layers variant %i",
+  async (variant) => {
+    const url = new URL(`background-images/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: `backgroundImagesCase(${variant})` }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null)
+      throw new Error("Missing background image values");
+    expect(Object.keys(value)).toHaveLength(48);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
 
 test.each(Array.from({ length: 64 }, (_, variant) => variant))(
   "real HTTP → workerd → Wasm: text adjustment cascade variant %i",
@@ -4852,3 +4876,67 @@ test.each([
     expect(healthy.status).toBe(200);
   },
 );
+
+test.each([
+  ["url(example.test/image.png)", "URL provenance and loading"],
+  ["radial-gradient(red,blue)", "radial, conic or legacy gradient"],
+  ["linear-gradient(red 2ex,blue)", "relative query length"],
+  ["linear-gradient(red calc(infinity * 1px),blue)", "non-finite position"],
+  ["linear-gradient(red calc(20% + 2px),blue)", "mixed percentage calculation"],
+  ["linear-gradient(color(display-p3 1 0 0),blue)", "computed color space or context color"],
+])("real HTTP → workerd → Wasm: explicit background image gap %s", async (image, detail) => {
+  const url = new URL("background-images/0", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression: `(()=>{document.body.style.backgroundImage=${JSON.stringify(image)};return getComputedStyle(document.body).backgroundImage})()`,
+    }),
+  });
+  expect(response.status).toBe(422);
+  expect(await response.text()).toContain(detail);
+  const healthy = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: "backgroundImagesCase(0)" }),
+  });
+  expect(healthy.status).toBe(200);
+});
+
+test("real HTTP → workerd → Wasm: background single stop, lazy color and conservative paint support", async () => {
+  const url = new URL("background-images/0", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression:
+        "(()=>{const e=document.body;e.style.cssText='font-size:18px;background-image:linear-gradient(red)';const s=getComputedStyle(e);const single=s.backgroundImage;e.style.backgroundImage='linear-gradient(color(display-p3 1 0 0),blue)';const font=s.fontSize;e.style.backgroundImage='url(https://example.test/image.png)';return {single,font,urlFont:s.fontSize,paint:CSS.supports('background-image','linear-gradient(red,blue)')}})()",
+    }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
+    value: {
+      single: "linear-gradient(rgb(255, 0, 0))",
+      font: "18px",
+      urlFont: "18px",
+      paint: false,
+    },
+  });
+});
+
+test("real HTTP → workerd → Wasm: unsupported image geometry stays explicit", async () => {
+  const url = new URL("background-images/0", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression:
+        "(()=>{document.body.style.backgroundImage='url(https://example.test/image.png)';return document.body.getBoundingClientRect()})()",
+    }),
+  });
+  expect(response.status).toBe(422);
+  expect(await response.text()).toContain("URL provenance and loading");
+});

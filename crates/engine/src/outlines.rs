@@ -108,7 +108,7 @@ fn offset(value: &str, inherited: f64, fonts: &Context, work: &mut Work<'_>) -> 
     }
 }
 
-fn serialize_color(color: &CssColor) -> Result<String> {
+pub(crate) fn serialize_color(color: &CssColor) -> Result<String> {
     let CssColor::RGBA(value) = color else {
         return Err(unsupported("computed color space or context color"));
     };
@@ -136,6 +136,10 @@ fn serialize_color(color: &CssColor) -> Result<String> {
 }
 
 impl Outlines {
+    pub(crate) fn color(&self) -> &CssColor {
+        &self.color
+    }
+
     pub(crate) fn compute(
         &self,
         declarations: &Declarations,

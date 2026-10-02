@@ -1390,6 +1390,11 @@ fn registered_custom_properties_validate_before_substitution() -> TestResult {
 }
 
 fn serve_resource(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/background-images/")
+        || request.url().starts_with("/background-images-assets/")
+    {
+        return serve_background_images(request);
+    }
     if request.url().starts_with("/line-height/")
         || request.url().starts_with("/line-height-assets/")
     {
@@ -1556,6 +1561,8 @@ fn is_resource(path: &str) -> bool {
         "/outlines/",
         "/tabs/",
         "/line-height/",
+        "/background-images/",
+        "/background-images-assets/",
         "/line-height-assets/",
         "/tabs-assets/",
         "/text-adjust/",
@@ -2039,6 +2046,47 @@ fn serve_line_height(request: Request) -> io::Result<()> {
     let source = format!(
         "<!doctype html><meta charset=utf-8><link rel=stylesheet href=/line-height-assets/{variant}><script>{}</script>",
         include_str!("fixtures/line-height.txt")
+    );
+    request.respond(Response::from_string(source).with_header(header("Content-Type", "text/html")?))
+}
+
+#[test]
+fn native_background_image_layers_real_http() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/background-images/{variant}")))?;
+        let result = page.evaluate(&format!("backgroundImagesCase({variant})"))?;
+        let fields = result
+            .as_object()
+            .ok_or("missing background image result")?;
+        assert_eq!(fields.len(), 48);
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+
+fn serve_background_images(request: Request) -> io::Result<()> {
+    if let Some(value) = request.url().strip_prefix("/background-images-assets/") {
+        let variant = value.parse::<u32>().map_err(io::Error::other)?;
+        return request.respond(
+            Response::from_string(format!(
+                "#external{{background-image:linear-gradient(red {}px,blue)}}",
+                variant.saturating_add(3)
+            ))
+            .with_header(header("Content-Type", "text/css")?),
+        );
+    }
+    let variant = request
+        .url()
+        .strip_prefix("/background-images/")
+        .unwrap_or("0");
+    let source = format!(
+        "<!doctype html><meta charset=utf-8><link rel=stylesheet href=/background-images-assets/{variant}><script>{}</script>",
+        include_str!("fixtures/background-images.txt")
     );
     request.respond(Response::from_string(source).with_header(header("Content-Type", "text/html")?))
 }

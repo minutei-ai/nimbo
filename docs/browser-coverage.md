@@ -1861,3 +1861,51 @@ inline formatting, baseline/leading, line boxes, wrapping, text paint, complete
 numeric serialization and full browser/CSS Inline parity remain pending.
 
 Public reference: [CSS line-height](https://drafts.csswg.org/css2/#propdef-line-height).
+
+## Native linear background image layers
+
+The engine now retains native background image layers for none, linear-gradient
+and repeating-linear-gradient. It parses typed stops, double stops, interpolation
+hints and directions; retains percentages and absolute CSS units; resolves
+supported font/viewport lengths; and preserves currentcolor until the element's
+resolved color is requested. Explicit inheritance copies the parent's computed
+lengths while currentcolor uses the child's color. Default, initial and unset
+produce none, since background images are not inherited by default.
+
+Background image state participates in the existing cascade, variable
+substitution, mutation invalidation and bounded operation accounting. The live
+read-only getComputedStyle facade exposes background-image as its tenth
+property. Inline declarations preserve their parsed image input instead of
+running the transformer's gradient optimizations, which can merge stops or
+remove interpolation hints. This is not complete CSSOM token serialization.
+
+The shared real HTTP fixture passes 48 checks across 64 native Rust navigations
+and 64 real workerd/Wasm requests, including actual external stylesheets.
+The same 3072 checks pass in Chromium; see
+[the aggregate](evidence/background-images-chromium.json). Checks cover layers,
+directions and angle units, absolute/contextual positions, percentages, hints,
+double stops, alpha/currentcolor, defaults/inheritance, cascade and importance,
+variables, invalid declarations, CSSOM mutation/removal, live context/sheet
+changes, read-only writes, detach/reattach and unchanged empty box dimensions.
+Six Worker cases fail explicitly for image URL provenance/loading, radial
+images, font-metric units, non-finite positions, mixed percentage calculations
+and unsupported color serialization, then recover through fresh successful
+requests. Another Worker case verifies single-color gradients, lazy scalar
+access with an advanced image color or unsupported image URL, and conservative
+paint support reporting. Unsupported image state is retained as an explicit
+failure for image-value/geometry requests; it does not prevent unrelated scalar
+computed properties from being read. An additional real Worker request verifies
+that unsupported image geometry still fails explicitly. Operation/quota
+failures still propagate.
+
+Background layers do not affect empty box dimensions. The engine computes and
+retains image state rather than treating arbitrary background CSS as supported.
+CSS.supports continues to reject background-image because painting is missing.
+Image loading/decoding, URL provenance, image-set selection, radial/conic/legacy
+gradients, mixed percentage math, complete computed/CSSOM serialization,
+background sizing/position/repeat/clip/origin/attachment, scene compositing and
+image painting remain pending. This evidence does not establish rendered
+background or complete browser parity.
+
+Public references: [CSS Backgrounds image layers](https://drafts.csswg.org/css-backgrounds/#the-background-image)
+and [CSS Images serialization](https://drafts.csswg.org/css-images/#serialization).

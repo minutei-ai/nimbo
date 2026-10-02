@@ -137,7 +137,10 @@ fn validate_overflow(node: NodeRef<'_>, style: &Style) -> Result<()> {
 
 pub(crate) fn supports(declarations: &Declarations) -> bool {
     if declarations.layout_entries().any(|(name, _, _)| {
-        matches!(name, "color" | "background-color" | "opacity") || crate::outlines::property(name)
+        matches!(
+            name,
+            "color" | "background-color" | "background-image" | "opacity"
+        ) || crate::outlines::property(name)
     }) {
         return false;
     }
@@ -174,6 +177,7 @@ fn non_layout(name: &str) -> bool {
         name,
         "color"
             | "background-color"
+            | "background-image"
             | "opacity"
             | "visibility"
             | "container-name"
@@ -352,6 +356,7 @@ struct BoxContext {
     fonts: crate::fonts::Context,
     borders: crate::borders::Borders,
     outlines: crate::outlines::Outlines,
+    images: crate::backgrounds::Images,
 }
 
 struct Tree<'a, 'b> {
@@ -424,6 +429,10 @@ impl Tree<'_, '_> {
         )?;
         let fonts = context.fonts.compute(&declarations, false, self.work)?;
         context.outlines.compute(&declarations, &fonts, self.work)?;
+        context
+            .images
+            .compute(&declarations, &fonts, self.work)?
+            .validate()?;
         style.border = context
             .borders
             .compute(&declarations, &fonts, self.work)?
@@ -515,10 +524,13 @@ impl Tree<'_, '_> {
         let borders = context.borders.compute(&declarations, &fonts, self.work)?;
         style.border = borders.geometry()?;
         let outlines = context.outlines.compute(&declarations, &fonts, self.work)?;
+        let images = context.images.compute(&declarations, &fonts, self.work)?;
+        images.validate()?;
         let context = BoxContext {
             fonts,
             borders,
             outlines,
+            images,
         };
         let container =
             crate::containers::Container::apply(&declarations, &mut style, parent_display, fonts)?;
@@ -633,6 +645,7 @@ fn scene<T>(
                 fonts: crate::fonts::Context::new(media),
                 borders: crate::borders::Borders::default(),
                 outlines: crate::outlines::Outlines::default(),
+                images: crate::backgrounds::Images::default(),
             },
         )?;
         if let Some(root_id) = root_id {
