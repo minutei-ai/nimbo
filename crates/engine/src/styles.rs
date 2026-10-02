@@ -344,6 +344,11 @@ impl RuleBodyItemParser<'_, (String, Vec<Entry>), ()> for ListParser {
 }
 
 impl Declarations {
+    pub(crate) fn layout_entries(&self) -> impl Iterator<Item = (&str, &str, bool)> {
+        self.entries
+            .iter()
+            .map(|entry| (entry.name.as_str(), entry.value.as_str(), entry.deferred))
+    }
     pub(crate) fn parse(source: &str) -> Result<Self, &'static str> {
         if source.len() > INPUT_LIMIT {
             return Err("CSS input limit");

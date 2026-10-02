@@ -16,10 +16,11 @@ pub(crate) struct Dom {
     operations: usize,
     writes: usize,
     limits: Limits,
+    media: crate::MediaEnvironment,
 }
 
 impl Dom {
-    pub(crate) fn new(html: &str, limits: Limits) -> Self {
+    pub(crate) fn new(html: &str, limits: Limits, media: crate::MediaEnvironment) -> Self {
         let document = Document::from(html);
         let root = document.root().id;
         Self {
@@ -32,6 +33,7 @@ impl Dom {
             operations: 0,
             writes: 0,
             limits,
+            media,
         }
     }
 
@@ -59,6 +61,7 @@ impl Dom {
         self.operations = self.operations.saturating_add(1);
         let result = match operation {
             "baseHref" => json!(self.base_href()),
+            "bounds" => self.bounds(handle)?,
             "query" => self.query(handle, arg)?,
             "customCandidates" => self.custom_candidates(handle, arg)?,
             "queryOne" => self.query_one(handle, arg)?,
@@ -150,6 +153,17 @@ impl Dom {
             }
         };
         Ok(serde_json::to_string(&result)?)
+    }
+
+    fn bounds(&mut self, handle: usize) -> Result<Value> {
+        let target = self.node(handle)?;
+        let (rect, count) =
+            crate::layout::bounds(&self.document, target, &self.styles, &self.media)?;
+        self.operations = self.operations.saturating_add(count);
+        if self.operations > self.limits.max_dom_operations {
+            return Err(Error::Limit("DOM operations"));
+        }
+        Ok(serde_json::to_value(rect)?)
     }
 
     fn write_value(

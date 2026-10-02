@@ -86,6 +86,7 @@ fn serve(mut request: Request) -> io::Result<()> {
     let mut status = 200;
     let mut headers = Vec::new();
     let body = match request.url() {
+        "/geometry" => script_fixture(include_str!("fixtures/geometry.txt")),
         "/style-variables" => script_fixture(include_str!("fixtures/style-variables.txt")),
         "/styles" => script_fixture(include_str!("fixtures/styles.txt")),
         "/anchors" => format!("<base href=\"https://example.com/root/\"><a id=\"link\" href=\"../doc?q=1#fragment\">link</a><svg><a></a></svg><script>{}</script>", include_str!("fixtures/anchors.txt")),
@@ -916,6 +917,20 @@ fn inline_variables_preserve_native_pending_shorthands_and_invalidations() -> Te
     let result = page.evaluate("comparison")?;
     let fields = result.as_object().ok_or("missing variable styles result")?;
     assert_eq!(fields.len(), 27);
+    assert!(
+        fields.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    Ok(())
+}
+
+#[test]
+fn native_box_geometry_observes_inline_styles_and_live_dom_changes() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/geometry"))?;
+    let result = page.evaluate("comparison")?;
+    let fields = result.as_object().ok_or("missing geometry result")?;
+    assert_eq!(fields.len(), 17);
     assert!(
         fields.values().all(|value| *value == json!(true)),
         "{result}"

@@ -1,0 +1,28 @@
+{
+  "recordedAt": "2026-10-02 01:15:42 UTC",
+  "reference": "Chromium 152, collaborative browser",
+  "fixture": "crates/engine/tests/fixtures/geometry.txt",
+  "environment": { "width": 1024, "height": 768, "origin": "synthetic srcdoc frame" },
+  "variants": { "count": 64, "first": 0, "last": 63 },
+  "failureCounts": {
+    "brand": 0,
+    "descriptor": 0,
+    "detached": 0,
+    "dictionary": 0,
+    "edges": 0,
+    "gridAuto": 0,
+    "hidden": 0,
+    "initial": 0,
+    "json": 0,
+    "live": 0,
+    "mutable": 0,
+    "nan": 0,
+    "nativeJSON": 0,
+    "numeric": 0,
+    "readonly": 0,
+    "relative": 0,
+    "wrapping": 0
+  },
+  "interpretation": { "aggregateChecks": 17, "referenceMatches": 17 },
+  "scope": "Inline block/flex and automatic single-column grid boxes without text or stylesheets. No full layout, paint, observer, CSSOM View, Geometry Interfaces or WPT parity claim."
+}

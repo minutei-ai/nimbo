@@ -30,6 +30,9 @@ const styleScript = await Bun.file(
 const styleVariableScript = await Bun.file(
   join(import.meta.dir, "../crates/engine/tests/fixtures/style-variables.txt"),
 ).text();
+const geometryScript = await Bun.file(
+  join(import.meta.dir, "../crates/engine/tests/fixtures/geometry.txt"),
+).text();
 const requests: string[] = [];
 const comparisonBinary = process.env.NIMBO_COMPARE_OBSCURA_BINARY;
 async function comparePage(binary: string, url: string): Promise<unknown> {
@@ -390,6 +393,17 @@ const origin = Bun.serve({
   async fetch(request) {
     const path = new URL(request.url).pathname;
     requests.push(`${request.method} ${path}`);
+    if (path.startsWith("/geometry/")) {
+      const variant = Number(path.split("/").at(-1));
+      return new Response(`<script>globalThis.variant=${variant};${geometryScript}</script>`, {
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
+    }
+    if (path === "/geometry-empty") {
+      return new Response("<!doctype html><html><head></head><body></body></html>", {
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
+    }
     if (path.startsWith("/style-variables/")) {
       const variant = Number(path.split("/").at(-1));
       return new Response(`<script>globalThis.variant=${variant};${styleVariableScript}</script>`, {
@@ -1928,4 +1942,133 @@ test("real HTTP → workerd → Wasm: cssText recovers from an oversized externa
     engine: "rust-wasm-quickjs",
     value: { limited: true, identity: true, value: "8px", attribute: "width: 8px;", length: 1 },
   });
+});
+
+const geometryExpected = Object.fromEntries(
+  [
+    "initial",
+    "live",
+    "hidden",
+    "relative",
+    "detached",
+    "wrapping",
+    "gridAuto",
+    "edges",
+    "mutable",
+    "dictionary",
+    "readonly",
+    "brand",
+    "json",
+    "numeric",
+    "nan",
+    "nativeJSON",
+    "descriptor",
+  ].map((key) => [key, true]),
+);
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native block and flex geometry variant %i",
+  async (variant) => {
+    const url = new URL(`geometry/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "comparison" }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      url,
+      engine: "rust-wasm-quickjs",
+      value: geometryExpected,
+    });
+    expect(requests).toContain(`GET /geometry/${variant}`);
+  },
+);
+
+test.each([
+  ["text shaping", "el.textContent='real text';"],
+  [
+    "stylesheet cascade",
+    "const css=document.createElement('style');css.textContent='div { width: 50px; }';document.body.appendChild(css);",
+  ],
+  [
+    "stylesheet cascade",
+    "const css=document.createElement('link');css.setAttribute('rel','stylesheet');document.body.appendChild(css);",
+  ],
+  ["transform", "el.style.transform='translateX(10px)';"],
+  ["variable substitution", "el.style.width='var(--size, 10px)';"],
+  ["position", "el.style.position='absolute';"],
+  ["element formatting", "const child=document.createElement('span');el.appendChild(child);"],
+  ["width", "el.style.width='2em';"],
+])(
+  "real HTTP → workerd → Wasm: geometry rejects %s without fictional values",
+  async (reason, setup) => {
+    const url = new URL("geometry-empty", origin.url).href;
+    const expression = `(() => {const el=document.createElement('div');document.body.appendChild(el);${setup}return el.getBoundingClientRect();})()`;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression }),
+    });
+    expect(response.status).toBe(422);
+    const message: unknown = expect.stringContaining(`layout unsupported: ${reason}`);
+    expect(await response.json()).toEqual({ error: message });
+    const recovered = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url,
+        expression: "document.createElement('div').getBoundingClientRect().toJSON()",
+      }),
+    });
+    expect(recovered.status).toBe(200);
+    expect(await recovered.json()).toEqual({
+      url,
+      engine: "rust-wasm-quickjs",
+      value: { x: 0, y: 0, width: 0, height: 0, top: 0, right: 0, bottom: 0, left: 0 },
+    });
+  },
+);
+
+test.each(["nodes", "depth"])(
+  "real HTTP → workerd → Wasm: geometry %s budget is bounded and recoverable",
+  async (mode) => {
+    const url = new URL("geometry-empty", origin.url).href;
+    const expression = `(() => {const root=document.createElement('div');document.body.appendChild(root);let parent=root;for(let i=0;i<${mode === "nodes" ? 1030 : 130};i++){const el=document.createElement('div');parent.appendChild(el);${mode === "depth" ? "parent=el;" : ""}}return root.getBoundingClientRect();})()`;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression }),
+    });
+    expect(response.status).toBe(422);
+    const message: unknown = expect.stringContaining("resource limit: layout tree");
+    expect(await response.json()).toEqual({ error: message });
+    const recovered = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "document.body.getBoundingClientRect().width > 0" }),
+    });
+    expect(recovered.status).toBe(200);
+    expect(await recovered.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: true });
+  },
+);
+
+test("real HTTP → workerd → Wasm: geometry charges the shared DOM operation budget", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const expression =
+    "(() => {const root=document.createElement('div');document.body.appendChild(root);for(let i=0;i<30;i++){root.appendChild(document.createElement('div'));}for(let i=0;i<500;i++){root.getBoundingClientRect();}return false;})()";
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression }),
+  });
+  expect(response.status).toBe(422);
+  const message: unknown = expect.stringContaining("resource limit: DOM operations");
+  expect(await response.json()).toEqual({ error: message });
+  const recovered = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: "document.body.getBoundingClientRect().width > 0" }),
+  });
+  expect(recovered.status).toBe(200);
+  expect(await recovered.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: true });
 });

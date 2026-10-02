@@ -1354,7 +1354,124 @@
     lists.set(attribute, proxy);
     return proxy;
   }
+  type RectValues = { x: number; y: number; width: number; height: number };
+  const rectValues = new WeakMap<DOMRectReadOnly, RectValues>();
+  function rectNumber(value: unknown): number {
+    // Web IDL's unrestricted double conversion uses ToNumber, including its
+    // rejection of BigInt and Symbol even when returned by an object coercion.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion, typescript/no-unnecessary-type-conversion
+    return +(value as number);
+  }
+  function rectState(value: DOMRectReadOnly): RectValues {
+    const state = rectValues.get(value);
+    if (!state) throw new TypeError("Illegal invocation");
+    return state;
+  }
+  class DOMRectReadOnly {
+    constructor(x: unknown = 0, y: unknown = 0, width: unknown = 0, height: unknown = 0) {
+      rectValues.set(this, {
+        x: rectNumber(x),
+        y: rectNumber(y),
+        width: rectNumber(width),
+        height: rectNumber(height),
+      });
+    }
+    static fromRect(value: Partial<RectValues> | null = {}): DOMRectReadOnly {
+      if (value !== null && typeof value !== "object" && typeof value !== "function")
+        throw new TypeError("Expected dictionary");
+      return new DOMRectReadOnly(value?.x, value?.y, value?.width, value?.height);
+    }
+    get x(): number {
+      return rectState(this).x;
+    }
+    get y(): number {
+      return rectState(this).y;
+    }
+    get width(): number {
+      return rectState(this).width;
+    }
+    get height(): number {
+      return rectState(this).height;
+    }
+    get top(): number {
+      const s = rectState(this);
+      return Math.min(s.y, s.y + s.height);
+    }
+    get right(): number {
+      const s = rectState(this);
+      return Math.max(s.x, s.x + s.width);
+    }
+    get bottom(): number {
+      const s = rectState(this);
+      return Math.max(s.y, s.y + s.height);
+    }
+    get left(): number {
+      const s = rectState(this);
+      return Math.min(s.x, s.x + s.width);
+    }
+    toJSON(): RectValues & { top: number; right: number; bottom: number; left: number } {
+      const s = rectState(this);
+      return {
+        ...s,
+        top: Math.min(s.y, s.y + s.height),
+        right: Math.max(s.x, s.x + s.width),
+        bottom: Math.max(s.y, s.y + s.height),
+        left: Math.min(s.x, s.x + s.width),
+      };
+    }
+    get [Symbol.toStringTag](): string {
+      return "DOMRectReadOnly";
+    }
+  }
+  class DOMRect extends DOMRectReadOnly {
+    static override fromRect(value: Partial<RectValues> | null = {}): DOMRect {
+      const rect = DOMRectReadOnly.fromRect(value);
+      return new DOMRect(rect.x, rect.y, rect.width, rect.height);
+    }
+    override get x(): number {
+      return super.x;
+    }
+    override set x(value: unknown) {
+      rectState(this).x = rectNumber(value);
+    }
+    override get y(): number {
+      return super.y;
+    }
+    override set y(value: unknown) {
+      rectState(this).y = rectNumber(value);
+    }
+    override get width(): number {
+      return super.width;
+    }
+    override set width(value: unknown) {
+      rectState(this).width = rectNumber(value);
+    }
+    override get height(): number {
+      return super.height;
+    }
+    override set height(value: unknown) {
+      rectState(this).height = rectNumber(value);
+    }
+    override get [Symbol.toStringTag](): string {
+      return "DOMRect";
+    }
+  }
+  for (const [prototype, tag] of [
+    [DOMRectReadOnly.prototype, "DOMRectReadOnly"],
+    [DOMRect.prototype, "DOMRect"],
+  ] as const) {
+    for (const name of Object.getOwnPropertyNames(prototype)) {
+      if (name === "constructor") continue;
+      const descriptor = Object.getOwnPropertyDescriptor(prototype, name);
+      if (descriptor) Object.defineProperty(prototype, name, { ...descriptor, enumerable: true });
+    }
+    Object.defineProperty(prototype, Symbol.toStringTag, { value: tag, configurable: true });
+  }
   class Element extends ParentNode {
+    getBoundingClientRect(): DOMRect {
+      const result = call<RectValues>("bounds", idOf(this));
+      return new DOMRect(result.x, result.y, result.width, result.height);
+    }
     get classList(): DOMTokenList {
       return classList(this);
     }
@@ -2473,6 +2590,8 @@
     NodeList,
     HTMLCollection,
     DOMTokenList,
+    DOMRect,
+    DOMRectReadOnly,
     CharacterData,
     Text,
     Comment,

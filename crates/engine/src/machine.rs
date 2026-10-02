@@ -122,7 +122,7 @@ impl Machine {
             return Err(Error::Limit("HTML bytes"));
         }
         let base = parse_url(url)?;
-        let dom = Rc::new(RefCell::new(Dom::new(html, limits)));
+        let dom = Rc::new(RefCell::new(Dom::new(html, limits, media.clone())));
         let scripts = collect_scripts(&dom.borrow(), execute_scripts)?;
         let runtime = Runtime::new().map_err(|error| Error::JavaScript(error.to_string()))?;
         let modules = Modules::new(base.clone());
