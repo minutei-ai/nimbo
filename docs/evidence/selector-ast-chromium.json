@@ -1,0 +1,211 @@
+{
+  "assertions": {
+    "absentFocus": {
+      "failed": 0,
+      "passed": 64
+    },
+    "absentFocusRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "absentModal": {
+      "failed": 0,
+      "passed": 64
+    },
+    "absentModalRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "backdrop": {
+      "failed": 0,
+      "passed": 64
+    },
+    "backdropList": {
+      "failed": 0,
+      "passed": 64
+    },
+    "backdropListRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "backdropOrigin": {
+      "failed": 0,
+      "passed": 64
+    },
+    "backdropOriginRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "backdropRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "escapedBackdrop": {
+      "failed": 0,
+      "passed": 64
+    },
+    "escapedBackdropRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "fileButton": {
+      "failed": 0,
+      "passed": 64
+    },
+    "fileButtonRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "hasAdjacent": {
+      "failed": 0,
+      "passed": 64
+    },
+    "hasAdjacentRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "hasChild": {
+      "failed": 0,
+      "passed": 64
+    },
+    "hasChildRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "hasFollowing": {
+      "failed": 0,
+      "passed": 64
+    },
+    "hasFollowingRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "hasMissing": {
+      "failed": 0,
+      "passed": 64
+    },
+    "hasMissingRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "hasNegation": {
+      "failed": 0,
+      "passed": 64
+    },
+    "hasNegationRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "isHas": {
+      "failed": 0,
+      "passed": 64
+    },
+    "isHasRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "marker": {
+      "failed": 0,
+      "passed": 64
+    },
+    "markerRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "notFocus": {
+      "failed": 0,
+      "passed": 64
+    },
+    "notFocusRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "notModal": {
+      "failed": 0,
+      "passed": 64
+    },
+    "notModalRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "notRoot": {
+      "failed": 0,
+      "passed": 64
+    },
+    "notRootRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "nthAbsent": {
+      "failed": 0,
+      "passed": 64
+    },
+    "nthAbsentRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "nthLastOf": {
+      "failed": 0,
+      "passed": 64
+    },
+    "nthLastOfRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "nthOf": {
+      "failed": 0,
+      "passed": 64
+    },
+    "nthOfRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "placeholder": {
+      "failed": 0,
+      "passed": 64
+    },
+    "placeholderRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "root": {
+      "failed": 0,
+      "passed": 64
+    },
+    "rootRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "selection": {
+      "failed": 0,
+      "passed": 64
+    },
+    "selectionRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "upperBackdrop": {
+      "failed": 0,
+      "passed": 64
+    },
+    "upperBackdropRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "whereHas": {
+      "failed": 0,
+      "passed": 64
+    },
+    "whereHasRecovery": {
+      "failed": 0,
+      "passed": 64
+    }
+  },
+  "browser": "Chromium 152.0.7977.130",
+  "fixture": "crates/engine/tests/fixtures/selector-ast.txt",
+  "frameViewport": {
+    "height": 768,
+    "width": 1024
+  },
+  "variants": 64
+}

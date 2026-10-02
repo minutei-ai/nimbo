@@ -415,6 +415,16 @@ const origin = Bun.serve({
         headers: { "content-type": "text/html" },
       });
     }
+    if (path.startsWith("/selector-ast/")) {
+      const variant = Number(path.split("/").at(-1));
+      const source = await Bun.file(
+        join(import.meta.dir, "../crates/engine/tests/fixtures/selector-ast.txt"),
+      ).text();
+      return new Response(
+        `<!doctype html><body><script>globalThis.variant=${variant};${source}</script>`,
+        { headers: { "content-type": "text/html" } },
+      );
+    }
     if (path.startsWith("/generated-boxes/")) {
       const variant = Number(path.split("/").at(-1));
       const source = await Bun.file(
@@ -3229,3 +3239,48 @@ test("real HTTP → workerd → Wasm: native dataset charges the DOM write budge
   expect(recovered.status).toBe(200);
   expect(await recovered.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: "ready" });
 });
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native selector AST variant %i",
+  async (variant) => {
+    const url = new URL(`selector-ast/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "comparison" }),
+    });
+    expect(response.status).toBe(200);
+    const expected: Record<string, boolean> = {};
+    for (const name of [
+      "backdrop",
+      "backdropList",
+      "backdropOrigin",
+      "placeholder",
+      "selection",
+      "marker",
+      "fileButton",
+      "hasChild",
+      "hasAdjacent",
+      "hasFollowing",
+      "hasMissing",
+      "hasNegation",
+      "nthOf",
+      "nthLastOf",
+      "nthAbsent",
+      "root",
+      "notRoot",
+      "isHas",
+      "whereHas",
+      "absentModal",
+      "notModal",
+      "absentFocus",
+      "notFocus",
+      "upperBackdrop",
+      "escapedBackdrop",
+    ]) {
+      expected[name] = true;
+      expected[`${name}Recovery`] = true;
+    }
+    expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: expected });
+  },
+);

@@ -21,7 +21,7 @@ tests as well as integration and application tests.
 
 `tooling/browser-live.test.ts` uses a real loopback HTTP origin, actual workerd,
 and the compiled Rust/Wasm engine. It installs no transport replacements,
-service mocks, browser API stubs, or canned engine results. Its 2048 data variants
+service mocks, browser API stubs, or canned engine results. Its 2112 data variants
 exercise external scripts, Unicode/entity decoding, selector identity,
 ancestry, removal/reparenting, attribute mutation and POST response decoding.
 They also exercise parsed and created text/comment nodes, native node identity,
@@ -45,7 +45,7 @@ failures. The eighth set exercises native Web Storage across inline, external
 and module scripts, UTF-16 including lone surrogates, coercion/receiver guards,
 named properties, reflection, removal, clearing and fresh Worker request areas.
 An additional case exercises actual quota exhaustion, atomic failure, independent
-local/session quotas and reuse. These are repeated integration checks, not 2048 independent platform
+local/session quotas and reuse. These are repeated integration checks, not 2112 independent platform
 features. The ninth set checks native media queries against 64 explicit viewport
 and preference configurations, including ranges, three-valued conditions,
 serialization, CSS escapes, receiver guards and synthetic MediaQueryList events.
@@ -53,7 +53,7 @@ The tenth set rejects 64 invalid environment variants before any HTTP navigation
 The eleventh set repeats the same DOMTokenList fixture at 64 distinct URLs,
 checking live attribute reads, ordered token mutations, identity, indices,
 iteration, receiver guards and atomic invalid-token rejection. Including seventy-seven
-resource/deadline/origin and explicit-capability checks, the real browser suite has 2125 tests.
+resource/deadline/origin and explicit-capability checks, the real browser suite has 2189 tests.
 The twelfth set checks HTML namespace identity and reflected attributes with
 64 distinct synthetic strings. It includes parsed SVG/MathML and an HTML
 subtree inside SVG foreignObject.
@@ -814,7 +814,7 @@ CSS parsing and recovery remain governed by the
 Document stylesheets now compile :host and :host() as predicates that match
 no element outside a shadow matching context, as specified by
 [CSS Shadow](https://drafts.csswg.org/css-scoping/#host-selector).
-The existing typed selector parser validates syntax before token transformation.
+The existing typed CSS parser validates syntax before native selector matching.
 The matcher retains the original selector AST specificity, including the maximum
 specificity of functional selector lists. False host predicates participate
 normally in negation, relational selectors and forgiving lists rather than
@@ -832,6 +832,31 @@ Shadow roots, shadow stylesheet matching, :host-context(), pseudo-element
 rendering, public selector API parity and full selector conformance remain
 required work. This document-context behavior does not establish those
 capabilities or introduce an Obscura runtime dependency.
+
+### Native stylesheet selector matching
+
+The native cascade now uses an element adapter for the current Servo selectors
+matcher, reusing the DOM dependency's identifier and namespace types. Root and
+host predicates are evaluated directly instead of rewriting selector tokens.
+The typed CSS parser validates platform pseudo-class and pseudo-element syntax;
+structural matching evaluates relational selectors and filtered nth-child lists.
+Ordinary document elements do not match their pseudo-elements. A mixed selector
+list can still apply its ordinary element branch when another branch names
+::backdrop, ::placeholder, ::selection, ::marker or ::file-selector-button.
+
+A shared synthetic fixture passes 50 aggregate checks at 64 distinct fractional
+pixel scales in the native workerd/Wasm integration suite and actual Chromium 152.
+It checks positive and negative :has(), child/adjacent/following relations,
+:nth-child(... of ...) and :nth-last-child(... of ...), :root variables, nested
+:is()/:where(), absent pseudo-elements and recovery after stylesheet removal.
+The public record is [selector-ast-chromium.json](evidence/selector-ast-chromium.json).
+The fixture also checks absent focus and modal state on an ordinary div; that
+is not evidence of focus, dialog, top-layer or backdrop runtime implementation.
+
+Public DOM selector APIs still use the existing DOM matcher. Language/direction,
+dynamic input/form, media, user-action, custom-state and top-layer matching, shadow contexts,
+pseudo-element painting and full selector conformance remain required work.
+This adapter supplies no Obscura runtime, service or fallback.
 
 ### Native before and after generated boxes
 

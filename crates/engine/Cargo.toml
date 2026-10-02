@@ -13,6 +13,7 @@ cssparser = "=0.37.0"
 dom_query = { version = "=0.28.0", default-features = false }
 encoding_rs = "=0.8.42"
 lightningcss = { version = "=1.0.0-alpha.72", default-features = false }
+selectors = "=0.38.0"
 rquickjs = { version = "=0.14.0", features = ["loader"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

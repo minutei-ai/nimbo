@@ -2,13 +2,14 @@ use cssparser::{
     AtRuleParser, CowRcStr, ParseError, Parser, ParserInput, ParserState, QualifiedRuleParser,
     StyleSheetParser, Token,
 };
-use dom_query::{Document, Matcher, NodeRef};
+use dom_query::{Document, NodeRef};
 use lightningcss::{
     selector::{Component, PseudoClass, PseudoElement, SelectorList},
     stylesheet::{ParserOptions, PrinterOptions},
     traits::{ParseWithOptions, ToCss},
 };
 
+use crate::selectors::Matcher;
 use crate::{Error, MediaEnvironment, Result, layout::Work, styles::Declarations};
 
 struct Selector {
@@ -33,53 +34,6 @@ pub(crate) struct Cascade {
 
 fn unsupported(detail: &str) -> Error {
     Error::Dom(format!("layout unsupported: {detail}"))
-}
-
-// The DOM matcher's :root predicate tests document nodes rather than their
-// root element. Its document predicate can identify the parent of the root
-// element in connected stylesheet matching. Document stylesheets have no shadow
-// matching context, so :host and :host() are false predicates, including within
-// negation or a selector list. Keep the original AST specificity in both cases.
-fn document_predicates<'i>(
-    input: &mut Parser<'i, '_>,
-) -> std::result::Result<String, ParseError<'i, &'static str>> {
-    let mut output = String::new();
-    let mut colon = false;
-    while !input.is_exhausted() {
-        let start = input.position();
-        let token = input.next_including_whitespace_and_comments()?.clone();
-        let source = input.slice_from(start).to_owned();
-        match &token {
-            Token::Ident(name) if colon && name.eq_ignore_ascii_case("root") => {
-                output.push_str("is(:root > *)");
-            }
-            Token::Ident(name) if colon && name.eq_ignore_ascii_case("host") => {
-                output.push_str("not(*)");
-            }
-            Token::Function(name) if colon && name.eq_ignore_ascii_case("host") => {
-                input.parse_nested_block(|nested| {
-                    consume(nested, 0)?;
-                    Ok(())
-                })?;
-                output.push_str("not(*)");
-            }
-            Token::Function(_) | Token::ParenthesisBlock => {
-                output.push_str(&source);
-                output.push_str(&input.parse_nested_block(document_predicates)?);
-                output.push(')');
-            }
-            Token::SquareBracketBlock => {
-                input.parse_nested_block(|nested| {
-                    consume(nested, 0)?;
-                    Ok(())
-                })?;
-                output.push_str(input.slice_from(start));
-            }
-            _ => output.push_str(&source),
-        }
-        colon = matches!(token, Token::Colon);
-    }
-    Ok(output)
 }
 
 fn unknown_selector(selector: &lightningcss::selector::Selector<'_>) -> bool {
@@ -293,10 +247,7 @@ impl<'i> QualifiedRuleParser<'i> for Rules<'_> {
                 } else {
                     source
                 };
-                let mut source_input = ParserInput::new(&origin);
-                let source = document_predicates(&mut Parser::new(&mut source_input))
-                    .map_err(|_error| input.new_custom_error("stylesheet selector"))?;
-                let matcher = Matcher::new(&source)
+                let matcher = Matcher::new(&origin)
                     .map_err(|_error| input.new_custom_error("stylesheet selector"))?;
                 Ok(Selector {
                     matcher,
@@ -468,7 +419,7 @@ impl Cascade {
                     continue;
                 }
                 work.charge()?;
-                if node.is_match(&selector.matcher) {
+                if selector.matcher.matches(node) {
                     specificity = Some(specificity.map_or(selector.specificity, |value: u32| {
                         value.max(selector.specificity)
                     }));

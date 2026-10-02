@@ -1,0 +1,50 @@
+globalThis.comparison = (() => {
+  const scale = .75 + Number(globalThis.variant || 0) / 16;
+  const target = document.createElement('div');
+  target.className = 'target';
+  target.id = 'target';
+  target.innerHTML = '<div class="other"></div><div class="item hit"></div><div class="item"></div><div class="item hit"></div>';
+  document.body.appendChild(target);
+  const base = document.createElement('style');
+  base.textContent = '.target{width:'+11*scale+'px;height:0}.target>div{height:0;width:3px}';
+  document.head.appendChild(base);
+  const cases = [
+    ['backdrop', '::backdrop{width:MEASUREpx}', 11],
+    ['backdropList', '::backdrop,.target{width:MEASUREpx}', 37],
+    ['backdropOrigin', '.target::backdrop{width:MEASUREpx}', 11],
+    ['placeholder', '::placeholder{width:MEASUREpx}', 11],
+    ['selection', '::selection{width:MEASUREpx}', 11],
+    ['marker', '::marker{width:MEASUREpx}', 11],
+    ['fileButton', '::file-selector-button{width:MEASUREpx}', 11],
+    ['hasChild', '.target:has(>.hit){width:MEASUREpx}', 37],
+    ['hasAdjacent', '.target:has(.other+.hit){width:MEASUREpx}', 37],
+    ['hasFollowing', '.target:has(.other~.hit){width:MEASUREpx}', 37],
+    ['hasMissing', '.target:has(>.missing){width:MEASUREpx}', 11],
+    ['hasNegation', '.target:not(:has(>.missing)){width:MEASUREpx}', 37],
+    ['nthOf', '.target:has(>.item:nth-child(2 of .hit)){width:MEASUREpx}', 37],
+    ['nthLastOf', '.target:has(>.item:nth-last-child(2 of .hit)){width:MEASUREpx}', 37],
+    ['nthAbsent', '.target:has(>.item:nth-child(3 of .hit)){width:MEASUREpx}', 11],
+    ['root', ':root{--measure:MEASUREpx}.target{width:var(--measure)}', 37],
+    ['notRoot', '.target:root{width:MEASUREpx}', 11],
+    ['isHas', '.target:is(:has(>.hit),.missing){width:MEASUREpx}', 37],
+    ['whereHas', '.target:where(:has(>.hit)){width:MEASUREpx}', 37],
+    ['absentModal', '.target:modal{width:MEASUREpx}', 11],
+    ['notModal', '.target:not(:modal){width:MEASUREpx}', 37],
+    ['absentFocus', '.target:focus-visible{width:MEASUREpx}', 11],
+    ['notFocus', '.target:not(:focus-visible){width:MEASUREpx}', 37],
+    ['upperBackdrop', '::BACKDROP,.target{width:MEASUREpx}', 37],
+    ['escapedBackdrop', '::back\\64 rop,.target{width:MEASUREpx}', 37],
+  ];
+  const result = {};
+  for (const [name, source, expected] of cases) {
+    const sheet = document.createElement('style');
+    sheet.textContent = source.replaceAll('MEASURE', String(37*scale));
+    document.head.appendChild(sheet);
+    result[name] = Math.abs(target.getBoundingClientRect().width - expected*scale) < .001;
+    sheet.remove();
+    result[name+'Recovery'] = Math.abs(target.getBoundingClientRect().width - 11*scale) < .001;
+  }
+  base.remove();
+  target.remove();
+  return result;
+})();

@@ -969,6 +969,7 @@ dependencies = [
  "lightningcss",
  "reqwest",
  "rquickjs",
+ "selectors",
  "serde",
  "serde_json",
  "taffy",
