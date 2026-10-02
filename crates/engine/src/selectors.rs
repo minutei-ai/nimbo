@@ -177,6 +177,12 @@ impl<'i> selectors::parser::Parser<'i> for BrowserParser {
         }
     }
 }
+pub(crate) enum Key {
+    Id(String),
+    Class(String),
+    Tag(String),
+}
+
 #[derive(Clone)]
 pub(crate) struct Matcher {
     list: SelectorList<NativeImpl>,
@@ -191,6 +197,33 @@ impl Matcher {
         )
         .map_err(|_error| ())?;
         Ok(Self { list })
+    }
+    // A direct predicate in the rightmost compound is necessary for a match.
+    // Functional predicates remain unindexed; indexing their branches could
+    // incorrectly discard valid alternatives or relational matches.
+    pub(crate) fn key(&self) -> Option<Key> {
+        let [selector] = self.list.slice() else {
+            return None;
+        };
+        let mut key = None;
+        for component in selector
+            .iter_raw_match_order()
+            .take_while(|component| !component.is_combinator())
+        {
+            match component {
+                selectors::parser::Component::ID(name) => return Some(Key::Id(name.to_string())),
+                selectors::parser::Component::Class(name)
+                    if !matches!(key, Some(Key::Class(_))) =>
+                {
+                    key = Some(Key::Class(name.to_string()));
+                }
+                selectors::parser::Component::LocalName(name) if key.is_none() => {
+                    key = Some(Key::Tag(name.name.to_string().to_ascii_lowercase()));
+                }
+                _ => {}
+            }
+        }
+        key
     }
     pub(crate) fn matches(&self, node: NodeRef<'_>) -> bool {
         let mut caches = SelectorCaches::default();

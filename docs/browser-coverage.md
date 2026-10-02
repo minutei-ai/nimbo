@@ -21,7 +21,7 @@ tests as well as integration and application tests.
 
 `tooling/browser-live.test.ts` uses a real loopback HTTP origin, actual workerd,
 and the compiled Rust/Wasm engine. It installs no transport replacements,
-service mocks, browser API stubs, or canned engine results. Its 2176 data variants
+service mocks, browser API stubs, or canned engine results. Its 2240 data variants
 exercise external scripts, Unicode/entity decoding, selector identity,
 ancestry, removal/reparenting, attribute mutation and POST response decoding.
 They also exercise parsed and created text/comment nodes, native node identity,
@@ -45,15 +45,15 @@ failures. The eighth set exercises native Web Storage across inline, external
 and module scripts, UTF-16 including lone surrogates, coercion/receiver guards,
 named properties, reflection, removal, clearing and fresh Worker request areas.
 An additional case exercises actual quota exhaustion, atomic failure, independent
-local/session quotas and reuse. These are repeated integration checks, not 2176 independent platform
+local/session quotas and reuse. These are repeated integration checks, not 2240 independent platform
 features. The ninth set checks native media queries against 64 explicit viewport
 and preference configurations, including ranges, three-valued conditions,
 serialization, CSS escapes, receiver guards and synthetic MediaQueryList events.
 The tenth set rejects 64 invalid environment variants before any HTTP navigation.
 The eleventh set repeats the same DOMTokenList fixture at 64 distinct URLs,
 checking live attribute reads, ordered token mutations, identity, indices,
-iteration, receiver guards and atomic invalid-token rejection. Including eighty-two
-resource/deadline/origin and explicit-capability checks, the real browser suite has 2258 tests.
+iteration, receiver guards and atomic invalid-token rejection. Including eighty-three
+resource/deadline/origin and explicit-capability checks, the real browser suite has 2323 tests.
 The twelfth set checks HTML namespace identity and reflected attributes with
 64 distinct synthetic strings. It includes parsed SVG/MathML and an HTML
 subtree inside SVG foreignObject.
@@ -454,8 +454,8 @@ shared bytes/selectors/expanded declaration limits, nesting limits, unsupported
 scopes and nested rules, and unsupported forgiving recovery. Failure cases
 verify a fresh request; a separate case removes an oversized sheet and reuses
 the same page while preserving inline state and old rectangle snapshots.
-Limits are 256 KiB per active sheet, 256 KiB total active sheet text, 1024 rules
-per sheet, 64 selectors per rule, 1024 selectors across active sheets, 32 nested
+Limits are 256 KiB per active sheet, 256 KiB total active sheet text, 4096 rules
+per sheet, 64 selectors per rule, 4096 selectors across active sheets, 32 nested
 blocks and 1024 winning expanded declarations per element. DOM traversal and
 selector comparisons charge the shared operation budget before doing the work,
 including failed geometry queries. CSS parsing is separately bounded by the
@@ -857,6 +857,34 @@ Public DOM selector APIs still use the existing DOM matcher. Language/direction,
 dynamic input/form, media, user-action, custom-state and top-layer matching, shadow contexts,
 pseudo-element painting and full selector conformance remain required work.
 This adapter supplies no Obscura runtime, service or fallback.
+
+### Indexed native stylesheet candidates
+
+The cascade now indexes necessary ID, class or tag predicates from the
+rightmost selector compound. Functional predicates and selectors without a
+safe direct key retain the ordinary matching path. Tag keys use ASCII case
+folding to produce candidate supersets; the complete native matcher still
+checks the actual selector. ID/class keys preserve decoded selector identity.
+Lookup reads the current element attributes. Candidate positions are deduplicated,
+and matched rules retain source order and maximum matching-list specificity.
+The index stores selector positions, not DOM results.
+
+A shared synthetic fixture passes 55 aggregate checks at 64 real Worker URLs
+and the same 64 fractional pixel scales in actual Chromium 152. Each variant
+first measures a page with 2048–3056 unmatched style rules using the default
+operation budget. It then checks matching/order/escapes/functional predicates,
+stylesheet removal and changes to IDs and classes. The geometry evidence is
+limited to the existing HTML box subset. The public comparison is
+[cascade-index-chromium.json](evidence/cascade-index-chromium.json).
+
+One additional real Worker test accepts exactly 4096 selectors. Existing real
+quota tests now reject 4097 rules and selector totals above 4096, including
+conditional groups and multiple sheets, and verify cleanup. Class-token lookups
+and complete candidate comparisons still charge the shared DOM operation budget.
+The byte, declaration, selector-list, layout-tree and nesting limits remain in
+force. Dense universal/functional rules can still exhaust the operation budget.
+These tests demonstrate indexed matching within those bounds, not a total CPU,
+memory, full selector-conformance or application-compatibility claim.
 
 ### Native keyframes and paused animation samples
 

@@ -83,6 +83,12 @@ fn script_fixture(script: &str) -> String {
 
 fn layout_fixture(path: &str) -> String {
     let script = match path {
+        "/cascade-index" => {
+            return format!(
+                "<!doctype html><body>{}",
+                script_fixture(include_str!("fixtures/cascade-index.txt"))
+            );
+        }
         "/animations" => {
             return format!(
                 "<!doctype html><body>{}",
@@ -181,7 +187,7 @@ fn serve(mut request: Request) -> io::Result<()> {
     let mut status = 200;
     let mut headers = Vec::new();
     let body = match request.url() {
-        "/cascade" | "/variables" | "/node-insertion" | "/intersections" | "/geometry" | "/external-styles" | "/layers" | "/supports" | "/dataset" | "/group-errors" | "/document-host" | "/generated-boxes" | "/selector-ast" | "/animations" => layout_fixture(request.url()),
+        "/cascade" | "/variables" | "/node-insertion" | "/intersections" | "/geometry" | "/external-styles" | "/layers" | "/supports" | "/dataset" | "/group-errors" | "/document-host" | "/generated-boxes" | "/selector-ast" | "/animations" | "/cascade-index" => layout_fixture(request.url()),
         "/style-variables" => script_fixture(include_str!("fixtures/style-variables.txt")),
         "/styles" => script_fixture(include_str!("fixtures/styles.txt")),
         "/anchors" => format!("<base href=\"https://example.com/root/\"><a id=\"link\" href=\"../doc?q=1#fragment\">link</a><svg><a></a></svg><script>{}</script>", include_str!("fixtures/anchors.txt")),
@@ -1240,6 +1246,22 @@ fn paused_css_animations_interpolate_native_box_geometry() -> TestResult {
         fields.values().all(|value| *value == json!(true)),
         "{result}; geometry: {}",
         page.evaluate("animationGeometry")?
+    );
+    Ok(())
+}
+
+#[test]
+fn indexed_stylesheets_match_large_sheets_and_current_element_identity() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/cascade-index"))?;
+    let result = page.evaluate("comparison")?;
+    let fields = result.as_object().ok_or("missing cascade index result")?;
+    assert_eq!(fields.len(), 55);
+    assert!(
+        fields.values().all(|value| *value == json!(true)),
+        "{result}"
     );
     Ok(())
 }

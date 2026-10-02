@@ -415,6 +415,16 @@ const origin = Bun.serve({
         headers: { "content-type": "text/html" },
       });
     }
+    if (path.startsWith("/cascade-index/")) {
+      const variant = Number(path.split("/").at(-1));
+      const source = await Bun.file(
+        join(import.meta.dir, "../crates/engine/tests/fixtures/cascade-index.txt"),
+      ).text();
+      return new Response(
+        `<!doctype html><body><script>globalThis.variant=${variant};${source}</script>`,
+        { headers: { "content-type": "text/html" } },
+      );
+    }
     if (path.startsWith("/animations/")) {
       const variant = Number(path.split("/").at(-1));
       const source = await Bun.file(
@@ -2251,7 +2261,7 @@ test.each([
   ],
   [
     "rules",
-    "Array.from({length:1025},(_,i)=>'.x'+i+'{width:1px}').join('')",
+    "Array.from({length:4097},(_,i)=>'.x'+i+'{width:1px}').join('')",
     "resource limit: stylesheet rules",
   ],
   [
@@ -2302,7 +2312,7 @@ test.each([
   ],
   [
     "total selectors",
-    "for(let i=0;i<17;i++){const css=document.createElement('style');css.textContent=Array.from({length:64},(_,j)=>'.x'+i+'_'+j).join(',')+'{width:1px}';document.body.appendChild(css);}",
+    "for(let i=0;i<65;i++){const css=document.createElement('style');css.textContent=Array.from({length:64},(_,j)=>'.x'+i+'_'+j).join(',')+'{width:1px}';document.body.appendChild(css);}",
     "resource limit: stylesheet selectors",
   ],
 ])(
@@ -3398,4 +3408,68 @@ test("real HTTP → workerd → Wasm: native animation keyframe budget recovers"
     engine: "rust-wasm-quickjs",
     value: { failure, width: 11 },
   });
+});
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: indexed native cascade variant %i",
+  async (variant) => {
+    const url = new URL(`cascade-index/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "comparison" }),
+    });
+    expect(response.status).toBe(200);
+    const expected: Record<string, boolean> = {
+      large: true,
+      largeRecovery: true,
+      idBefore: true,
+      idAfter: true,
+      idRestore: true,
+      classAfter: true,
+      classRestore: true,
+    };
+    for (const name of [
+      "id",
+      "class",
+      "tag",
+      "htmlTagCase",
+      "escapedId",
+      "escapedClass",
+      "unicodeClass",
+      "attribute",
+      "universal",
+      "child",
+      "adjacent",
+      "following",
+      "is",
+      "where",
+      "not",
+      "has",
+      "nthOf",
+      "selectorList",
+      "duplicateList",
+      "sourceOrder",
+      "specificity",
+      "multipleClasses",
+      "hostNegation",
+      "root",
+    ]) {
+      expected[name] = true;
+      expected[`${name}Recovery`] = true;
+    }
+    expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: expected });
+  },
+);
+
+test("real HTTP → workerd → Wasm: indexed native cascade accepts 4096 selectors", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const expression = `(()=>{const target=document.createElement('div');target.className='target';target.style.height='0';document.body.appendChild(target);const sheet=document.createElement('style');sheet.textContent=Array.from({length:4095},(_,i)=>'.missing_'+i+'{width:1px}').join('')+'.target{width:37px}';document.head.appendChild(sheet);return target.getBoundingClientRect().width;})()`;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: 37 });
 });

@@ -1,3 +1,5 @@
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+
 use cssparser::{
     AtRuleParser, CowRcStr, ParseError, Parser, ParserInput, ParserState, QualifiedRuleParser,
     StyleSheetParser, Token,
@@ -9,7 +11,10 @@ use lightningcss::{
     traits::{ParseWithOptions, ToCss},
 };
 
-use crate::selectors::Matcher;
+use crate::selectors::{Key, Matcher};
+
+const RULE_LIMIT: usize = 4096;
+const SELECTOR_LIMIT: usize = 4096;
 use crate::{Error, MediaEnvironment, Result, layout::Work, styles::Declarations};
 
 struct Selector {
@@ -30,7 +35,60 @@ struct Rule {
 }
 pub(crate) struct Cascade {
     rules: Vec<Rule>,
+    index: Index,
     pub(crate) animations: crate::animations::Definitions,
+}
+
+type Position = (usize, usize);
+#[derive(Default)]
+struct Index {
+    ids: HashMap<String, Vec<Position>>,
+    classes: HashMap<String, Vec<Position>>,
+    tags: HashMap<String, Vec<Position>>,
+    universal: Vec<Position>,
+}
+impl Index {
+    fn new(rules: &[Rule]) -> Self {
+        let mut index = Self::default();
+        for (rule_index, rule) in rules.iter().enumerate() {
+            for (selector_index, selector) in rule.selectors.iter().enumerate() {
+                let position = (rule_index, selector_index);
+                let (map, key) = match selector.matcher.key() {
+                    Some(Key::Id(key)) => (&mut index.ids, key),
+                    Some(Key::Class(key)) => (&mut index.classes, key),
+                    Some(Key::Tag(key)) => (&mut index.tags, key),
+                    None => {
+                        index.universal.push(position);
+                        continue;
+                    }
+                };
+                map.entry(key).or_default().push(position);
+            }
+        }
+        index
+    }
+    fn candidates(&self, node: NodeRef<'_>, work: &mut Work<'_>) -> Result<BTreeSet<Position>> {
+        let mut candidates: BTreeSet<_> = self.universal.iter().copied().collect();
+        if let Some(id) = node.attr("id")
+            && let Some(positions) = self.ids.get(id.as_ref())
+        {
+            candidates.extend(positions);
+        }
+        if let Some(name) = node.qual_name_ref()
+            && let Some(positions) = self.tags.get(name.local.to_ascii_lowercase().as_ref())
+        {
+            candidates.extend(positions);
+        }
+        if let Some(classes) = node.attr("class") {
+            for class in classes.split_ascii_whitespace() {
+                work.charge()?;
+                if let Some(positions) = self.classes.get(class) {
+                    candidates.extend(positions);
+                }
+            }
+        }
+        Ok(candidates)
+    }
 }
 
 fn unsupported(detail: &str) -> Error {
@@ -351,7 +409,7 @@ fn sheet(
                 }
             }
         }
-        if rules.len() > 1024 {
+        if rules.len() > RULE_LIMIT {
             return Err(Error::Limit("stylesheet rules"));
         }
     }
@@ -427,12 +485,16 @@ impl Cascade {
                     .map(|rule| rule.selectors.len())
                     .sum::<usize>(),
             );
-            if selectors > 1024 {
+            if selectors > SELECTOR_LIMIT {
                 return Err(Error::Limit("stylesheet selectors"));
             }
             rules.extend(parsed);
         }
-        Ok(Self { rules, animations })
+        Ok(Self {
+            index: Index::new(&rules),
+            rules,
+            animations,
+        })
     }
 
     pub(crate) fn resolve(
@@ -443,27 +505,42 @@ impl Cascade {
         work: &mut Work<'_>,
     ) -> Result<Declarations> {
         let mut sources = Vec::new();
-        for rule in &self.rules {
-            let mut specificity = None;
-            for selector in &rule.selectors {
-                if selector.generated != generated {
-                    continue;
-                }
-                work.charge()?;
-                if selector.matcher.matches(node) {
-                    specificity = Some(specificity.map_or(selector.specificity, |value: u32| {
-                        value.max(selector.specificity)
-                    }));
-                }
+        let mut matching = BTreeMap::<usize, u32>::new();
+        for (rule_index, selector_index) in self.index.candidates(node, work)? {
+            let rule = self
+                .rules
+                .get(rule_index)
+                .ok_or_else(|| Error::Dom("invalid stylesheet index".into()))?;
+            let selector = rule
+                .selectors
+                .get(selector_index)
+                .ok_or_else(|| Error::Dom("invalid stylesheet index".into()))?;
+            if selector.generated != generated {
+                continue;
             }
-            if let Some(specificity) = specificity {
-                sources.push((
-                    &rule.declarations,
-                    false,
-                    specificity,
-                    rule.layer.as_slice(),
-                ));
+            work.charge()?;
+            if selector.matcher.matches(node) {
+                matching
+                    .entry(rule_index)
+                    .and_modify(|specificity| {
+                        *specificity = (*specificity).max(selector.specificity);
+                    })
+                    .or_insert(selector.specificity);
             }
+        }
+        // Source order resolves equal ranks; keep it independently of the
+        // hash lookup order and count each rule only once.
+        for (rule_index, specificity) in matching {
+            let rule = self
+                .rules
+                .get(rule_index)
+                .ok_or_else(|| Error::Dom("invalid stylesheet index".into()))?;
+            sources.push((
+                &rule.declarations,
+                false,
+                specificity,
+                rule.layer.as_slice(),
+            ));
         }
         if generated.is_none() {
             sources.push((inline, true, 0, [usize::MAX].as_slice()));

@@ -1,0 +1,231 @@
+{
+  "assertions": {
+    "adjacent": {
+      "failed": 0,
+      "passed": 64
+    },
+    "adjacentRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "attribute": {
+      "failed": 0,
+      "passed": 64
+    },
+    "attributeRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "child": {
+      "failed": 0,
+      "passed": 64
+    },
+    "childRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "class": {
+      "failed": 0,
+      "passed": 64
+    },
+    "classAfter": {
+      "failed": 0,
+      "passed": 64
+    },
+    "classRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "classRestore": {
+      "failed": 0,
+      "passed": 64
+    },
+    "duplicateList": {
+      "failed": 0,
+      "passed": 64
+    },
+    "duplicateListRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "escapedClass": {
+      "failed": 0,
+      "passed": 64
+    },
+    "escapedClassRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "escapedId": {
+      "failed": 0,
+      "passed": 64
+    },
+    "escapedIdRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "following": {
+      "failed": 0,
+      "passed": 64
+    },
+    "followingRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "has": {
+      "failed": 0,
+      "passed": 64
+    },
+    "hasRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "hostNegation": {
+      "failed": 0,
+      "passed": 64
+    },
+    "hostNegationRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "htmlTagCase": {
+      "failed": 0,
+      "passed": 64
+    },
+    "htmlTagCaseRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "id": {
+      "failed": 0,
+      "passed": 64
+    },
+    "idAfter": {
+      "failed": 0,
+      "passed": 64
+    },
+    "idBefore": {
+      "failed": 0,
+      "passed": 64
+    },
+    "idRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "idRestore": {
+      "failed": 0,
+      "passed": 64
+    },
+    "is": {
+      "failed": 0,
+      "passed": 64
+    },
+    "isRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "large": {
+      "failed": 0,
+      "passed": 64
+    },
+    "largeRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "multipleClasses": {
+      "failed": 0,
+      "passed": 64
+    },
+    "multipleClassesRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "not": {
+      "failed": 0,
+      "passed": 64
+    },
+    "notRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "nthOf": {
+      "failed": 0,
+      "passed": 64
+    },
+    "nthOfRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "root": {
+      "failed": 0,
+      "passed": 64
+    },
+    "rootRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "selectorList": {
+      "failed": 0,
+      "passed": 64
+    },
+    "selectorListRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "sourceOrder": {
+      "failed": 0,
+      "passed": 64
+    },
+    "sourceOrderRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "specificity": {
+      "failed": 0,
+      "passed": 64
+    },
+    "specificityRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "tag": {
+      "failed": 0,
+      "passed": 64
+    },
+    "tagRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "unicodeClass": {
+      "failed": 0,
+      "passed": 64
+    },
+    "unicodeClassRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "universal": {
+      "failed": 0,
+      "passed": 64
+    },
+    "universalRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "where": {
+      "failed": 0,
+      "passed": 64
+    },
+    "whereRecovery": {
+      "failed": 0,
+      "passed": 64
+    }
+  },
+  "fixture": "crates/engine/tests/fixtures/cascade-index.txt",
+  "frameViewport": {
+    "height": 768,
+    "width": 1024
+  },
+  "variants": 64,
+  "browser": "Chromium 152.0.7977.130"
+}

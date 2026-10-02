@@ -1,0 +1,69 @@
+globalThis.comparison = (() => {
+  const variant = Number(globalThis.variant || 0);
+  const scale = .75 + variant/16;
+  const parent = document.createElement('section');
+  parent.id = 'parent';
+  parent.style.cssText = 'width:'+400*scale+'px;height:0';
+  parent.innerHTML = '<div class="lead" style="height:0;width:0"></div><div id="subject" class="target a:b Ω duplicate duplicate" data-value="A"><div id="child" style="height:0;width:0"></div><div class="hit" style="height:0;width:0"></div></div>';
+  document.body.appendChild(parent);
+  const target = document.getElementById('subject');
+  const base = document.createElement('style');
+  base.textContent = '.target{width:'+11*scale+'px;height:0}';
+  document.head.appendChild(base);
+  const result = {};
+  const noise = document.createElement('style');
+  noise.textContent = Array.from({length:2048+variant*16},(_,i)=>'.missing_'+variant+'_'+i+'{width:1px}').join('');
+  document.head.appendChild(noise);
+  result.large = Math.abs(target.getBoundingClientRect().width-11*scale)<.03;
+  noise.remove();
+  result.largeRecovery = Math.abs(target.getBoundingClientRect().width-11*scale)<.03;
+  const cases = [
+    ['id', '#subject{width:VALUEpx}', 37],
+    ['class', '.target{width:VALUEpx}', 37],
+    ['tag', 'div{width:VALUEpx!important}', 37],
+    ['htmlTagCase', 'DIV{width:VALUEpx!important}', 37],
+    ['escapedId', '#sub\\6a ect{width:VALUEpx}', 37],
+    ['escapedClass', '.a\\:b{width:VALUEpx}', 37],
+    ['unicodeClass', '.Ω{width:VALUEpx}', 37],
+    ['attribute', '[data-value="a" i]{width:VALUEpx!important}', 37],
+    ['universal', '*{width:VALUEpx!important}', 37],
+    ['child', '#parent>.target{width:VALUEpx}', 37],
+    ['adjacent', '.lead+.target{width:VALUEpx}', 37],
+    ['following', '.lead~.target{width:VALUEpx}', 37],
+    ['is', ':is(#missing,.target){width:VALUEpx}', 37],
+    ['where', ':where(#missing,.target){width:VALUEpx!important}', 37],
+    ['not', '.target:not(.missing){width:VALUEpx}', 37],
+    ['has', '.target:has(>#child){width:VALUEpx}', 37],
+    ['nthOf', '.target:nth-child(1 of .target){width:VALUEpx}', 37],
+    ['selectorList', '#missing,.target{width:VALUEpx}.target{width:OTHERpx}', 19],
+    ['duplicateList', '.target,.target{width:VALUEpx}', 37],
+    ['sourceOrder', '#subject{width:VALUEpx}#subject{width:OTHERpx}', 19],
+    ['specificity', '#subject{width:OTHERpx}.target{width:VALUEpx}', 19],
+    ['multipleClasses', '.duplicate.target{width:VALUEpx}', 37],
+    ['hostNegation', '.target:not(:host){width:VALUEpx}', 37],
+    ['root', ':root{--measure:VALUEpx}.target{width:var(--measure)}', 37],
+  ];
+  for (const [name,source,expected] of cases) {
+    const sheet = document.createElement('style');
+    sheet.textContent = source.replaceAll('VALUE', String(37*scale)).replaceAll('OTHER', String(19*scale));
+    document.head.appendChild(sheet);
+    result[name] = Math.abs(target.getBoundingClientRect().width-expected*scale)<.03;
+    sheet.remove();
+    result[name+'Recovery'] = Math.abs(target.getBoundingClientRect().width-11*scale)<.03;
+  }
+  const dynamic = document.createElement('style');
+  dynamic.textContent = '#subject{width:'+37*scale+'px}';
+  document.head.appendChild(dynamic);
+  result.idBefore = Math.abs(target.getBoundingClientRect().width-37*scale)<.03;
+  target.id = 'moved';
+  result.idAfter = Math.abs(target.getBoundingClientRect().width-11*scale)<.03;
+  target.id = 'subject';
+  result.idRestore = Math.abs(target.getBoundingClientRect().width-37*scale)<.03;
+  dynamic.textContent = '.target{width:'+37*scale+'px}';
+  target.className = 'changed';
+  result.classAfter = Math.abs(target.getBoundingClientRect().width-400*scale)<.03;
+  target.className = 'target';
+  result.classRestore = Math.abs(target.getBoundingClientRect().width-37*scale)<.03;
+  dynamic.remove();base.remove();parent.remove();
+  return result;
+})();
