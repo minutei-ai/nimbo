@@ -34,3 +34,6 @@ declare function nimboLink(
   base: string,
   value: string,
 ): string;
+
+// Bounded uncompressed TrueType parsing; other font formats fail explicitly.
+declare function nimboFontData(source: Uint8Array): boolean;

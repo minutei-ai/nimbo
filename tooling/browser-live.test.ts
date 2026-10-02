@@ -409,6 +409,15 @@ const origin = Bun.serve({
     requests.push(`${request.method} ${path}`);
     const binary = binaryFixture(path);
     if (binary) return binary;
+    if (path.startsWith("/font-cases/")) {
+      const variant = Number(path.split("/").at(-1));
+      const source = await Bun.file(
+        join(import.meta.dir, "../crates/engine/tests/fixtures/font-data.txt"),
+      ).text();
+      return new Response(`<script>globalThis.variant=${variant};${source}</script>`, {
+        headers: { "content-type": "text/html" },
+      });
+    }
     if (path.startsWith("/binary-cases/")) {
       const variant = Number(path.split("/").at(-1));
       const source = await Bun.file(
@@ -3866,5 +3875,63 @@ test.each([
     });
     expect(healthy.status).toBe(200);
     expect(await healthy.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: 512 });
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: binary font parsing variant %i",
+  async (variant) => {
+    const url = new URL(`font-cases/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "comparison" }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing comparison");
+    expect(Object.keys(value)).toHaveLength(22);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each([
+  ["new FontFace('Example', 'url(/binary/font.ttf)')", "font URL sources"],
+  ["new FontFace('Example', new Uint8Array(), {weight:'700'})", "font descriptor weight"],
+  [
+    "new FontFace('Example', new Uint8Array([119,79,70,50]))",
+    "compressed, CFF or collection fonts",
+  ],
+  ["new FontFace('Example', new Uint8Array(1048577))", "font data limit"],
+  ["(()=>{for(let i=0;i<129;i++)new FontFace('Example',new Uint8Array());})()", "font data limit"],
+  [
+    "(()=>{const bytes=new Uint8Array(1048576);for(let i=0;i<5;i++)new FontFace('Example',bytes);})()",
+    "font data limit",
+  ],
+] as const)(
+  "real HTTP → workerd → Wasm: explicit font diagnostic %s",
+  async (expression, reason) => {
+    const url = new URL("geometry-empty", origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression }),
+    });
+    expect(response.status).toBe(422);
+    const error: unknown = expect.stringContaining(reason);
+    expect(await response.json()).toMatchObject({ error });
+    const healthy = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url,
+        expression:
+          "fetch('/binary/font.ttf').then(r=>r.arrayBuffer()).then(b=>new FontFace('Example',b).status)",
+      }),
+    });
+    expect(healthy.status).toBe(200);
+    expect(await healthy.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: "loaded" });
   },
 );

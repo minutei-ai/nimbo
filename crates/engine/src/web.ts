@@ -7,6 +7,7 @@
   const nativeEncode = nimboEncode;
   const nativeDecoder = nimboDecoder;
   const nativeLink = nimboLink;
+  const nativeFontData = nimboFontData;
   // Values are validated by Rust before installing the page bindings.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const mediaEnvironment = JSON.parse(nimboMediaEnvironment) as { width: number; height: number };
@@ -21,6 +22,7 @@
   Reflect.deleteProperty(globalThis, "nimboEncode");
   Reflect.deleteProperty(globalThis, "nimboDecoder");
   Reflect.deleteProperty(globalThis, "nimboLink");
+  Reflect.deleteProperty(globalThis, "nimboFontData");
   Reflect.deleteProperty(globalThis, "nimboMediaEnvironment");
   Reflect.deleteProperty(globalThis, "nimboUrl");
   Reflect.deleteProperty(globalThis, "nimboNow");
@@ -3216,6 +3218,124 @@
     if (method === "GET" && options.body !== undefined) throw new Error("GET cannot have a body");
     return new Response(responseKey, await nativeRequest(url, method, options.body ?? ""));
   };
+  const fontDefaults = {
+    style: "normal",
+    weight: "normal",
+    stretch: "normal",
+    unicodeRange: "U+0-10FFFF",
+    variant: "normal",
+    featureSettings: "normal",
+    variationSettings: "normal",
+    display: "auto",
+    ascentOverride: "normal",
+    descentOverride: "normal",
+    lineGapOverride: "normal",
+  };
+  type FontState = {
+    family: string;
+    status: "loaded" | "error";
+    promise: Promise<FontFace>;
+    data: Uint8Array;
+  };
+  const fontFaces = new WeakMap<object, FontState>();
+  const fontResolve = Promise.resolve.bind(Promise);
+  const fontReject = Promise.reject.bind(Promise);
+  // Internal status promises are marked handled, as required by CSS Font Loading.
+  // oxlint-disable-next-line typescript/unbound-method
+  const fontCatch = Promise.prototype.catch;
+  function fontState(value: object): FontState {
+    const state = fontFaces.get(value);
+    if (!state) throw new TypeError("Illegal FontFace invocation");
+    return state;
+  }
+  function fontBytes(input: unknown): Uint8Array {
+    let buffer: unknown = input;
+    let offset: unknown = 0;
+    let length: unknown;
+    if (isView(input)) {
+      const typed = typedTag(input) !== undefined;
+      buffer = (typed ? typedBuffer : dataBuffer)(input);
+      offset = (typed ? typedOffset : dataOffset)(input);
+      length = (typed ? typedLength : dataLength)(input);
+    } else {
+      length = bufferLength(input);
+    }
+    if (typeof length !== "number" || typeof offset !== "number")
+      throw new TypeError("invalid font buffer");
+    if (length > 1_048_576) throw new Error("font data limit");
+    // The intrinsic constructors validate detachment; shared storage is unsupported.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const view = new ByteArray(buffer as ArrayBuffer, offset, length);
+    if (sharedLength) {
+      try {
+        sharedLength(buffer);
+        throw new Error("unsupported: shared font buffers");
+      } catch (error) {
+        if (!(error instanceof TypeError)) throw error;
+      }
+    }
+    const copy = new ByteArray(length);
+    Reflect.apply(byteSet, copy, [view]);
+    return copy;
+  }
+  class FontFace {
+    constructor(family: unknown, source: unknown, descriptors?: unknown) {
+      if (arguments.length < 2) throw new TypeError("FontFace requires family and source");
+      const name = domString(family);
+      const options = encodingOptions(descriptors);
+      for (const [key, defaultValue] of Object.entries(fontDefaults)) {
+        const value = Reflect.get(options, key);
+        if (value !== undefined && domString(value) !== defaultValue)
+          throw new Error(`unsupported: font descriptor ${key}`);
+      }
+      if (typeof source === "string") throw new Error("unsupported: font URL sources");
+      const data = fontBytes(source);
+      const valid = nativeFontData(data);
+      const promise = valid
+        ? fontResolve(this)
+        : fontReject<FontFace>(new DOMException("Invalid font data", "SyntaxError"));
+      fontFaces.set(this, { family: name, status: valid ? "loaded" : "error", promise, data });
+      void Reflect.apply(fontCatch, promise, [() => {}]);
+    }
+    get family(): string {
+      return fontState(this).family;
+    }
+    set family(value: unknown) {
+      fontState(this).family = domString(value);
+    }
+    get status(): string {
+      return fontState(this).status;
+    }
+    get loaded(): Promise<FontFace> {
+      return fontState(this).promise;
+    }
+    load(): Promise<FontFace> {
+      try {
+        return fontState(this).promise;
+      } catch (error) {
+        return fontReject<FontFace>(error);
+      }
+    }
+  }
+  for (const [key, defaultValue] of Object.entries(fontDefaults)) {
+    Object.defineProperty(FontFace.prototype, key, {
+      get(this: FontFace): string {
+        fontState(this);
+        return defaultValue;
+      },
+      set(this: FontFace, value: unknown) {
+        fontState(this);
+        if (domString(value) !== defaultValue)
+          throw new Error(`unsupported: font descriptor ${key}`);
+      },
+      enumerable: true,
+      configurable: true,
+    });
+  }
+  Object.defineProperty(FontFace.prototype, Symbol.toStringTag, {
+    value: "FontFace",
+    configurable: true,
+  });
   Object.assign(globalThis, {
     document,
     Storage,
@@ -3257,6 +3377,7 @@
     Comment,
     fetch,
     Response,
+    FontFace,
     setTimeout,
     setInterval,
     clearTimeout,

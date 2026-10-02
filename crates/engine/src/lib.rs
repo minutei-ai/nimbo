@@ -5,6 +5,7 @@ mod cascade;
 mod containers;
 mod dom;
 mod encoding;
+mod font_data;
 mod fonts;
 mod layers;
 mod layout;

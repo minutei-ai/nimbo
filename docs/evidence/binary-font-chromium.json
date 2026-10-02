@@ -1,0 +1,36 @@
+{
+  "browser": "Chromium 152.0.7977.130",
+  "variants": 64,
+  "checksPerVariant": 22,
+  "passingVariantsByCheck": {
+    "concurrent": 64,
+    "copy": 64,
+    "dataView": 64,
+    "defaultSetter": 64,
+    "defaults": 64,
+    "empty": 64,
+    "explicitDefaults": 64,
+    "family": 64,
+    "familyMutation": 64,
+    "identity": 64,
+    "invalidIdentity": 64,
+    "invalidPromise": 64,
+    "invalidStatus": 64,
+    "loadIdentity": 64,
+    "loadedIdentity": 64,
+    "promiseIdentity": 64,
+    "readonly": 64,
+    "receiver": 64,
+    "settings": 64,
+    "status": 64,
+    "truncated": 64,
+    "typedView": 64
+  },
+  "failures": {},
+  "fixture": "crates/engine/tests/fixtures/font-data.txt",
+  "limitations": [
+    "One original synthetic uncompressed TrueType fixture; no full font corpus or upstream WPT.",
+    "Structural parsing is not full OpenType Sanitizer validation.",
+    "Nondefault descriptors, URL/CSS font loading and shaping/rendering remain missing."
+  ]
+}

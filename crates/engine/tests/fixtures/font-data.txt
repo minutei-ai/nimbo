@@ -1,0 +1,53 @@
+globalThis.comparison = (async () => {
+  const data = await (await fetch('/binary/font.ttf')).arrayBuffer();
+  const name = 'NimboSynthetic' + globalThis.variant;
+  const font = new FontFace(name, data);
+  const checks = {
+    identity: font instanceof FontFace && Object.prototype.toString.call(font) === '[object FontFace]',
+    status: font.status === 'loaded',
+    family: font.family === name,
+    defaults: font.style === 'normal' && font.weight === 'normal' && font.stretch === 'normal' &&
+      font.unicodeRange === 'U+0-10FFFF' && font.display === 'auto',
+    settings: font.featureSettings === 'normal' && font.variationSettings === 'normal' &&
+      font.ascentOverride === 'normal' && font.descentOverride === 'normal' && font.lineGapOverride === 'normal',
+    loadedIdentity: (await font.loaded) === font,
+    loadIdentity: (await font.load()) === font,
+    promiseIdentity: font.load() === font.loaded && font.loaded === font.loaded,
+  };
+  const offset = globalThis.variant + 2;
+  const padded = new Uint8Array(data.byteLength + offset + 3);
+  padded.set(new Uint8Array(data), offset);
+  const typed = new FontFace(name, new Uint8Array(padded.buffer, offset, data.byteLength));
+  const viewed = new FontFace(name, new DataView(padded.buffer, offset, data.byteLength));
+  checks.typedView = (await typed.load()) === typed && typed.status === 'loaded';
+  checks.dataView = (await viewed.load()) === viewed && viewed.status === 'loaded';
+  padded.fill(0);
+  new Uint8Array(data).fill(0);
+  checks.copy = (await font.load()) === font && (await typed.load()) === typed && (await viewed.load()) === viewed;
+  font.family = 'Changed ' + globalThis.variant;
+  checks.familyMutation = font.family === 'Changed ' + globalThis.variant && font.status === 'loaded';
+  font.weight = 'normal';
+  checks.defaultSetter = font.weight === 'normal';
+  checks.readonly = !Reflect.set(font, 'status', 'error') && font.status === 'loaded';
+  const bad = new FontFace(name, new Uint8Array([0, 1, 0, globalThis.variant]));
+  checks.invalidStatus = bad.status === 'error';
+  let first;
+  try { await bad.loaded; } catch (error) { first = error; }
+  let second;
+  try { await bad.load(); } catch (error) { second = error; }
+  checks.invalidPromise = first instanceof DOMException && first.name === 'SyntaxError' && first === second;
+  checks.invalidIdentity = bad.loaded === bad.load();
+  const empty = new FontFace(name, new ArrayBuffer(0));
+  try { await empty.load(); } catch (error) { checks.empty = error.name === 'SyntaxError' && empty.status === 'error'; }
+  const original = await (await fetch('/binary/font.ttf')).arrayBuffer();
+  const cut = new FontFace(name, original.slice(0, 20));
+  try { await cut.load(); } catch (error) { checks.truncated = error.name === 'SyntaxError'; }
+  let receiver = false;
+  try { await FontFace.prototype.load.call({}); } catch (error) { receiver = error instanceof TypeError; }
+  checks.receiver = receiver;
+  const defaults = new FontFace(name, original, { style: 'normal', weight: 'normal', display: 'auto', unknown: 'ignored' });
+  checks.explicitDefaults = defaults.status === 'loaded';
+  const multiple = await Promise.all([font.load(), font.loaded, typed.load()]);
+  checks.concurrent = multiple[0] === font && multiple[1] === font && multiple[2] === typed;
+  return checks;
+})();

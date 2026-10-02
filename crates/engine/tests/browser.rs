@@ -1483,3 +1483,23 @@ fn binary_response_limits_preserve_fresh_navigation() -> TestResult {
     );
     Ok(())
 }
+
+#[test]
+fn binary_font_data_parses_real_bytes_and_tracks_status() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path("/empty-layout"))?;
+        let result = page.evaluate(&format!(
+            "(()=>{{globalThis.variant={variant};return {};}})()",
+            include_str!("fixtures/font-data.txt")
+        ))?;
+        let fields = result.as_object().ok_or("missing font result")?;
+        assert_eq!(fields.len(), 22);
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}

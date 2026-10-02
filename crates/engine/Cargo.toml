@@ -27,6 +27,7 @@ taffy = { version = "=0.14.0", default-features = false, features = [
   "content_size",
 ] }
 thiserror = "2"
+ttf-parser = "=0.25.1"
 url = "=2.5.8"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
