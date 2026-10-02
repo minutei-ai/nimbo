@@ -415,6 +415,16 @@ const origin = Bun.serve({
         headers: { "content-type": "text/html" },
       });
     }
+    if (path.startsWith("/animations/")) {
+      const variant = Number(path.split("/").at(-1));
+      const source = await Bun.file(
+        join(import.meta.dir, "../crates/engine/tests/fixtures/animations.txt"),
+      ).text();
+      return new Response(
+        `<!doctype html><body><script>globalThis.variant=${variant};${source}</script>`,
+        { headers: { "content-type": "text/html" } },
+      );
+    }
     if (path.startsWith("/selector-ast/")) {
       const variant = Number(path.split("/").at(-1));
       const source = await Bun.file(
@@ -3284,3 +3294,108 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: expected });
   },
 );
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: paused native animation variant %i",
+  async (variant) => {
+    const url = new URL(`animations/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "comparison" }),
+    });
+    expect(response.status).toBe(200);
+    const expected: Record<string, boolean> = {};
+    for (const name of [
+      "unused",
+      "ease",
+      "bezier",
+      "frameEasing",
+      "zeroLength",
+      "variables",
+      "unlayeredPriority",
+      "vendor",
+      "generated",
+      "quarter",
+      "half",
+      "reverse",
+      "before",
+      "beforeNone",
+      "after",
+      "afterNone",
+      "alternate",
+      "alternateReverse",
+      "finalAlternate",
+      "fractionalCount",
+      "infinite",
+      "implicitFrom",
+      "important",
+      "frameImportant",
+      "duplicateFrame",
+      "duplicateDefinition",
+      "mediaFalse",
+      "mediaTrue",
+      "layer",
+      "quoted",
+      "missing",
+      "zeroDuration",
+      "zeroCount",
+    ]) {
+      expected[name] = true;
+      expected[`${name}Recovery`] = true;
+    }
+    expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: expected });
+  },
+);
+
+test.each([
+  ["running", "from{width:10px}to{width:90px}", "demo 1s linear -.5s both", "running timeline"],
+  ["steps", "from{width:10px}to{width:90px}", "demo 1s steps(2) -.25s paused both", "step easing"],
+  [
+    "mixed units",
+    "from{width:10px}to{width:90%}",
+    "demo 1s linear -.5s paused both",
+    "mixed interpolation units",
+  ],
+  [
+    "custom property",
+    "from{--size:10px}to{--size:90px}",
+    "demo 1s linear -.5s paused both",
+    "custom property interpolation",
+  ],
+])(
+  "real HTTP → workerd → Wasm: native animation gap %s",
+  async (_name, frames, animation, detail) => {
+    const url = new URL("geometry/0", origin.url).href;
+    const expression = `(()=>{const target=document.createElement('div');target.className='animated';document.body.appendChild(target);const sheet=document.createElement('style');sheet.textContent=${JSON.stringify(`@keyframes demo{${frames}}.animated{height:0;width:11px;animation:${animation}}`)};document.head.appendChild(sheet);try{target.getBoundingClientRect();return 'missing failure';}catch(error){return error.message;}finally{sheet.remove();target.remove();}})()`;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression }),
+    });
+    expect(response.status).toBe(200);
+    const expected: unknown = expect.stringContaining(`animation ${detail}`);
+    expect(await response.json()).toEqual({
+      url,
+      engine: "rust-wasm-quickjs",
+      value: expected,
+    });
+  },
+);
+
+test("real HTTP → workerd → Wasm: native animation keyframe budget recovers", async () => {
+  const url = new URL("geometry/0", origin.url).href;
+  const expression = `(()=>{const target=document.createElement('div');target.style.cssText='height:0;width:11px';document.body.appendChild(target);const sheet=document.createElement('style');sheet.textContent='@keyframes demo{'+Array.from({length:1025},()=> '50%{width:30px}').join('')+'}';document.head.appendChild(sheet);let failure;try{target.getBoundingClientRect();}catch(error){failure=error.message;}sheet.remove();const width=target.getBoundingClientRect().width;target.remove();return {failure,width};})()`;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression }),
+  });
+  expect(response.status).toBe(200);
+  const failure: unknown = expect.stringContaining("animation keyframes");
+  expect(await response.json()).toEqual({
+    url,
+    engine: "rust-wasm-quickjs",
+    value: { failure, width: 11 },
+  });
+});

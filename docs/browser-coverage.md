@@ -21,7 +21,7 @@ tests as well as integration and application tests.
 
 `tooling/browser-live.test.ts` uses a real loopback HTTP origin, actual workerd,
 and the compiled Rust/Wasm engine. It installs no transport replacements,
-service mocks, browser API stubs, or canned engine results. Its 2112 data variants
+service mocks, browser API stubs, or canned engine results. Its 2176 data variants
 exercise external scripts, Unicode/entity decoding, selector identity,
 ancestry, removal/reparenting, attribute mutation and POST response decoding.
 They also exercise parsed and created text/comment nodes, native node identity,
@@ -45,15 +45,15 @@ failures. The eighth set exercises native Web Storage across inline, external
 and module scripts, UTF-16 including lone surrogates, coercion/receiver guards,
 named properties, reflection, removal, clearing and fresh Worker request areas.
 An additional case exercises actual quota exhaustion, atomic failure, independent
-local/session quotas and reuse. These are repeated integration checks, not 2112 independent platform
+local/session quotas and reuse. These are repeated integration checks, not 2176 independent platform
 features. The ninth set checks native media queries against 64 explicit viewport
 and preference configurations, including ranges, three-valued conditions,
 serialization, CSS escapes, receiver guards and synthetic MediaQueryList events.
 The tenth set rejects 64 invalid environment variants before any HTTP navigation.
 The eleventh set repeats the same DOMTokenList fixture at 64 distinct URLs,
 checking live attribute reads, ordered token mutations, identity, indices,
-iteration, receiver guards and atomic invalid-token rejection. Including seventy-seven
-resource/deadline/origin and explicit-capability checks, the real browser suite has 2189 tests.
+iteration, receiver guards and atomic invalid-token rejection. Including eighty-two
+resource/deadline/origin and explicit-capability checks, the real browser suite has 2258 tests.
 The twelfth set checks HTML namespace identity and reflected attributes with
 64 distinct synthetic strings. It includes parsed SVG/MathML and an HTML
 subtree inside SVG foreignObject.
@@ -857,6 +857,43 @@ Public DOM selector APIs still use the existing DOM matcher. Language/direction,
 dynamic input/form, media, user-action, custom-state and top-layer matching, shadow contexts,
 pseudo-element painting and full selector conformance remain required work.
 This adapter supplies no Obscura runtime, service or fallback.
+
+### Native keyframes and paused animation samples
+
+Stylesheets register typed @keyframes definitions, including names, offsets,
+ordinary declarations, conditional groups, layer priority and duplicate rules.
+Important keyframe declarations do not participate. Definitions are rebuilt
+from current sheets, share the existing input limits and have a combined
+1024-keyframe budget. Inactive definitions do not alter box measurements.
+The ordinary animation shorthand now retains its unprefixed timeline field,
+which the typed parser's generic prefixed-longhand guard previously omitted.
+
+Paused animations sample native declarations before building actual Taffy boxes.
+This covers negative delay, before/active/after phases, fill modes, direction,
+alternation, fractional/infinite iteration counts, duplicate offsets, underlying
+endpoints, per-keyframe easing and important author declarations. Interpolation
+currently accepts compatible numeric units for a bounded set of box properties.
+Linear and cubic easing run in Rust; zero-length endpoints can adopt the other
+endpoint's unit. Generated before/after boxes use the same sampler.
+
+A shared synthetic fixture passes 66 aggregate checks at 64 fractional pixel
+scales in actual Chromium 152 and real workerd/Wasm. It measures actual width
+or generated-box height and recovery after removing stylesheets. This geometry
+evidence is limited to pixel widths and heights. Four additional
+real Worker cases check explicit gaps, and one exhausts the keyframe budget
+then measures successfully after removing the oversized sheet. The public record
+is [paused-animations-chromium.json](evidence/paused-animations-chromium.json).
+The timing/cascade references are [CSS Animations](https://www.w3.org/TR/css-animations-1/)
+and [Web Animations](https://www.w3.org/TR/web-animations-1/).
+
+Running/persistent timelines, play/pause transitions and animation events,
+Web Animations API, steps easing, additive composition, scroll/named timelines,
+custom-property interpolation/animation taint, mixed units and full property
+interpolation remain required work. Active requests for those unsupported
+sampling paths fail explicitly. Full invalid-rule recovery, reset-only shorthand
+fields, effect-stack endpoints, CSSKeyframesRule/CSSKeyframeRule, transitions
+and painted animation output are also unproven. These checks establish the
+initial paused sample, not complete animation conformance.
 
 ### Native before and after generated boxes
 

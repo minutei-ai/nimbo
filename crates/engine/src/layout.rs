@@ -304,7 +304,11 @@ impl Tree<'_, '_> {
         let declarations =
             self.cascade
                 .resolve(node, &Declarations::default(), Some(kind), self.work)?;
-        let (declarations, _) = declarations.compute_variables(parent, self.work)?;
+        let (declarations, variables) = declarations.compute_variables(parent, self.work)?;
+        let declarations = self
+            .cascade
+            .animations
+            .sample(&declarations, &variables, self.work)?;
         if declarations
             .layout_entries()
             .any(|(name, value, _)| name == "display" && value == "none")
@@ -404,6 +408,10 @@ impl Tree<'_, '_> {
         };
         let declarations = self.cascade.resolve(node, &declarations, None, self.work)?;
         let (declarations, variables) = declarations.compute_variables(parent, self.work)?;
+        let declarations = self
+            .cascade
+            .animations
+            .sample(&declarations, &variables, self.work)?;
         let style = style(node, &declarations)?;
         if style.display == Display::None {
             return Ok(None);

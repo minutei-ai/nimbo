@@ -305,6 +305,19 @@ fn wide_keyword(value: &str) -> Option<String> {
     .then_some(keyword)
 }
 
+fn animation_longhand<'i>(parsed: &Property<'i>, id: &PropertyId<'_>) -> Option<Property<'i>> {
+    parsed.longhand(id).or_else(|| match (parsed, id) {
+        // The parser's prefixed shorthand guard omits this unprefixed field
+        // even for an ordinary animation.
+        (Property::Animation(values, _), PropertyId::AnimationTimeline) => {
+            Some(Property::AnimationTimeline(
+                values.iter().map(|value| value.timeline.clone()).collect(),
+            ))
+        }
+        _ => None,
+    })
+}
+
 fn expand(name: &str, value: &str, important: bool) -> Option<Vec<Entry>> {
     let value = trimmed(value)?;
     let id = PropertyId::from(name);
@@ -391,8 +404,7 @@ fn expand(name: &str, value: &str, important: bool) -> Option<Vec<Entry>> {
                 .map(|id| {
                     Some(Entry::new(
                         id.name(),
-                        parsed
-                            .longhand(id)?
+                        animation_longhand(&parsed, id)?
                             .value_to_css_string(PrinterOptions::default())
                             .ok()?,
                         important,
@@ -523,6 +535,26 @@ impl Declarations {
                 return Err("CSS declaration limit");
             }
             self.entries.push(entry);
+        }
+        Ok(())
+    }
+    pub(crate) fn value(&self, name: &str) -> (String, bool) {
+        self.get(name)
+    }
+    pub(crate) fn clear_animation_controls(&mut self) {
+        self.entries
+            .retain(|entry| !entry.name.starts_with("animation-"));
+    }
+    pub(crate) fn animate(&mut self, name: &str, value: &str) -> crate::Result<()> {
+        if self.get(name).1 {
+            return Ok(());
+        }
+        let entries = expand(name, value, false).ok_or_else(|| {
+            crate::Error::Dom("layout unsupported: animation interpolated declaration".into())
+        })?;
+        for entry in entries {
+            self.put(entry, false)
+                .map_err(|message| crate::Error::Dom(message.into()))?;
         }
         Ok(())
     }

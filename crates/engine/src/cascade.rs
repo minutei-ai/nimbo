@@ -30,6 +30,7 @@ struct Rule {
 }
 pub(crate) struct Cascade {
     rules: Vec<Rule>,
+    pub(crate) animations: crate::animations::Definitions,
 }
 
 fn unsupported(detail: &str) -> Error {
@@ -102,10 +103,12 @@ enum ParsedRule {
 enum Prelude {
     Media(bool),
     Layers(Vec<Vec<String>>),
+    Keyframes(String),
 }
 struct Rules<'a> {
     media: &'a MediaEnvironment,
     layers: &'a mut crate::layers::Layers,
+    animations: &'a mut crate::animations::Definitions,
     parent: &'a [usize],
     failure: Option<Error>,
 }
@@ -118,6 +121,16 @@ impl<'i> AtRuleParser<'i> for Rules<'_> {
         name: CowRcStr<'i>,
         input: &mut Parser<'i, 't>,
     ) -> std::result::Result<Prelude, ParseError<'i, Self::Error>> {
+        if name.eq_ignore_ascii_case("keyframes") || name.eq_ignore_ascii_case("-webkit-keyframes")
+        {
+            let start = input.position();
+            consume(input, 0)?;
+            let source = input.slice_from(start);
+            crate::animations::name(source).map_err(|_error| {
+                input.new_error(cssparser::BasicParseErrorKind::QualifiedRuleInvalid)
+            })?;
+            return Ok(Prelude::Keyframes(source.to_owned()));
+        }
         if name.eq_ignore_ascii_case("layer") {
             return crate::layers::names(input).map(Prelude::Layers);
         }
@@ -142,6 +155,15 @@ impl<'i> AtRuleParser<'i> for Rules<'_> {
         let start = input.position();
         consume(input, 0)?;
         let parent = match prelude {
+            Prelude::Keyframes(name) => {
+                self.animations
+                    .register(&name, input.slice_from(start), self.parent)
+                    .map_err(|error| {
+                        self.failure = Some(error);
+                        input.new_custom_error("stylesheet keyframes")
+                    })?;
+                return Ok(ParsedRule::Group(Vec::new()));
+            }
             Prelude::Media(false) => return Ok(ParsedRule::Group(Vec::new())),
             Prelude::Media(true) => self.parent.to_vec(),
             Prelude::Layers(names) => {
@@ -155,14 +177,20 @@ impl<'i> AtRuleParser<'i> for Rules<'_> {
                     .map_err(|message| input.new_custom_error(message))?
             }
         };
-        let rules =
-            sheet(input.slice_from(start), self.media, self.layers, &parent).map_err(|error| {
-                // Keep the original engine error across cssparser's static
-                // error boundary. Nested groups must not hide budget failures
-                // or the unsupported feature behind a generic group label.
-                self.failure = Some(error);
-                input.new_custom_error("stylesheet group")
-            })?;
+        let rules = sheet(
+            input.slice_from(start),
+            self.media,
+            self.layers,
+            self.animations,
+            &parent,
+        )
+        .map_err(|error| {
+            // Keep the original engine error across cssparser's static
+            // error boundary. Nested groups must not hide budget failures
+            // or the unsupported feature behind a generic group label.
+            self.failure = Some(error);
+            input.new_custom_error("stylesheet group")
+        })?;
         Ok(ParsedRule::Group(rules))
     }
     fn rule_without_block(
@@ -286,6 +314,7 @@ fn sheet(
     source: &str,
     media: &MediaEnvironment,
     layers: &mut crate::layers::Layers,
+    animations: &mut crate::animations::Definitions,
     parent: &[usize],
 ) -> Result<Vec<Rule>> {
     if source.len() > 262_144 {
@@ -300,6 +329,7 @@ fn sheet(
     let mut rule_parser = Rules {
         media,
         layers,
+        animations,
         parent,
         failure: None,
     };
@@ -352,6 +382,7 @@ impl Cascade {
         let mut nodes = 0_usize;
         let mut selectors = 0_usize;
         let mut layers = crate::layers::Layers::default();
+        let mut animations = crate::animations::Definitions::default();
         for node in document.root().descendants_it() {
             work.charge()?;
             nodes = nodes.saturating_add(1);
@@ -389,7 +420,7 @@ impl Cascade {
             if bytes > 262_144 {
                 return Err(Error::Limit("stylesheet total bytes"));
             }
-            let parsed = sheet(&source, media, &mut layers, &[])?;
+            let parsed = sheet(&source, media, &mut layers, &mut animations, &[])?;
             selectors = selectors.saturating_add(
                 parsed
                     .iter()
@@ -401,7 +432,7 @@ impl Cascade {
             }
             rules.extend(parsed);
         }
-        Ok(Self { rules })
+        Ok(Self { rules, animations })
     }
 
     pub(crate) fn resolve(

@@ -1,0 +1,275 @@
+{
+  "assertions": {
+    "after": {
+      "failed": 0,
+      "passed": 64
+    },
+    "afterNone": {
+      "failed": 0,
+      "passed": 64
+    },
+    "afterNoneRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "afterRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "alternate": {
+      "failed": 0,
+      "passed": 64
+    },
+    "alternateRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "alternateReverse": {
+      "failed": 0,
+      "passed": 64
+    },
+    "alternateReverseRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "before": {
+      "failed": 0,
+      "passed": 64
+    },
+    "beforeNone": {
+      "failed": 0,
+      "passed": 64
+    },
+    "beforeNoneRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "beforeRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "bezier": {
+      "failed": 0,
+      "passed": 64
+    },
+    "bezierRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "duplicateDefinition": {
+      "failed": 0,
+      "passed": 64
+    },
+    "duplicateDefinitionRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "duplicateFrame": {
+      "failed": 0,
+      "passed": 64
+    },
+    "duplicateFrameRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "ease": {
+      "failed": 0,
+      "passed": 64
+    },
+    "easeRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "finalAlternate": {
+      "failed": 0,
+      "passed": 64
+    },
+    "finalAlternateRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "fractionalCount": {
+      "failed": 0,
+      "passed": 64
+    },
+    "fractionalCountRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "frameEasing": {
+      "failed": 0,
+      "passed": 64
+    },
+    "frameEasingRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "frameImportant": {
+      "failed": 0,
+      "passed": 64
+    },
+    "frameImportantRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "generated": {
+      "failed": 0,
+      "passed": 64
+    },
+    "generatedRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "half": {
+      "failed": 0,
+      "passed": 64
+    },
+    "halfRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "implicitFrom": {
+      "failed": 0,
+      "passed": 64
+    },
+    "implicitFromRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "important": {
+      "failed": 0,
+      "passed": 64
+    },
+    "importantRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "infinite": {
+      "failed": 0,
+      "passed": 64
+    },
+    "infiniteRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "layer": {
+      "failed": 0,
+      "passed": 64
+    },
+    "layerRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "mediaFalse": {
+      "failed": 0,
+      "passed": 64
+    },
+    "mediaFalseRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "mediaTrue": {
+      "failed": 0,
+      "passed": 64
+    },
+    "mediaTrueRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "missing": {
+      "failed": 0,
+      "passed": 64
+    },
+    "missingRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "quarter": {
+      "failed": 0,
+      "passed": 64
+    },
+    "quarterRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "quoted": {
+      "failed": 0,
+      "passed": 64
+    },
+    "quotedRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "reverse": {
+      "failed": 0,
+      "passed": 64
+    },
+    "reverseRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "unlayeredPriority": {
+      "failed": 0,
+      "passed": 64
+    },
+    "unlayeredPriorityRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "unused": {
+      "failed": 0,
+      "passed": 64
+    },
+    "unusedRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "variables": {
+      "failed": 0,
+      "passed": 64
+    },
+    "variablesRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "vendor": {
+      "failed": 0,
+      "passed": 64
+    },
+    "vendorRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "zeroCount": {
+      "failed": 0,
+      "passed": 64
+    },
+    "zeroCountRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "zeroDuration": {
+      "failed": 0,
+      "passed": 64
+    },
+    "zeroDurationRecovery": {
+      "failed": 0,
+      "passed": 64
+    },
+    "zeroLength": {
+      "failed": 0,
+      "passed": 64
+    },
+    "zeroLengthRecovery": {
+      "failed": 0,
+      "passed": 64
+    }
+  },
+  "fixture": "crates/engine/tests/fixtures/animations.txt",
+  "frameViewport": {
+    "height": 768,
+    "width": 1024
+  },
+  "variants": 64,
+  "browser": "Chromium 152.0.7977.130"
+}

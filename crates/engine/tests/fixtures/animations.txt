@@ -1,0 +1,59 @@
+globalThis.comparison = (() => {
+  const scale = .75 + Number(globalThis.variant || 0) / 16;
+  const target = document.createElement('div');
+  target.className = 'target';
+  document.body.appendChild(target);
+  const base = document.createElement('style');
+  base.textContent = '.target{height:0;width:'+11*scale+'px}';
+  document.head.appendChild(base);
+  const keyframes = '@keyframes demo{from{width:LOWpx}to{width:HIGHpx}}';
+  const animation = (controls) => '.target{animation:demo 1s linear '+controls+'}';
+  const cases = [
+    ['unused', keyframes, 11],
+    ['ease', keyframes+'.target{animation:demo 1s ease -.5s paused both}', 74.1922710067],
+    ['bezier', keyframes+'.target{animation:demo 1s cubic-bezier(0,0,1,1) -.25s paused both}', 30],
+    ['frameEasing', '@keyframes demo{from{width:LOWpx;animation-timing-function:ease}to{width:HIGHpx}}'+animation('-.5s paused both'), 74.1922710067],
+    ['zeroLength', '@keyframes demo{from{width:0}to{width:HIGHpx}}'+animation('-.5s paused both'), 45],
+    ['variables', '@keyframes demo{from{width:var(--low)}to{width:var(--high)}}.target{--low:LOWpx;--high:HIGHpx}'+animation('-.5s paused both'), 50],
+    ['unlayeredPriority', keyframes+'@layer one{@keyframes demo{from{width:200px}to{width:400px}}}'+animation('-.5s paused both'), 50],
+    ['vendor', keyframes.replace('@keyframes', '@-webkit-keyframes')+animation('-.5s paused both'), 50],
+    ['generated', '@keyframes demo{from{height:LOWpx}to{height:HIGHpx}}.target{height:auto}.target::before{content:"";display:block;animation:demo 1s linear -.5s paused both}', 50, 'height'],
+    ['quarter', keyframes+animation('-.25s paused both'), 30],
+    ['half', keyframes+animation('-.5s paused both'), 50],
+    ['reverse', keyframes+animation('-.25s reverse paused both'), 70],
+    ['before', keyframes+animation('1s paused backwards'), 10],
+    ['beforeNone', keyframes+animation('1s paused'), 11],
+    ['after', keyframes+animation('-2s paused forwards'), 90],
+    ['afterNone', keyframes+animation('-2s paused'), 11],
+    ['alternate', keyframes+animation('-1.25s 2 alternate paused both'), 70],
+    ['alternateReverse', keyframes+animation('-1.25s 2 alternate-reverse paused both'), 30],
+    ['finalAlternate', keyframes+animation('-2s 2 alternate paused both'), 10],
+    ['fractionalCount', keyframes+animation('-2s 1.5 paused both'), 50],
+    ['infinite', keyframes+animation('-1.25s infinite alternate paused both'), 70],
+    ['implicitFrom', '@keyframes demo{to{width:HIGHpx}}'+animation('-.5s paused both'), 50.5],
+    ['important', keyframes+animation('-.5s paused both')+'.target{width:31px!important}', 31/scale],
+    ['frameImportant', '@keyframes demo{from{width:LOWpx!important}to{width:HIGHpx}}'+animation('-.5s paused both'), 50.5],
+    ['duplicateFrame', '@keyframes demo{from{width:LOWpx}from{width:30px}to{width:HIGHpx}}'+animation('-.5s paused both'), (30+90*scale)/2/scale],
+    ['duplicateDefinition', keyframes+'@keyframes demo{from{width:30px}to{width:HIGHpx}}'+animation('-.5s paused both'), (30+90*scale)/2/scale],
+    ['mediaFalse', '@media (width:1px){'+keyframes+'}'+animation('-.5s paused both'), 11],
+    ['mediaTrue', '@media all{'+keyframes+'}'+animation('-.5s paused both'), 50],
+    ['layer', '@layer one{'+keyframes+'}'+animation('-.5s paused both'), 50],
+    ['quoted', '@keyframes "none"{from{width:LOWpx}to{width:HIGHpx}}.target{animation:"none" 1s linear -.5s paused both}', 50],
+    ['missing', '.target{animation:missing 1s}', 11],
+    ['zeroDuration', keyframes+'.target{animation:demo 0s paused both}', 90],
+    ['zeroCount', keyframes+animation('-.5s 0 paused both'), 10],
+  ];
+  const result = {};
+  globalThis.animationGeometry = {};
+  for (const [name, source, expected, dimension = 'width'] of cases) {
+    const sheet = document.createElement('style');
+    sheet.textContent = source.replaceAll('LOW', String(10*scale)).replaceAll('HIGH', String(90*scale));
+    document.head.appendChild(sheet);
+    const measured = target.getBoundingClientRect()[dimension];
+    globalThis.animationGeometry[name] = {measured, expected:expected*scale};
+    result[name] = Math.abs(measured - expected*scale) < .03;
+    sheet.remove();
+    result[name+'Recovery'] = Math.abs(target.getBoundingClientRect().width-11*scale) < .03;
+  }
+  base.remove();target.remove();return result;
+})();

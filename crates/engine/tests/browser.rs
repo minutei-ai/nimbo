@@ -83,6 +83,12 @@ fn script_fixture(script: &str) -> String {
 
 fn layout_fixture(path: &str) -> String {
     let script = match path {
+        "/animations" => {
+            return format!(
+                "<!doctype html><body>{}",
+                script_fixture(include_str!("fixtures/animations.txt"))
+            );
+        }
         "/selector-ast" => {
             return format!(
                 "<!doctype html><body>{}",
@@ -175,7 +181,7 @@ fn serve(mut request: Request) -> io::Result<()> {
     let mut status = 200;
     let mut headers = Vec::new();
     let body = match request.url() {
-        "/cascade" | "/variables" | "/node-insertion" | "/intersections" | "/geometry" | "/external-styles" | "/layers" | "/supports" | "/dataset" | "/group-errors" | "/document-host" | "/generated-boxes" | "/selector-ast" => layout_fixture(request.url()),
+        "/cascade" | "/variables" | "/node-insertion" | "/intersections" | "/geometry" | "/external-styles" | "/layers" | "/supports" | "/dataset" | "/group-errors" | "/document-host" | "/generated-boxes" | "/selector-ast" | "/animations" => layout_fixture(request.url()),
         "/style-variables" => script_fixture(include_str!("fixtures/style-variables.txt")),
         "/styles" => script_fixture(include_str!("fixtures/styles.txt")),
         "/anchors" => format!("<base href=\"https://example.com/root/\"><a id=\"link\" href=\"../doc?q=1#fragment\">link</a><svg><a></a></svg><script>{}</script>", include_str!("fixtures/anchors.txt")),
@@ -1219,6 +1225,21 @@ fn native_selector_ast_matches_structures_and_excludes_absent_pseudo_elements() 
     assert!(
         fields.values().all(|value| *value == json!(true)),
         "{result}"
+    );
+    Ok(())
+}
+
+#[test]
+fn paused_css_animations_interpolate_native_box_geometry() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/animations"))?;
+    let result = page.evaluate("comparison")?;
+    let fields = result.as_object().ok_or("missing animation result")?;
+    assert_eq!(fields.len(), 66);
+    assert!(
+        fields.values().all(|value| *value == json!(true)),
+        "{result}; geometry: {}",
+        page.evaluate("animationGeometry")?
     );
     Ok(())
 }
