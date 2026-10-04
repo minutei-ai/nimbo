@@ -1,0 +1,131 @@
+{
+  "date": "2026-10-04",
+  "reference": "T3 Code collaborative Chromium 152.0.7977.130 / Electron 44.4.2",
+  "fixture": "crates/engine/tests/fixtures/response-encoding.json",
+  "documents": 128,
+  "checks": 256,
+  "results": [
+    {
+      "name": "utf8",
+      "documents": 8,
+      "dom_matches": 8,
+      "script_matches": 8,
+      "character_set": "UTF-8"
+    },
+    {
+      "name": "sjis-header",
+      "documents": 8,
+      "dom_matches": 0,
+      "script_matches": 0,
+      "character_set": "UTF-8"
+    },
+    {
+      "name": "sjis-meta",
+      "documents": 8,
+      "dom_matches": 8,
+      "script_matches": 8,
+      "character_set": "Shift_JIS"
+    },
+    {
+      "name": "sjis-pragma",
+      "documents": 8,
+      "dom_matches": 8,
+      "script_matches": 8,
+      "character_set": "Shift_JIS"
+    },
+    {
+      "name": "gbk-header",
+      "documents": 8,
+      "dom_matches": 8,
+      "script_matches": 8,
+      "character_set": "GBK"
+    },
+    {
+      "name": "big5-header",
+      "documents": 8,
+      "dom_matches": 8,
+      "script_matches": 8,
+      "character_set": "Big5"
+    },
+    {
+      "name": "iso2022-header",
+      "documents": 8,
+      "dom_matches": 8,
+      "script_matches": 8,
+      "character_set": "ISO-2022-JP"
+    },
+    {
+      "name": "cp1252-alias",
+      "documents": 8,
+      "dom_matches": 8,
+      "script_matches": 8,
+      "character_set": "windows-1252"
+    },
+    {
+      "name": "utf8-bom-wins",
+      "documents": 8,
+      "dom_matches": 8,
+      "script_matches": 8,
+      "character_set": "UTF-8"
+    },
+    {
+      "name": "utf16le-bom",
+      "documents": 8,
+      "dom_matches": 8,
+      "script_matches": 8,
+      "character_set": "UTF-16LE"
+    },
+    {
+      "name": "utf16be-bom",
+      "documents": 8,
+      "dom_matches": 8,
+      "script_matches": 8,
+      "character_set": "UTF-16BE"
+    },
+    {
+      "name": "comment-skipped",
+      "documents": 8,
+      "dom_matches": 8,
+      "script_matches": 8,
+      "character_set": "Shift_JIS"
+    },
+    {
+      "name": "duplicate-first",
+      "documents": 8,
+      "dom_matches": 0,
+      "script_matches": 0,
+      "character_set": "UTF-8"
+    },
+    {
+      "name": "transport-wins",
+      "documents": 8,
+      "dom_matches": 8,
+      "script_matches": 8,
+      "character_set": "UTF-8"
+    },
+    {
+      "name": "meta-utf16-remap",
+      "documents": 8,
+      "dom_matches": 8,
+      "script_matches": 8,
+      "character_set": "UTF-8"
+    },
+    {
+      "name": "invalid-label",
+      "documents": 8,
+      "dom_matches": 0,
+      "script_matches": 0,
+      "character_set": "windows-1252"
+    }
+  ],
+  "mismatched_documents": 24,
+  "matches": 208,
+  "differences": 48,
+  "limitations": [
+    "This is a supplemental real HTTP fixture, not the original WPT encoding suite.",
+    "Whitespace inside a quoted transport label, duplicate meta charset attributes and invalid-label fallback differ; all differences remain visible.",
+    "Full encoding inheritance, defaults, XML declarations, parser-driven changes, document.characterSet and context-specific resource decoding remain pending."
+  ],
+  "fixture_sha256": "36baf7b0fac375336d8b79433aee541f23438727287357a4e1f18af55786230f",
+  "scope": "Real HTTP; 16 cases, eight fresh iframe documents per case; actual DOM text and executed inline script; reference parent declares UTF-8; no mocks"
+}

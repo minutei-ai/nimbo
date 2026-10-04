@@ -218,3 +218,33 @@ sequential run with rotating runtime order; the existing cold-process, TLS,
 resource-isolation and workload-coverage limitations still apply. The original
 obstacle suite uses its own required three-second settle delay and is not an
 identical performance methodology.
+
+## Shared Rust response-decoding repeat
+
+The [response-decoding comparison](performance-comparison-response-encoding.json)
+retains all nine control scenarios, three validated excluded warmups and 21
+measured attempts per runtime/scenario. All **648 attempts passed**, producing
+**567 measured samples**, with no failures. The separate [corrected upstream
+obstacle run](performance-obstacle-response-encoding.json) verifies original
+assertions and the new Shift_JIS pass. The nine performance controls do not
+substitute for the upstream suites.
+
+| Scenario               | Nimbo in celld p50 | Obscura p50 | Chromium p50 |
+| ---------------------- | ------------------ | ----------- | ------------ |
+| `static`               | 35.43 ms           | 18.39 ms    | 57.31 ms     |
+| `selectors-200`        | 42.24 ms           | 19.05 ms    | 61.24 ms     |
+| `dynamic-fetch`        | 43.93 ms           | 34.98 ms    | 107.18 ms    |
+| `js-dom-events`        | 57.02 ms           | 47.11 ms    | 99.10 ms     |
+| `js-modules`           | 53.26 ms           | 38.32 ms    | 93.67 ms     |
+| `js-dom-selectors-200` | 43.28 ms           | 32.61 ms    | 71.75 ms     |
+| `static-5000`          | 50.30 ms           | 45.59 ms    | 276.23 ms    |
+| `selectors-200-5000`   | 44.82 ms           | 90.04 ms    | 227.28 ms    |
+| `js-positioned-boxes`  | 41.74 ms           | 30.32 ms    | 61.87 ms     |
+
+Nimbo's median is lower than Chromium's in all nine scenarios and than Obscura's
+in one, the 5000-row/200-selector workload. Obscura remains faster in eight.
+The report retains the higher p95 samples, including dynamic-fetch variability;
+no outliers or failed assertions were removed. This is one sequential elapsed-time
+run with rotating runtime order and host/transport costs. It is not a controlled
+baseline/candidate A/B experiment or proof of universal speed improvement.
+The existing cold-process, resource-isolation, TLS and coverage limitations remain.

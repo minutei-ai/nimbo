@@ -59,7 +59,14 @@ const fixture = Bun.serve({
       const file = await realpath(resolve(root, `.${pathname}`));
       if (!file.startsWith(root + sep)) return new Response("Not found", { status: 404 });
       requests.set(pathname, (requests.get(pathname) ?? 0) + 1);
-      return new Response(Bun.file(file), { headers: { "cache-control": "no-store" } });
+      const body = Bun.file(file);
+      // Upstream SimpleHTTPRequestHandler sends a MIME type without a forced UTF-8 charset.
+      return new Response(body, {
+        headers: {
+          "cache-control": "no-store",
+          "content-type": body.type.split(";")[0] ?? "application/octet-stream",
+        },
+      });
     } catch {
       return new Response("Not found", { status: 404 });
     }
@@ -142,6 +149,8 @@ try {
           wait_secs: manifest.wait_secs,
           timeout_secs: manifest.timeout_secs,
         },
+        fixture_transport:
+          "Real HTTP; upstream fixture bytes; MIME media types without Bun implicit UTF-8 charset; no-store adapter; persistent host",
         timing_scope:
           "HTTP control, fresh page, fixture execution, original post-load delay, extraction and cleanup; not upstream cold CLI timings",
         results,

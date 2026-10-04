@@ -37,6 +37,8 @@ mod page;
 mod position_math;
 mod position_value;
 mod registrations;
+mod response_encoding;
+mod response_sniff;
 mod selectors;
 mod storage;
 mod styles;
@@ -158,4 +160,4 @@ pub use media::MediaEnvironment;
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[cfg(target_arch = "wasm32")]
-pub use wasm::{WasmPage, engine_limits, engine_version};
+pub use wasm::{WasmPage, decode_response, engine_limits, engine_version};

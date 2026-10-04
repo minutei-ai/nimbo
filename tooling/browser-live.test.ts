@@ -1,3 +1,4 @@
+import { responseEncodingCases, responseEncodingFixture } from "./response-encoding-fixture";
 import { namespacedElementsFixture } from "./namespaced-elements-fixture";
 import { positionedBoxesFixture } from "./positioned-boxes-fixture";
 import { customBoxesFixture } from "./custom-boxes-fixture";
@@ -430,6 +431,8 @@ const origin = Bun.serve({
   port: 0,
   async fetch(request) {
     const path = new URL(request.url).pathname;
+    const encoded = responseEncodingFixture(path);
+    if (encoded) return encoded;
     const namespaced = namespacedElementsFixture(path);
     if (namespaced) return namespaced;
     const positionedBoxes = positionedBoxesFixture(path);
@@ -5757,3 +5760,25 @@ test("real HTTP → workerd → Wasm: connected iframe contexts fail explicitly 
   expect(Object.keys(checks)).toHaveLength(38);
   expect(Object.values(checks).every((value) => value === true)).toBe(true);
 });
+
+test.each(
+  responseEncodingCases.flatMap((fixture, index) =>
+    Array.from({ length: 8 }, (_, variant) => ({ fixture, index, variant })),
+  ),
+)(
+  "real HTTP → workerd → Wasm: response encoding $fixture.name variant $variant",
+  async ({ fixture, index, variant }) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`response-encoding/${index}/${variant}`, origin.url).href,
+        expression: "({dom:document.getElementById('out').textContent,script:encodingResult})",
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      value: { dom: fixture.expected, script: fixture.expected },
+    });
+  },
+);

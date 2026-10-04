@@ -132,3 +132,13 @@ pub fn engine_limits() -> String {
     let limits = Limits::default();
     serde_json::json!({ "timeoutMs": limits.timeout.as_millis(), "maxResponseBytes": limits.max_response_bytes, "maxStylesheetBytes": limits.max_stylesheet_bytes, "maxLayoutNodes": limits.max_layout_nodes, "maxRequests": limits.max_requests, "maxExpressionBytes": limits.max_expression_bytes }).to_string()
 }
+
+/// Decodes bounded HTTP text using BOM precedence and a transport charset label.
+///
+/// # Errors
+/// Rejects encoded or decoded bodies exceeding the default response-byte budget.
+#[wasm_bindgen]
+pub fn decode_response(bytes: &[u8], content_type: &str) -> Result<String, String> {
+    crate::response_encoding::decode(bytes, content_type, Limits::default().max_response_bytes)
+        .map_err(|error| error.to_string())
+}

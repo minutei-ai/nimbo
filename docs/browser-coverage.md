@@ -2353,3 +2353,44 @@ and the remaining upstream suites continue to be required work.
 References: [DOM createElementNS](https://dom.spec.whatwg.org/#dom-document-createelementns),
 [validate and extract](https://dom.spec.whatwg.org/#validate-and-extract),
 [iframe element](https://html.spec.whatwg.org/multipage/iframe-embed-object.html#the-iframe-element).
+
+## HTTP response character decoding
+
+The native HTTP client and Worker transport now share Nimbo's Rust response
+byte decoder. The Worker passes bounded bytes to the exported Wasm decoder;
+JavaScript in the scraped page still runs entirely in Nimbo's QuickJS realm.
+Response BOMs take precedence over transport charset declarations. Supported
+transport labels use the existing Encoding Standard library. HTML without a
+recognized transport charset also checks the first 1024 bytes for meta charset
+or a content-type pragma. The prescan skips comments and unrelated tags, handles
+quoted/unquoted attributes, ignores duplicate attribute names and remaps meta
+UTF-16 labels to UTF-8 and x-user-defined to windows-1252. Malformed sequences
+use replacement characters. Encoded and decoded output have response-byte caps.
+Binary page fetches retain their original bytes; JSON control input remains
+strict UTF-8. There is no Obscura decoder or runtime dependency.
+
+The synthetic real HTTP fixture has 16 encoding cases and eight fresh pages per
+case. DOM text and an actually executed script read the decoded content. Cases
+include UTF-8, Shift_JIS, GBK, Big5, ISO-2022-JP, windows-1252 aliases, UTF-16 BOMs,
+conflicting declarations, comments, duplicates and invalid labels. A separate
+native resource check verifies malformed replacement, input/output byte caps
+and subsequent successful decoding.
+
+The [Chromium reference](evidence/response-encoding-chromium.json) uses the same
+128 real HTTP documents and records every case. Three cases diverge: whitespace
+inside a quoted HTTP charset label, duplicate meta charset attributes and the
+invalid-label fallback. Those differences remain visible. Nimbo retains its
+existing UTF-8 fallback; full browser default/locale/parent inheritance, XML
+declarations, parser-driven encoding changes, document.characterSet reflection
+and context-specific script/module/stylesheet decoding remain pending. This is
+not a complete HTML encoding algorithm or upstream WPT pass.
+
+References: [HTML character encoding determination](https://html.spec.whatwg.org/multipage/parsing.html#determining-the-character-encoding)
+and [Encoding Standard](https://encoding.spec.whatwg.org/).
+
+The [original upstream Shift_JIS stage](performance-obstacle-response-encoding.json)
+passes all six celld attempts with the original raw fixture and expected Japanese
+text. The corrected fixture adapter sends the same MIME media types as upstream
+Python without injecting a UTF-8 charset. The [historical transport diagnostic](performance-obstacle-response-encoding-transport-diagnostic.json)
+retains the failed result under the prior, incorrect forced-UTF-8 header. Neither
+record establishes complete encoding conformance or a full obstacle-course pass.

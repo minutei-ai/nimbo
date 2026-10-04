@@ -214,9 +214,11 @@ impl Transport {
             (String::new(), Some(bytes))
         } else {
             (
-                String::from_utf8(bytes).map_err(|error| {
-                    Error::Unsupported(format!("only UTF-8 response bodies: {error}"))
-                })?,
+                crate::response_encoding::decode(
+                    &bytes,
+                    &content_type,
+                    self.limits.max_response_bytes,
+                )?,
                 None,
             )
         };

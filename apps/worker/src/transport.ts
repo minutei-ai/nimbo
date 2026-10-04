@@ -1,3 +1,4 @@
+import { decode_response } from "../../../dist/wasm/nimbo_engine.js";
 import { CookieJar } from "tough-cookie";
 import { ScrapeError, type Egress, type EngineLimits } from "./protocol";
 
@@ -126,7 +127,7 @@ export class Transport {
         return {
           url: url.href,
           status: response.status,
-          body: binary ? "" : new TextDecoder("utf-8", { fatal: true }).decode(result),
+          body: binary ? "" : decode_response(result, response.headers.get("content-type") ?? ""),
           raw_body: binary ? Array.from(result) : undefined,
           content_type: response.headers.get("content-type") ?? "",
         };

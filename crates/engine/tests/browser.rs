@@ -1399,6 +1399,7 @@ fn serve_resource(request: Request) -> io::Result<()> {
         "/custom-boxes/",
         "/positioned-boxes/",
         "/namespaced-elements/",
+        "/response-encoding/",
         "/adopted-sheets/",
         "/constructed-sheets/",
     ]
@@ -1626,6 +1627,7 @@ fn is_resource(path: &str) -> bool {
         "/custom-boxes/",
         "/positioned-boxes/",
         "/namespaced-elements/",
+        "/response-encoding/",
         "/adopted-sheets/",
         "/constructed-sheets/",
         "/html-boxes-assets/",
@@ -2503,6 +2505,24 @@ fn native_link_free_guard_discovers_dynamic_stylesheets() -> TestResult {
 }
 
 fn serve_dom_resources(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/response-encoding/") {
+        let cases: Vec<EncodingCase> =
+            serde_json::from_str(include_str!("fixtures/response-encoding.json"))?;
+        let index = request
+            .url()
+            .split('/')
+            .nth(2)
+            .and_then(|index| index.parse::<usize>().ok())
+            .unwrap_or(usize::MAX);
+        let Some(case) = cases.get(index) else {
+            return request.respond(Response::empty(404));
+        };
+        return request.respond(
+            Response::from_data(case.bytes.clone())
+                .with_header(header("Content-Type", &case.content_type)?),
+        );
+    }
+
     if request.url().starts_with("/namespaced-elements/") {
         return request.respond(
             Response::from_string(format!(
@@ -2614,6 +2634,34 @@ fn namespaced_elements_preserve_native_names_and_interfaces() -> TestResult {
             checks.values().all(|value| value == &json!(true)),
             "{result}"
         );
+    }
+    Ok(())
+}
+
+#[derive(serde::Deserialize)]
+struct EncodingCase {
+    bytes: Vec<u8>,
+    content_type: String,
+    expected: String,
+}
+
+#[test]
+fn response_encodings_decode_before_dom_and_javascript() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    let cases: Vec<EncodingCase> =
+        serde_json::from_str(include_str!("fixtures/response-encoding.json"))?;
+    for (index, case) in cases.iter().enumerate() {
+        for variant in 0..8 {
+            let page = browser
+                .navigate(&fixture.path(&format!("/response-encoding/{index}/{variant}")))?;
+            assert_eq!(
+                page.evaluate(
+                    "({dom:document.getElementById('out').textContent,script:encodingResult})"
+                )?,
+                json!({"dom":case.expected,"script":case.expected})
+            );
+        }
     }
     Ok(())
 }
