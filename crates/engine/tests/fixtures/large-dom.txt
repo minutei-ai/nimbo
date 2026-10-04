@@ -1,0 +1,8 @@
+function largeDomCase(v) {
+ let value;for(let i=0;i<200;i++)value=document.querySelector('.entry').textContent;
+ const snapshot=document.querySelectorAll('.entry'),first=snapshot[0],last=snapshot.item(4999);
+ first.textContent='updated-'+v;first.id='changed';
+ const changed=document.getElementById('changed').textContent,keys=Array.from(snapshot.keys()).length;
+ first.remove();
+ return {value,changed,count:snapshot.length,keys,retained:snapshot[0]===first,remaining:document.querySelectorAll('.entry').length,last:last.textContent};
+}

@@ -1,3 +1,4 @@
+import { largeDomFixture, largeDomExpression, linkGuardExpression } from "./large-dom-fixture";
 import { adoptedSheetsFixture } from "./adopted-sheets-fixture";
 import { backgroundLayersFixture } from "./background-layers-fixture";
 import { fontFamilyFixture } from "./font-family-fixture";
@@ -426,6 +427,8 @@ const origin = Bun.serve({
   port: 0,
   async fetch(request) {
     const path = new URL(request.url).pathname;
+    const largeDom = largeDomFixture(path);
+    if (largeDom) return largeDom;
     const adoptedSheets = await adoptedSheetsFixture(path);
     if (adoptedSheets) return adoptedSheets;
     const constructedSheets = await constructedSheetsFixture(path);
@@ -3670,9 +3673,9 @@ test("real HTTP → workerd → Wasm: container layout work is bounded and fresh
     headers: { authorization: "Bearer test-secret" },
     body: JSON.stringify({ url, expression }),
   });
-  expect(response.status).toBe(422);
-  const error: unknown = expect.stringContaining("DOM operations");
-  expect(await response.json()).toMatchObject({ error });
+  expect(response.status).toBe(200);
+  const failure: unknown = expect.stringContaining("DOM operations");
+  expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: failure });
   const healthy = await worker.dispatchFetch("https://nimbo.test/scrape", {
     method: "POST",
     headers: { authorization: "Bearer test-secret" },
@@ -5551,5 +5554,47 @@ test.each([
     const recovered = await request("document.adoptedStyleSheets.length");
     expect(recovered.status).toBe(200);
     expect(await recovered.json()).toMatchObject({ value: 0 });
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: 5000-row DOM and JavaScript variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`large-dom/${variant}`, origin.url).href,
+        expression: largeDomExpression(variant),
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      value: {
+        value: "row",
+        changed: `updated-${variant}`,
+        count: 5000,
+        keys: 5000,
+        retained: true,
+        remaining: 4999,
+        last: "row",
+      },
+    });
+  },
+);
+
+test.each(["create", "innerHTML"] as const)(
+  "real HTTP → workerd → Wasm: link-free stylesheet guard observes %s",
+  async (kind) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`link-guard/${kind}`, origin.url).href,
+        expression: linkGuardExpression(kind),
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ value: "rgb(7, 8, 9)" });
   },
 );

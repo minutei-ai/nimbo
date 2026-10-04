@@ -2215,3 +2215,23 @@ ShadowRoot adoption, CSSStyleSheet replacement APIs, grouped rules, document-own
 `style.sheet` / `link.sheet` wrappers, cross-document adoption restrictions and
 full observable-array reflection remain incomplete. This does not implement full
 CSSOM or full text layout.
+
+### Large DOM extraction under unchanged budgets
+
+Pages without potential `link` tags avoid an unnecessary full-tree external
+stylesheet discovery scan. The conservative guard also observes element creation
+and `innerHTML` writes; real HTTP tests verify dynamically created stylesheets
+still load and affect computed styles. Potential links retain bounded discovery.
+
+Static `querySelectorAll` lists keep native handles and create JavaScript node
+wrappers when accessed. Reading `length` or iterating `keys()` does not create all
+wrappers. Membership remains a snapshot while node identity and later mutations
+remain observable. Live collections are not optimized by this change.
+
+The real HTTP fixture contains 5000 rows and executes 200 selectors, text/ID
+mutations, indexed access, `item`, key iteration and removal. Its 64 variants
+have seven result checks each. Chromium supplies 448 reference checks; native
+Rust and Worker/Wasm run the same fixture. See
+[the reference evidence](evidence/large-dom-chromium.json). DOM operation, heap,
+stylesheet and request budgets remain unchanged. This establishes this workload,
+not unrestricted large-page or arbitrary-framework support.

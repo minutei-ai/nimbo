@@ -17,6 +17,8 @@ pub(crate) struct Dom {
     operations: usize,
     layout_version: usize,
     sheet_scan: Option<usize>,
+    // Conservative presence guard: HTML parsing and element creation are the only name producers.
+    may_have_links: bool,
     sheets: crate::stylesheets::Sheets,
     cssom: crate::cssom::Arena,
     writes: usize,
@@ -44,6 +46,7 @@ impl Dom {
             operations: 0,
             layout_version: 0,
             sheet_scan: None,
+            may_have_links: contains_link_tag(html),
             sheets: crate::stylesheets::Sheets::new(base, limits.max_stylesheet_bytes),
             cssom: crate::cssom::Arena::default(),
             writes: 0,
@@ -197,6 +200,7 @@ impl Dom {
             });
         }
         self.charge_write(name.len())?;
+        self.may_have_links |= name.eq_ignore_ascii_case("link");
         let id = self
             .document
             .tree
@@ -219,6 +223,10 @@ impl Dom {
 
     pub(crate) fn next_sheet(&mut self) -> Result<Option<(usize, String)>> {
         if self.sheet_scan == Some(self.layout_version) {
+            return Ok(None);
+        }
+        if !self.may_have_links {
+            self.sheet_scan = Some(self.layout_version);
             return Ok(None);
         }
         let base = self.base_href();
@@ -451,6 +459,9 @@ impl Dom {
         let attribute_bytes = if operation == "setAttr" { arg.len() } else { 0 };
         self.charge_write(attribute_bytes.saturating_add(value.len()))?;
         self.invalidate_sheet(operation, handle, arg, value)?;
+        if operation == "set" && arg == "innerHTML" {
+            self.may_have_links |= contains_link_tag(value);
+        }
         self.set(operation, handle, arg, value)?;
         if style_changed {
             let id = self.node(handle)?.id;
@@ -971,4 +982,12 @@ fn valid_element_name(name: &str) -> bool {
                 || matches!(character, '-' | '.' | ':' | '_')
                 || character >= '\u{80}'
         })
+}
+
+// Tag names do not decode HTML character references. False positives (comments,
+// raw-text scripts, longer names) only retain the regular bounded discovery scan.
+fn contains_link_tag(html: &str) -> bool {
+    html.as_bytes()
+        .windows(5)
+        .any(|bytes| bytes.eq_ignore_ascii_case(b"<link"))
 }

@@ -1,0 +1,19 @@
+{
+  "date": "2026-10-04",
+  "reference": "real Chromium over local HTTP; fresh document per variant",
+  "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) T3Code(Alpha)/0.0.45 Chrome/152.0.7977.130 Electron/44.4.2 Safari/537.36",
+  "variants": 64,
+  "rows_per_document": 5000,
+  "checks_per_variant": 7,
+  "reference_checks": 448,
+  "expected": {
+    "value": "row",
+    "changed": "updated-{variant}",
+    "count": 5000,
+    "keys": 5000,
+    "retained": true,
+    "remaining": 4999,
+    "last": "row"
+  },
+  "scope": "200 repeated selectors, static NodeList membership and length, lazy item access, keys iteration, DOM text/id mutation and removal. Native and Wasm verification is recorded in the coverage inventory; no full browser parity claim."
+}

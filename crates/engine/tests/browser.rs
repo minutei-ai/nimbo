@@ -645,10 +645,13 @@ fn dom_operation_budget_and_expired_page_are_enforced() -> TestResult {
             ..Limits::default()
         },
     )?;
-    assert!(matches!(
-        browser.navigate(&fixture.path("/static")),
-        Err(Error::Limit("DOM operations"))
-    ));
+    // Link-free navigation no longer spends the callback budget on stylesheet discovery.
+    let page = browser.navigate(&fixture.path("/static"))?;
+    let error = page
+        .evaluate("Array.from({length: 5}, () => document.querySelector('li'))")
+        .err()
+        .ok_or("DOM reads exceeded the budget without rejection")?;
+    assert!(error.to_string().contains("DOM operations"));
     let browser = Browser::new(
         &fixture.url,
         Limits {
@@ -1390,17 +1393,16 @@ fn registered_custom_properties_validate_before_substitution() -> TestResult {
 }
 
 fn serve_resource(request: Request) -> io::Result<()> {
-    if request.url().starts_with("/adopted-sheets/") {
-        return request.respond(Response::from_string(format!("<!doctype html><style>html,body {{margin:0;padding:0}} #target {{width:3px;height:2px;color:rgb(1,2,3)}}</style><div id=target></div><script>{}</script>",include_str!("fixtures/adopted-sheets.txt"))).with_header(header("Content-Type", "text/html")?));
-    }
-    if request.url().starts_with("/constructed-sheets/") {
-        return request.respond(
-            Response::from_string(format!(
-                "<!doctype html><script>{}</script>",
-                include_str!("fixtures/constructed-sheets.txt")
-            ))
-            .with_header(header("Content-Type", "text/html")?),
-        );
+    if [
+        "/link-guard",
+        "/large-dom/",
+        "/adopted-sheets/",
+        "/constructed-sheets/",
+    ]
+    .iter()
+    .any(|prefix| request.url().starts_with(prefix))
+    {
+        return serve_dom_resources(request);
     }
     if request.url().starts_with("/html-boxes/") || request.url().starts_with("/html-boxes-assets/")
     {
@@ -1616,6 +1618,8 @@ fn is_resource(path: &str) -> bool {
         "/font-family/",
         "/display/",
         "/html-boxes/",
+        "/link-guard",
+        "/large-dom/",
         "/adopted-sheets/",
         "/constructed-sheets/",
         "/html-boxes-assets/",
@@ -2458,4 +2462,74 @@ fn native_adopted_stylesheets_real_http() -> TestResult {
         );
     }
     Ok(())
+}
+
+#[test]
+fn native_large_dom_js_real_http() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/large-dom/{variant}")))?;
+        let expression = format!("largeDomCase({variant})");
+        assert_eq!(
+            page.evaluate(&expression)?,
+            json!({"value":"row","changed":format!("updated-{variant}"),"count":5000,"keys":5000,"retained":true,"remaining":4999,"last":"row"})
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn native_link_free_guard_discovers_dynamic_stylesheets() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for setup in [
+        "const link=document.createElement('LINK');link.setAttribute('rel','stylesheet');link.setAttribute('href','/link-guard.css');document.head.appendChild(link);",
+        "document.head.innerHTML='<li'+'Nk rel=stylesheet href=/link-guard.css>';const link=document.head.querySelector('link');",
+    ] {
+        let page = browser.navigate(&fixture.path("/link-guard/page"))?;
+        let expression = format!(
+            "(()=>{{{setup}return new Promise(resolve=>link.addEventListener('load',()=>resolve(getComputedStyle(document.getElementById('target')).color)))}})()"
+        );
+        assert_eq!(page.evaluate(&expression)?, json!("rgb(7, 8, 9)"));
+    }
+    Ok(())
+}
+
+fn serve_dom_resources(request: Request) -> io::Result<()> {
+    if request.url() == "/link-guard.css" {
+        return request.respond(
+            Response::from_string("#target {color:rgb(7,8,9)}")
+                .with_header(header("Content-Type", "text/css")?),
+        );
+    }
+    if request.url().starts_with("/link-guard/") {
+        return request.respond(
+            Response::from_string("<div id=target></div>")
+                .with_header(header("Content-Type", "text/html")?),
+        );
+    }
+    if request.url().starts_with("/large-dom/") {
+        return request.respond(
+            Response::from_string(format!(
+                "<main><ul>{}</ul></main><script>{}</script>",
+                "<li class=entry>row</li>".repeat(5000),
+                include_str!("fixtures/large-dom.txt")
+            ))
+            .with_header(header("Content-Type", "text/html")?),
+        );
+    }
+    if request.url().starts_with("/adopted-sheets/") {
+        return request.respond(Response::from_string(format!("<!doctype html><style>html,body {{margin:0;padding:0}} #target {{width:3px;height:2px;color:rgb(1,2,3)}}</style><div id=target></div><script>{}</script>",include_str!("fixtures/adopted-sheets.txt"))).with_header(header("Content-Type", "text/html")?));
+    }
+    if request.url().starts_with("/constructed-sheets/") {
+        return request.respond(
+            Response::from_string(format!(
+                "<!doctype html><script>{}</script>",
+                include_str!("fixtures/constructed-sheets.txt")
+            ))
+            .with_header(header("Content-Type", "text/html")?),
+        );
+    }
+    request.respond(Response::empty(404))
 }

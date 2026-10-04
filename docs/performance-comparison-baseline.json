@@ -26,8 +26,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 31.059965999999804,
-      "p95_ms": 48.42577300000039
+      "p50_ms": 29.25150399999984,
+      "p95_ms": 41.148159999999734
     },
     {
       "runtime": "obscura",
@@ -35,8 +35,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 16.928197000000182,
-      "p95_ms": 22.142610999999988
+      "p50_ms": 17.122911999999815,
+      "p95_ms": 22.596045000000004
     },
     {
       "runtime": "chromium",
@@ -44,8 +44,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 53.666741,
-      "p95_ms": 59.24460199999976
+      "p50_ms": 56.643327999999656,
+      "p95_ms": 73.51482399999986
     },
     {
       "runtime": "nimbo-celld",
@@ -53,8 +53,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 30.57738100000006,
-      "p95_ms": 42.40506499999992
+      "p50_ms": 31.04518300000018,
+      "p95_ms": 44.8687489999993
     },
     {
       "runtime": "obscura",
@@ -62,8 +62,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 18.064436999999998,
-      "p95_ms": 23.26132299999972
+      "p50_ms": 18.990445999999793,
+      "p95_ms": 20.82650300000023
     },
     {
       "runtime": "chromium",
@@ -71,8 +71,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 59.43059400000038,
-      "p95_ms": 65.5311900000006
+      "p50_ms": 54.85294700000031,
+      "p95_ms": 75.83787500000017
     },
     {
       "runtime": "nimbo-celld",
@@ -80,8 +80,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 29.528309000000263,
-      "p95_ms": 40.34499500000129
+      "p50_ms": 31.580246000001353,
+      "p95_ms": 40.70883700000013
     },
     {
       "runtime": "obscura",
@@ -89,8 +89,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 20.706223999999565,
-      "p95_ms": 23.849513000000115
+      "p50_ms": 20.271628999999848,
+      "p95_ms": 22.89260000000013
     },
     {
       "runtime": "chromium",
@@ -98,8 +98,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 61.234167000000525,
-      "p95_ms": 69.90527000000111
+      "p50_ms": 57.23110699999961,
+      "p95_ms": 67.05935900000077
     },
     {
       "runtime": "nimbo-celld",
@@ -107,8 +107,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 35.769288000001325,
-      "p95_ms": 46.41222999999991
+      "p50_ms": 38.2080619999997,
+      "p95_ms": 50.87283500000012
     },
     {
       "runtime": "obscura",
@@ -116,8 +116,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 29.12854200000038,
-      "p95_ms": 34.85089499999958
+      "p50_ms": 29.168649999999616,
+      "p95_ms": 33.124008000000686
     },
     {
       "runtime": "chromium",
@@ -125,8 +125,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 57.48258800000076,
-      "p95_ms": 70.71879000000081
+      "p50_ms": 56.76328400000057,
+      "p95_ms": 66.42148699999962
     },
     {
       "runtime": "nimbo-celld",
@@ -134,8 +134,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 39.186077000000296,
-      "p95_ms": 50.56026800000109
+      "p50_ms": 42.135363999999754,
+      "p95_ms": 57.64214300000094
     },
     {
       "runtime": "obscura",
@@ -143,8 +143,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 28.419488999999885,
-      "p95_ms": 33.19385600000169
+      "p50_ms": 29.175530999998955,
+      "p95_ms": 32.050287000000026
     },
     {
       "runtime": "chromium",
@@ -152,8 +152,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 65.0330670000003,
-      "p95_ms": 80.99897200000123
+      "p50_ms": 62.21894400000019,
+      "p95_ms": 78.39070899999933
     },
     {
       "runtime": "nimbo-celld",
@@ -161,8 +161,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 39.68750599999839,
-      "p95_ms": 48.2373869999974
+      "p50_ms": 39.470171000000846,
+      "p95_ms": 57.71348699999726
     },
     {
       "runtime": "obscura",
@@ -170,8 +170,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 29.460555999998178,
-      "p95_ms": 34.11005600000135
+      "p50_ms": 29.50493600000118,
+      "p95_ms": 36.33039199999985
     },
     {
       "runtime": "chromium",
@@ -179,17 +179,19 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 61.30367000000115,
-      "p95_ms": 88.518167000002
+      "p50_ms": 59.1265999999996,
+      "p95_ms": 69.34508500000084
     },
     {
       "runtime": "nimbo-celld",
       "scenario": "static-5000",
-      "valid": 24,
-      "failures": {},
-      "measured": 21,
-      "p50_ms": 46.7560310000008,
-      "p95_ms": 62.74370600000111
+      "valid": 0,
+      "failures": {
+        "HTTP 422": 24
+      },
+      "measured": 0,
+      "p50_ms": null,
+      "p95_ms": null
     },
     {
       "runtime": "obscura",
@@ -197,8 +199,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 40.312222999997175,
-      "p95_ms": 50.289904999997816
+      "p50_ms": 41.24363699999958,
+      "p95_ms": 62.41172099999676
     },
     {
       "runtime": "chromium",
@@ -206,17 +208,19 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 233.60749100000248,
-      "p95_ms": 263.16520599999785
+      "p50_ms": 242.004785000001,
+      "p95_ms": 286.1075329999985
     },
     {
       "runtime": "nimbo-celld",
       "scenario": "selectors-200-5000",
-      "valid": 24,
-      "failures": {},
-      "measured": 21,
-      "p50_ms": 46.25199900000007,
-      "p95_ms": 68.65547700000025
+      "valid": 0,
+      "failures": {
+        "HTTP 422": 24
+      },
+      "measured": 0,
+      "p50_ms": null,
+      "p95_ms": null
     },
     {
       "runtime": "obscura",
@@ -224,8 +228,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 86.84646600000269,
-      "p95_ms": 120.41786099999808
+      "p50_ms": 99.61145499999839,
+      "p95_ms": 114.81055699999706
     },
     {
       "runtime": "chromium",
@@ -233,8 +237,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 247.3013460000002,
-      "p95_ms": 295.4331809999967
+      "p50_ms": 236.20383799999763,
+      "p95_ms": 260.26108999999997
     }
   ],
   "fixture_requests": {
@@ -249,11 +253,10 @@
     "/static?rows=5000": 144
   },
   "provenance": {
-    "nimbo_wasm_sha256": "bf4025e18456ac9eb31a17f15829459ec63e623dbf55b604ca723375b3ccffa9",
+    "nimbo_wasm_sha256": "2cd0e7cd2cbb7ab6601bc90a5a5e30bb06b43e4b41b5bfc4e5f053ea70d84135",
     "obscura_release": "https://github.com/h4ckf0r0day/obscura/releases/tag/v0.2.3",
     "obscura_asset": "obscura-x86_64-linux.tar.gz",
     "obscura_asset_sha256": "1534d1e6ddaf3d080ec4091eb41d0a4d8cc042a48b607d3c410fc13b482a9eec",
-    "measurement": "isolated repeat after build, lint, Bun tests, native debug/release tests and Rust documentation finished; same fixtures and default limits as baseline"
-  },
-  "baseline": "performance-comparison-baseline.json"
+    "measurement": "isolated repeat after local checks and native CLI benchmark finished"
+  }
 }

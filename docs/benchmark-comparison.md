@@ -56,28 +56,52 @@ throughput, memory stability or production cost is established by this suite.
 The synthetic application is vanilla JavaScript; passing it does not establish
 compatibility with every framework or website.
 
-See [the recorded comparison](performance-comparison.json), including rejected
-large-page workloads. Default limits remain enabled. Capability failures matter
-alongside latency; a runtime with rejected extractions cannot claim parity on
-those workloads.
+See [the recorded comparison](performance-comparison.json) and the preserved
+[baseline](performance-comparison-baseline.json). Default limits remain enabled.
+Capability failures matter alongside latency; rejected extractions never become
+successful timing samples.
 
 ## Recorded result
 
 The isolated local run on 2026-10-04 used celld 0.6.1, the public Obscura 0.2.3
 Linux release and Chrome for Testing 153.0.8010.12. Obscura advertises a Chrome
 identity through CDP; the report identifies its actual release separately.
-All six common scenarios passed 24 attempts per runtime. Both 5000-row scenarios
-passed in Obscura and Chromium but failed all 24 attempts each in Nimbo with
-HTTP 422 under its default DOM operation budget. Total: 576 attempts, 528 valid
-extractions and 48 rejected extractions; 462 successful measured samples.
+The baseline contained 576 attempts, 528 valid extractions and 48 Nimbo HTTP 422
+failures on the two 5000-row workloads. The optimized repeat has **576 valid
+extractions, zero failures and 504 measured samples**. All eight scenarios pass
+24 attempts in each runtime, including JavaScript and large-page workloads.
 
-| JavaScript scenario                | Nimbo in celld p50 | Obscura p50 | Chromium p50 |
-| ---------------------------------- | ------------------ | ----------- | ------------ |
-| DOM, POST, timer and event         | 38.21 ms           | 29.17 ms    | 56.76 ms     |
-| External modules and generated DOM | 42.14 ms           | 29.18 ms    | 62.22 ms     |
-| 200 selectors over generated DOM   | 39.47 ms           | 29.50 ms    | 59.13 ms     |
+| Scenario               | Nimbo in celld p50 | Obscura p50 | Chromium p50 |
+| ---------------------- | ------------------ | ----------- | ------------ |
+| `static`               | 31.06 ms           | 16.93 ms    | 53.67 ms     |
+| `selectors-200`        | 30.58 ms           | 18.06 ms    | 59.43 ms     |
+| `dynamic-fetch`        | 29.53 ms           | 20.71 ms    | 61.23 ms     |
+| `js-dom-events`        | 35.77 ms           | 29.13 ms    | 57.48 ms     |
+| `js-modules`           | 39.19 ms           | 28.42 ms    | 65.03 ms     |
+| `js-dom-selectors-200` | 39.69 ms           | 29.46 ms    | 61.30 ms     |
+| `static-5000`          | 46.76 ms           | 40.31 ms    | 233.61 ms    |
+| `selectors-200-5000`   | 46.25 ms           | 86.85 ms    | 247.30 ms    |
+
+The change avoids full-tree external stylesheet discovery when no potential link
+exists and materializes static NodeList wrappers only when accessed. Dynamically
+created links still load through real HTTP; DOM operation and heap limits are
+unchanged. The 5000-row failure is resolved for these fixtures, not by raising a
+limit or dropping a workload.
+
+The repeated-selector large-page case has 1.88 times lower p50 latency than
+Obscura and 5.35 times lower than Chromium in this run. Obscura remains faster on
+the other seven scenarios. Nimbo's common-workload p50 changes are mixed: some
+improve, others stay close or regress. Both reports retain p95, failure counts
+and provenance. A single local repeat does not establish statistical significance
+or a universal speed ranking.
+
+Local validation passed 4611 Bun tests and 88 native Rust tests in debug and
+release, plus formatting, native/Wasm Clippy and Rust documentation. The first
+parallel debug run failed an 80 ms deadline test during JavaScript initialization;
+the complete debug suite passed with one test thread and the same deadline.
+The 64 large-DOM variants also have 448 real Chromium reference checks.
 
 These values describe this synthetic suite and the documented control adapters.
-They are not a general browser-speed or capability ranking. The larger-page
-rejections remain a concrete Nimbo gap to address; they are retained in the
-report alongside successful JavaScript workloads.
+They establish neither arbitrary website/framework compatibility nor production
+Cloudflare deployment. Further scraping compatibility and performance work
+remains necessary.

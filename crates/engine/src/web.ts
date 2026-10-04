@@ -847,7 +847,11 @@
   }
   const internal = Symbol("native node");
   type Collection = NodeList | HTMLCollection;
-  type CollectionState = { resolve: () => Node[] };
+  type CollectionItems = readonly (Node | number)[];
+  type CollectionState = { resolve: () => CollectionItems };
+  function collectionNode(value: Node | number | undefined): Node | undefined {
+    return typeof value === "number" ? node(value) : value;
+  }
   const collections = new WeakMap<Collection, CollectionState>();
   const childLists = new WeakMap<Node, NodeList>();
   const elementLists = new WeakMap<ParentNode, HTMLCollection>();
@@ -856,9 +860,10 @@
     if (!state) throw new TypeError("Illegal invocation");
     return state;
   }
-  function namedNodes(items: Node[]): Map<string, Element> {
+  function namedNodes(items: CollectionItems): Map<string, Element> {
     const names = new Map<string, Element>();
-    for (const item of items) {
+    for (const value of items) {
+      const item = collectionNode(value);
       if (!(item instanceof Element)) continue;
       const id = item.getAttribute("id");
       const name =
@@ -878,7 +883,7 @@
   }
   function makeCollection<T extends Collection>(
     target: T,
-    resolve: () => Node[],
+    resolve: () => CollectionItems,
     named = false,
   ): T {
     const state = { resolve };
@@ -889,7 +894,7 @@
     const proxy = new Proxy(target, {
       get(object, key, receiver): unknown {
         const index = propertyIndex(key);
-        if (index !== null) return resolve()[index];
+        if (index !== null) return collectionNode(resolve()[index]);
         return visibleName(key) ?? Reflect.get(object, key, receiver);
       },
       has(object, key) {
@@ -900,7 +905,9 @@
       },
       ownKeys(object) {
         const items = resolve();
-        const keys: (string | symbol)[] = items.map((_, index) => String(index));
+        const keys: (string | symbol)[] = Array.from({ length: items.length }, (_, index) =>
+          String(index),
+        );
         if (named) {
           for (const key of namedNodes(items).keys()) if (!Reflect.has(object, key)) keys.push(key);
         }
@@ -909,7 +916,7 @@
       getOwnPropertyDescriptor(object, key) {
         const index = propertyIndex(key);
         if (index !== null) {
-          const value = resolve()[index];
+          const value = collectionNode(resolve()[index]);
           return value === undefined
             ? undefined
             : { value, writable: false, enumerable: true, configurable: true };
@@ -952,7 +959,7 @@
     }
     item(index: number): Node | null {
       if (arguments.length === 0) throw new TypeError("item requires an index");
-      return collectionState(this).resolve()[index >>> 0] ?? null;
+      return collectionNode(collectionState(this).resolve()[index >>> 0]) ?? null;
     }
     forEach(
       callback: (this: unknown, value: Node, index: number, list: NodeList) => void,
@@ -962,7 +969,7 @@
       if (typeof callback !== "function") throw new TypeError("callback must be a function");
       const length = state.resolve().length;
       for (let index = 0; index < length; index++) {
-        const value = state.resolve()[index];
+        const value = collectionNode(state.resolve()[index]);
         if (value !== undefined) callback.call(thisArg, value, index, this);
       }
     }
@@ -972,7 +979,7 @@
     keys(): Generator<number> {
       const state = collectionState(this);
       return (function* () {
-        for (const [index] of collectionEntries(state)) yield index;
+        for (let index = 0; index < state.resolve().length; index++) yield index;
       })();
     }
     values(): Generator<Node> {
@@ -984,7 +991,7 @@
   }
   function* collectionEntries(state: CollectionState): Generator<[number, Node]> {
     for (let index = 0; ; index++) {
-      const value = state.resolve()[index];
+      const value = collectionNode(state.resolve()[index]);
       if (value === undefined) return;
       yield [index, value];
     }
@@ -1001,7 +1008,7 @@
     }
     item(index: number): Element | null {
       if (arguments.length === 0) throw new TypeError("item requires an index");
-      const value = collectionState(this).resolve()[index >>> 0];
+      const value = collectionNode(collectionState(this).resolve()[index >>> 0]);
       return value instanceof Element ? value : null;
     }
     namedItem(name: unknown): Element | null {
@@ -1204,7 +1211,7 @@
       return this.children.length;
     }
     querySelectorAll(selector: string): NodeList {
-      const snapshot = call<number[]>("query", idOf(this), selector).map(element);
+      const snapshot = call<number[]>("query", idOf(this), selector);
       return makeCollection(new NodeList(internal), () => snapshot);
     }
     querySelector(selector: string): Element | null {
