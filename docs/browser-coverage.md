@@ -2306,3 +2306,50 @@ fail instead of producing fabricated geometry; real Worker tests verify recovery
 
 References: [CSS positioned containing blocks](https://www.w3.org/TR/css-position-3/#def-cb)
 and [CSS container types](https://drafts.csswg.org/css-conditional-5/#container-type).
+
+## Native namespace creation and iframe interfaces
+
+`Document.createElementNS` creates real Rust DOM nodes with namespace, prefix
+and case-preserved local name. The engine validates local names, prefix syntax
+and XML/XMLNS namespace constraints before allocating a node. Nullable namespace
+arguments and Web IDL string conversion are handled in the page binding. Native
+`namespaceURI`, `prefix`, `localName`, `tagName` and `nodeName` reflect stored names.
+Creation shares the existing custom-element construction and failure handling;
+prefixed custom elements retain their native name and deliver connected callbacks.
+No Obscura engine or comparator supplies these operations.
+
+HTML serialization now walks the actual native tree iteratively, preserves
+qualified element names, escapes text/attributes, handles HTML void and raw-text
+categories and includes template contents. Traversal consumes the existing DOM
+operation budget and output is limited by the configured DOM write-byte budget.
+This does not establish full XML serialization or namespaced attribute API parity.
+
+`HTMLIFrameElement` has its own native node identity through the page wrapper,
+reflected string/boolean attributes and URL resolution through the native parser.
+Detached frame context getters return null. Connected context getters explicitly
+raise NotSupportedError because independent frame documents/realms are still
+unimplemented. This interface implementation does not establish frame navigation,
+script execution, cross-origin access, sandboxing or actual frame rendering.
+
+The real HTTP namespace fixture runs 64 variants with 38 checks each in native
+Rust and Worker/Wasm. It covers HTML/SVG/MathML/foreign/null namespaces, name
+case, prefix reflection, qualified serialization, DOM identity and mutation,
+custom construction/reactions, iframe interface/attributes, argument conversion
+and namespace errors. All 2432 native expectations pass in each engine surface.
+The collaborative Chromium loads 64 fresh iframe documents with the identical
+fixture: **2368 matches and 64 differences**. Every difference is the multiple-colon
+case: Chromium 152 returns localName `a` for `p:a:b`, while Nimbo preserves `a:b`
+according to the current DOM validate-and-extract algorithm. This mismatch remains
+visible in the [reference aggregate](evidence/namespaced-elements-chromium.json).
+It is not a complete Chromium, WPT or browser compatibility pass.
+
+The original pinned [WPT namespace tests](https://github.com/web-platform-tests/wpt/blob/03f14d4780c4d981bc84c65679b18e9327a1affe/dom/nodes/Document-createElementNS.html)
+still require independent XML/XHTML frame documents and further element-specific
+interfaces. Their unmodified full execution remains pending. The supplemental
+fixture above does not count as passing that upstream WPT file. Element creation
+options, namespace attribute methods, independent documents, rendering, media
+and the remaining upstream suites continue to be required work.
+
+References: [DOM createElementNS](https://dom.spec.whatwg.org/#dom-document-createelementns),
+[validate and extract](https://dom.spec.whatwg.org/#validate-and-extract),
+[iframe element](https://html.spec.whatwg.org/multipage/iframe-embed-object.html#the-iframe-element).

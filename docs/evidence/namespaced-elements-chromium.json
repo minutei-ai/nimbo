@@ -1,0 +1,208 @@
+{
+  "date": "2026-10-04",
+  "reference": "T3 Code collaborative Chromium 152.0.7977.130 / Electron 44.4.2",
+  "fixture": "crates/engine/tests/fixtures/namespaced-elements.txt",
+  "scope": "64 fresh iframe documents over real HTTP; 38 namespace/interface/serialization checks per variant; no mocks",
+  "variants": 64,
+  "checks_per_variant": 38,
+  "total_checks": 2432,
+  "matches": 2368,
+  "differences": 64,
+  "results": [
+    {
+      "check": "html",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "casePreserved",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "svg",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "math",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "foreign",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "nullNamespace",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "htmlPrefix",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "xml",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "xmlns",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "connected",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "foreignSerialization",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "svgSerialization",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "htmlSerialization",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "innerSerialization",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "detached",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "reattached",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "iframeBrand",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "iframeDetached",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "iframeReflection",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "iframeBoolean",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "iframeUrl",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "custom",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "customConnected",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "emptyName",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "emptyPrefix",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "emptyLocal",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "invalidPrefix",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "invalidLocal",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "prefixWithoutNamespace",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "xmlMismatch",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "xmlnsMismatch",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "xmlnsUnprefixedMismatch",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "xmlnsNamespaceMismatch",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "coercion",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "missingArgument",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "illegalReceiver",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "symbol",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "multipleColon",
+      "matches": 0,
+      "differences": 64
+    }
+  ],
+  "limitations": [
+    "Chromium truncates p:a:b to localName a; Nimbo preserves a:b following the current DOM validate-and-extract algorithm. This is a recorded compatibility difference, not a complete Chromium or WPT pass.",
+    "Iframe identity and reflected attributes do not establish independent frame contexts; connected frame context access remains explicitly unsupported.",
+    "Full namespace attribute APIs, element creation options, independent documents, WPT, painting and media remain required work."
+  ]
+}

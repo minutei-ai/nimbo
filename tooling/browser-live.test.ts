@@ -1,3 +1,4 @@
+import { namespacedElementsFixture } from "./namespaced-elements-fixture";
 import { positionedBoxesFixture } from "./positioned-boxes-fixture";
 import { customBoxesFixture } from "./custom-boxes-fixture";
 import { largeDomFixture, largeDomExpression, linkGuardExpression } from "./large-dom-fixture";
@@ -429,6 +430,8 @@ const origin = Bun.serve({
   port: 0,
   async fetch(request) {
     const path = new URL(request.url).pathname;
+    const namespaced = namespacedElementsFixture(path);
+    if (namespaced) return namespaced;
     const positionedBoxes = positionedBoxesFixture(path);
     if (positionedBoxes) return positionedBoxes;
     const customBoxes = customBoxesFixture(path);
@@ -5707,3 +5710,50 @@ test.each([
     expect(Object.values(value).every((check) => check === true)).toBe(true);
   },
 );
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: namespaced element variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`namespaced-elements/${variant}`, origin.url).href,
+        expression: `namespacedElementsCase(${variant})`,
+      }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing result");
+    const checks: unknown = Reflect.get(result, "value");
+    if (typeof checks !== "object" || checks === null) throw new Error("Missing checks");
+    expect(Object.keys(checks)).toHaveLength(38);
+    expect(Object.values(checks).every((value) => value === true)).toBe(true);
+  },
+);
+test("real HTTP → workerd → Wasm: connected iframe contexts fail explicitly and recover", async () => {
+  const url = new URL("namespaced-elements/0", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression:
+        "(()=>{const frame=document.createElement('iframe');document.body.append(frame);return frame.contentWindow})()",
+    }),
+  });
+  expect(response.status).toBe(422);
+  expect(await response.text()).toContain("Independent frame contexts are not implemented");
+  const recovered = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: "namespacedElementsCase(0)" }),
+  });
+  expect(recovered.status).toBe(200);
+  const result: unknown = await recovered.json();
+  if (typeof result !== "object" || result === null) throw new Error("Missing result");
+  const checks: unknown = Reflect.get(result, "value");
+  if (typeof checks !== "object" || checks === null) throw new Error("Missing checks");
+  expect(Object.keys(checks)).toHaveLength(38);
+  expect(Object.values(checks).every((value) => value === true)).toBe(true);
+});

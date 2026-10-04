@@ -19,7 +19,7 @@ an upstream engine or its framework assets.
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | [Kitesurf official methodology](https://developers.cloudflare.com/browser-run/kitesurf/)                                                                                                                                                                 | WPT conformance and five Quick Action repetitions over the published 14-URL corpus; screenshot and HTML CPU, memory and wall time  | Not run in Nimbo; original corpus and full rendering adapter remain required |
 | [Obscura benchmark](https://github.com/h4ckf0r0day/obscura-benchmark)                                                                                                                                                                                    | Seven tracks: WPT, obstacle course, comparison, real-world corpus, stealth, latency and reliability                                | Obstacle baseline executed below; remaining tracks pending                   |
-| [Obscura obstacle manifest](https://github.com/h4ckf0r0day/obscura-benchmark/blob/2d7bc304fbb7ebefc44f770938192e3cede87dbd/obstacle-course/manifest.json)                                                                                                | All 33 stages, including original React, Preact and Vue assets                                                                     | 9 passed, 20 failed, 4 missing output adapters                               |
+| [Obscura obstacle manifest](https://github.com/h4ckf0r0day/obscura-benchmark/blob/2d7bc304fbb7ebefc44f770938192e3cede87dbd/obstacle-course/manifest.json)                                                                                                | All 33 stages, including original React, Preact and Vue assets                                                                     | 11 passed, 18 failed, 4 missing output adapters                              |
 | [Obscura stealth runner](https://github.com/h4ckf0r0day/obscura-benchmark/blob/2d7bc304fbb7ebefc44f770938192e3cede87dbd/stealth-bench/run.py)                                                                                                            | Original fingerprint assertions, profiles and captured HTTP headers                                                                | Not run; fingerprint obstacle currently fails                                |
 | [Obscura rendering regressions](https://github.com/h4ckf0r0day/obscura/tree/590f79e1a179a0157a50e7e21fbc568f1ab6b43f/render-repros)                                                                                                                      | Original rendering fixtures, capture scripts and expectations                                                                      | Not run; own numeric geometry evidence is supplementary                      |
 | [CreepJS source](https://github.com/abrahamjuliot/creepjs/tree/10aa6724cd33a1015db1574211890518cd04f0cc) and [official live page](https://abrahamjuliot.github.io/creepjs/)                                                                              | Complete fingerprint collection and consistency checks, including reflection, engine, layout, canvas, fonts, audio and WebGL       | Not run; runner and several engine capabilities pending                      |
@@ -87,12 +87,23 @@ HTTP extractions: **54 valid, 120 failed**. All six attempts passed in each of
 nine stages. Twenty stages failed all six attempts; four more were unadapted.
 This is **9/33 stages complete**, not a full-suite success.
 
+The [namespace and iframe-interface repeat](performance-obstacle-namespaces.json)
+uses the same pinned checkout, original expressions and expected values, unchanged
+three-second delay, one warmup and five measured attempts. It executed **174 real
+HTTP extractions: 66 valid, 108 failed**. React and Preact now pass all six attempts,
+as do the nine previously passing stages. The current result is **11/33 complete**:
+18 failed and four unadapted. This does not establish complete React or Preact
+compatibility, independent iframe execution or a full upstream suite pass.
+
+The following table records this latest repeat. The original baseline above is
+retained as historical evidence.
+
 | Original stage          | Category   | Status          | Valid / attempted |
 | ----------------------- | ---------- | --------------- | ----------------- |
 | `static`                | baseline   | passed          | 6/6               |
 | `dom-build`             | perf       | failed          | 0/6               |
-| `react`                 | frameworks | failed          | 0/6               |
-| `preact`                | frameworks | failed          | 0/6               |
+| `react`                 | frameworks | passed          | 6/6               |
+| `preact`                | frameworks | passed          | 6/6               |
 | `vue`                   | frameworks | passed          | 6/6               |
 | `ssr-hydrate`           | modern-web | passed          | 6/6               |
 | `es-modules`            | modern-web | failed          | 0/6               |
@@ -123,11 +134,11 @@ This is **9/33 stages complete**, not a full-suite success.
 | `cookies`               | scraping   | failed          | 0/6               |
 | `charset-shiftjis`      | scraping   | failed          | 0/6               |
 
-The failures expose concrete next work: React/Preact DOM contracts, dynamic
-module graphs, text geometry, MutationObserver, animation frames, history/URL,
-structuredClone, shadow DOM, File API, Range/Selection, dialog/input methods,
-fingerprints, cookie behavior, legacy document decoding and extraction modes.
-The original fixture values and assertions stay fixed while the engine changes.
+The failures expose concrete next work: dynamic module graphs, text geometry,
+MutationObserver, animation frames, history/URL, structuredClone, shadow DOM,
+File API, Range/Selection, dialog/input methods, fingerprints, cookie behavior,
+legacy document decoding and extraction modes. The original fixture values and
+assertions stay fixed while the engine changes.
 
 An earlier [completion-polling diagnostic](performance-obstacle-polling-diagnostic.json)
 used the original fixtures and expressions but changed their settle timing. It

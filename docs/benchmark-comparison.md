@@ -188,3 +188,33 @@ faster on the other eight. This does not establish universal superiority or
 a complete browser capability pass. The [upstream suite baseline](benchmark-reference-matrix.md)
 exposes failures on original framework and API fixtures that these nine
 synthetic workloads do not cover.
+
+## Native namespace and iframe-interface repeat
+
+The [current three-runtime repeat](performance-comparison-namespaces.json) retains
+all nine existing scenarios, three validated excluded warmups and 21 measured
+attempts per runtime/scenario. All **648 attempts passed**, with **567 measured
+samples** and no failures. This is a performance control over those nine public
+synthetic scenarios; the separate [original obstacle repeat](performance-obstacle-namespaces.json)
+records the unchanged upstream fixtures and assertions, including the newly
+passing React and Preact stages. Neither result establishes all-suite parity.
+
+| Scenario               | Nimbo in celld p50 | Obscura p50 | Chromium p50 |
+| ---------------------- | ------------------ | ----------- | ------------ |
+| `static`               | 28.42 ms           | 19.05 ms    | 71.22 ms     |
+| `selectors-200`        | 31.42 ms           | 20.19 ms    | 68.14 ms     |
+| `dynamic-fetch`        | 29.09 ms           | 20.40 ms    | 65.72 ms     |
+| `js-dom-events`        | 41.42 ms           | 28.68 ms    | 68.77 ms     |
+| `js-modules`           | 45.02 ms           | 29.87 ms    | 63.65 ms     |
+| `js-dom-selectors-200` | 43.89 ms           | 29.83 ms    | 74.09 ms     |
+| `static-5000`          | 58.87 ms           | 42.36 ms    | 263.83 ms    |
+| `selectors-200-5000`   | 57.49 ms           | 100.56 ms   | 248.95 ms    |
+| `js-positioned-boxes`  | 53.50 ms           | 33.15 ms    | 63.03 ms     |
+
+Nimbo has the lower median than Chromium in all nine scenarios and than Obscura
+in one scenario, the 5000-row/200-selector workload. Obscura remains faster in
+eight scenarios. These are host/transport-inclusive elapsed timings from one
+sequential run with rotating runtime order; the existing cold-process, TLS,
+resource-isolation and workload-coverage limitations still apply. The original
+obstacle suite uses its own required three-second settle delay and is not an
+identical performance methodology.

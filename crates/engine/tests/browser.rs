@@ -1398,6 +1398,7 @@ fn serve_resource(request: Request) -> io::Result<()> {
         "/large-dom/",
         "/custom-boxes/",
         "/positioned-boxes/",
+        "/namespaced-elements/",
         "/adopted-sheets/",
         "/constructed-sheets/",
     ]
@@ -1624,6 +1625,7 @@ fn is_resource(path: &str) -> bool {
         "/large-dom/",
         "/custom-boxes/",
         "/positioned-boxes/",
+        "/namespaced-elements/",
         "/adopted-sheets/",
         "/constructed-sheets/",
         "/html-boxes-assets/",
@@ -2501,6 +2503,15 @@ fn native_link_free_guard_discovers_dynamic_stylesheets() -> TestResult {
 }
 
 fn serve_dom_resources(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/namespaced-elements/") {
+        return request.respond(
+            Response::from_string(format!(
+                "<!doctype html><script>{}</script>",
+                include_str!("fixtures/namespaced-elements.txt")
+            ))
+            .with_header(header("Content-Type", "text/html")?),
+        );
+    }
     if request.url().starts_with("/positioned-boxes/") {
         return request.respond(
             Response::from_string(format!(
@@ -2582,6 +2593,23 @@ fn positioned_boxes_use_containing_blocks_and_viewport() -> TestResult {
         let result = page.evaluate(&format!("positionedBoxesCase({variant})"))?;
         let checks = result.as_object().ok_or("missing checks")?;
         assert_eq!(checks.len(), 25);
+        assert!(
+            checks.values().all(|value| value == &json!(true)),
+            "{result}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn namespaced_elements_preserve_native_names_and_interfaces() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/namespaced-elements/{variant}")))?;
+        let result = page.evaluate(&format!("namespacedElementsCase({variant})"))?;
+        let checks = result.as_object().ok_or("missing namespace checks")?;
+        assert_eq!(checks.len(), 38);
         assert!(
             checks.values().all(|value| value == &json!(true)),
             "{result}"

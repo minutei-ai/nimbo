@@ -1,0 +1,456 @@
+{
+  "date": "2026-10-04",
+  "source": "https://github.com/h4ckf0r0day/obscura-benchmark",
+  "source_commit": "2d7bc304fbb7ebefc44f770938192e3cede87dbd",
+  "runtime": "celld 0.6.1",
+  "mode": "Nimbo own Wasm engine; real upstream HTTP fixtures and assertions; original manifest settle delay and timeout; default limits; sequential fresh pages; validated warmups; no mocks",
+  "parameters": {
+    "runs": 5,
+    "warmup": 1,
+    "wait_secs": 3,
+    "timeout_secs": 20
+  },
+  "timing_scope": "HTTP control, fresh page, fixture execution, original post-load delay, extraction and cleanup; not upstream cold CLI timings",
+  "results": [
+    {
+      "stage": "static",
+      "category": "baseline",
+      "status": "passed",
+      "attempts": 6,
+      "valid": 6,
+      "failures": {},
+      "samples_ms": [
+        3056.35836, 3061.081232999999, 3059.420432000001, 3078.609482, 3057.2610790000017
+      ],
+      "last_value": "\"static:5:Static Page\""
+    },
+    {
+      "stage": "dom-build",
+      "category": "perf",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "HTTP 422: JavaScript: Error: resource limit: DOM operations": 6
+      },
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "react",
+      "category": "frameworks",
+      "status": "passed",
+      "attempts": 6,
+      "valid": 6,
+      "failures": {},
+      "samples_ms": [
+        3127.8930310000032, 3127.320692000001, 3153.099829999999, 3315.711851, 3145.622022000003
+      ],
+      "last_value": "\"react:100:Item 0\""
+    },
+    {
+      "stage": "preact",
+      "category": "frameworks",
+      "status": "passed",
+      "attempts": 6,
+      "valid": 6,
+      "failures": {},
+      "samples_ms": [
+        3082.6946489999973, 3045.1244769999976, 3082.437530999996, 3083.8447270000033,
+        3083.542408999994
+      ],
+      "last_value": "\"preact:100:Item 0\""
+    },
+    {
+      "stage": "vue",
+      "category": "frameworks",
+      "status": "passed",
+      "attempts": 6,
+      "valid": 6,
+      "failures": {},
+      "samples_ms": [
+        3329.9405479999987, 3103.877265999996, 3137.2882900000113, 3133.385494999995,
+        3131.6396210000094
+      ],
+      "last_value": "\"vue:100:Item 0\""
+    },
+    {
+      "stage": "ssr-hydrate",
+      "category": "modern-web",
+      "status": "passed",
+      "attempts": 6,
+      "valid": 6,
+      "failures": {},
+      "samples_ms": [
+        3045.1403269999864, 3066.198787000001, 3067.4710369999957, 3074.452132999999,
+        3246.542914999998
+      ],
+      "last_value": "\"hydrate:10:client:45\""
+    },
+    {
+      "stage": "es-modules",
+      "category": "modern-web",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "Upstream expectation mismatch": 6
+      },
+      "samples_ms": [],
+      "last_value": "\"esm:error:module source is not loaded\""
+    },
+    {
+      "stage": "observer-intersection",
+      "category": "modern-web",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "HTTP 422: JavaScript: Error: DOM: layout unsupported: text shaping": 6
+      },
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "observer-mutation",
+      "category": "modern-web",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "HTTP 422: JavaScript: Error: MutationObserver is not defined": 6
+      },
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "storage-roundtrip",
+      "category": "modern-web",
+      "status": "passed",
+      "attempts": 6,
+      "valid": 6,
+      "failures": {},
+      "samples_ms": [
+        3053.501068999991, 3033.203060999993, 3245.4064389999985, 3061.235704999999,
+        3055.129845000003
+      ],
+      "last_value": "\"storage:local-value:session-value:1:1\""
+    },
+    {
+      "stage": "raf-update",
+      "category": "modern-web",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "HTTP 422: JavaScript: Error: requestAnimationFrame is not defined": 6
+      },
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "modern-js-lang",
+      "category": "modern-web",
+      "status": "passed",
+      "attempts": 6,
+      "valid": 6,
+      "failures": {},
+      "samples_ms": [
+        3029.930401999998, 3026.3112289999845, 3054.233167999977, 3054.302416999999,
+        3047.1088459999883
+      ],
+      "last_value": "\"lang|opt=localhost:8080|dst=adspanbox|spr=1234/3|tpl=42|col=3:3|big=9007199254741001|fm=1,-1,2,-2,3,-3:-3|fe=3\""
+    },
+    {
+      "stage": "modern-js-platform",
+      "category": "modern-web",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "Upstream expectation mismatch": 6
+      },
+      "samples_ms": [],
+      "last_value": "\"platform:error:structuredClone is not defined\""
+    },
+    {
+      "stage": "spa-mini-app",
+      "category": "modern-web",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "Upstream expectation mismatch": 6
+      },
+      "samples_ms": [],
+      "last_value": "\"spa:error:TypeError: cannot read property 'match' of undefined\""
+    },
+    {
+      "stage": "async-render",
+      "category": "capability",
+      "status": "passed",
+      "attempts": 6,
+      "valid": 6,
+      "failures": {},
+      "samples_ms": [
+        3034.279482999991, 3037.2194659999805, 3052.2253670000064, 3034.918930999993,
+        3034.056932000007
+      ],
+      "last_value": "\"async:5:alpha\""
+    },
+    {
+      "stage": "spa-router",
+      "category": "capability",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "HTTP 422: JavaScript: Error: history is not defined": 6
+      },
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "timers",
+      "category": "capability",
+      "status": "passed",
+      "attempts": 6,
+      "valid": 6,
+      "failures": {},
+      "samples_ms": [
+        3007.8861310000066, 3153.147655000008, 3007.7901419999835, 3007.7676039999933,
+        3006.495538999996
+      ],
+      "last_value": "\"timers:microtask,t1,t2:done\""
+    },
+    {
+      "stage": "web-component",
+      "category": "web-api",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "Upstream expectation mismatch": 6
+      },
+      "samples_ms": [],
+      "last_value": "\"wc:2:none\""
+    },
+    {
+      "stage": "url",
+      "category": "web-api",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "HTTP 422: JavaScript: Error: URL is not defined": 6
+      },
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "textdecoder",
+      "category": "web-api",
+      "status": "passed",
+      "attempts": 6,
+      "valid": 6,
+      "failures": {},
+      "samples_ms": [
+        3031.8077029999986, 3039.805189000006, 3053.3759950000094, 3042.9779789999884,
+        3079.3055180000083
+      ],
+      "last_value": "\"td:\u3042\""
+    },
+    {
+      "stage": "fileapi",
+      "category": "web-api",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "HTTP 422: JavaScript: Error: Blob is not defined": 6
+      },
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "range",
+      "category": "web-api",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "HTTP 422: JavaScript: Error: not a function": 6
+      },
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "selection",
+      "category": "web-api",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "HTTP 422: JavaScript: Error: not a function": 6
+      },
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "custom-element",
+      "category": "web-api",
+      "status": "passed",
+      "attempts": 6,
+      "valid": 6,
+      "failures": {},
+      "samples_ms": [
+        3050.484255999967, 3055.5167510000174, 3218.7079319999903, 3053.71213900001,
+        3039.180038999999
+      ],
+      "last_value": "\"ce:widget-ready\""
+    },
+    {
+      "stage": "dialog",
+      "category": "web-api",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "HTTP 422: JavaScript: Error: not a function": 6
+      },
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "input-step",
+      "category": "web-api",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "HTTP 422: JavaScript: Error: not a function": 6
+      },
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "extract-article",
+      "category": "extraction",
+      "status": "adapter-missing",
+      "attempts": 0,
+      "valid": 0,
+      "failures": {},
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "extract-markdown",
+      "category": "extraction",
+      "status": "adapter-missing",
+      "attempts": 0,
+      "valid": 0,
+      "failures": {},
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "extract-links",
+      "category": "extraction",
+      "status": "adapter-missing",
+      "attempts": 0,
+      "valid": 0,
+      "failures": {},
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "extract-html",
+      "category": "extraction",
+      "status": "adapter-missing",
+      "attempts": 0,
+      "valid": 0,
+      "failures": {},
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "fingerprint",
+      "category": "scraping",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "HTTP 422: JavaScript: Error: navigator is not defined": 6
+      },
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "cookies",
+      "category": "scraping",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "Upstream expectation mismatch": 6
+      },
+      "samples_ms": [],
+      "last_value": "\"cookie:k=:session=abc123\""
+    },
+    {
+      "stage": "charset-shiftjis",
+      "category": "scraping",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "HTTP 502: The encoded data was not valid.": 6
+      },
+      "samples_ms": [],
+      "last_value": null
+    }
+  ],
+  "origin_requests": {
+    "/data/articles.json": 6,
+    "/data/items.json": 6,
+    "/fixtures/async-render.html": 6,
+    "/fixtures/charset-shiftjis.html": 6,
+    "/fixtures/cookies.html": 6,
+    "/fixtures/dom-build.html": 6,
+    "/fixtures/es-modules.html": 6,
+    "/fixtures/fingerprint.html": 6,
+    "/fixtures/modern-js-lang.html": 6,
+    "/fixtures/modern-js-platform.html": 6,
+    "/fixtures/observer-intersection.html": 6,
+    "/fixtures/observer-mutation.html": 6,
+    "/fixtures/preact-app.html": 6,
+    "/fixtures/raf-update.html": 6,
+    "/fixtures/react-app.html": 6,
+    "/fixtures/spa-mini-app.html": 6,
+    "/fixtures/spa-router.html": 6,
+    "/fixtures/ssr-hydrate.html": 6,
+    "/fixtures/static.html": 6,
+    "/fixtures/storage-roundtrip.html": 6,
+    "/fixtures/timers.html": 6,
+    "/fixtures/vue-app.html": 6,
+    "/fixtures/web-component.html": 6,
+    "/fixtures/webapi-custom-element.html": 6,
+    "/fixtures/webapi-dialog.html": 6,
+    "/fixtures/webapi-fileapi.html": 6,
+    "/fixtures/webapi-input-step.html": 6,
+    "/fixtures/webapi-range.html": 6,
+    "/fixtures/webapi-selection.html": 6,
+    "/fixtures/webapi-textdecoder.html": 6,
+    "/fixtures/webapi-url.html": 6,
+    "/modules/util.js": 6,
+    "/vendor/preact.umd.js": 18,
+    "/vendor/react-dom.min.js": 6,
+    "/vendor/react.min.js": 6,
+    "/vendor/vue.global.js": 6
+  },
+  "engine_provenance": {
+    "predecessor_commit": "b80043c4138cb5bd2a2dd6f2b0da083b5a81fd1c",
+    "candidate_change": "Own native namespace creation, qualified HTML serialization and native-backed iframe interface; independent frame contexts remain unsupported",
+    "wasm_sha256": "1f00ba5f6b19d92e8632c0ca120c82d22eb14ce571e0eadf722f3d0734df4a40"
+  }
+}

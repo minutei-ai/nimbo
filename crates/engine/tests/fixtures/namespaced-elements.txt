@@ -1,0 +1,32 @@
+function namespacedElementsCase(v) {
+ const H='http://www.w3.org/1999/xhtml',S='http://www.w3.org/2000/svg',M='http://www.w3.org/1998/Math/MathML',X='http://www.w3.org/XML/1998/namespace',N='http://www.w3.org/2000/xmlns/',U='https://example.test/ns';
+ const checks={},make=(ns,name)=>document.createElementNS(ns,name),error=(ns,name,want)=>{try{make(ns,name);return false;}catch(e){return e.name===want;}};
+ const html=make(H,'div'),upper=make(H,'DIV'),svg=make(S,'s:linearGradient'),math=make(M,'m:math'),foreign=make(U,'q:item'+v),none=make(null,'plain'),empty=make('','plain'),missing=make(undefined,'plain');
+ checks.html=html instanceof HTMLElement&&html.namespaceURI===H&&html.localName==='div'&&html.tagName==='DIV'&&html.prefix===null;
+ checks.casePreserved=upper.localName==='DIV'&&upper.tagName==='DIV';
+ checks.svg=svg instanceof SVGElement&&!(svg instanceof HTMLElement)&&svg.namespaceURI===S&&svg.prefix==='s'&&svg.localName==='linearGradient'&&svg.tagName==='s:linearGradient'&&svg.nodeName===svg.tagName;
+ checks.math=math instanceof Element&&!(math instanceof HTMLElement)&&math.namespaceURI===M&&math.prefix==='m'&&math.localName==='math';
+ checks.foreign=foreign instanceof Element&&!(foreign instanceof HTMLElement)&&foreign.namespaceURI===U&&foreign.prefix==='q'&&foreign.localName==='item'+v&&foreign.nodeName==='q:item'+v;
+ checks.nullNamespace=none.namespaceURI===null&&empty.namespaceURI===null&&missing.namespaceURI===null&&none.prefix===null&&!(none instanceof HTMLElement);
+ const mixed=make(H,'h:div');checks.htmlPrefix=mixed.prefix==='h'&&mixed.localName==='div'&&mixed.tagName==='H:DIV'&&mixed instanceof HTMLElement;
+ checks.xml=make(X,'xml:node').prefix==='xml';checks.xmlns=make(N,'xmlns').prefix===null&&make(N,'xmlns:p').prefix==='xmlns';
+ const owner=document.createElement('section');owner.id='ns-host-'+v;document.body.append(owner);foreign.id='ns-item-'+v;owner.append(foreign,svg,mixed,none);foreign.textContent='a<&'+v;foreign.setAttribute('title','<"&'+v);
+ checks.connected=foreign.parentElement===owner&&foreign.ownerDocument===document&&foreign.isConnected&&document.getElementById(foreign.id)===foreign;
+ checks.foreignSerialization=foreign.outerHTML==='<q:item'+v+' id="ns-item-'+v+'" title="&lt;&quot;&amp;'+v+'">a&lt;&amp;'+v+'</q:item'+v+'>';
+ checks.svgSerialization=svg.outerHTML==='<s:linearGradient></s:linearGradient>';
+ checks.htmlSerialization=mixed.outerHTML==='<h:div></h:div>';
+ checks.innerSerialization=owner.innerHTML.includes('<q:item'+v)&&owner.innerHTML.includes('<s:linearGradient>');
+ foreign.remove();checks.detached=!foreign.isConnected&&foreign.namespaceURI===U&&foreign.prefix==='q';owner.append(foreign);checks.reattached=foreign.parentElement===owner&&foreign.localName==='item'+v;
+ const frame=make(H,'iframe');checks.iframeBrand=frame instanceof HTMLIFrameElement&&frame instanceof HTMLElement&&!(html instanceof HTMLIFrameElement);
+ checks.iframeDetached=frame.contentWindow===null&&frame.contentDocument===null;
+ frame.name='frame'+v;frame.width='20';frame.height='30';frame.srcdoc='<p>'+v+'</p>';frame.allowFullscreen=true;
+ checks.iframeReflection=frame.getAttribute('name')==='frame'+v&&frame.width==='20'&&frame.height==='30'&&frame.getAttribute('srcdoc')==='<p>'+v+'</p>'&&frame.hasAttribute('allowfullscreen');frame.allowFullscreen=false;checks.iframeBoolean=!frame.hasAttribute('allowfullscreen');
+ frame.src='https://example.test/frame/'+v;checks.iframeUrl=frame.src==='https://example.test/frame/'+v&&frame.getAttribute('src')===frame.src;
+ const tag='x-ns-created-'+v;let connected=0;class Item extends HTMLElement{connectedCallback(){connected++;}}customElements.define(tag,Item);const custom=make(H,'p:'+tag);checks.custom=custom instanceof Item&&custom.prefix==='p'&&custom.localName===tag;owner.append(custom);checks.customConnected=connected===1;
+ checks.emptyName=error(H,'','InvalidCharacterError');checks.emptyPrefix=error(U,':item','InvalidCharacterError');checks.emptyLocal=error(U,'p:','InvalidCharacterError');checks.invalidPrefix=error(U,'a b:item','InvalidCharacterError');checks.invalidLocal=error(U,'p:a b','InvalidCharacterError');
+ checks.prefixWithoutNamespace=error(null,'p:item','NamespaceError');checks.xmlMismatch=error(U,'xml:item','NamespaceError');checks.xmlnsMismatch=error(U,'xmlns:item','NamespaceError');checks.xmlnsUnprefixedMismatch=error(U,'xmlns','NamespaceError');checks.xmlnsNamespaceMismatch=error(N,'item','NamespaceError');
+ let conversion=[];const converted=make({toString(){conversion.push('namespace');return U;}},{toString(){conversion.push('name');return 'coerced'+v;}});checks.coercion=conversion.join(',')==='namespace,name'&&converted.localName==='coerced'+v;
+ try{document.createElementNS(H);}catch(e){checks.missingArgument=e.name==='TypeError';}try{Document.prototype.createElementNS.call({},H,'i');}catch(e){checks.illegalReceiver=e.name==='TypeError';}try{make(Symbol(), 'i');}catch(e){checks.symbol=e.name==='TypeError';}
+ checks.multipleColon=make(U,'p:a:b').localName==='a:b';
+ owner.remove();return checks;
+}

@@ -1615,8 +1615,11 @@
     get outerHTML(): string {
       return call("get", idOf(this), "outerHTML");
     }
-    get namespaceURI(): string {
+    get namespaceURI(): string | null {
       return call("get", idOf(this), "namespaceURI");
+    }
+    get prefix(): string | null {
+      return call("get", idOf(this), "prefix");
     }
     get localName(): string {
       return call("get", idOf(this), "localName");
@@ -2399,6 +2402,59 @@
     value: "HTMLAnchorElement",
     configurable: true,
   });
+  const iframes = new WeakSet<object>();
+  function iframeId(owner: object): number {
+    if (!iframes.has(owner)) throw new TypeError("Illegal invocation");
+    return idOf(owner);
+  }
+  class HTMLIFrameElement extends HTMLElement {
+    constructor(key?: symbol, id?: number) {
+      if (key !== internal || id === undefined) throw new TypeError("Illegal constructor");
+      super(internal, id);
+      iframes.add(this);
+    }
+    get src(): string {
+      const value = call<string | null>("attr", iframeId(this), "src");
+      return linkValue("get", "href", value, documentBase()) ?? "";
+    }
+    set src(value: unknown) {
+      call("setAttr", iframeId(this), "src", usvString(value));
+    }
+    get contentWindow(): null {
+      if (call<boolean>("get", iframeId(this), "isConnected"))
+        throw new DOMException(
+          "Independent frame contexts are not implemented",
+          "NotSupportedError",
+        );
+      return null;
+    }
+    get contentDocument(): null {
+      iframeId(this);
+      return this.contentWindow;
+    }
+    get allowFullscreen(): boolean {
+      return call<string | null>("attr", iframeId(this), "allowfullscreen") !== null;
+    }
+    set allowFullscreen(value: unknown) {
+      call(value ? "setAttr" : "removeAttr", iframeId(this), "allowfullscreen");
+    }
+  }
+  Object.defineProperty(HTMLIFrameElement.prototype, Symbol.toStringTag, {
+    value: "HTMLIFrameElement",
+    configurable: true,
+  });
+  for (const attribute of ["srcdoc", "name", "width", "height", "allow"]) {
+    Object.defineProperty(HTMLIFrameElement.prototype, attribute, {
+      get(this: HTMLIFrameElement): string {
+        return call<string | null>("attr", iframeId(this), attribute) ?? "";
+      },
+      set(this: HTMLIFrameElement, value: unknown): void {
+        call("setAttr", iframeId(this), attribute, domString(value));
+      },
+      enumerable: true,
+      configurable: true,
+    });
+  }
   for (const attribute of [
     "target",
     "download",
@@ -2867,14 +2923,18 @@
     const existing = nodes.get(id);
     if (existing) return existing;
     switch (call<number>("get", id, "nodeType")) {
-      case 1:
-        return call<string>("get", id, "namespaceURI") === "http://www.w3.org/1999/xhtml"
-          ? call<string>("get", id, "localName") === "a"
-            ? new HTMLAnchorElement(internal, id)
-            : new HTMLElement(internal, id)
-          : call<string>("get", id, "namespaceURI") === "http://www.w3.org/2000/svg"
-            ? new SVGElement(internal, id)
-            : new Element(internal, id);
+      case 1: {
+        const namespace = call<string | null>("get", id, "namespaceURI");
+        if (namespace === "http://www.w3.org/1999/xhtml") {
+          const name = call<string>("get", id, "localName");
+          if (name === "a") return new HTMLAnchorElement(internal, id);
+          if (name === "iframe") return new HTMLIFrameElement(internal, id);
+          return new HTMLElement(internal, id);
+        }
+        return namespace === "http://www.w3.org/2000/svg"
+          ? new SVGElement(internal, id)
+          : new Element(internal, id);
+      }
       case 3:
         return new Text("", internal, id);
       case 8:
@@ -3059,38 +3119,48 @@
     createDocumentFragment() {
       return new DocumentFragment();
     }
+    createElementNS(namespace: unknown, qualifiedName: unknown) {
+      if (this !== document) throw new TypeError("Illegal invocation");
+      if (arguments.length < 2) throw new TypeError("createElementNS requires namespace and name");
+      const uri = namespace === null || namespace === undefined ? "" : domString(namespace);
+      const name = domString(qualifiedName);
+      return createdElement(() => call<number>("createNS", 0, name, uri));
+    }
     createElement(tag: string) {
       if (arguments.length === 0) throw new TypeError("createElement requires a name");
       const localName = domString(tag);
-      const target = element(call("create", 0, localName));
-      if (isHTML(target) && definitions.size > 0) {
-        const definition = definitions.get(raw<string>("get", idOf(target), "localName"));
-        if (definition) {
-          reactions(() => upgrade(target));
-          const state = customStates.get(target);
-          if (
-            state?.status !== "custom" ||
-            raw<unknown[]>("attributes", idOf(target)).length > 0 ||
-            raw<number[]>("children", idOf(target), "nodes").length > 0 ||
-            raw<number | null>("relativeNode", idOf(target), "parent") !== null
-          ) {
-            if (state?.status === "custom") {
-              state.status = "failed";
-              reportListenerError(
-                new DOMException(
-                  "custom constructor changed initial DOM structure",
-                  "NotSupportedError",
-                ),
-              );
-            }
-            const fallback = new HTMLElement(internal, call<number>("create", 0, localName));
-            customStates.set(fallback, { definition, status: "failed" });
-            return fallback;
+      return createdElement(() => call<number>("create", 0, localName));
+    }
+  }
+  function createdElement(create: () => number): Element {
+    const target = element(create());
+    if (isHTML(target) && definitions.size > 0) {
+      const definition = definitions.get(raw<string>("get", idOf(target), "localName"));
+      if (definition) {
+        reactions(() => upgrade(target));
+        const state = customStates.get(target);
+        if (
+          state?.status !== "custom" ||
+          raw<unknown[]>("attributes", idOf(target)).length > 0 ||
+          raw<number[]>("children", idOf(target), "nodes").length > 0 ||
+          raw<number | null>("relativeNode", idOf(target), "parent") !== null
+        ) {
+          if (state?.status === "custom") {
+            state.status = "failed";
+            reportListenerError(
+              new DOMException(
+                "custom constructor changed initial DOM structure",
+                "NotSupportedError",
+              ),
+            );
           }
+          const fallback = new HTMLElement(internal, create());
+          customStates.set(fallback, { definition, status: "failed" });
+          return fallback;
         }
       }
-      return target;
     }
+    return target;
   }
   for (const key of ["append", "prepend"]) {
     const descriptor = Object.getOwnPropertyDescriptor(Document.prototype, key);
@@ -4538,6 +4608,7 @@
     Element,
     HTMLElement,
     HTMLAnchorElement,
+    HTMLIFrameElement,
     SVGElement,
     DOMStringMap,
     CSSStyleDeclaration,

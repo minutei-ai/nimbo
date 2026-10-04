@@ -155,6 +155,8 @@ impl Dom {
                 )
             }
             "create" => self.create(arg)?,
+            "createNS" => self.create_ns(arg, value)?,
+            "get" if matches!(arg, "innerHTML" | "outerHTML") => self.serialize(handle, arg)?,
             "get" => self.get(handle, arg)?,
             "attributes" => json!(
                 self.node(handle)?
@@ -192,6 +194,25 @@ impl Dom {
         self.finish(&result, version)
     }
 
+    fn serialize(&mut self, handle: usize, property: &str) -> Result<Value> {
+        let id = *self
+            .handles
+            .get(handle)
+            .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
+        let node = self
+            .document
+            .tree
+            .get(&id)
+            .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
+        Ok(json!(crate::dom_serialization::serialize(
+            node,
+            property == "outerHTML",
+            &mut self.operations,
+            self.limits.max_dom_operations,
+            self.limits.max_dom_write_bytes,
+        )?))
+    }
+
     fn create(&mut self, name: &str) -> Result<Value> {
         if !valid_element_name(name) {
             return Err(Error::DomException {
@@ -207,6 +228,51 @@ impl Dom {
             .new_element(&name.to_ascii_lowercase())
             .id;
         Ok(json!(self.handle(id)))
+    }
+
+    fn create_ns(&mut self, name: &str, namespace: &str) -> Result<Value> {
+        let (prefix, local) = name
+            .split_once(':')
+            .map_or((None, name), |(prefix, local)| (Some(prefix), local));
+        if !valid_element_name(local)
+            || prefix.is_some_and(|value| {
+                value.is_empty()
+                    || value.chars().any(|character| {
+                        matches!(
+                            character,
+                            '\t' | '\n' | '\r' | '\u{c}' | ' ' | '\0' | '/' | '>'
+                        )
+                    })
+            })
+        {
+            return Err(Error::DomException {
+                name: "InvalidCharacterError",
+                message: "invalid qualified element name",
+            });
+        }
+        let xml = "http://www.w3.org/XML/1998/namespace";
+        let xmlns = "http://www.w3.org/2000/xmlns/";
+        if (prefix.is_some() && namespace.is_empty())
+            || (prefix == Some("xml") && namespace != xml)
+            || ((name == "xmlns" || prefix == Some("xmlns")) && namespace != xmlns)
+            || (namespace == xmlns && name != "xmlns" && prefix != Some("xmlns"))
+        {
+            return Err(Error::DomException {
+                name: "NamespaceError",
+                message: "inconsistent element namespace",
+            });
+        }
+        self.charge_write(name.len().saturating_add(namespace.len()))?;
+        self.may_have_links |=
+            namespace == "http://www.w3.org/1999/xhtml" && local.eq_ignore_ascii_case("link");
+        let node = self.document.tree.new_element(local);
+        node.update(|node| {
+            if let NodeData::Element(element) = &mut node.data {
+                element.name.ns = namespace.into();
+                element.name.prefix = prefix.map(Into::into);
+            }
+        });
+        Ok(json!(self.handle(node.id)))
     }
 
     fn finish(&mut self, result: &Value, version: usize) -> Result<String> {
@@ -802,9 +868,9 @@ impl Dom {
                 NodeData::Element(element) => json!(if element.name.ns.as_ref()
                     == "http://www.w3.org/1999/xhtml"
                 {
-                    element.node_name().to_ascii_uppercase()
+                    qualified_name(element).to_ascii_uppercase()
                 } else {
-                    element.node_name().to_string()
+                    qualified_name(element)
                 }),
                 NodeData::Text { .. } => json!("#text"),
                 NodeData::Comment { .. } => json!("#comment"),
@@ -813,15 +879,13 @@ impl Dom {
                 NodeData::Doctype { name, .. } => json!(name.to_string()),
                 NodeData::ProcessingInstruction { target, .. } => json!(target.to_string()),
             }),
-            "innerHTML" => json!(node.inner_html().to_string()),
-            "outerHTML" => json!(node.html().to_string()),
             "tagName" => node.query_or(Value::Null, |node| match &node.data {
                 NodeData::Element(element) => json!(if element.name.ns.as_ref()
                     == "http://www.w3.org/1999/xhtml"
                 {
-                    element.node_name().to_ascii_uppercase()
+                    qualified_name(element).to_ascii_uppercase()
                 } else {
-                    element.node_name().to_string()
+                    qualified_name(element)
                 }),
                 _ => Value::Null,
             }),
@@ -830,7 +894,15 @@ impl Dom {
                 _ => Value::Null,
             }),
             "namespaceURI" => node.query_or(Value::Null, |node| match &node.data {
-                NodeData::Element(element) => json!(element.name.ns.to_string()),
+                NodeData::Element(element) if !element.name.ns.is_empty() => {
+                    json!(element.name.ns.to_string())
+                }
+                _ => Value::Null,
+            }),
+            "prefix" => node.query_or(Value::Null, |node| match &node.data {
+                NodeData::Element(element) => {
+                    json!(element.name.prefix.as_ref().map(ToString::to_string))
+                }
                 _ => Value::Null,
             }),
             "isConnected" => json!(
@@ -982,6 +1054,13 @@ fn valid_element_name(name: &str) -> bool {
                 || matches!(character, '-' | '.' | ':' | '_')
                 || character >= '\u{80}'
         })
+}
+
+fn qualified_name(element: &dom_query::Element) -> String {
+    element.name.prefix.as_ref().map_or_else(
+        || element.name.local.to_string(),
+        |prefix| format!("{prefix}:{}", element.name.local),
+    )
 }
 
 // Tag names do not decode HTML character references. False positives (comments,

@@ -14,6 +14,7 @@ mod containers;
 mod cssom;
 mod display;
 mod dom;
+mod dom_serialization;
 mod encoding;
 mod font_data;
 mod font_faces;
