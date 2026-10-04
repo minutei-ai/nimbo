@@ -84,13 +84,13 @@ The engine implements bounded browser subsets. See the [coverage inventory](docs
 | Storage                          | Bounded local/session storage; Worker requests start fresh                                                                                         |
 | CSS                              | Native declarations, selector matching, cascade and computed-style subsets                                                                         |
 | Layout                           | Native block/flex/grid box geometry and selected HTML categories; incomplete text layout                                                           |
-| CSSOM                            | Constructed sheets, ordered live rule lists and rule declarations; document association and grouped rules pending                                  |
+| CSSOM                            | Constructed sheets, ordered live rule lists, declarations and Document adoption; grouped rules and document-owned wrappers pending                 |
 | Canvas                           | Rust software OffscreenCanvas bitmap and selected 2D pixel operations                                                                              |
 | Compatibility work still pending | Full HTML/CSSOM/WPT behavior, text shaping, painting, screenshots/PDF, WebGL, video, controllable TLS, durable browser sessions and CDP automation |
 
 Scripts run after parsing; this is a simplified lifecycle. Frames are explicitly rejected. Images are not loaded. Import maps, JSON modules, IndexedDB and full CORS/networking contracts remain incomplete. Supported CSS metadata does not imply font rendering or painting.
 
-Constructed CSSOM currently differs from Chromium for a non-configurable indexed rule-list definition. Mutating document stylesheets is also pending. These divergences remain visible in the real fixtures and evidence.
+Constructed CSSOM currently differs from Chromium for a non-configurable indexed rule-list definition. Document adoption is implemented, with two recorded cascade-order differences from Chromium. Mutating document-owned stylesheets is still pending. These divergences remain visible in the real fixtures and evidence.
 
 ## Resource limits
 
@@ -108,15 +108,18 @@ Run the Worker/Wasm benchmark **inside celld**:
 bun run bench:celld
 ```
 
-The runner starts an owned celld process and a real HTTP fixture, verifies extraction values, excludes three warmups and reports 21 measured samples per scenario. It cleans up its process and temporary state. `CELLD_BINARY` optionally selects the executable. See the [celld guide](docs/celld.md) and [recorded results](docs/performance-celld.json).
+The runner starts an owned celld process and a real HTTP fixture, runs page JavaScript (including fetch, POST, timers, DOM mutations, events and module imports), verifies extraction values, excludes three warmups and reports 21 measured samples per scenario. It cleans up its process and temporary state. `CELLD_BINARY` optionally selects the executable. See the [celld guide](docs/celld.md) and [initial three-scenario results](docs/performance-celld.json).
 
 ```sh
 cargo build --release -p nimbo-engine --locked
 bun run bench:browser  # native CLI; a fresh process per extraction
 bun run bench:worker   # an existing Worker endpoint; requires private environment settings
+bun run bench:compare  # Nimbo in celld vs public Obscura vs unmodified Chromium
 ```
 
 Native CLI timings, local celld HTTP timings and deployed Cloudflare measurements are different measurements. The remote driver requires a fixture origin reachable from the Worker; the [Cloudflare guide](docs/cloudflare.md) explains that setup. Local measurements do not establish production throughput, memory use or cost.
+
+See the [comparison guide](docs/benchmark-comparison.md) for the three-runtime benchmark and its recorded failures.
 
 ## Runtime guides
 

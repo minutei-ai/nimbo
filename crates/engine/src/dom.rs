@@ -259,6 +259,7 @@ impl Dom {
         let cascade = crate::cascade::Cascade::collect(
             &self.document,
             &self.sheets,
+            &self.cssom,
             base.as_deref(),
             &self.media,
             &mut work,
@@ -312,6 +313,7 @@ impl Dom {
                         &crate::layout::Sources {
                             inline: &self.styles,
                             external: &self.sheets,
+                            constructed: &self.cssom,
                             base: base.as_deref(),
                         },
                         &self.media,
@@ -368,6 +370,7 @@ impl Dom {
             &crate::layout::Sources {
                 inline: &self.styles,
                 external: &self.sheets,
+                constructed: &self.cssom,
                 base: base.as_deref(),
             },
             &self.media,
@@ -398,6 +401,7 @@ impl Dom {
             &crate::layout::Sources {
                 inline: &self.styles,
                 external: &self.sheets,
+                constructed: &self.cssom,
                 base: base.as_deref(),
             },
             &self.media,
@@ -469,12 +473,21 @@ impl Dom {
             .unwrap_or_default();
         if matches!(
             operation,
-            "new" | "insert" | "delete" | "disabled" | "selector"
+            "adopt" | "new" | "insert" | "delete" | "disabled" | "selector"
         ) || (operation == "style" && matches!(arg, "text" | "set" | "remove"))
         {
             self.charge_write(arg.len().saturating_add(value.len()))?;
         }
-        self.cssom.call(operation, handle, arg, value)
+        let output = self.cssom.call(operation, handle, arg, value)?;
+        if matches!(
+            operation,
+            "adopt" | "insert" | "delete" | "disabled" | "selector"
+        ) || (operation == "style" && matches!(arg, "text" | "set" | "remove"))
+        {
+            self.layout_version = self.layout_version.saturating_add(1);
+            self.computed_styles.clear();
+        }
+        Ok(output)
     }
 
     fn style(&mut self, handle: usize, operation: &str, request: &str) -> Result<Value> {

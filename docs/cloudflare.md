@@ -37,7 +37,7 @@ The health response identifies `rust-wasm-quickjs`. An authenticated extraction 
 
 ## Benchmark a deployed Worker
 
-The benchmark driver uses three scenarios from `tooling/benchmark-fixture.ts`: extraction from 16 rows, 200 repeated selectors, and a script fetching JSON over HTTP. Serve `benchmarkFixture` on a public test origin you control, with `/static`, `/dynamic` and `/api` reachable from the Worker. A localhost fixture is suitable for local celld, but cannot be reached by a deployed Cloudflare Worker.
+The benchmark driver uses six scenarios from `tooling/benchmark-fixture.ts`: extraction from 16 rows, 200 repeated selectors, a script fetching JSON over HTTP, and a JavaScript application using POST, timers, DOM mutations, events and module imports. Serve `benchmarkFixture` on a public test origin you control, with `/static`, `/dynamic`, `/api` and all `/app/*` routes reachable from the Worker. A localhost fixture is suitable for local celld, but cannot be reached by a deployed Cloudflare Worker.
 
 Set these values privately:
 

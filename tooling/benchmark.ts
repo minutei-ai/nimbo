@@ -53,7 +53,7 @@ const program = Effect.gen(function* () {
       }
       return {
         binary,
-        mode: "one process per extraction; local HTTP; 16 rows; 3 warmups",
+        mode: "one process per extraction; local HTTP; 16 static rows; 12 JS-generated cards; 3 warmups",
         results,
       };
     },

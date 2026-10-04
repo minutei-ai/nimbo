@@ -1390,6 +1390,9 @@ fn registered_custom_properties_validate_before_substitution() -> TestResult {
 }
 
 fn serve_resource(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/adopted-sheets/") {
+        return request.respond(Response::from_string(format!("<!doctype html><style>html,body {{margin:0;padding:0}} #target {{width:3px;height:2px;color:rgb(1,2,3)}}</style><div id=target></div><script>{}</script>",include_str!("fixtures/adopted-sheets.txt"))).with_header(header("Content-Type", "text/html")?));
+    }
     if request.url().starts_with("/constructed-sheets/") {
         return request.respond(
             Response::from_string(format!(
@@ -1613,6 +1616,7 @@ fn is_resource(path: &str) -> bool {
         "/font-family/",
         "/display/",
         "/html-boxes/",
+        "/adopted-sheets/",
         "/constructed-sheets/",
         "/html-boxes-assets/",
         "/display-assets/",
@@ -2433,6 +2437,23 @@ fn native_constructed_stylesheets_real_http() -> TestResult {
             checks
                 .iter()
                 .all(|(name, check)| *check == json!(name != "nonconfigIndexDefine")),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn native_adopted_stylesheets_real_http() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/adopted-sheets/{variant}")))?;
+        let result = page.evaluate(&format!("adoptedSheetsCase({variant})"))?;
+        let checks = result.as_object().ok_or("missing adoption checks")?;
+        assert_eq!(checks.len(), 36);
+        assert!(
+            checks.values().all(|check| *check == json!(true)),
             "variant {variant}: {result}"
         );
     }

@@ -1,0 +1,262 @@
+{
+  "date": "2026-10-04",
+  "mode": "real HTTP; concurrency 1; rotating runtime order; 3 excluded warmups and 21 measured attempts per scenario; persistent hosts; fresh extraction pages; no mocks",
+  "runtimes": [
+    {
+      "name": "nimbo-celld",
+      "version": "celld 0.6.1",
+      "mode": "persistent celld; fresh Nimbo page; authenticated HTTP API"
+    },
+    {
+      "name": "obscura",
+      "version": "obscura 0.2.3",
+      "mode": "persistent public Obscura CDP server; fresh target and connection",
+      "advertised_cdp_browser": "Chrome/145.0.0.0"
+    },
+    {
+      "name": "chromium",
+      "version": "Google Chrome for Testing 153.0.8010.12",
+      "mode": "persistent unmodified headless Chromium; fresh target and connection; CDP"
+    }
+  ],
+  "results": [
+    {
+      "runtime": "nimbo-celld",
+      "scenario": "static",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 29.25150399999984,
+      "p95_ms": 41.148159999999734
+    },
+    {
+      "runtime": "obscura",
+      "scenario": "static",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 17.122911999999815,
+      "p95_ms": 22.596045000000004
+    },
+    {
+      "runtime": "chromium",
+      "scenario": "static",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 56.643327999999656,
+      "p95_ms": 73.51482399999986
+    },
+    {
+      "runtime": "nimbo-celld",
+      "scenario": "selectors-200",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 31.04518300000018,
+      "p95_ms": 44.8687489999993
+    },
+    {
+      "runtime": "obscura",
+      "scenario": "selectors-200",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 18.990445999999793,
+      "p95_ms": 20.82650300000023
+    },
+    {
+      "runtime": "chromium",
+      "scenario": "selectors-200",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 54.85294700000031,
+      "p95_ms": 75.83787500000017
+    },
+    {
+      "runtime": "nimbo-celld",
+      "scenario": "dynamic-fetch",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 31.580246000001353,
+      "p95_ms": 40.70883700000013
+    },
+    {
+      "runtime": "obscura",
+      "scenario": "dynamic-fetch",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 20.271628999999848,
+      "p95_ms": 22.89260000000013
+    },
+    {
+      "runtime": "chromium",
+      "scenario": "dynamic-fetch",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 57.23110699999961,
+      "p95_ms": 67.05935900000077
+    },
+    {
+      "runtime": "nimbo-celld",
+      "scenario": "js-dom-events",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 38.2080619999997,
+      "p95_ms": 50.87283500000012
+    },
+    {
+      "runtime": "obscura",
+      "scenario": "js-dom-events",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 29.168649999999616,
+      "p95_ms": 33.124008000000686
+    },
+    {
+      "runtime": "chromium",
+      "scenario": "js-dom-events",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 56.76328400000057,
+      "p95_ms": 66.42148699999962
+    },
+    {
+      "runtime": "nimbo-celld",
+      "scenario": "js-modules",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 42.135363999999754,
+      "p95_ms": 57.64214300000094
+    },
+    {
+      "runtime": "obscura",
+      "scenario": "js-modules",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 29.175530999998955,
+      "p95_ms": 32.050287000000026
+    },
+    {
+      "runtime": "chromium",
+      "scenario": "js-modules",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 62.21894400000019,
+      "p95_ms": 78.39070899999933
+    },
+    {
+      "runtime": "nimbo-celld",
+      "scenario": "js-dom-selectors-200",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 39.470171000000846,
+      "p95_ms": 57.71348699999726
+    },
+    {
+      "runtime": "obscura",
+      "scenario": "js-dom-selectors-200",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 29.50493600000118,
+      "p95_ms": 36.33039199999985
+    },
+    {
+      "runtime": "chromium",
+      "scenario": "js-dom-selectors-200",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 59.1265999999996,
+      "p95_ms": 69.34508500000084
+    },
+    {
+      "runtime": "nimbo-celld",
+      "scenario": "static-5000",
+      "valid": 0,
+      "failures": {
+        "HTTP 422": 24
+      },
+      "measured": 0,
+      "p50_ms": null,
+      "p95_ms": null
+    },
+    {
+      "runtime": "obscura",
+      "scenario": "static-5000",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 41.24363699999958,
+      "p95_ms": 62.41172099999676
+    },
+    {
+      "runtime": "chromium",
+      "scenario": "static-5000",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 242.004785000001,
+      "p95_ms": 286.1075329999985
+    },
+    {
+      "runtime": "nimbo-celld",
+      "scenario": "selectors-200-5000",
+      "valid": 0,
+      "failures": {
+        "HTTP 422": 24
+      },
+      "measured": 0,
+      "p50_ms": null,
+      "p95_ms": null
+    },
+    {
+      "runtime": "obscura",
+      "scenario": "selectors-200-5000",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 99.61145499999839,
+      "p95_ms": 114.81055699999706
+    },
+    {
+      "runtime": "chromium",
+      "scenario": "selectors-200-5000",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 236.20383799999763,
+      "p95_ms": 260.26108999999997
+    }
+  ],
+  "fixture_requests": {
+    "/static": 144,
+    "/favicon.ico": 192,
+    "/dynamic": 72,
+    "/api": 72,
+    "/app/classic": 144,
+    "/app/api": 216,
+    "/app/modules": 72,
+    "/app/data.js": 72,
+    "/static?rows=5000": 144
+  },
+  "provenance": {
+    "nimbo_wasm_sha256": "2cd0e7cd2cbb7ab6601bc90a5a5e30bb06b43e4b41b5bfc4e5f053ea70d84135",
+    "obscura_release": "https://github.com/h4ckf0r0day/obscura/releases/tag/v0.2.3",
+    "obscura_asset": "obscura-x86_64-linux.tar.gz",
+    "obscura_asset_sha256": "1534d1e6ddaf3d080ec4091eb41d0a4d8cc042a48b607d3c410fc13b482a9eec",
+    "measurement": "isolated repeat after local checks and native CLI benchmark finished"
+  }
+}

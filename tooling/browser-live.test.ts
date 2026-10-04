@@ -1,3 +1,4 @@
+import { adoptedSheetsFixture } from "./adopted-sheets-fixture";
 import { backgroundLayersFixture } from "./background-layers-fixture";
 import { fontFamilyFixture } from "./font-family-fixture";
 import { displayFixture } from "./display-fixture";
@@ -425,6 +426,8 @@ const origin = Bun.serve({
   port: 0,
   async fetch(request) {
     const path = new URL(request.url).pathname;
+    const adoptedSheets = await adoptedSheetsFixture(path);
+    if (adoptedSheets) return adoptedSheets;
     const constructedSheets = await constructedSheetsFixture(path);
     if (constructedSheets) return constructedSheets;
     const htmlBoxes = await htmlBoxesFixture(path);
@@ -5504,3 +5507,49 @@ test("real HTTP → workerd → Wasm: constructed stylesheet unsupported scope s
     value: { failures: ["NotSupportedError", "NotSupportedError", "NotSupportedError"], length: 0 },
   });
 });
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: adopted stylesheet variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`adopted-sheets/${variant}`, origin.url).href,
+        expression: `adoptedSheetsCase(${variant})`,
+      }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing adoption checks");
+    expect(Object.keys(value)).toHaveLength(36);
+    for (const check of Object.values(value)) expect(check).toBe(true);
+  },
+);
+
+test.each([
+  ["CSSOM adopted sheets", "document.adoptedStyleSheets=Array(257).fill(s);"],
+  [
+    "stylesheet total bytes",
+    "s.insertRule('#target {color:red;--payload:'+ 'x'.repeat(60000)+'}');document.adoptedStyleSheets=Array(5).fill(s);getComputedStyle(document.getElementById('target')).color;",
+  ],
+])(
+  "real HTTP → workerd → Wasm: adopted stylesheet %s limit and recovery",
+  async (reason, setup) => {
+    const url = new URL("adopted-sheets/0", origin.url).href;
+    const request = (expression: string) =>
+      worker.dispatchFetch("https://nimbo.test/scrape", {
+        method: "POST",
+        headers: { authorization: "Bearer test-secret" },
+        body: JSON.stringify({ url, expression }),
+      });
+    const failed = await request(`(()=>{const s=new CSSStyleSheet();${setup}return true})()`);
+    expect(failed.status).toBe(422);
+    expect(await failed.text()).toContain(reason);
+    const recovered = await request("document.adoptedStyleSheets.length");
+    expect(recovered.status).toBe(200);
+    expect(await recovered.json()).toMatchObject({ value: 0 });
+  },
+);

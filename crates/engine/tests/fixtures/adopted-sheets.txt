@@ -1,0 +1,47 @@
+function adoptedSheetsCase(v) {
+ const checks={},w=v+15,h=v%9+7,s=new CSSStyleSheet(),t=new CSSStyleSheet(),list=document.adoptedStyleSheets;
+ function error(fn,name){try{fn();return false}catch(e){return e.name===name}}
+ const target=document.getElementById('target'),live=getComputedStyle(target),width=()=>target.getBoundingClientRect().width;
+ checks.initial=Array.isArray(list)&&Object.getPrototypeOf(list)===Array.prototype&&list.length===0;
+ checks.base=width()===3&&live.color==='rgb(1, 2, 3)';
+ s.insertRule('#target {width:'+w+'px;height:'+h+'px;color:rgb(4,5,6)}');
+ checks.unadopted=width()===3;
+ document.adoptedStyleSheets=[s];
+ checks.identity=list===document.adoptedStyleSheets&&list[0]===s&&list.length===1;
+ checks.applied=width()===w&&target.getBoundingClientRect().height===h&&live.color==='rgb(4, 5, 6)';
+ const rule=s.cssRules[0];rule.style.width=(w+1)+'px';rule.style.color='rgb(7,8,9)';
+ checks.mutate=width()===w+1&&live.color==='rgb(7, 8, 9)';
+ rule.selectorText='#missing';checks.selectorAway=width()===3&&live.color==='rgb(1, 2, 3)';
+ rule.selectorText='#target';checks.selectorBack=width()===w+1;
+ s.disabled=true;checks.disabled=width()===3;s.disabled=false;checks.enabled=width()===w+1;
+ s.insertRule('#target {width:'+(w+2)+'px}',1);checks.insert=width()===w+2;
+ s.deleteRule(1);checks.delete=width()===w+1;
+ t.insertRule('#target {width:'+(w+3)+'px}');list.push(t);
+ checks.push=list.length===2&&list[1]===t&&width()===w+3;
+ list.reverse();checks.reverse=list[0]===t&&list[1]===s&&width()===w+1;
+ checks.pop=list.pop()===s&&width()===w+3;
+ document.adoptedStyleSheets=[s,t,s];checks.duplicates=list.length===3&&width()===w+1;
+ document.adoptedStyleSheets=[t,s];checks.order=width()===w+1;
+ target.style.width='99px';checks.inline=width()===99;
+ t.cssRules[0].style.setProperty('width',(w+4)+'px','important');checks.important=width()===w+4;
+ target.style.removeProperty('width');checks.removeInline=width()===w+4;
+ document.adoptedStyleSheets=[];checks.unadopt=list.length===0&&width()===3;
+ rule.style.width='1px';checks.detached=width()===3;
+ document.adoptedStyleSheets=new Set([s]);checks.iterable=list[0]===s&&width()===1;
+ checks.invalid=error(()=>document.adoptedStyleSheets=[t,{}],'TypeError')&&list.length===1&&list[0]===s;
+ checks.noniterable=error(()=>document.adoptedStyleSheets={0:s,length:1},'TypeError')&&list[0]===s;
+ checks.null=error(()=>document.adoptedStyleSheets=null,'TypeError');
+ checks.invalidPush=error(()=>list.push({}),'TypeError')&&list.length===1;
+ checks.holes=Reflect.set(list,'2',t)===false&&list.length===1;
+ checks.grow=Reflect.set(list,'length',2)===false&&list.length===1;
+ list.push(t);checks.middleDelete=Reflect.deleteProperty(list,'0')===false&&list.length===2;
+ checks.lastDelete=Reflect.deleteProperty(list,'1')===true&&list.length===1;
+ list.push(t);list.length=1;checks.shrink=list.length===1&&list[0]===s;
+ checks.define=Reflect.defineProperty(list,'0',{value:t})===true&&list[0]===t&&width()===w+4;
+ checks.preventExtensions=Reflect.preventExtensions(list)===false&&Object.isExtensible(list);
+ const descriptor=Object.getOwnPropertyDescriptor(Document.prototype,'adoptedStyleSheets');
+ checks.brand=error(()=>descriptor.get.call({}),'TypeError')&&error(()=>descriptor.set.call({},[s]),'TypeError');
+ document.adoptedStyleSheets=[];s.deleteRule(0);rule.style.width='55px';document.adoptedStyleSheets=[s];checks.deletedRule=width()===3;
+ document.adoptedStyleSheets=[];
+ return checks;
+}

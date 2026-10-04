@@ -503,6 +503,7 @@ impl Cascade {
     pub(crate) fn collect(
         document: &Document,
         sheets: &crate::stylesheets::Sheets,
+        constructed: &crate::cssom::Arena,
         base: Option<&str>,
         media: &MediaEnvironment,
         work: &mut Work<'_>,
@@ -560,6 +561,24 @@ impl Cascade {
             definitions
                 .font_faces
                 .sheet(format!("{:?}", node.id), source_base);
+            let parsed = sheet(&source, media, &mut definitions, &[], &[])?;
+            selectors = selectors.saturating_add(
+                parsed
+                    .iter()
+                    .map(|rule| rule.selectors.len())
+                    .sum::<usize>(),
+            );
+            if selectors > SELECTOR_LIMIT {
+                return Err(Error::Limit("stylesheet selectors"));
+            }
+            rules.extend(parsed);
+        }
+        for source in constructed.sources() {
+            work.charge()?;
+            bytes = bytes.saturating_add(source.len());
+            if source.len() > sheets.max_bytes() || bytes > sheets.max_bytes() {
+                return Err(Error::Limit("stylesheet total bytes"));
+            }
             let parsed = sheet(&source, media, &mut definitions, &[], &[])?;
             selectors = selectors.saturating_add(
                 parsed

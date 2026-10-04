@@ -82,8 +82,14 @@ pub(crate) fn resolve(
             "computed style requires an attached element".into(),
         ));
     }
-    let cascade =
-        crate::cascade::Cascade::collect(document, sources.external, sources.base, media, work)?;
+    let cascade = crate::cascade::Cascade::collect(
+        document,
+        sources.external,
+        sources.constructed,
+        sources.base,
+        media,
+        work,
+    )?;
     if cascade.has_containers() {
         return Err(Error::Dom(
             "layout unsupported: computed style container queries".into(),

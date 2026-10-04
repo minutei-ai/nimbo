@@ -2929,7 +2929,79 @@
   });
 
   let readyState = "loading";
+  const adoptedTarget: CSSStyleSheet[] = [];
+  function commitAdoption(next: CSSStyleSheet[]): void {
+    const sheetIds = next.map((sheet) => cssSheetId(sheet));
+    cssomCall("adopt", 0, "", JSON.stringify(sheetIds));
+    adoptedTarget.splice(0, adoptedTarget.length, ...next);
+  }
+  function adoptionIndex(key: PropertyKey): number | undefined {
+    if (typeof key !== "string" || !/^(0|[1-9][0-9]*)$/.test(key)) return undefined;
+    const index = Number(key);
+    return index < 4294967295 ? index : undefined;
+  }
+  function adoptionSet(key: PropertyKey, value: unknown): boolean {
+    if (key === "length") {
+      const next = adoptedTarget.slice();
+      Reflect.set(next, "length", value);
+      if (next.length > adoptedTarget.length) return false;
+      commitAdoption(next);
+      return true;
+    }
+    const index = adoptionIndex(key);
+    if (index === undefined) return Reflect.set(adoptedTarget, key, value);
+    if (index > adoptedTarget.length) return false;
+    if (!(value instanceof CSSStyleSheet)) throw new TypeError("Expected CSSStyleSheet");
+    cssSheetId(value);
+    const next = adoptedTarget.slice();
+    next[index] = value;
+    commitAdoption(next);
+    return true;
+  }
+  const adoptedSheets = new Proxy(adoptedTarget, {
+    set(_target, key, value: unknown) {
+      return adoptionSet(key, value);
+    },
+    deleteProperty(target, key) {
+      const index = adoptionIndex(key);
+      if (index === undefined)
+        return key === "length" ? false : Reflect.deleteProperty(target, key);
+      if (index >= target.length) return true;
+      if (index !== target.length - 1) return false;
+      commitAdoption(target.slice(0, -1));
+      return true;
+    },
+    defineProperty(target, key, descriptor) {
+      if (key !== "length" && adoptionIndex(key) === undefined)
+        return Reflect.defineProperty(target, key, descriptor);
+      if (
+        descriptor.get ||
+        descriptor.set ||
+        descriptor.configurable === false ||
+        descriptor.enumerable === false ||
+        descriptor.writable === false
+      )
+        return false;
+      return "value" in descriptor ? adoptionSet(key, descriptor.value) : true;
+    },
+    preventExtensions() {
+      return false;
+    },
+  });
   class Document extends ParentNode {
+    get adoptedStyleSheets(): CSSStyleSheet[] {
+      if (this !== document) throw new TypeError("Illegal invocation");
+      return adoptedSheets;
+    }
+    set adoptedStyleSheets(value: Iterable<CSSStyleSheet>) {
+      if (this !== document) throw new TypeError("Illegal invocation");
+      if (value === null || value === undefined || typeof value[Symbol.iterator] !== "function")
+        throw new TypeError("Expected iterable sheets");
+      const next = Array.from(value);
+      for (const sheet of next) cssSheetId(sheet);
+      commitAdoption(next);
+    }
+
     append(...values: unknown[]): void {
       if (!(this instanceof Document)) throw new TypeError("Illegal invocation");
       parentOperation(this, false, values);

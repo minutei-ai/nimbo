@@ -1,4 +1,4 @@
-//! Native constructed stylesheet state. Document association is a separate step.
+//! Native constructed stylesheet state and document adoption.
 use crate::{Error, Result, styles::Declarations};
 use cssparser::{
     AtRuleParser, CowRcStr, ParseError, Parser, ParserInput, ParserState, QualifiedRuleParser,
@@ -31,6 +31,7 @@ pub(crate) struct Arena {
     sheets: Vec<Sheet>,
     rules: Vec<Rule>,
     bytes: usize,
+    adopted: Vec<usize>,
 }
 
 fn exception(name: &str) -> Value {
@@ -129,6 +130,34 @@ impl Rule {
     }
 }
 impl Arena {
+    pub(crate) fn sources(&self) -> impl Iterator<Item = String> + '_ {
+        self.adopted
+            .iter()
+            .filter_map(|id| self.sheets.get(*id))
+            .filter(|sheet| !sheet.disabled)
+            .map(|sheet| {
+                sheet
+                    .rules
+                    .iter()
+                    .filter_map(|id| self.rules.get(*id))
+                    .map(Rule::text)
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            })
+    }
+
+    fn adopt(&mut self, value: &str) -> Result<Value> {
+        let ids: Vec<usize> = serde_json::from_str(value)?;
+        if ids.len() > SHEETS {
+            return Err(Error::Limit("CSSOM adopted sheets"));
+        }
+        if ids.iter().any(|id| self.sheets.get(*id).is_none()) {
+            return Err(Error::Dom("invalid adopted stylesheet".into()));
+        }
+        self.adopted = ids;
+        Ok(Value::Null)
+    }
+
     fn mutate(&mut self, operation: &str, id: usize, arg: &str, value: &str) -> Result<Value> {
         let rule = self
             .rules
@@ -173,6 +202,8 @@ impl Arena {
             return Err(Error::Limit("CSSOM input"));
         }
         match operation {
+            "adopted" => Ok(json!(self.adopted)),
+            "adopt" => self.adopt(value),
             "new" => {
                 if self.sheets.len() >= SHEETS {
                     return Err(Error::Limit("CSSOM sheets"));

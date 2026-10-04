@@ -57,7 +57,7 @@ export async function runWorkerBenchmark(endpoint: URL, origin: URL, token: stri
   return {
     engine,
     version,
-    mode: "HTTP API round trip; real HTTP fixture; 16 rows; concurrency 1; 3 warmups per scenario",
+    mode: "HTTP API round trip; real HTTP fixture; 16 static rows; 12 JS-generated cards; concurrency 1; 3 warmups per scenario",
     results,
   };
 }

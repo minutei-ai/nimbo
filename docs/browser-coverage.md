@@ -2187,3 +2187,31 @@ diverges. Selector parsing follows the current native selector grammar; complete
 selector recovery and legacy-platform-object reflection remain pending too.
 
 Public reference: [CSSOM stylesheet and rule interfaces](https://drafts.csswg.org/cssom/#the-cssstylesheet-interface).
+
+### Constructed stylesheets adopted into a Document
+
+`Document.adoptedStyleSheets` now feeds Nimbo's native cascade. The Rust CSSOM
+arena owns the ordered adoption IDs; JavaScript preserves sheet and observable
+array identity. Adoption, rule insertion/deletion, selector/declaration changes
+and disabled state invalidate computed-style and geometry caches. Adopted sheets
+follow document stylesheets, with native specificity and important handling.
+
+The observable array supports assignment from iterables, indexed replacement,
+append, reverse, pop, shrinking length and deletion of its last entry. Invalid
+sheet values are rejected; holes, growing length and deletion of middle entries
+are refused. The native adoption list is bounded to 256 entries. Adopted source
+text shares the stylesheet byte and selector budgets; duplicate sheet entries
+consume those budgets too. Failed requests are tested against fresh-request
+recovery using real HTTP and workerd.
+
+The real HTTP fixture runs 64 variants with 36 assertions each in native Rust,
+Wasm/workerd and Chromium. Native and Wasm satisfy all 2304 intended contracts.
+Chromium agrees on 2176 checks, with 128 observed differences: in-place reverse
+and duplicate adoption after previous mutations produce different cascade
+ordering in Chromium. These are recorded as divergences, not parity. See
+[the evidence](evidence/adopted-sheets-chromium.json).
+
+ShadowRoot adoption, CSSStyleSheet replacement APIs, grouped rules, document-owned
+`style.sheet` / `link.sheet` wrappers, cross-document adoption restrictions and
+full observable-array reflection remain incomplete. This does not implement full
+CSSOM or full text layout.

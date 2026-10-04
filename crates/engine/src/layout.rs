@@ -601,6 +601,7 @@ impl Tree<'_, '_> {
 pub(crate) struct Sources<'a> {
     pub inline: &'a HashMap<NodeId, Declarations>,
     pub external: &'a crate::stylesheets::Sheets,
+    pub constructed: &'a crate::cssom::Arena,
     pub base: Option<&'a str>,
 }
 
@@ -630,8 +631,14 @@ fn scene<T>(
     work: &mut Work<'_>,
     measure: impl FnOnce(&mut Tree<'_, '_>) -> Result<T>,
 ) -> Result<T> {
-    let cascade =
-        crate::cascade::Cascade::collect(document, styles.external, styles.base, media, work)?;
+    let cascade = crate::cascade::Cascade::collect(
+        document,
+        styles.external,
+        styles.constructed,
+        styles.base,
+        media,
+        work,
+    )?;
     let root = document
         .root()
         .children_it(false)
