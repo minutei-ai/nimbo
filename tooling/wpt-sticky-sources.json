@@ -16,6 +16,18 @@
     {
       "path": "resources/testharnessreport.js",
       "sha256": "3777176fc736b0a78cf7617b9613b220f635daae7536ec7ebb99c61dbb525aae"
+    },
+    {
+      "path": "css/css-position/sticky/position-sticky-bottom.html",
+      "sha256": "8279893ea6886901543facd9ab88c85524787ba8039267cd7cc43b5620f08b91"
+    },
+    {
+      "path": "css/css-position/sticky/position-sticky-nested-top.html",
+      "sha256": "8761d4e72c6acdbcc1b470a94ec282fa6f1f9571c14fa98670271d7045a7d09f"
+    },
+    {
+      "path": "css/css-position/sticky/position-sticky-nested-bottom.html",
+      "sha256": "9a548b7d523e834bd8d4e89a5a42f3d695204c281083a059b7844312284b1d49"
     }
   ]
 }

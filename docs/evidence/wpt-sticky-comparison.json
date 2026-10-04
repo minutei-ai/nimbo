@@ -1,0 +1,182 @@
+{
+  "date": "2026-10-04",
+  "source": "https://github.com/web-platform-tests/wpt",
+  "source_commit": "03f14d4780c4d981bc84c65679b18e9327a1affe",
+  "files": [
+    "css/css-position/sticky/position-sticky-top.html",
+    "css/css-position/sticky/position-sticky-bottom.html",
+    "css/css-position/sticky/position-sticky-nested-top.html",
+    "css/css-position/sticky/position-sticky-nested-bottom.html"
+  ],
+  "scope": "Four original CSS sticky HTML files, helper and testharness; original vendor integration script plus reporting-only append; output/message events disabled; real HTTP; default engine limits; no mocks",
+  "results": [
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-position/sticky/position-sticky-top.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 3,
+        "passed": 3,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-position/sticky/position-sticky-top.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 3,
+        "passed": 2,
+        "failed": [
+          {
+            "name": "after reaching the sticking point the sticky box should be offset",
+            "status": 1,
+            "message": "assert_equals: expected 250 but got 50"
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-position/sticky/position-sticky-top.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 3,
+        "passed": 3,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-position/sticky/position-sticky-bottom.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 3,
+        "passed": 3,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-position/sticky/position-sticky-bottom.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 3,
+        "passed": 2,
+        "failed": [
+          {
+            "name": "after reaching the sticking point the sticky box should be offset",
+            "status": 1,
+            "message": "assert_equals: expected 175 but got 75"
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-position/sticky/position-sticky-bottom.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 3,
+        "passed": 3,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-position/sticky/position-sticky-nested-top.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 5,
+        "passed": 5,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-position/sticky/position-sticky-nested-top.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 5,
+        "passed": 4,
+        "failed": [
+          {
+            "name": "both sticky boxes can be stuck at the same time",
+            "status": 1,
+            "message": "assert_equals: expected 250 but got 50"
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-position/sticky/position-sticky-nested-top.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 5,
+        "passed": 5,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-position/sticky/position-sticky-nested-bottom.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 5,
+        "passed": 5,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-position/sticky/position-sticky-nested-bottom.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 5,
+        "passed": 4,
+        "failed": [
+          {
+            "name": "both sticky boxes can be stuck at the same time",
+            "status": 1,
+            "message": "assert_equals: expected 175 but got 75"
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-position/sticky/position-sticky-nested-bottom.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 5,
+        "passed": 5,
+        "failed": []
+      }
+    }
+  ]
+}

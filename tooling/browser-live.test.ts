@@ -1,3 +1,4 @@
+import { stickyGeometryFixture } from "./sticky-geometry-fixture";
 import { cookiesFixture } from "./cookies-fixture";
 import { urlsFixture } from "./urls-fixture";
 import { responseEncodingCases, responseEncodingFixture } from "./response-encoding-fixture";
@@ -441,6 +442,8 @@ const origin = Bun.serve({
     if (encoded) return encoded;
     const namespaced = namespacedElementsFixture(path);
     if (namespaced) return namespaced;
+    const stickyGeometry = stickyGeometryFixture(path);
+    if (stickyGeometry) return stickyGeometry;
     const positionedBoxes = positionedBoxesFixture(path);
     if (positionedBoxes) return positionedBoxes;
     const customBoxes = customBoxesFixture(path);
@@ -5692,7 +5695,6 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
 test.each([
   { css: "position:absolute;top:0;width:10px;height:5px", reason: "absolute static position" },
   { css: "position:fixed;left:0;width:10px;height:5px", reason: "absolute static position" },
-  { css: "position:sticky;left:0;top:0;width:10px;height:5px", reason: "position" },
 ])(
   "real HTTP → workerd → Wasm: positioned boxes reject $css and recover",
   async ({ css, reason }) => {
@@ -5882,5 +5884,52 @@ test.each([
     const result: unknown = await response.json();
     if (typeof result !== "object" || result === null) throw new Error("Missing result");
     expect(Reflect.get(result, "value")).toEqual(expected);
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: sticky geometry variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`sticky-geometry/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing result");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing checks");
+    expect(Object.keys(value)).toHaveLength(28);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each(["scrollTop", "clientHeight", "offsetParent"])(
+  "real HTTP → workerd → Wasm: viewport geometry remains explicit for %s",
+  async (property) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL("sticky-geometry/0", origin.url).href,
+        expression: `document.documentElement.${property}`,
+      }),
+    });
+    expect(response.status).toBe(422);
+    expect(await response.text()).toContain("viewport geometry");
+    const recovered = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL("sticky-geometry/0", origin.url).href,
+        expression: "Object.values(globalThis.comparison).every(Boolean)",
+      }),
+    });
+    expect(recovered.status).toBe(200);
+    expect(await recovered.json()).toMatchObject({ value: true });
   },
 );

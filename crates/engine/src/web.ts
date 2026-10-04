@@ -1602,6 +1602,36 @@
       const result = call<RectValues>("bounds", idOf(this));
       return new DOMRect(result.x, result.y, result.width, result.height);
     }
+    get clientTop(): number {
+      return elementGeometry(this, "clientTop");
+    }
+    get clientLeft(): number {
+      return elementGeometry(this, "clientLeft");
+    }
+    get clientWidth(): number {
+      return elementGeometry(this, "clientWidth");
+    }
+    get clientHeight(): number {
+      return elementGeometry(this, "clientHeight");
+    }
+    get scrollWidth(): number {
+      return elementGeometry(this, "scrollWidth");
+    }
+    get scrollHeight(): number {
+      return elementGeometry(this, "scrollHeight");
+    }
+    get scrollTop(): number {
+      return elementGeometry(this, "scrollTop");
+    }
+    set scrollTop(value: unknown) {
+      setElementScroll(this, "scrollTop", value);
+    }
+    get scrollLeft(): number {
+      return elementGeometry(this, "scrollLeft");
+    }
+    set scrollLeft(value: unknown) {
+      setElementScroll(this, "scrollLeft", value);
+    }
     get classList(): DOMTokenList {
       return classList(this);
     }
@@ -1677,6 +1707,15 @@
     removeAttribute(name: string) {
       call("removeAttr", idOf(this), name);
     }
+  }
+  function elementGeometry(owner: object, name: string): number {
+    if (!(owner instanceof Element)) throw new TypeError("Illegal invocation");
+    return call("geometry", idOf(owner), name);
+  }
+  function setElementScroll(owner: object, name: string, value: unknown): void {
+    if (!(owner instanceof Element)) throw new TypeError("Illegal invocation");
+    const number = rectNumber(value);
+    call("geometry", idOf(owner), name, String(Number.isFinite(number) ? number : 0));
   }
   const htmlElements = new WeakSet<object>();
   function isHTML(candidate: Node): candidate is HTMLElement {
@@ -2248,6 +2287,22 @@
       super(internal, id);
       htmlElements.add(this);
       return this;
+    }
+    get offsetParent(): Element | null {
+      const id = call<number | null>("geometry", htmlId(this), "offsetParent");
+      return id === null ? null : element(id);
+    }
+    get offsetTop(): number {
+      return call("geometry", htmlId(this), "offsetTop");
+    }
+    get offsetLeft(): number {
+      return call("geometry", htmlId(this), "offsetLeft");
+    }
+    get offsetWidth(): number {
+      return call("geometry", htmlId(this), "offsetWidth");
+    }
+    get offsetHeight(): number {
+      return call("geometry", htmlId(this), "offsetHeight");
     }
     get dataset(): DOMStringMap {
       htmlId(this);

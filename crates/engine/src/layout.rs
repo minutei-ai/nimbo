@@ -276,12 +276,11 @@ fn style_for(
                     style.overflow.y = overflow;
                 }
             }
-            "position" if matches!(value, "static" | "relative") => {}
+            "position" if matches!(value, "static" | "relative" | "sticky") => {
+                flow_position(value, generated)?;
+            }
             "position" if matches!(value, "absolute" | "fixed") => {
-                if generated {
-                    return Err(unsupported("positioned generated boxes"));
-                }
-                style.position = Position::Absolute;
+                absolute_position(&mut style, generated)?;
             }
             "left" => assign!(style.inset.left, value, name),
             "right" => assign!(style.inset.right, value, name),
@@ -317,6 +316,21 @@ fn style_for(
         validate_overflow(node, &style)?;
     }
     position_insets(style, declarations)
+}
+
+fn absolute_position(style: &mut Style, generated: bool) -> Result<()> {
+    if generated {
+        return Err(unsupported("positioned generated boxes"));
+    }
+    style.position = Position::Absolute;
+    Ok(())
+}
+
+fn flow_position(value: &str, generated: bool) -> Result<()> {
+    if value == "sticky" && generated {
+        return Err(unsupported("sticky generated boxes"));
+    }
+    Ok(())
 }
 
 fn position_insets(mut style: Style, declarations: &Declarations) -> Result<Style> {
@@ -427,7 +441,12 @@ struct Tree<'a, 'b> {
     boxes: TaffyTree<()>,
     ids: HashMap<NodeId, taffy::NodeId>,
     positioned: HashSet<NodeId>,
+    fixed: HashSet<NodeId>,
     out_of_flow: Vec<(taffy::NodeId, Option<NodeId>)>,
+    box_nodes: HashMap<taffy::NodeId, NodeId>,
+    sticky: HashMap<taffy::NodeId, Rect<LengthPercentageAuto>>,
+    scroll: &'a ScrollState,
+    viewport: Size<f64>,
     styles: &'a HashMap<NodeId, Declarations>,
     visited: usize,
     cascade: &'a crate::cascade::Cascade,
@@ -503,32 +522,7 @@ impl Tree<'_, '_> {
         let Some(id) = self.ids.get(&target.id) else {
             return Ok(Bounds::default());
         };
-        let measured = self
-            .boxes
-            .layout(*id)
-            .map_err(|error| layout_error(&error))?;
-        let mut result = Bounds {
-            width: f64::from(measured.size.width),
-            height: f64::from(measured.size.height),
-            ..Bounds::default()
-        };
-        let mut current = Some(*id);
-        while let Some(id) = current {
-            let measured = self
-                .boxes
-                .layout(id)
-                .map_err(|error| layout_error(&error))?;
-            result.x += f64::from(measured.location.x);
-            result.y += f64::from(measured.location.y);
-            current = self.boxes.parent(id);
-        }
-        if ![result.x, result.y, result.width, result.height]
-            .iter()
-            .all(|value| value.is_finite())
-        {
-            return Err(unsupported("non-finite geometry"));
-        }
-        Ok(result)
+        self.visual(*id).map(|frame| frame.bounds)
     }
     fn build(
         &mut self,
@@ -606,7 +600,7 @@ impl Tree<'_, '_> {
         };
         // display:contents contributes no box; size containers alone do not
         // establish positioning containing blocks in CSS Conditional Rules 5.
-        if matches!(position, "relative" | "absolute" | "fixed") {
+        if matches!(position, "relative" | "absolute" | "fixed" | "sticky") {
             self.positioned.insert(node.id);
         }
         let mut children = Vec::new();
@@ -622,7 +616,7 @@ impl Tree<'_, '_> {
             .boxes
             .new_with_children(style, &children)
             .map_err(|error| layout_error(&error))?;
-        self.ids.insert(node.id, id);
+        self.record_box(node.id, id, position, &declarations)?;
         if out_of_flow {
             self.out_of_flow.push((id, containing));
         }
@@ -630,6 +624,23 @@ impl Tree<'_, '_> {
             self.next_containers.insert(node.id, container);
         }
         output.push(id);
+        Ok(())
+    }
+    fn record_box(
+        &mut self,
+        node: NodeId,
+        id: taffy::NodeId,
+        position: &str,
+        declarations: &Declarations,
+    ) -> Result<()> {
+        self.ids.insert(node, id);
+        self.box_nodes.insert(id, node);
+        if position == "sticky" {
+            self.sticky.insert(id, geometry::insets(declarations)?);
+        }
+        if position == "fixed" {
+            self.fixed.insert(node);
+        }
         Ok(())
     }
     fn position_boxes(
@@ -727,6 +738,7 @@ impl Tree<'_, '_> {
 }
 
 pub(crate) struct Sources<'a> {
+    pub scroll: &'a ScrollState,
     pub inline: &'a HashMap<NodeId, Declarations>,
     pub external: &'a crate::stylesheets::Sheets,
     pub constructed: &'a crate::cssom::Arena,
@@ -780,7 +792,15 @@ fn scene<T>(
             boxes: TaffyTree::new(),
             ids: HashMap::new(),
             positioned: HashSet::new(),
+            fixed: HashSet::new(),
             out_of_flow: Vec::new(),
+            box_nodes: HashMap::new(),
+            sticky: HashMap::new(),
+            scroll: styles.scroll,
+            viewport: Size {
+                width: f64::from(width),
+                height: f64::from(height),
+            },
             styles: styles.inline,
             visited: 0,
             cascade: &cascade,
@@ -856,3 +876,6 @@ pub(crate) fn observe(
         intersection::observe(tree, target, root, margins, media)
     })
 }
+
+mod geometry;
+pub(crate) use geometry::{ScrollState, measurement};

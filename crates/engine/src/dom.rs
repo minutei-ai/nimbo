@@ -16,6 +16,7 @@ pub(crate) struct Dom {
     style_bytes: usize,
     operations: usize,
     layout_version: usize,
+    scroll: crate::layout::ScrollState,
     sheet_scan: Option<usize>,
     // Conservative presence guard: HTML parsing and element creation are the only name producers.
     may_have_links: bool,
@@ -45,6 +46,7 @@ impl Dom {
             style_bytes: 0,
             operations: 0,
             layout_version: 0,
+            scroll: crate::layout::ScrollState::new(),
             sheet_scan: None,
             may_have_links: contains_link_tag(html),
             sheets: crate::stylesheets::Sheets::new(base, limits.max_stylesheet_bytes),
@@ -105,6 +107,7 @@ impl Dom {
             "cssSupports" => json!(crate::supports::query(arg)?),
             "cssSupportsValue" => json!(crate::supports::value(arg, value)?),
             "bounds" => self.bounds(handle)?,
+            "geometry" => self.geometry(handle, arg, value)?,
             "computedStyle" => self.computed_style(handle, arg, value)?,
             "layoutVersion" => json!(self.layout_version),
             "observerMargin" => serde_json::to_value(crate::layout::Margins::parse(arg)?)?,
@@ -385,6 +388,7 @@ impl Dom {
                         &self.document,
                         node,
                         &crate::layout::Sources {
+                            scroll: &self.scroll,
                             inline: &self.styles,
                             external: &self.sheets,
                             constructed: &self.cssom,
@@ -442,6 +446,7 @@ impl Dom {
             root,
             &request.margin,
             &crate::layout::Sources {
+                scroll: &self.scroll,
                 inline: &self.styles,
                 external: &self.sheets,
                 constructed: &self.cssom,
@@ -451,6 +456,67 @@ impl Dom {
             &mut work,
         )?;
         Ok(serde_json::to_value(observation)?)
+    }
+
+    fn geometry(&mut self, handle: usize, name: &str, value: &str) -> Result<Value> {
+        let target = self.node(handle)?;
+        if !target.is_element() {
+            return Err(Error::Dom("geometry requires an element".into()));
+        }
+        // Viewport scrolling has a separate owner and cannot use element state.
+        if target.has_name("html") {
+            return Err(Error::Dom("layout unsupported: viewport geometry".into()));
+        }
+        let id = target.id;
+        let base = self.base_href();
+        let mut work = crate::layout::Work::new(
+            &mut self.operations,
+            self.limits.max_dom_operations,
+            self.limits.max_layout_nodes,
+        );
+        let measured = crate::layout::measurement(
+            &self.document,
+            self.document
+                .tree
+                .get(&id)
+                .ok_or_else(|| Error::Dom("invalid node handle".into()))?,
+            &crate::layout::Sources {
+                scroll: &self.scroll,
+                inline: &self.styles,
+                external: &self.sheets,
+                constructed: &self.cssom,
+                base: base.as_deref(),
+            },
+            &self.media,
+            &mut work,
+        )?;
+        if name == "offsetParent" {
+            return Ok(json!(measured.parent.map(|id| self.handle(id))));
+        }
+        if !value.is_empty() && matches!(name, "scrollTop" | "scrollLeft") {
+            let requested = value
+                .parse::<f64>()
+                .map_err(|_error| Error::Dom("invalid scroll offset".into()))?;
+            if !requested.is_finite() {
+                return Err(Error::Dom("invalid scroll offset".into()));
+            }
+            let mut next = measured.scroll;
+            if name == "scrollTop" {
+                next.y = requested.round().clamp(0.0, measured.maximum.y);
+            } else {
+                next.x = requested.round().clamp(0.0, measured.maximum.x);
+            }
+            if next != measured.scroll {
+                self.scroll.insert(id, next);
+                self.layout_version = self.layout_version.saturating_add(1);
+            }
+            return Ok(Value::Null);
+        }
+        measured
+            .values
+            .get(name)
+            .cloned()
+            .ok_or_else(|| Error::Dom("unknown geometry property".into()))
     }
 
     fn bounds(&mut self, handle: usize) -> Result<Value> {
@@ -473,6 +539,7 @@ impl Dom {
             &self.document,
             target,
             &crate::layout::Sources {
+                scroll: &self.scroll,
                 inline: &self.styles,
                 external: &self.sheets,
                 constructed: &self.cssom,

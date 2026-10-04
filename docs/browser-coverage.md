@@ -541,52 +541,52 @@ Public references: [CSS Variables (published)](https://www.w3.org/TR/css-variabl
 implementation providing the listed behavior. `Unverified` means the current
 evidence cannot establish it.
 
-| Capability                                           | Nimbo      | Required acceptance evidence                                                                      |
-| ---------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------- |
-| HTML parsing, entities, selector queries             | Subset     | HTML and selector WPT cases, malformed input, namespaces                                          |
-| DOM mutation, identity and ancestry                  | Subset     | Live mutation results, detached nodes, tree-cycle rejection, WPT                                  |
-| Node/Text/Comment/Fragment, live collections         | Subset     | Live child collections and static selector lists; remaining Node APIs and full WPT                |
-| Event dispatch and lifecycle                         | Subset     | Capture/bubble, cancellation, once/passive, native input ordering                                 |
-| Classic scripts and Promise jobs                     | Subset     | Source ordering, exception propagation, resource exhaustion                                       |
-| Modules, import maps, JSON modules, dynamic import   | Subset     | Native graphs tested; import maps, JSON and new dynamic fetching missing                          |
-| Timers, animation frames and scheduling              | Subset     | Real-clock timers/cancellation tested; frames, idle and full event loop missing                   |
-| Custom elements autônomos                            | Subset     | Native upgrades, lifecycle and failed construction; scoped/built-in/form gaps                     |
-| Shadow DOM                                           | Missing    | Slots, composed paths, shadow boundaries and isolation                                            |
-| Frames and independent execution worlds              | Missing    | Same/cross-origin frames, navigation, world isolation                                             |
-| Fetch and HTTP navigation                            | Subset     | Real GET/POST, cookies, redirects, bodies; full headers/abort/streams                             |
-| XMLHttpRequest, forms, files and binary responses    | Partial    | Binary fetch body reads verified below; uploads, XHR, files, progress and cancellation remain     |
-| CORS, CSP, mixed content and origin policy           | Subset     | Current same-origin restriction is not a browser policy implementation                            |
-| Network interception, response fulfillment, blocking | Missing    | Actual request pause/continue/fail/fulfill and event/body correlation                             |
-| Cookies and per-navigation isolation                 | Subset     | Shared HTTP/JS jar, attributes and budgets; cross-site semantics and full cookie WPT pending      |
-| Persistent sessions, cookies and storage             | Missing    | Restart/eviction recovery and tenant isolation via durable state                                  |
-| localStorage/sessionStorage/IndexedDB                | Subset     | Web Storage/quota tested; IndexedDB, durable state and storage events missing                     |
-| HTMLAnchorElement and document base                  | Subset     | Native links/relList and real script/module/fetch loads; navigation gaps                          |
-| TextEncoder/TextDecoder                              | Subset     | Native bytes/codecs, Unicode, streams of chunks and fatal queue tests; WPT gaps                   |
-| URL and URLSearchParams                              | Partial    | Original URL WPT execution and recorded failures; remaining globals and tests pending             |
-| Encoding streams, File APIs and WebCrypto            | Missing    | Pinned WPT with actual algorithms and binary round trips                                          |
-| Page WebAssembly and Web Workers                     | Missing    | Guest modules, imports, worker messages, termination and isolation                                |
-| Media queries and logical viewport                   | Subset     | Native queries/configuration tested; live updates and full CSSOM/MQ WPT missing                   |
-| Inline CSS declarations                              | Subset     | Native property grammar and live HTML style mutations tested; full CSSOM missing                  |
-| CSS cascade, typed styles, layout and geometry       | Subset     | Author styles and native boxes tested; full cascade, text, computed styles and paint missing      |
-| Binary FontFace parsing                              | Partial    | Native TrueType and lazy URL/CSS loads tested; rendering, compressed formats and full WPT missing |
-| Font shaping, images and SVG                         | Missing    | Glyph shaping, image decoding and SVG paint                                                       |
-| OffscreenCanvas and Canvas 2D                        | Partial    | Native RGBA8 rectangle pixels/readback tested below; full Canvas 2D and HTML canvas missing       |
-| Screenshots, PDF and screencasts                     | Missing    | Real paint output, pagination, frame changes and backpressure                                     |
-| Accessibility tree and snapshots                     | Missing    | Roles, names, hidden nodes, state changes and stable references                                   |
-| Mouse, keyboard, focus, selection and scrolling      | Missing    | Hit-testing, trusted host input and resulting page behavior                                       |
-| Browser/target/context lifecycle and CDP             | Missing    | Real client connections, objects, events and context isolation                                    |
-| Puppeteer/Playwright/DevTools compatibility          | Missing    | Unmodified clients navigating and interacting with fixtures                                       |
-| MCP navigation, reading, actions and diagnostics     | Missing    | Real MCP transports, page state and authenticated remote use                                      |
-| Markdown, links, structured extraction and crawling  | Subset     | Current JS extraction only; native outputs and real crawl jobs missing                            |
-| CLI batch scraping and library API                   | Subset     | Existing single-page CLI/library; bounded batches and cancellation                                |
-| HTTP/CONNECT and SOCKS proxy support                 | Missing    | Generic authenticated proxy integration; no operational config in source                          |
-| TLS fingerprint and transport control                | Unverified | Capture ClientHello/ALPN and verify scripted subrequests use the same transport                   |
-| WebGL and GPU-dependent pages                        | Missing    | Actual shader execution and pixels; software rendering must be labelled                           |
-| Audio/video playback and codecs                      | Missing    | Decode real media, advance playback and produce frames/samples                                    |
-| Challenge-dependent authentication                   | Unverified | Real authorized source behavior, with challenge failure explicit                                  |
-| Browser profiles and stealth surfaces                | Missing    | Consistency with implemented behavior and measured transport; no fake API success                 |
-| SSRF protections and resource budgets                | Subset     | Resolved-address policy, private IPv4/IPv6, limits and recovery                                   |
-| Metrics, concurrency, deployment and recovery        | Subset     | CPU/RAM/wall-clock on equal fixtures, live deployment, process recovery                           |
+| Capability                                           | Nimbo      | Required acceptance evidence                                                                                                                 |
+| ---------------------------------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| HTML parsing, entities, selector queries             | Subset     | HTML and selector WPT cases, malformed input, namespaces                                                                                     |
+| DOM mutation, identity and ancestry                  | Subset     | Live mutation results, detached nodes, tree-cycle rejection, WPT                                                                             |
+| Node/Text/Comment/Fragment, live collections         | Subset     | Live child collections and static selector lists; remaining Node APIs and full WPT                                                           |
+| Event dispatch and lifecycle                         | Subset     | Capture/bubble, cancellation, once/passive, native input ordering                                                                            |
+| Classic scripts and Promise jobs                     | Subset     | Source ordering, exception propagation, resource exhaustion                                                                                  |
+| Modules, import maps, JSON modules, dynamic import   | Subset     | Native graphs tested; import maps, JSON and new dynamic fetching missing                                                                     |
+| Timers, animation frames and scheduling              | Subset     | Real-clock timers/cancellation tested; frames, idle and full event loop missing                                                              |
+| Custom elements autônomos                            | Subset     | Native upgrades, lifecycle and failed construction; scoped/built-in/form gaps                                                                |
+| Shadow DOM                                           | Missing    | Slots, composed paths, shadow boundaries and isolation                                                                                       |
+| Frames and independent execution worlds              | Missing    | Same/cross-origin frames, navigation, world isolation                                                                                        |
+| Fetch and HTTP navigation                            | Subset     | Real GET/POST, cookies, redirects, bodies; full headers/abort/streams                                                                        |
+| XMLHttpRequest, forms, files and binary responses    | Partial    | Binary fetch body reads verified below; uploads, XHR, files, progress and cancellation remain                                                |
+| CORS, CSP, mixed content and origin policy           | Subset     | Current same-origin restriction is not a browser policy implementation                                                                       |
+| Network interception, response fulfillment, blocking | Missing    | Actual request pause/continue/fail/fulfill and event/body correlation                                                                        |
+| Cookies and per-navigation isolation                 | Subset     | Shared HTTP/JS jar, attributes and budgets; cross-site semantics and full cookie WPT pending                                                 |
+| Persistent sessions, cookies and storage             | Missing    | Restart/eviction recovery and tenant isolation via durable state                                                                             |
+| localStorage/sessionStorage/IndexedDB                | Subset     | Web Storage/quota tested; IndexedDB, durable state and storage events missing                                                                |
+| HTMLAnchorElement and document base                  | Subset     | Native links/relList and real script/module/fetch loads; navigation gaps                                                                     |
+| TextEncoder/TextDecoder                              | Subset     | Native bytes/codecs, Unicode, streams of chunks and fatal queue tests; WPT gaps                                                              |
+| URL and URLSearchParams                              | Partial    | Original URL WPT execution and recorded failures; remaining globals and tests pending                                                        |
+| Encoding streams, File APIs and WebCrypto            | Missing    | Pinned WPT with actual algorithms and binary round trips                                                                                     |
+| Page WebAssembly and Web Workers                     | Missing    | Guest modules, imports, worker messages, termination and isolation                                                                           |
+| Media queries and logical viewport                   | Subset     | Native queries/configuration tested; live updates and full CSSOM/MQ WPT missing                                                              |
+| Inline CSS declarations                              | Subset     | Native property grammar and live HTML style mutations tested; full CSSOM missing                                                             |
+| CSS cascade, typed styles, layout and geometry       | Subset     | Author styles and native boxes tested; full cascade, text, computed styles and paint missing                                                 |
+| Binary FontFace parsing                              | Partial    | Native TrueType and lazy URL/CSS loads tested; rendering, compressed formats and full WPT missing                                            |
+| Font shaping, images and SVG                         | Missing    | Glyph shaping, image decoding and SVG paint                                                                                                  |
+| OffscreenCanvas and Canvas 2D                        | Partial    | Native RGBA8 rectangle pixels/readback tested below; full Canvas 2D and HTML canvas missing                                                  |
+| Screenshots, PDF and screencasts                     | Missing    | Real paint output, pagination, frame changes and backpressure                                                                                |
+| Accessibility tree and snapshots                     | Missing    | Roles, names, hidden nodes, state changes and stable references                                                                              |
+| Mouse, keyboard, focus, selection and scrolling      | Partial    | Element hidden-overflow scroll offsets are implemented; hit-testing, trusted host input, scroll events and complete scrolling remain pending |
+| Browser/target/context lifecycle and CDP             | Missing    | Real client connections, objects, events and context isolation                                                                               |
+| Puppeteer/Playwright/DevTools compatibility          | Missing    | Unmodified clients navigating and interacting with fixtures                                                                                  |
+| MCP navigation, reading, actions and diagnostics     | Missing    | Real MCP transports, page state and authenticated remote use                                                                                 |
+| Markdown, links, structured extraction and crawling  | Subset     | Current JS extraction only; native outputs and real crawl jobs missing                                                                       |
+| CLI batch scraping and library API                   | Subset     | Existing single-page CLI/library; bounded batches and cancellation                                                                           |
+| HTTP/CONNECT and SOCKS proxy support                 | Missing    | Generic authenticated proxy integration; no operational config in source                                                                     |
+| TLS fingerprint and transport control                | Unverified | Capture ClientHello/ALPN and verify scripted subrequests use the same transport                                                              |
+| WebGL and GPU-dependent pages                        | Missing    | Actual shader execution and pixels; software rendering must be labelled                                                                      |
+| Audio/video playback and codecs                      | Missing    | Decode real media, advance playback and produce frames/samples                                                                               |
+| Challenge-dependent authentication                   | Unverified | Real authorized source behavior, with challenge failure explicit                                                                             |
+| Browser profiles and stealth surfaces                | Missing    | Consistency with implemented behavior and measured transport; no fake API success                                                            |
+| SSRF protections and resource budgets                | Subset     | Resolved-address policy, private IPv4/IPv6, limits and recovery                                                                              |
+| Metrics, concurrency, deployment and recovery        | Subset     | CPU/RAM/wall-clock on equal fixtures, live deployment, process recovery                                                                      |
 
 ## Kitesurf references and scope
 
@@ -2300,10 +2300,10 @@ computed display blockification. Size containers alone do not establish position
 containing blocks, following CSS Conditional Rules 5.
 
 Both axes currently need at least one non-auto inset. Automatic static-position
-rectangles, sticky scrolling, transformed containing blocks, positioned generated
+rectangles, complete sticky/scrolling behavior, transformed containing blocks, positioned generated
 boxes, inline containing blocks, text/replaced formatting and full CSS Position/WPT
-parity remain pending. Unsupported automatic positioning and sticky inputs still
-fail instead of producing fabricated geometry; real Worker tests verify recovery.
+parity remain pending. Unsupported automatic positioning still fails explicitly;
+selected sticky geometry is implemented and validated below.
 
 References: [CSS positioned containing blocks](https://www.w3.org/TR/css-position-3/#def-cb)
 and [CSS container types](https://drafts.csswg.org/css-conditional-5/#container-type).
@@ -2511,8 +2511,48 @@ original pinned files, `NIMBO_COMPARE_CHROMIUM_BINARY` pointing to ordinary
 Chromium and `CELLD_BINARY` pointing to celld. Operational paths remain private.
 
 This is one three-assertion fixture, not the full sticky or CSSOM View suites.
-The failure exposes missing offset/client geometry and scrolling interfaces.
-Layout also rejects `position: sticky`; unsupported position errors now include
-the keyword. Completing sticky requires real scroll offsets, scrollport
-constraints, containing-block boundaries and corresponding geometry APIs. The
-remaining original tests must run unchanged as these capabilities are added.
+At this initial baseline, offset/client geometry and scrolling interfaces were
+missing and layout rejected `position: sticky`. The implementation below resolves
+this selected reproduction. The remaining original tests must run unchanged as
+capabilities are added.
+
+## Native sticky and scroll geometry
+
+The [original sticky comparison](evidence/wpt-sticky-comparison.json) executes
+four unchanged pinned HTML fixtures: top, bottom, nested top and nested bottom.
+Nimbo's own Worker/Wasm engine inside celld and ordinary Chromium 153 each pass
+16/16 original subtests. Public Obscura 0.2.3 passes 12/16, with its four failures
+preserved in the report. Its process is a comparator only. Nimbo does not load it
+as a library, backend or fallback. The runner exits nonzero when any comparator
+fails, even when Nimbo passes. This is a selected subset, not full CSS Position
+or CSSOM View conformance.
+
+Rust owns element scroll offsets and computes sticky displacement from the
+normal-flow boxes, ancestor scrollports and containing-block boundaries. Sticky
+boxes establish positioned containing blocks without leaving normal flow. Offset
+and client metrics, bounding rectangles and intersection observations share this
+geometry. Scroll setters clamp to the reachable hidden-overflow area, normalize
+non-finite input and reject invalid Web IDL coercion. The current logical viewport
+uses CSS-pixel scroll rounding; configurable device scale and zoom are pending.
+
+The [supplemental geometry comparison](evidence/sticky-geometry-comparison.json)
+uses 64 fresh pages with 28 shared contracts each in ordinary Chromium and celld;
+all 1792 checks pass per runtime. The same fixture passes 1792 native Rust checks.
+It exercises padding, borders, relative ancestors, percentage insets, nested
+sticky boxes, scroll clamping, input conversion, brands, detachment, display:none
+and style changes. Its expectations were checked against ordinary Chromium;
+these synthetic tests supplement the original WPT fixtures and never replace
+original assertions. Run `bun run compare:sticky-geometry` with the same generic
+Chromium and celld environment settings. Run `bun run bench:wpt-sticky` for the
+original files; optionally set `NIMBO_COMPARE_OBSCURA_BINARY` for the comparator.
+
+Overflow auto/scroll, viewport geometry and scrolling, scrollbar rendering,
+scroll events, smooth scrolling, anchoring, snapping, scrollIntoView, fractional
+device scaling, writing modes, transformed/inline/generated sticky boxes and the
+full original sticky/CSSOM View suites remain pending. Unsupported viewport
+geometry returns an explicit error; real Worker checks verify fresh-request
+recovery. Passing this subset does not establish painting, WebGL, video, TLS
+control or durable session parity.
+
+References: [CSS sticky positioning](https://drafts.csswg.org/css-position-3/#stickypos-insets)
+and [CSSOM View geometry and scrolling](https://drafts.csswg.org/cssom-view/).

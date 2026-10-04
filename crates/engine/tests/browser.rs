@@ -1420,6 +1420,7 @@ fn is_dom_resource(path: &str) -> bool {
         "/large-dom/",
         "/custom-boxes/",
         "/positioned-boxes/",
+        "/sticky-geometry/",
         "/namespaced-elements/",
         "/urls/",
         "/response-encoding/",
@@ -2566,6 +2567,13 @@ fn serve_dom_resources(request: Request) -> io::Result<()> {
             .with_header(header("Content-Type", "text/html")?),
         );
     }
+    if let Some(value) = request.url().strip_prefix("/sticky-geometry/") {
+        let variant = value.parse::<u8>().map_err(io::Error::other)?;
+        return request.respond(Response::from_string(format!(
+            "<!doctype html><body><script>{}\nglobalThis.comparison=stickyGeometryCase({variant})</script>",
+            include_str!("fixtures/sticky-geometry.txt")
+        )).with_header(header("Content-Type", "text/html")?));
+    }
     if request.url().starts_with("/positioned-boxes/") {
         return request.respond(
             Response::from_string(format!(
@@ -2775,6 +2783,23 @@ fn document_cookies_expire_with_real_time_and_recover_from_budgets() -> TestResu
             page.evaluate(&format!("{function}()"))?,
             expected,
             "{function}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn sticky_geometry_tracks_scroll_and_containing_blocks() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/sticky-geometry/{variant}")))?;
+        let result = page.evaluate("globalThis.comparison")?;
+        let checks = result.as_object().ok_or("missing sticky checks")?;
+        assert_eq!(checks.len(), 28);
+        assert!(
+            checks.values().all(|value| value == &json!(true)),
+            "{result}"
         );
     }
     Ok(())
