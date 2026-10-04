@@ -2086,3 +2086,42 @@ continues to fail explicitly and CSS.supports remains false for font-family.
 Complete font shorthand serialization and cascade layer rollback remain pending.
 
 Public reference: [CSS Fonts family property](https://drafts.csswg.org/css-fonts/#font-family-prop).
+
+### Computed display and ordinary element blockification
+
+The computed-style facade exposes display as its eighteenth enumerated property.
+The native engine stores typed inside/outside pairs or box/internal keywords and
+applies display transformations before returning the computed value. The root
+is blockified; inline, inline-block, inline-flex and inline-grid children of flex
+or grid containers compute to block, block, flex and grid respectively. Internal
+table/ruby keywords compute to block in those contexts. Authored flow-root retains
+its computed value. Contents ancestors propagate the nearest container context
+for computed values; root contents computes to block. Explicit float and
+absolute/fixed positioning also trigger computed blockification, while their
+geometry remains unsupported. Complete inherited positioning/float state is pending.
+
+Ordinary element geometry now uses this same computed display state instead of
+applying blockification only to generated content. The supported box layout can
+therefore measure explicitly sized transformed children in real flex/grid
+containers and a root with authored inline display. Invalid run-in declarations
+are ignored, while inheritance, initial/unset/revert, variables and registered
+defaults use the existing cascade. Supported HTML container tags keep their existing
+block defaults; hidden and non-rendering tags compute to none. Complete HTML user
+agent display defaults remain pending.
+
+The shared real-HTTP fixture exercises 64 variants with 105 checks each in the
+native engine and Chromium. Chromium passed all 6,720 checks;
+[the aggregate records the scope](evidence/display-chromium.json).
+Each variant includes eleven geometry checks for empty explicitly sized boxes,
+plus scalar checks for unsupported formatting, root transformations, live parent
+updates, CSSOM priority/removal, stylesheet mutation and DOM attachment. Worker
+checks run this fixture and confirm explicit unsupported geometry alongside
+available scalar reads and conservative CSS.supports results.
+
+This does not implement ordinary inline formatting, independent flow-root/BFC
+layout, contents box-tree flattening, tables, ruby, markers or glyph shaping.
+Those values can be computed without fabricating box measurements. Their
+unsupported geometry still fails explicitly. Painting, complete display
+serialization, cascade layer rollback and full display parity remain pending.
+
+Public reference: [CSS Display transformations](https://drafts.csswg.org/css-display/#transformations).

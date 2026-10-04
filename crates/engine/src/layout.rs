@@ -97,19 +97,6 @@ fn initial_style(node: NodeRef<'_>, generated: bool) -> Result<Style> {
     Ok(style)
 }
 
-fn blockified<'a>(name: &str, value: &'a str, blockify: bool) -> &'a str {
-    let value = defaulted(name, value);
-    if !blockify || name != "display" {
-        return value;
-    }
-    match value {
-        "inline" | "inline-block" => "block",
-        "inline-flex" => "flex",
-        "inline-grid" => "grid",
-        _ => value,
-    }
-}
-
 // This first layout pass accepts real inline block/flex and auto-grid boxes. Unsupported
 // inputs must fail instead of silently providing manufactured measurements.
 fn overflow(value: &str) -> Result<Overflow> {
@@ -177,7 +164,8 @@ pub(crate) fn supports(declarations: &Declarations) -> bool {
 }
 
 fn style(node: NodeRef<'_>, declarations: &Declarations) -> Result<Style> {
-    style_for(node, declarations, false, false)
+    let display = crate::display::Computed::default().compute(node, declarations, false, false)?;
+    style_for(node, declarations, false, &display)
 }
 
 fn non_layout(name: &str) -> bool {
@@ -211,9 +199,10 @@ fn style_for(
     node: NodeRef<'_>,
     declarations: &Declarations,
     generated: bool,
-    blockify: bool,
+    display: &crate::display::Computed,
 ) -> Result<Style> {
     let mut style = initial_style(node, generated)?;
+    style.display = display.layout()?;
     macro_rules! assign {
         ($field:expr, $value:expr, $name:expr) => {{
             let value = if $value == "0" && !matches!($name, "flex-grow" | "flex-shrink") {
@@ -228,7 +217,10 @@ fn style_for(
         if generated && name == "content" {
             continue;
         }
-        let value = blockified(name, value, generated && blockify);
+        let value = defaulted(name, value);
+        if name == "display" {
+            continue;
+        }
         if name == "visibility" && (deferred || value == "collapse") {
             return Err(unsupported("visibility"));
         }
@@ -246,7 +238,6 @@ fn style_for(
             "writing-mode"
                 if matches!(value, "horizontal-tb" | "initial" | "unset" | "inherit") => {}
             "direction" if matches!(value, "ltr" | "initial" | "unset" | "inherit") => {}
-            "display" => assign!(style.display, value, name),
             "box-sizing" => assign!(style.box_sizing, value, name),
             "width" => assign!(style.size.width, value, name),
             "height" => assign!(style.size.height, value, name),
@@ -376,6 +367,7 @@ struct BoxContext {
     sizes: crate::background_size::Sizes,
     layers: crate::background_layers::Layers,
     family: crate::font_family::Family,
+    display: crate::display::Computed,
 }
 
 impl BoxContext {
@@ -383,6 +375,7 @@ impl BoxContext {
         &self,
         declarations: &Declarations,
         root: bool,
+        display: crate::display::Computed,
         work: &mut Work<'_>,
     ) -> Result<Self> {
         let fonts = self.fonts.compute(declarations, root, work)?;
@@ -409,6 +402,7 @@ impl BoxContext {
             sizes,
             layers,
             family,
+            display,
         })
     }
 }
@@ -475,13 +469,9 @@ impl Tree<'_, '_> {
             return Err(unsupported("generated inline formatting"));
         }
         self.visit(depth)?;
-        let mut style = style_for(
-            node,
-            &declarations,
-            true,
-            matches!(parent_display, Display::Flex | Display::Grid),
-        )?;
-        let context = context.compute(&declarations, false, self.work)?;
+        let display = context.display.compute(node, &declarations, false, true)?;
+        let mut style = style_for(node, &declarations, true, &display)?;
+        let context = context.compute(&declarations, false, display, self.work)?;
         style.border = context.borders.geometry()?;
         self.boxes
             .new_leaf(style)
@@ -560,16 +550,22 @@ impl Tree<'_, '_> {
             .cascade
             .animations
             .sample(&declarations, &variables, self.work)?;
-        let mut style = style(node, &declarations)?;
+        let display = context
+            .display
+            .compute(node, &declarations, depth == 0, false)?;
+        if display.none() {
+            return Ok(None);
+        }
+        validate_element(node)?;
+        let mut style = style_for(node, &declarations, false, &display)?;
         if style.display == Display::None {
             return Ok(None);
         }
-        let context = context.compute(&declarations, depth == 0, self.work)?;
+        let context = context.compute(&declarations, depth == 0, display, self.work)?;
         style.border = context.borders.geometry()?;
         let fonts = context.fonts;
         let container =
             crate::containers::Container::apply(&declarations, &mut style, parent_display, fonts)?;
-        validate_element(node)?;
         let mut children = Vec::new();
         if let Some(before) = self.generated(
             node,
@@ -686,6 +682,7 @@ fn scene<T>(
                 sizes: crate::background_size::Sizes::default(),
                 layers: crate::background_layers::Layers::default(),
                 family: crate::font_family::Family::default(),
+                display: crate::display::Computed::default(),
             },
         )?;
         if let Some(root_id) = root_id {

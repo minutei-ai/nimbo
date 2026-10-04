@@ -1,5 +1,6 @@
 import { backgroundLayersFixture } from "./background-layers-fixture";
 import { fontFamilyFixture } from "./font-family-fixture";
+import { displayFixture } from "./display-fixture";
 import { backgroundSizeFixture } from "./background-size-fixture";
 import { backgroundRepeatFixture } from "./background-repeat-fixture";
 import { backgroundPositionFixture } from "./background-position-fixture";
@@ -422,6 +423,8 @@ const origin = Bun.serve({
   port: 0,
   async fetch(request) {
     const path = new URL(request.url).pathname;
+    const display = await displayFixture(path);
+    if (display) return display;
     const fontFamily = await fontFamilyFixture(path);
     if (fontFamily) return fontFamily;
     requests.push(`${request.method} ${path}`);
@@ -4740,7 +4743,7 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
   expect(await response.json()).toMatchObject({
     value: {
       font: "18px",
-      count: 17,
+      count: 18,
       names: [
         "background-attachment",
         "background-clip",
@@ -4750,6 +4753,7 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
         "background-repeat",
         "background-size",
         "color",
+        "display",
         "font-family",
         "font-size",
         "line-height",
@@ -5351,3 +5355,44 @@ test("real HTTP → workerd → Wasm: font family list operation budget and reco
   const recovered = await request("fontFamilyCase(0)");
   expect(recovered.status).toBe(200);
 });
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native computed display and blockification variant %i",
+  async (variant) => {
+    const url = new URL(`display/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: `displayCase(${variant})` }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing display values");
+    expect(Object.keys(value)).toHaveLength(105);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each(["inline", "inline-block", "flow-root", "contents", "table-row", "ruby", "list-item"])(
+  "real HTTP → workerd → Wasm: computed %s display retains explicit unsupported formatting",
+  async (display) => {
+    const url = new URL("display/0", origin.url).href;
+    const request = (expression: string) =>
+      worker.dispatchFetch("https://nimbo.test/scrape", {
+        method: "POST",
+        headers: { authorization: "Bearer test-secret" },
+        body: JSON.stringify({ url, expression }),
+      });
+    const setup = `document.body.innerHTML='<div id="target"></div>';const e=document.body.firstElementChild;e.style.display=${JSON.stringify(display)};`;
+    const scalar = await request(
+      `(()=>{${setup}return {display:getComputedStyle(e).display,support:CSS.supports('display',e.style.display)}})()`,
+    );
+    expect(scalar.status).toBe(200);
+    expect(await scalar.json()).toMatchObject({ value: { display, support: false } });
+    const geometry = await request(`(()=>{${setup}return e.getBoundingClientRect().width})()`);
+    expect(geometry.status).toBe(422);
+    expect(await geometry.text()).toContain("display formatting");
+  },
+);

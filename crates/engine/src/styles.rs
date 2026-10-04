@@ -358,6 +358,13 @@ pub(crate) fn function_value(value: &str) -> bool {
 }
 
 fn native_property(name: &str, value: &str, important: bool) -> Option<Vec<Entry>> {
+    if name == "display" {
+        return Some(vec![Entry::new(
+            name,
+            crate::display::specified(value)?,
+            important,
+        )]);
+    }
     if name == "font-family" {
         return Some(vec![Entry::new(
             name,
@@ -413,6 +420,7 @@ fn native_declaration(name: &str, value: &str) -> bool {
                 | "tab-size"
                 | "line-height"
                 | "font-family"
+                | "display"
                 | "background-image"
                 | "background-size"
                 | "background-position"
