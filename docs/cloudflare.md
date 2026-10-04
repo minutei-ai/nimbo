@@ -53,14 +53,39 @@ The driver checks the engine identity and every extraction result. It runs seque
 
 ## Transport and limits
 
-An optional `EGRESS` binding can supply generic HTTP transport. Configure proxy authentication and destination policies privately. HTTP/CONNECT transport alone does not supply configurable ClientHello behavior or browser fingerprint parity.
+Load `NIMBO_PROXY_URL` from your private environment before running Alchemy to
+create the optional `PROXY_URL` secret binding. The native CLI reads the same
+environment variable; a Worker reads its binding. Leave it unset for direct
+host fetch. An alternative `EGRESS` binding supplies `fetch(Request)`; configuring
+both bindings is an explicit error.
 
-The native CLI's `NIMBO_PROXY_URL` does not configure Worker transport. Direct
-HTTP/CONNECT and SOCKS5 proxy configuration inside Workers is still pending.
+Nimbo implements HTTP forwarding, HTTP CONNECT and SOCKS5 remote DNS over
+`cloudflare:sockets`, with optional Basic or SOCKS username/password
+authentication. Navigation, redirects, CSS, scripts, module imports and page
+fetches share cookies and request/byte/deadline budgets. Proxy failures never
+fall back to direct connections. Credentials do not reach origin requests or
+page JavaScript. HTTP responses support bounded content-length, chunked and
+connection-close framing, with gzip/deflate decoding; Brotli and protocol
+upgrades remain unsupported.
+
+| Proxy scheme | HTTP destination  | HTTPS destination                             |
+| ------------ | ----------------- | --------------------------------------------- |
+| `http`       | Forwarding        | CONNECT and native TLS upgrade                |
+| `https`      | TLS forwarding    | Explicit `nested proxy TLS unsupported` error |
+| `socks5h`    | Remote DNS tunnel | Remote DNS tunnel and native TLS upgrade      |
+| `socks5`     | Local DNS missing | Local DNS missing                             |
+
+The [real Worker proxy suite](browser-coverage.md#worker-proxy-transport) exercises
+actual workerd, real TCP/TLS forwarding and ephemeral certificates without
+replacing fetch or disabling certificate verification. The pinned local runtime
+logs an unsupported `expectedServerHostname` diagnostic, while rejecting a
+wrong hostname and an untrusted issuer in the tests. Production Cloudflare TLS
+behavior is unverified. These local results do not prove deployment compatibility
+or configurable ClientHello behavior.
+
 Cloudflare's [TCP socket API](https://developers.cloudflare.com/workers/runtime-apis/tcp-sockets/)
-provides outbound connections and a TLS upgrade, but blocks Cloudflare IP ranges,
-localhost and private network addresses. A future direct proxy transport needs
-real Worker socket, proxy authentication and TLS tests; native CLI results do
-not prove these runtime contracts.
+provides outbound connections and TLS upgrades, but blocks Cloudflare IP ranges,
+localhost and private network addresses. Local fixtures explicitly allow their
+isolated loopback origins; a deployed proxy must satisfy platform restrictions.
 
 Worker platform limits apply in addition to Nimbo's own [engine limits](../README.md#resource-limits). Consult the current [Cloudflare limits](https://developers.cloudflare.com/workers/platform/limits/) when sizing workloads. Browser capabilities remain those of Nimbo's engine: deployment does not add WebGL, video, screenshots or durable browser sessions.

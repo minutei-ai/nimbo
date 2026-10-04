@@ -26,6 +26,12 @@ celld dev wrangler.celld.json --no-watch
 
 The default local listener is `http://127.0.0.1:9876`. Set `NIMBO_URL` privately to that listener and use the HTTP API examples in the [README](../README.md#http-api). celld stores local state under `.celld/dev`; both that directory and `.dev.vars` are ignored by Git.
 
+For optional proxy transport, add `PROXY_URL` to the ignored private binding
+file from your private environment. Use the Worker [transport matrix](cloudflare.md#transport-and-limits)
+for supported schemes and gaps. The bundle with native socket imports has passed
+a local celld health check; proxy protocol validation currently runs in workerd,
+so celld proxy behavior still requires its own validation.
+
 Persistent runtime state does not make Nimbo browser sessions durable. Each Worker extraction still creates its own page and cookie jar.
 
 ## Benchmark inside celld

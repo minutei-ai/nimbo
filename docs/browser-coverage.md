@@ -2586,8 +2586,43 @@ configuration errors do not echo supplied credentials.
 
 This proves native transport contracts against synthetic origins. It does not
 establish deployed proxy compatibility, controllable TLS fingerprints, challenge
-handling, direct socket proxy transport inside Workers or persistent browser
-sessions. Workers still use host fetch or the optional `EGRESS` binding. Ambient
-proxy environment variables are ignored; explicit configuration selects a proxy.
+handling or persistent browser sessions. Worker socket evidence is recorded
+separately below. Ambient native proxy environment variables are ignored;
+explicit configuration selects a proxy.
 
 Reference: [reqwest 0.13.5 proxy API](https://docs.rs/reqwest/0.13.5/reqwest/struct.Proxy.html).
+
+## Worker proxy transport
+
+`tooling/worker-proxy.test.ts` runs the compiled Rust/QuickJS Wasm engine inside
+real workerd with real Python HTTP/TLS origins and HTTP/CONNECT/SOCKS forwarding
+sockets. Certificates and UTF-8 percent-encoded credentials are generated per
+fixture and removed during cleanup. Only that ephemeral CA is trusted; certificate
+verification stays enabled. No fetch replacements, service mocks or browser
+backend are involved.
+
+Five configurations each complete 64 fresh pages: HTTP without/with
+authentication, HTTPS with authentication to HTTP origins, and SOCKS5 remote DNS
+without/with authentication. The 320 successful extractions produce 2240 actual
+origin requests and verify redirects, CSS, classic scripts, modules, JavaScript
+POST bodies, shared cookies and credential isolation. HTTP and SOCKS proxies
+also exercise HTTPS origins through native TLS upgrades.
+
+Additional real socket checks cover:
+
+- 128 JavaScript fetch extractions over chunked, gzip and connection-close bodies.
+- 24 authentication rejections without reaching an origin.
+- Wrong TLS hostname and untrusted issuer rejection, followed by a successful
+  correctly named trusted connection.
+- 64 oversized body, decompression, header and malformed framing rejections,
+  each followed by successful extraction on the same Worker.
+- A stalled origin reaching the page deadline, closing its socket and allowing
+  a subsequent successful page on the same Worker.
+
+The pinned runtime logs an unsupported `expectedServerHostname` option diagnostic;
+its local hostname and issuer verification tests pass. Production Cloudflare
+TLS behavior is still unverified. Separate tests preserve the explicit rejection
+of HTTPS-proxy/HTTPS-origin nested TLS and local SOCKS DNS; these are missing
+capabilities, not parity passes. Brotli, upgrades, HTTP/2, controllable TLS
+fingerprints, deployed proxy compatibility and persistent sessions remain
+unverified or unimplemented. See the [transport matrix](cloudflare.md#transport-and-limits).

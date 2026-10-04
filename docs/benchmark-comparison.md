@@ -283,3 +283,20 @@ The [original URL WPT result](performance-wpt-url.json) separately records
 The [33-stage original obstacle repeat](performance-obstacle-url.json) records
 13 passed stages, 16 failures and four missing output adapters. Passing local
 regression checks does not replace those original-suite requirements.
+
+## Worker proxy bundle measurement
+
+The [current bundle run](performance-comparison-worker-proxy.json), recorded on
+2026-10-04 after adding direct Worker proxy transport, has 648 valid extractions,
+zero failures and 567 measured samples across the nine scenarios. This measures
+the normal direct-fetch path without a configured proxy, inside celld 0.6.1,
+against public Obscura 0.2.3 and Chrome for Testing 153.0.8010.12. All hosts stay
+running; pages are fresh and runtime order rotates at concurrency one.
+
+Nimbo has a lower p50 than Chromium in eight of nine scenarios and Obscura in
+one of nine. Its positioned-box p50 is 73.51 ms versus Chromium's 70.01 ms;
+the other Nimbo p50 values range from 43.74 to 70.04 ms. Several Nimbo timings
+are higher than the earlier sticky run. Separate local runs do not isolate the
+cause; a controlled same-adapter build comparison is needed before attributing
+that difference to the transport implementation. These measurements do not
+establish proxy latency or deployed Cloudflare performance.

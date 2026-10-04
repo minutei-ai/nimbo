@@ -53,6 +53,7 @@ const build = Effect.gen(function* () {
         target: "browser",
         format: "esm",
         minify: true,
+        external: ["cloudflare:sockets"],
         plugins: [
           {
             name: "worker-wasm",

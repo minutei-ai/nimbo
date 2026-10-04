@@ -1,3 +1,4 @@
+import { ProxyTransport } from "./proxy";
 import { decode_response, WasmCookies } from "../../../dist/wasm/nimbo_engine.js";
 import { ScrapeError, type Egress, type EngineLimits } from "./protocol";
 
@@ -10,8 +11,11 @@ export async function readBytes(message: Request | Response, maximum: number): P
     while (true) {
       // Reads are sequential to bound buffering and release the stream on failure.
       // oxlint-disable-next-line eslint/no-await-in-loop
-      const { done, value } = await reader.read();
-      if (done) break;
+      const part = await reader.read();
+      if (part.done) break;
+      const value: unknown = part.value;
+      if (!(value instanceof Uint8Array))
+        throw new ScrapeError({ status: 502, reason: "invalid response bytes" });
       bytes += value.byteLength;
       if (bytes > maximum)
         throw new ScrapeError({ status: 413, reason: "response/input byte limit" });
@@ -43,6 +47,7 @@ export async function readBody(
 
 export class Transport {
   private readonly origin: string;
+  private readonly proxy: ProxyTransport | undefined;
   readonly cookies: WasmCookies;
 
   free(): void {
@@ -56,7 +61,11 @@ export class Transport {
     url: string,
     private readonly limits: EngineLimits,
     private readonly egress?: Egress,
+    proxy?: string,
   ) {
+    if (proxy !== undefined && egress !== undefined)
+      throw new ScrapeError({ status: 400, reason: "configure either proxy or EGRESS" });
+    this.proxy = proxy === undefined ? undefined : new ProxyTransport(proxy);
     this.origin = this.resolve(url).origin;
     this.cookies = new WasmCookies();
   }
@@ -96,7 +105,11 @@ export class Transport {
       });
       // Each physical request, including redirects, consumes the same page budget.
       // oxlint-disable-next-line eslint/no-await-in-loop
-      const response = await (this.egress ? this.egress.fetch(request) : fetch(request));
+      const response = await (this.proxy
+        ? this.proxy.fetch(request, this.limits.maxResponseBytes - this.bytes)
+        : this.egress
+          ? this.egress.fetch(request)
+          : fetch(request));
       try {
         for (const setCookie of response.headers.getSetCookie()) {
           try {

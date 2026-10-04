@@ -1,6 +1,7 @@
 """Real HTTP/TLS origins and forwarding HTTP/CONNECT/SOCKS5 test servers."""
 import base64
 import collections
+import gzip
 import contextlib
 import http.client
 import http.server
@@ -16,6 +17,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import urllib.parse
 
 
@@ -30,10 +32,17 @@ class Origin(http.server.BaseHTTPRequestHandler):
         pass
 
     def do_GET(self):
-        self.respond()
+        self.reply()
 
     def do_POST(self):
-        self.respond()
+        self.reply()
+
+    def reply(self):
+        try:
+            self.respond()
+        except OSError:
+            # Limit/certificate/cancellation checks deliberately close sockets.
+            pass
 
     def respond(self):
         length = int(self.headers.get('Content-Length', '0'))
@@ -42,7 +51,10 @@ class Origin(http.server.BaseHTTPRequestHandler):
             self.server.requests.append((self.path, self.command, body,
                                          self.headers.get('Cookie', ''),
                                          self.headers.get('Proxy-Authorization') or self.headers.get('Authorization')))
+        if self.wire():
+            return
         routes = {
+            '/empty': ('text/html', '<!doctype html><body>empty'),
             '/page': ('text/html', '<!doctype html><link rel="stylesheet" href="/style.css">'
                       '<body><div id="value"></div><script src="/boot.js"></script>'
                       '<script type="module" src="/app.mjs"></script>'),
@@ -67,6 +79,43 @@ class Origin(http.server.BaseHTTPRequestHandler):
         self.send_header('Connection', 'close')
         self.end_headers()
         self.wfile.write(data)
+
+
+    def wire(self):
+        paths = ('/chunked', '/gzip', '/no-length', '/large', '/gzip-bomb',
+                 '/large-header', '/truncated', '/ambiguous', '/malformed-chunk', '/stall')
+        if self.path not in paths:
+            return False
+        data = b'framed-response'
+        if self.path in ('/large', '/gzip-bomb'):
+            data = b'x' * (3 * 1024 * 1024)
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/plain')
+        self.send_header('Connection', 'close')
+        if self.path in ('/gzip', '/gzip-bomb'):
+            data = gzip.compress(data)
+            self.send_header('Content-Encoding', 'gzip')
+        if self.path == '/large-header':
+            self.send_header('X-Fixture', 'x' * 20000)
+        if self.path in ('/chunked', '/malformed-chunk', '/ambiguous'):
+            self.send_header('Transfer-Encoding', 'chunked')
+            if self.path == '/ambiguous':
+                self.send_header('Content-Length', str(len(data)))
+            self.end_headers()
+            if self.path == '/malformed-chunk':
+                self.wfile.write(b'not-hex\r\n')
+            else:
+                self.wfile.write(b'4;fixture=yes\r\n' + data[:4] + b'\r\n' +
+                                 f'{len(data[4:]):x}\r\n'.encode() + data[4:] +
+                                 b'\r\n0\r\nX-Fixture-Trailer: complete\r\n\r\n')
+        else:
+            if self.path != '/no-length':
+                self.send_header('Content-Length', str(len(data) + (5 if self.path == '/truncated' else 0)))
+            self.end_headers()
+            if self.path == '/stall':
+                time.sleep(12)
+            self.wfile.write(data)
+        return True
 
 
 class Proxy(socketserver.StreamRequestHandler):
@@ -97,7 +146,7 @@ class Proxy(socketserver.StreamRequestHandler):
     def relay(self, upstream):
         with upstream:
             while True:
-                ready, _, _ = select.select([self.connection, upstream], [], [], 4)
+                ready, _, _ = select.select([self.connection, upstream], [], [], 20)
                 if not ready:
                     return
                 for source in ready:
@@ -139,8 +188,14 @@ class Proxy(socketserver.StreamRequestHandler):
             for key, value in response.getheaders():
                 if key.lower() not in ('content-length', 'connection', 'transfer-encoding'):
                     self.wfile.write(f'{key}: {value}\r\n'.encode())
-            self.wfile.write(f'Content-Length: {len(data)}\r\nConnection: close\r\n\r\n'.encode())
-            self.wfile.write(data)
+            if response.getheader('Transfer-Encoding') == 'chunked':
+                self.wfile.write(b'Transfer-Encoding: chunked\r\nConnection: close\r\n\r\n')
+                self.wfile.write(f'{len(data):x};fixture=forwarded\r\n'.encode() + data + b'\r\n0\r\n\r\n')
+            else:
+                if response.getheader('Content-Length') is not None:
+                    self.wfile.write(f'Content-Length: {len(data)}\r\n'.encode())
+                self.wfile.write(b'Connection: close\r\n\r\n')
+                self.wfile.write(data)
         finally:
             connection.close()
 
@@ -230,29 +285,34 @@ def invoke(binary, env, url, proxy_url=None, flag=False):
     return subprocess.run(args, env=child_env, capture_output=True, text=True, timeout=15)
 
 
+def certificates(root):
+    cert, key, ca, ca_key = (root / name for name in ('cert.pem', 'key.pem', 'ca.pem', 'ca-key.pem'))
+    commands = [
+        ['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
+         '-keyout', str(ca_key), '-out', str(ca), '-days', '1',
+         '-subj', '/CN=Nimbo synthetic test CA', '-addext', 'basicConstraints=critical,CA:TRUE'],
+        ['openssl', 'req', '-new', '-newkey', 'rsa:2048', '-nodes',
+         '-keyout', str(key), '-out', str(root / 'request.pem'), '-subj', '/CN=example.test'],
+        ['openssl', 'x509', '-req', '-in', str(root / 'request.pem'),
+         '-CA', str(ca), '-CAkey', str(ca_key), '-CAcreateserial',
+         '-out', str(cert), '-days', '1', '-extfile', str(root / 'extensions.cnf')],
+    ]
+    (root / 'extensions.cnf').write_text(
+        'basicConstraints=critical,CA:FALSE\n'
+        'keyUsage=critical,digitalSignature,keyEncipherment\n'
+        'extendedKeyUsage=serverAuth\n'
+        'subjectAltName=DNS:example.test,DNS:localhost,IP:127.0.0.1\n')
+    for command in commands:
+        subprocess.run(command, check=True, capture_output=True)
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.load_cert_chain(cert, key)
+    return context, ca
+
+
 def main(binary):
     with tempfile.TemporaryDirectory(prefix='nimbo-proxy-') as directory:
         root = pathlib.Path(directory)
-        cert, key, ca, ca_key = (root / name for name in ('cert.pem', 'key.pem', 'ca.pem', 'ca-key.pem'))
-        commands = [
-            ['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
-             '-keyout', str(ca_key), '-out', str(ca), '-days', '1',
-             '-subj', '/CN=Nimbo synthetic test CA', '-addext', 'basicConstraints=critical,CA:TRUE'],
-            ['openssl', 'req', '-new', '-newkey', 'rsa:2048', '-nodes',
-             '-keyout', str(key), '-out', str(root / 'request.pem'), '-subj', '/CN=example.test'],
-            ['openssl', 'x509', '-req', '-in', str(root / 'request.pem'),
-             '-CA', str(ca), '-CAkey', str(ca_key), '-CAcreateserial',
-             '-out', str(cert), '-days', '1', '-extfile', str(root / 'extensions.cnf')],
-        ]
-        (root / 'extensions.cnf').write_text(
-            'basicConstraints=critical,CA:FALSE\n'
-            'keyUsage=critical,digitalSignature,keyEncipherment\n'
-            'extendedKeyUsage=serverAuth\n'
-            'subjectAltName=DNS:example.test,DNS:localhost,IP:127.0.0.1\n')
-        for command in commands:
-            subprocess.run(command, check=True, capture_output=True)
-        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        context.load_cert_chain(cert, key)
+        context, ca = certificates(root)
         env = dict(os.environ, SSL_CERT_FILE=str(ca))
         counts = collections.Counter()
         with running(origin()) as http, running(origin(context)) as https:
@@ -319,5 +379,37 @@ def main(binary):
                               'passed': dict(counts), 'origin_requests': len(http.requests) + len(https.requests)}))
 
 
+def serve():
+    with tempfile.TemporaryDirectory(prefix='nimbo-proxy-') as directory, contextlib.ExitStack() as stack:
+        context, ca = certificates(pathlib.Path(directory))
+        http = stack.enter_context(running(origin()))
+        https = stack.enter_context(running(origin(context)))
+        ports = (http.server_port, https.server_port)
+        relays, configs = {}, []
+        for mode in ('http', 'http-auth', 'https-auth', 'socks5h', 'socks5h-auth'):
+            credentials = (secrets.token_hex(8) + '@', secrets.token_hex(12) + ':/% café') if 'auth' in mode else None
+            relay = stack.enter_context(running(proxy(mode, ports, credentials, context if mode.startswith('https') else None)))
+            relays[mode] = relay
+            authority = '127.0.0.1:' + str(relay.server_address[1])
+            if credentials:
+                authority = ':'.join(urllib.parse.quote(value, safe='') for value in credentials) + '@' + authority
+            configs.append({'mode': mode, 'url': mode.split('-')[0] + '://' + authority})
+        print(json.dumps({'ca': ca.read_text(), 'http_port': http.server_port,
+                          'https_port': https.server_port, 'proxies': configs}), flush=True)
+        for line in sys.stdin:
+            if line.strip() != 'stats':
+                break
+            requests = http.requests + https.requests
+            print(json.dumps({'requests': len(requests),
+                              'paths': dict(collections.Counter(path for path, *_rest in requests)),
+                              'credential_leaks': sum(auth is not None for _path, _method, _body, _cookie, auth in requests),
+                              'bad_posts': sum(method != 'POST' or body != b'payload' for path, method, body, _cookie, _auth in requests if path == '/data'),
+                              'missing_cookies': sum(cookie != 'transport=retained' for path, _method, _body, cookie, _auth in requests if path in ('/page', '/style.css', '/boot.js', '/app.mjs', '/dep.mjs', '/data')),
+                              'proxy_connections': {mode: len(relay.targets) for mode, relay in relays.items()}}), flush=True)
+
+
 if __name__ == '__main__':
-    main(sys.argv[1])
+    if sys.argv[1] == '--serve':
+        serve()
+    else:
+        main(sys.argv[1])

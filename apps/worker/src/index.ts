@@ -41,7 +41,7 @@ const scrape = (request: Request, environment: Environment) =>
       );
       const transport = yield* Effect.acquireRelease(
         Effect.try({
-          try: () => new Transport(input.url, limits, environment.EGRESS),
+          try: () => new Transport(input.url, limits, environment.EGRESS, environment.PROXY_URL),
           catch: (cause) => failure(cause, 400),
         }),
         (connection) => Effect.sync(() => connection.free()),

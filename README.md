@@ -35,7 +35,7 @@ flowchart LR
     Worker --> Engine[Rust Wasm: DOM + QuickJS]
     Engine --> Actions[HTTP actions / JSON result]
     Actions --> Worker
-    Worker --> Transport[fetch / optional EGRESS binding]
+    Worker --> Transport[fetch / proxy sockets / EGRESS binding]
     Transport --> Source[HTTP origin]
 ```
 
@@ -72,15 +72,21 @@ Successful responses contain `url`, `value` and `engine: "rust-wasm-quickjs"`. F
 
 The extraction expression still runs in `skip` mode. That mode does not hydrate JavaScript applications. Other request, DOM and execution limits still apply.
 
-The optional `EGRESS` binding implements `fetch(Request): Promise<Response>`. Without it, the Worker uses its own `fetch`. Proxy credentials and destination policies belong in private configuration. Generic HTTP/CONNECT support does not establish controllable TLS fingerprints.
+The optional `PROXY_URL` secret selects Nimbo's native Worker socket transport. Alternatively, `EGRESS` implements `fetch(Request): Promise<Response>`; the bindings are mutually exclusive. Without either binding, the Worker uses its own `fetch`. Proxy credentials and destination policies belong in private configuration. HTTP/CONNECT support does not establish controllable TLS fingerprints.
 
 ## Scraping scope
 
 The core workflow is navigation, page JavaScript, asynchronous network activity,
 DOM updates and extraction. Proxy configuration belongs to the transport. The
-Worker currently accepts an optional `EGRESS` binding. The native CLI and Rust
-library support HTTP/HTTPS proxies and SOCKS5; direct Worker proxy configuration
-is still pending. Proxy addresses and credentials stay in private configuration.
+Worker accepts a private `PROXY_URL` secret for HTTP proxies, HTTPS proxies to
+HTTP destinations, and SOCKS5 with remote DNS (`socks5h`). Nimbo implements the
+protocols over Worker sockets. HTTPS destinations through HTTP/SOCKS5h proxies
+use a native TLS upgrade. Nested TLS through HTTPS proxies and local SOCKS DNS
+remain missing in Workers; production TLS behavior remains unverified. The
+native CLI and Rust library support HTTP/HTTPS proxies and both SOCKS5 DNS
+modes. See the [Worker transport guide](docs/cloudflare.md#transport-and-limits)
+and [real socket evidence](docs/browser-coverage.md#worker-proxy-transport).
+Proxy addresses and credentials stay in private configuration.
 
 For the native CLI, load `NIMBO_PROXY_URL` from your private environment, then run:
 
@@ -170,23 +176,23 @@ the expected values over real HTTP, without mocks.
 
 Latency in milliseconds, **p50 / p95**:
 
-| Scenario                |  Nimbo / celld |        Obscura |        Chromium |
-| ----------------------- | -------------: | -------------: | --------------: |
-| Static HTML             |  33.13 / 79.72 |  18.48 / 25.62 |   65.32 / 83.56 |
-| Selectors, 200 nodes    |  36.62 / 46.40 |  19.17 / 22.68 |   68.67 / 81.46 |
-| Dynamic fetch           |  37.29 / 57.30 |  21.49 / 26.70 |   62.06 / 82.70 |
-| JS, DOM and events      |  47.69 / 59.95 |  30.23 / 33.45 |   67.22 / 91.13 |
-| JS modules              |  54.66 / 68.08 |  31.04 / 32.83 |   68.48 / 91.15 |
-| JS selectors, 200 nodes |  53.55 / 67.06 |  31.65 / 36.10 |   67.11 / 89.14 |
-| Static HTML, 5000 nodes | 56.60 / 104.83 |  47.65 / 63.94 | 269.76 / 366.09 |
-| Selectors, 5000 nodes   |  65.83 / 81.96 | 98.28 / 144.52 | 270.10 / 306.98 |
-| JS positioned boxes     |  57.67 / 80.14 |  31.28 / 43.50 |   70.75 / 94.30 |
+| Scenario                | Nimbo / celld |        Obscura |        Chromium |
+| ----------------------- | ------------: | -------------: | --------------: |
+| Static HTML             | 43.74 / 70.14 |  19.60 / 21.66 |   64.38 / 94.37 |
+| Selectors, 200 nodes    | 52.11 / 59.73 |  20.33 / 21.66 |   64.00 / 87.57 |
+| Dynamic fetch           | 44.03 / 58.53 |  22.10 / 23.20 |   66.37 / 87.29 |
+| JS, DOM and events      | 50.10 / 65.39 |  30.19 / 34.96 |   69.03 / 91.43 |
+| JS modules              | 66.38 / 71.41 |  31.19 / 33.50 |   77.90 / 96.31 |
+| JS selectors, 200 nodes | 63.75 / 69.74 |  32.39 / 34.40 |   72.55 / 91.91 |
+| Static HTML, 5000 nodes | 70.04 / 89.26 |  43.03 / 46.83 | 276.02 / 315.58 |
+| Selectors, 5000 nodes   | 67.03 / 79.69 | 98.22 / 101.93 | 276.17 / 301.40 |
+| JS positioned boxes     | 73.51 / 85.91 |  33.74 / 36.35 |   70.01 / 94.86 |
 
-Nimbo has a lower p50 than Chromium in **9/9** scenarios and Obscura in
+Nimbo has a lower p50 than Chromium in **8/9** scenarios and Obscura in
 **1/9**. Matching or beating Obscura across the remaining scenarios is still
 pending. These local fixtures do not establish general SPA compatibility,
 production throughput, memory consumption or cost. See the
-[raw results](docs/performance-comparison-sticky.json) and
+[raw results](docs/performance-comparison-worker-proxy.json) and
 [reproduction guide](docs/benchmark-comparison.md).
 
 ## Runtime guides
