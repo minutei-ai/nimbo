@@ -4,7 +4,7 @@ import { join, resolve } from "node:path";
 import { benchmarkFixture } from "./benchmark-fixture";
 import { runWorkerBenchmark } from "./benchmark-worker";
 
-export async function startCelld() {
+export async function startCelld(bundleDirectory = resolve(import.meta.dir, "../dist/worker")) {
   const binary = process.env.CELLD_BINARY ?? "celld";
   const versionProcess = Bun.spawn([binary, "--version"], { stdout: "pipe", stderr: "ignore" });
   const [version, versionExit] = await Promise.all([
@@ -26,7 +26,7 @@ export async function startCelld() {
     await rm(project, { recursive: true, force: true });
   };
   try {
-    await cp(resolve(import.meta.dir, "../dist/worker"), join(project, "worker"), {
+    await cp(bundleDirectory, join(project, "worker"), {
       recursive: true,
     });
     await writeFile(

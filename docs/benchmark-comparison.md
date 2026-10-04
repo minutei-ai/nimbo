@@ -125,3 +125,35 @@ These values describe this synthetic suite and the documented control adapters.
 They establish neither arbitrary website/framework compatibility nor production
 Cloudflare deployment. Further scraping compatibility and performance work
 remains necessary.
+
+## Controlled engine comparisons
+
+The [same-session build comparison](benchmark-engine-comparison.md) tests both
+Nimbo builds inside celld with the same HTTP adapter. It retains the custom-boxes
+comparison and all three whitespace-minification rounds, including slower measurements.
+Those controlled results supplement the historical tables above; they do not
+establish the cause of changes between separate sessions or universal superiority.
+
+## Whitespace-minified bootstrap run
+
+The [new three-runtime run](performance-comparison-bootstrap.json) retains all
+eight scenarios and default limits: **576 valid extractions, zero failures and
+504 measured samples**. Each cell below is an end-to-end p50, using the same
+control adapters described above.
+
+| Scenario               | Nimbo in celld | Obscura  | Chromium  |
+| ---------------------- | -------------- | -------- | --------- |
+| `static`               | 31.84 ms       | 18.55 ms | 58.49 ms  |
+| `selectors-200`        | 38.79 ms       | 19.32 ms | 61.76 ms  |
+| `dynamic-fetch`        | 34.55 ms       | 20.54 ms | 62.18 ms  |
+| `js-dom-events`        | 38.27 ms       | 27.36 ms | 61.77 ms  |
+| `js-modules`           | 53.97 ms       | 30.17 ms | 69.34 ms  |
+| `js-dom-selectors-200` | 58.33 ms       | 30.30 ms | 64.63 ms  |
+| `static-5000`          | 62.07 ms       | 41.95 ms | 254.21 ms |
+| `selectors-200-5000`   | 60.99 ms       | 96.57 ms | 270.74 ms |
+
+Nimbo has lower p50 than Chromium in all eight workloads and lower p50 than
+Obscura in the large-page selector workload only. Obscura remains faster in the
+other seven. This run is separate from the three controlled bootstrap comparisons;
+use those comparisons to assess the build change with a matching transport.
+No universal speed or scraping compatibility claim follows from these results.

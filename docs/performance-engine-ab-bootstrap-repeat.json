@@ -1,0 +1,176 @@
+{
+  "date": "2026-10-04",
+  "mode": "two persistent local celld hosts; same authenticated HTTP adapter; fresh pages; concurrency 1; alternating engine order; 3 excluded warmups and 21 measured attempts per scenario; default limits; real HTTP and JavaScript; no mocks",
+  "runtimes": [
+    {
+      "name": "baseline",
+      "version": "celld 0.6.1",
+      "wasm_sha256": "7faa0eea97d96f745c0e14527b1fd0ec827dcf3e1cbed38f3c268c81e98f370b"
+    },
+    {
+      "name": "candidate",
+      "version": "celld 0.6.1",
+      "wasm_sha256": "4365ee39d6f19c4c2ed164a77c9d657c487b4c838e7e21cf657e14fd05b20937"
+    }
+  ],
+  "results": [
+    {
+      "runtime": "baseline",
+      "scenario": "static",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 50.200268999999935,
+      "p95_ms": 72.8413230000001
+    },
+    {
+      "runtime": "candidate",
+      "scenario": "static",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 41.23070999999982,
+      "p95_ms": 63.87182699999994
+    },
+    {
+      "runtime": "baseline",
+      "scenario": "selectors-200",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 49.082611000000725,
+      "p95_ms": 57.11347999999998
+    },
+    {
+      "runtime": "candidate",
+      "scenario": "selectors-200",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 45.89448900000025,
+      "p95_ms": 52.63718299999982
+    },
+    {
+      "runtime": "baseline",
+      "scenario": "dynamic-fetch",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 51.98813900000005,
+      "p95_ms": 55.765989000000445
+    },
+    {
+      "runtime": "candidate",
+      "scenario": "dynamic-fetch",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 47.527891000000636,
+      "p95_ms": 53.25889499999994
+    },
+    {
+      "runtime": "baseline",
+      "scenario": "js-dom-events",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 59.58879999999954,
+      "p95_ms": 65.97711499999969
+    },
+    {
+      "runtime": "candidate",
+      "scenario": "js-dom-events",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 56.540915999999925,
+      "p95_ms": 72.26682100000107
+    },
+    {
+      "runtime": "baseline",
+      "scenario": "js-modules",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 63.090306000000055,
+      "p95_ms": 68.05120100000022
+    },
+    {
+      "runtime": "candidate",
+      "scenario": "js-modules",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 58.86215100000118,
+      "p95_ms": 71.08678300000065
+    },
+    {
+      "runtime": "baseline",
+      "scenario": "js-dom-selectors-200",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 61.980727999998635,
+      "p95_ms": 68.9776409999995
+    },
+    {
+      "runtime": "candidate",
+      "scenario": "js-dom-selectors-200",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 59.01723099999981,
+      "p95_ms": 65.79265900000064
+    },
+    {
+      "runtime": "baseline",
+      "scenario": "static-5000",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 70.61358400000245,
+      "p95_ms": 77.69501599999785
+    },
+    {
+      "runtime": "candidate",
+      "scenario": "static-5000",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 58.472350000000006,
+      "p95_ms": 76.17306599999938
+    },
+    {
+      "runtime": "baseline",
+      "scenario": "selectors-200-5000",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 68.95331499999884,
+      "p95_ms": 75.94645799999853
+    },
+    {
+      "runtime": "candidate",
+      "scenario": "selectors-200-5000",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 69.57662100000016,
+      "p95_ms": 76.60928099999728
+    }
+  ],
+  "fixture_requests": {
+    "/static": 96,
+    "/dynamic": 48,
+    "/api": 48,
+    "/app/classic": 96,
+    "/app/api": 144,
+    "/app/modules": 48,
+    "/app/data.js": 48,
+    "/static?rows=5000": 96
+  },
+  "source_revisions": {
+    "baseline": "97d60b8adeaea10776f0f8111bd0961633085272",
+    "candidate_change": "Same source with whitespace-only web bootstrap minification; identifiers preserved"
+  }
+}

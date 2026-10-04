@@ -1,0 +1,176 @@
+{
+  "date": "2026-10-04",
+  "mode": "two persistent local celld hosts; same authenticated HTTP adapter; fresh pages; concurrency 1; alternating engine order; 3 excluded warmups and 21 measured attempts per scenario; default limits; real HTTP and JavaScript; no mocks",
+  "runtimes": [
+    {
+      "name": "baseline",
+      "version": "celld 0.6.1",
+      "wasm_sha256": "bf4025e18456ac9eb31a17f15829459ec63e623dbf55b604ca723375b3ccffa9"
+    },
+    {
+      "name": "candidate",
+      "version": "celld 0.6.1",
+      "wasm_sha256": "7faa0eea97d96f745c0e14527b1fd0ec827dcf3e1cbed38f3c268c81e98f370b"
+    }
+  ],
+  "results": [
+    {
+      "runtime": "baseline",
+      "scenario": "static",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 50.956157000000076,
+      "p95_ms": 59.785093999999845
+    },
+    {
+      "runtime": "candidate",
+      "scenario": "static",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 48.94604799999979,
+      "p95_ms": 71.67163699999992
+    },
+    {
+      "runtime": "baseline",
+      "scenario": "selectors-200",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 53.150611999999455,
+      "p95_ms": 56.262619999999515
+    },
+    {
+      "runtime": "candidate",
+      "scenario": "selectors-200",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 47.59635100000014,
+      "p95_ms": 57.272148999999445
+    },
+    {
+      "runtime": "baseline",
+      "scenario": "dynamic-fetch",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 52.58357100000012,
+      "p95_ms": 62.54544199999964
+    },
+    {
+      "runtime": "candidate",
+      "scenario": "dynamic-fetch",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 52.739832999999635,
+      "p95_ms": 56.846817999999985
+    },
+    {
+      "runtime": "baseline",
+      "scenario": "js-dom-events",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 59.42287299999953,
+      "p95_ms": 63.28722999999991
+    },
+    {
+      "runtime": "candidate",
+      "scenario": "js-dom-events",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 45.86407099999997,
+      "p95_ms": 65.23550900000009
+    },
+    {
+      "runtime": "baseline",
+      "scenario": "js-modules",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 67.23248000000058,
+      "p95_ms": 85.36851800000113
+    },
+    {
+      "runtime": "candidate",
+      "scenario": "js-modules",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 63.884345000000394,
+      "p95_ms": 68.43650200000047
+    },
+    {
+      "runtime": "baseline",
+      "scenario": "js-dom-selectors-200",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 63.692739000000074,
+      "p95_ms": 67.77012099999956
+    },
+    {
+      "runtime": "candidate",
+      "scenario": "js-dom-selectors-200",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 62.94209899999987,
+      "p95_ms": 69.15554399999928
+    },
+    {
+      "runtime": "baseline",
+      "scenario": "static-5000",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 56.92681600000287,
+      "p95_ms": 74.84035799999765
+    },
+    {
+      "runtime": "candidate",
+      "scenario": "static-5000",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 57.752754000001005,
+      "p95_ms": 74.1844319999982
+    },
+    {
+      "runtime": "baseline",
+      "scenario": "selectors-200-5000",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 62.07351000000199,
+      "p95_ms": 75.92755599999873
+    },
+    {
+      "runtime": "candidate",
+      "scenario": "selectors-200-5000",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 58.62058199999956,
+      "p95_ms": 75.76842199999737
+    }
+  ],
+  "fixture_requests": {
+    "/static": 96,
+    "/dynamic": 48,
+    "/api": 48,
+    "/app/classic": 96,
+    "/app/api": 144,
+    "/app/modules": 48,
+    "/app/data.js": 48,
+    "/static?rows=5000": 96
+  },
+  "source_revisions": {
+    "baseline": "53d41de428fa036a61f241a81f4fbf53531a8c34",
+    "candidate": "97d60b8adeaea10776f0f8111bd0961633085272"
+  }
+}

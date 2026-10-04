@@ -43,6 +43,21 @@ export const benchmarkScenarios = [
     expected: "Item 0",
   },
 ] as const;
+export const comparisonScenarios = [
+  ...benchmarkScenarios,
+  {
+    name: "static-5000",
+    path: "/static?rows=5000",
+    expression: benchmarkScenarios[0].expression,
+    expected: "row",
+  },
+  {
+    name: "selectors-200-5000",
+    path: "/static?rows=5000",
+    expression: benchmarkScenarios[1].expression,
+    expected: "row",
+  },
+] as const;
 export function benchmarkFixture(request: Request): Response {
   const url = new URL(request.url);
   const rows = url.searchParams.get("rows") === "5000" ? 5000 : 16;

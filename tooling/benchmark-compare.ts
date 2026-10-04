@@ -1,22 +1,6 @@
 import { startCelld } from "./benchmark-celld";
 import { startCdpBrowser } from "./benchmark-cdp";
-import { benchmarkFixture, benchmarkScenarios } from "./benchmark-fixture";
-
-const scenarios = [
-  ...benchmarkScenarios,
-  {
-    name: "static-5000",
-    path: "/static?rows=5000",
-    expression: benchmarkScenarios[0].expression,
-    expected: "row",
-  },
-  {
-    name: "selectors-200-5000",
-    path: "/static?rows=5000",
-    expression: benchmarkScenarios[1].expression,
-    expected: "row",
-  },
-];
+import { benchmarkFixture, comparisonScenarios as scenarios } from "./benchmark-fixture";
 const fixtureRequests = new Map<string, number>();
 const fixture = Bun.serve({
   hostname: "127.0.0.1",

@@ -29,7 +29,8 @@
     "dev:worker": "bun run build:worker && bun run --cwd apps/infrastructure dev",
     "plan:worker": "bun run build:worker && bun run --cwd apps/infrastructure plan",
     "deploy:worker": "bun run build:worker && bun run --cwd apps/infrastructure deploy",
-    "bench:compare": "bun run build:worker && bun run tooling/benchmark-compare.ts"
+    "bench:compare": "bun run build:worker && bun run tooling/benchmark-compare.ts",
+    "bench:engine-compare": "bun run build:worker && bun run tooling/benchmark-engine-compare.ts"
   },
   "devDependencies": {
     "@effect/tsgo": "0.47.2",
