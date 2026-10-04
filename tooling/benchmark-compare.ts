@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { join } from "node:path";
 import { startCelld } from "./benchmark-celld";
 import { startCdpBrowser } from "./benchmark-cdp";
 import { benchmarkFixture, comparisonScenarios as scenarios } from "./benchmark-fixture";
@@ -38,6 +40,15 @@ try {
   const runtimes = [
     {
       name: "nimbo-celld",
+      wasm_sha256: createHash("sha256")
+        .update(
+          new Uint8Array(
+            await Bun.file(
+              join(import.meta.dir, "../dist/worker/nimbo_engine_bg.wasm"),
+            ).arrayBuffer(),
+          ),
+        )
+        .digest("hex"),
       version: worker.version,
       mode: "persistent celld; fresh Nimbo page; authenticated HTTP API",
       async extract(url: string, expression: string): Promise<unknown> {
@@ -110,7 +121,12 @@ try {
       {
         date: new Date().toISOString().slice(0, 10),
         mode: "real HTTP; concurrency 1; rotating runtime order; 3 excluded warmups and 21 measured attempts per scenario; persistent hosts; fresh extraction pages; no mocks",
-        runtimes: runtimes.map(({ name, version, mode }) => ({ name, version, mode })),
+        runtimes: runtimes.map(({ name, version, mode, wasm_sha256 }) => ({
+          name,
+          version,
+          mode,
+          wasm_sha256,
+        })),
         results: results.map(({ samples_ms, ...entry }) => {
           samples_ms.sort((a, b) => a - b);
           return Object.assign(entry, {

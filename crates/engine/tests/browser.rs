@@ -1421,6 +1421,8 @@ fn is_dom_resource(path: &str) -> bool {
         "/custom-boxes/",
         "/positioned-boxes/",
         "/sticky-geometry/",
+        "/z-index/",
+        "/z-index-style",
         "/namespaced-elements/",
         "/urls/",
         "/response-encoding/",
@@ -1432,6 +1434,9 @@ fn is_dom_resource(path: &str) -> bool {
 }
 
 fn serve_resource(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/z-index/") || request.url() == "/z-index-style" {
+        return serve_z_index(request);
+    }
     if is_cookie_resource(request.url()) {
         return serve_cookies(request);
     }
@@ -2803,4 +2808,38 @@ fn sticky_geometry_tracks_scroll_and_containing_blocks() -> TestResult {
         );
     }
     Ok(())
+}
+
+#[test]
+fn z_index_computes_cascade_without_changing_geometry() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/z-index/{variant}")))?;
+        let result = page.evaluate("globalThis.comparison")?;
+        let checks = result.as_object().ok_or("missing z-index checks")?;
+        assert_eq!(checks.len(), 39);
+        assert!(
+            checks.values().all(|value| value == &json!(true)),
+            "{result}"
+        );
+    }
+    Ok(())
+}
+
+fn serve_z_index(request: Request) -> io::Result<()> {
+    if request.url() == "/z-index-style" {
+        return request.respond(
+            Response::from_string("#external{z-index:29!important}")
+                .with_header(header("Content-Type", "text/css")?),
+        );
+    }
+    if let Some(value) = request.url().strip_prefix("/z-index/") {
+        let variant = value.parse::<u8>().map_err(io::Error::other)?;
+        return request.respond(Response::from_string(format!(
+            "<!doctype html><link rel=\"stylesheet\" href=\"/z-index-style\"><body><script>{}\nglobalThis.comparison=zIndexCase({variant})</script>",
+            include_str!("fixtures/z-index.txt")
+        )).with_header(header("Content-Type", "text/html")?));
+    }
+    request.respond(Response::empty(404))
 }

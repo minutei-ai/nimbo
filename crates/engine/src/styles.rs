@@ -395,6 +395,7 @@ fn native_property(name: &str, value: &str, important: bool) -> Option<Vec<Entry
         "content" => content_value(value)?,
         "text-size-adjust" => crate::text_adjust::specified(value)?,
         "tab-size" => crate::tabs::specified(value)?,
+        "z-index" => crate::z_index::specified(value)?,
         "line-height" => crate::line_height::specified(value)?,
         "background-image" => crate::backgrounds::specified(value)?,
         "background-size" => crate::background_size::specified(value)?,
@@ -418,6 +419,7 @@ fn native_declaration(name: &str, value: &str) -> bool {
                 | "outline-offset"
                 | "text-size-adjust"
                 | "tab-size"
+                | "z-index"
                 | "line-height"
                 | "font-family"
                 | "display"

@@ -1,0 +1,148 @@
+{
+  "date": "2026-10-04",
+  "source": "https://github.com/web-platform-tests/wpt",
+  "source_commit": "03f14d4780c4d981bc84c65679b18e9327a1affe",
+  "files": [
+    "css/css-position/parsing/z-index-computed.html",
+    "css/css-position/parsing/z-index-valid.html",
+    "css/css-position/parsing/z-index-invalid.html"
+  ],
+  "scope": "Three original z-index parsing/computed HTML files, original helpers and testharness; original vendor integration script plus reporting-only append; output/message events disabled; real HTTP; default engine limits; no mocks",
+  "results": [
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-position/parsing/z-index-computed.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 3,
+        "passed": 3,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-position/parsing/z-index-computed.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 3,
+        "passed": 2,
+        "failed": [
+          {
+            "name": "Property z-index value 'calc(3 - 2)'",
+            "status": 1,
+            "message": "assert_true: 'calc(3 - 2)' is a supported value for z-index. expected true got false"
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-position/parsing/z-index-computed.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 3,
+        "passed": 3,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-position/parsing/z-index-valid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 4,
+        "passed": 4,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-position/parsing/z-index-valid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 4,
+        "passed": 4,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-position/parsing/z-index-valid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 4,
+        "passed": 4,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-position/parsing/z-index-invalid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 4,
+        "passed": 4,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-position/parsing/z-index-invalid.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 4,
+        "passed": 0,
+        "failed": [
+          {
+            "name": "e.style['z-index'] = \"none\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"none\""
+          },
+          {
+            "name": "e.style['z-index'] = \"10px\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"10px\""
+          },
+          {
+            "name": "e.style['z-index'] = \"0.5\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"0.5\""
+          },
+          {
+            "name": "e.style['z-index'] = \"auto 123\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"auto 123\""
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-position/parsing/z-index-invalid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 4,
+        "passed": 4,
+        "failed": []
+      }
+    }
+  ]
+}

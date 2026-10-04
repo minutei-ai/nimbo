@@ -122,7 +122,7 @@ The engine implements bounded browser subsets. See the [coverage inventory](docs
 | HTTP                             | Redirects, shared HTTP/document cookies, page fetch and per-page isolation; simplified browser networking                                          |
 | URL                              | Native parsing and form encoding, live URLSearchParams and bounded Web IDL bindings; original WPT failures remain                                  |
 | Storage                          | Bounded local/session storage; Worker requests start fresh                                                                                         |
-| CSS                              | Native declarations, selector matching, cascade and computed-style subsets                                                                         |
+| CSS                              | Native declarations, selector matching, cascade, computed z-index and other computed-style subsets                                                 |
 | Layout                           | Native block/flex/grid geometry, explicitly inset absolute/fixed boxes, selected sticky/scroll metrics and HTML categories; incomplete text layout |
 | CSSOM                            | Constructed sheets, ordered live rule lists, declarations and Document adoption; grouped rules and document-owned wrappers pending                 |
 | Canvas                           | Rust software OffscreenCanvas bitmap and selected 2D pixel operations                                                                              |
@@ -158,6 +158,7 @@ bun run bench:compare  # Nimbo in celld vs public Obscura vs unmodified Chromium
 bun run bench:obstacle # original upstream obstacle fixtures in Nimbo/celld
 bun run bench:wpt-url  # pinned original URL WPT window variants in Nimbo/celld
 bun run bench:wpt-sticky # pinned original sticky WPT fixtures; optional Obscura comparator
+bun run bench:wpt-z-index # original z-index parsing and computed WPT fixtures
 ```
 
 Native CLI timings, local celld HTTP timings and deployed Cloudflare measurements are different measurements. The remote driver requires a fixture origin reachable from the Worker; the [Cloudflare guide](docs/cloudflare.md) explains that setup. Local measurements do not establish production throughput, memory use or cost.
@@ -178,21 +179,21 @@ Latency in milliseconds, **p50 / p95**:
 
 | Scenario                | Nimbo / celld |        Obscura |        Chromium |
 | ----------------------- | ------------: | -------------: | --------------: |
-| Static HTML             | 43.74 / 70.14 |  19.60 / 21.66 |   64.38 / 94.37 |
-| Selectors, 200 nodes    | 52.11 / 59.73 |  20.33 / 21.66 |   64.00 / 87.57 |
-| Dynamic fetch           | 44.03 / 58.53 |  22.10 / 23.20 |   66.37 / 87.29 |
-| JS, DOM and events      | 50.10 / 65.39 |  30.19 / 34.96 |   69.03 / 91.43 |
-| JS modules              | 66.38 / 71.41 |  31.19 / 33.50 |   77.90 / 96.31 |
-| JS selectors, 200 nodes | 63.75 / 69.74 |  32.39 / 34.40 |   72.55 / 91.91 |
-| Static HTML, 5000 nodes | 70.04 / 89.26 |  43.03 / 46.83 | 276.02 / 315.58 |
-| Selectors, 5000 nodes   | 67.03 / 79.69 | 98.22 / 101.93 | 276.17 / 301.40 |
-| JS positioned boxes     | 73.51 / 85.91 |  33.74 / 36.35 |   70.01 / 94.86 |
+| Static HTML             | 43.55 / 56.26 |  18.49 / 21.22 |   60.26 / 88.80 |
+| Selectors, 200 nodes    | 40.71 / 56.14 |  19.77 / 21.35 |   63.85 / 82.64 |
+| Dynamic fetch           | 43.50 / 59.85 |  22.02 / 23.87 |   66.78 / 87.73 |
+| JS, DOM and events      | 54.28 / 66.36 |  29.80 / 32.36 |   67.99 / 89.02 |
+| JS modules              | 64.77 / 70.45 |  31.42 / 32.89 |   75.59 / 97.40 |
+| JS selectors, 200 nodes | 64.38 / 73.34 |  31.67 / 36.48 |   71.96 / 94.48 |
+| Static HTML, 5000 nodes | 63.29 / 77.98 |  42.38 / 49.78 | 264.90 / 310.76 |
+| Selectors, 5000 nodes   | 74.83 / 79.47 | 99.27 / 102.57 | 262.56 / 285.61 |
+| JS positioned boxes     | 66.58 / 80.63 |  33.50 / 36.67 |   70.87 / 90.75 |
 
-Nimbo has a lower p50 than Chromium in **8/9** scenarios and Obscura in
+Nimbo has a lower p50 than Chromium in **9/9** scenarios and Obscura in
 **1/9**. Matching or beating Obscura across the remaining scenarios is still
 pending. These local fixtures do not establish general SPA compatibility,
 production throughput, memory consumption or cost. See the
-[raw results](docs/performance-comparison-worker-proxy.json) and
+[raw results](docs/performance-comparison-z-index.json) and
 [reproduction guide](docs/benchmark-comparison.md).
 
 ## Runtime guides

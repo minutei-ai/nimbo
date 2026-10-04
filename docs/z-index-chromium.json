@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-04",
+  "fixture": "crates/engine/tests/fixtures/z-index.txt",
+  "scope": "64 fresh pages per runtime over real HTTP; 39 supplemental contracts per page; default limits; no mocks; separate from original WPT",
+  "report": "Aggregated from the complete per-page comparison output; failures retained in full.",
+  "results": [
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "pages": 64,
+      "passed_pages": 64,
+      "completed_checks": 2496,
+      "passed_checks": 2496,
+      "failures": []
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "pages": 64,
+      "passed_pages": 64,
+      "completed_checks": 2496,
+      "passed_checks": 2496,
+      "failures": []
+    }
+  ]
+}

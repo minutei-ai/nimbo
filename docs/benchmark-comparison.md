@@ -300,3 +300,18 @@ are higher than the earlier sticky run. Separate local runs do not isolate the
 cause; a controlled same-adapter build comparison is needed before attributing
 that difference to the transport implementation. These measurements do not
 establish proxy latency or deployed Cloudflare performance.
+
+## Computed z-index bundle measurement
+
+The [z-index bundle run](performance-comparison-z-index.json) records 648 valid
+extractions, zero failures and 567 measured samples with the same nine scenarios,
+three runtimes, rotating order and default limits. It includes the SHA-256 of
+Nimbo's actual Wasm artifact, without writing executable paths or operational
+settings to the report. The direct-fetch path runs inside celld; no proxy is
+configured for this latency measurement.
+
+Nimbo's p50 is lower than Chromium in 9/9 scenarios and Obscura in 1/9. Nimbo p50
+ranges from 40.71 to 74.83 ms. This does not prove a speed improvement caused by
+z-index support: local runs vary, and the earlier proxy-bundle run remains
+available above. Obscura performance parity and general SPA compatibility are
+still pending.

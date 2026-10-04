@@ -53,7 +53,7 @@ The tenth set rejects 64 invalid environment variants before any HTTP navigation
 The eleventh set repeats the same DOMTokenList fixture at 64 distinct URLs,
 checking live attribute reads, ordered token mutations, identity, indices,
 iteration, receiver guards and atomic invalid-token rejection. Including one hundred and thirty-nine
-resource/deadline/origin and explicit-capability checks, the real browser suite has 2955 tests.
+resource/deadline/origin and explicit-capability checks, those initial groups totalled 2955 tests; the extensions below add further cases.
 The twelfth set checks HTML namespace identity and reflected attributes with
 64 distinct synthetic strings. It includes parsed SVG/MathML and an HTML
 subtree inside SVG foreignObject.
@@ -2626,3 +2626,47 @@ of HTTPS-proxy/HTTPS-origin nested TLS and local SOCKS DNS; these are missing
 capabilities, not parity passes. Brotli, upgrades, HTTP/2, controllable TLS
 fingerprints, deployed proxy compatibility and persistent sessions remain
 unverified or unimplemented. See the [transport matrix](cloudflare.md#transport-and-limits).
+
+## Native z-index computed state
+
+Rust owns the non-inherited `auto`/integer value and feeds `getComputedStyle`,
+CSS declarations and the existing cascade. Explicit inheritance, CSS-wide
+keywords, custom properties, importance and live invalidation reuse that
+cascade. Finite numeric `calc`, `min`, `max` and `clamp` expressions use the
+existing pinned native CSS number parser; computed integer ties round toward
+positive infinity and values clamp to the signed 32-bit range. Bare fractions,
+lengths and unknown keywords are rejected atomically. Non-finite math and
+exhaustive numeric precision behavior remain unverified.
+
+Valid z-index declarations no longer cause geometry extraction to fail. The
+property does not change box dimensions or coordinates. This is computed state
+and geometry integration; stacking-context painting, compositing, hit testing
+and visual overlap are still missing capabilities.
+
+`crates/engine/tests/fixtures/z-index.txt` supplies 39 supplemental contracts
+through 64 fresh pages over real HTTP in the native adapter and real workerd.
+The same fixture runs unchanged in ordinary Chromium and Nimbo inside celld
+through `bun run compare:z-index`. It includes external stylesheets, inline
+importance, removal, variables, inheritance, integer rounding, geometry,
+reflection and validity checks. These repeated checks are separate from WPT.
+
+`bun run bench:wpt-z-index` runs the three original WPT files for valid parsing,
+invalid parsing and computed z-index, plus original helpers and testharness,
+from revision `03f14d4780c4d981bc84c65679b18e9327a1affe`. Every original source is
+checked against `tooling/wpt-z-index-sources.json`; only vendor reporting is
+appended, with assertions unchanged. Set `NIMBO_WPT_REFERENCE_ROOT` privately
+to a checkout containing those pinned files, and select ordinary Chromium and
+optional standalone public Obscura through the comparison environment variables.
+Comparator failures and incomplete runs remain failures in the report.
+
+References: [CSS stack levels](https://drafts.csswg.org/css2/#z-index),
+[original computed test](https://github.com/web-platform-tests/wpt/blob/03f14d4780c4d981bc84c65679b18e9327a1affe/css/css-position/parsing/z-index-computed.html),
+[CSS integer rounding](https://drafts.csswg.org/css-values-4/#integers).
+
+The [64-page comparison](z-index-chromium.json) completes 2496/2496 supplemental
+checks in each of Nimbo/celld and Chromium. The native adapter and workerd run
+the same 64-page fixture. The [original WPT report](performance-wpt-z-index.json)
+records Nimbo/celld and Chromium at 11/11 subtests. Public Obscura 0.2.3 passes
+6/11; its calculation-support and invalid-value failures are preserved, without
+inferring that all z-index behavior is absent. The shared CSS WPT runner also
+retains 16/16 original sticky subtests in Nimbo/celld and Chromium.

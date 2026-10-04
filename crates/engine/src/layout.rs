@@ -195,6 +195,7 @@ fn non_layout(name: &str) -> bool {
                 | "background-repeat"
                 | "background-size"
                 | "opacity"
+                | "z-index"
                 | "visibility"
                 | "container-name"
                 | "container-type"

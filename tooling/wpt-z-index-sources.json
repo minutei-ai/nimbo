@@ -1,0 +1,33 @@
+{
+  "commit": "03f14d4780c4d981bc84c65679b18e9327a1affe",
+  "files": [
+    {
+      "path": "css/css-position/parsing/z-index-computed.html",
+      "sha256": "eb17f700dbf63d01d60c1996b054cab3b9ec6dcb70543c76f899c5390ddcd964"
+    },
+    {
+      "path": "css/css-position/parsing/z-index-valid.html",
+      "sha256": "e00fb86bdd57eaf147c23b2f923aba3a2841b68b59663f1c702fed3247e35e5a"
+    },
+    {
+      "path": "css/css-position/parsing/z-index-invalid.html",
+      "sha256": "7aeeb15e15c7b3a48b8c70c295e44b682cdfe5e10ed00396207da6d352f563bb"
+    },
+    {
+      "path": "css/support/computed-testcommon.js",
+      "sha256": "20bd767e8a8bd9e4857a29aecfd52cad305ed4af1cf73a5064916a8a1d38ab01"
+    },
+    {
+      "path": "css/support/parsing-testcommon.js",
+      "sha256": "ac482e1e1908e9b98f8f1c4b2c457ec77ae5ad2baa074205c4b0f7812f4024b5"
+    },
+    {
+      "path": "resources/testharness.js",
+      "sha256": "d2399236c2a09c429804ff2299ad6629e17e2b53f17a74dd341e936adb11ae3e"
+    },
+    {
+      "path": "resources/testharnessreport.js",
+      "sha256": "3777176fc736b0a78cf7617b9613b220f635daae7536ec7ebb99c61dbb525aae"
+    }
+  ]
+}

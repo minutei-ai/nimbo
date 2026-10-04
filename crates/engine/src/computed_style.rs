@@ -6,7 +6,7 @@ use crate::{
     styles::{Declarations, Variables},
 };
 
-pub(crate) const PROPERTIES: [&str; 19] = [
+pub(crate) const PROPERTIES: [&str; 20] = [
     "background-attachment",
     "background-clip",
     "background-image",
@@ -26,6 +26,7 @@ pub(crate) const PROPERTIES: [&str; 19] = [
     "position",
     "tab-size",
     "text-size-adjust",
+    "z-index",
 ];
 
 pub(crate) struct Computed {
@@ -39,6 +40,7 @@ pub(crate) struct Computed {
     family: crate::font_family::Family,
     display: crate::display::Computed,
     position: &'static str,
+    index: crate::z_index::Index,
 }
 
 pub(crate) fn property(name: &str) -> bool {
@@ -58,6 +60,8 @@ impl Computed {
             self.sizes.value()
         } else if name == "position" {
             Ok(self.position.to_owned())
+        } else if name == "z-index" {
+            Ok(self.index.value())
         } else if name == "display" {
             self.display.value()
         } else if name == "font-family" {
@@ -119,6 +123,7 @@ pub(crate) fn resolve(
     let mut family = crate::font_family::Family::default();
     let mut display = crate::display::Computed::default();
     let mut position = "static";
+    let mut index = crate::z_index::Index::default();
     for (depth, node) in ancestors.into_iter().enumerate() {
         work.charge()?;
         let inline = sources.inline.get(&node.id).cloned().map_or_else(
@@ -147,6 +152,7 @@ pub(crate) fn resolve(
         sizes = sizes.compute(&declarations, images.count(), &fonts, work)?;
         layers = layers.compute(&declarations, images.count(), work)?;
         family = family.compute(&declarations, work)?;
+        index = index.compute(&declarations.value("z-index").0)?;
         let (specified, _) = declarations.value("position");
         position = match specified.as_str() {
             "" | "initial" | "unset" | "revert" | "static" => "static",
@@ -170,5 +176,6 @@ pub(crate) fn resolve(
         family,
         display,
         position,
+        index,
     })
 }

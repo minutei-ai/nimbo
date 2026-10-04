@@ -1,3 +1,4 @@
+import { zIndexFixture } from "./z-index-fixture";
 import { stickyGeometryFixture } from "./sticky-geometry-fixture";
 import { cookiesFixture } from "./cookies-fixture";
 import { urlsFixture } from "./urls-fixture";
@@ -442,6 +443,8 @@ const origin = Bun.serve({
     if (encoded) return encoded;
     const namespaced = namespacedElementsFixture(path);
     if (namespaced) return namespaced;
+    const zIndex = zIndexFixture(path);
+    if (zIndex) return zIndex;
     const stickyGeometry = stickyGeometryFixture(path);
     if (stickyGeometry) return stickyGeometry;
     const positionedBoxes = positionedBoxesFixture(path);
@@ -4777,7 +4780,7 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
   expect(await response.json()).toMatchObject({
     value: {
       font: "18px",
-      count: 19,
+      count: 20,
       names: [
         "background-attachment",
         "background-clip",
@@ -4798,6 +4801,7 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
         "position",
         "tab-size",
         "text-size-adjust",
+        "z-index",
       ],
     },
   });
@@ -5931,5 +5935,26 @@ test.each(["scrollTop", "clientHeight", "offsetParent"])(
     });
     expect(recovered.status).toBe(200);
     expect(await recovered.json()).toMatchObject({ value: true });
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: z-index computed state variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`z-index/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing result");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing checks");
+    expect(Object.keys(value)).toHaveLength(39);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
   },
 );
