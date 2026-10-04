@@ -7,6 +7,7 @@ interface NimboResponse {
 }
 declare function nimboRequest(url: string, method: string, body: string): Promise<NimboResponse>;
 declare function nimboStorage(area: number, operation: string, key: string, value: string): string;
+declare function nimboCookie(write: boolean, value: string): string;
 declare function nimboMedia(query: string): string;
 declare const nimboMediaEnvironment: string;
 declare const nimboUrl: string;

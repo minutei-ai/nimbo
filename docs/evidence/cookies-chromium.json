@@ -1,0 +1,1288 @@
+{
+  "comparator": "Google Chrome for Testing 153.0.8010.12",
+  "pages": 64,
+  "tests": 896,
+  "passed": 64,
+  "rows": [
+    {
+      "variant": 0,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 1,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 2,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 3,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 4,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 5,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 6,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 7,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 8,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 9,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 10,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 11,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 12,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 13,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 14,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 15,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 16,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 17,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 18,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 19,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 20,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 21,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 22,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 23,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 24,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 25,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 26,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 27,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 28,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 29,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 30,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 31,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 32,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 33,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 34,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 35,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 36,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 37,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 38,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 39,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 40,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 41,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 42,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 43,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 44,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 45,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 46,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 47,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 48,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 49,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 50,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 51,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 52,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 53,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 54,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 55,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 56,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 57,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 58,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 59,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 60,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 61,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 62,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    },
+    {
+      "variant": 63,
+      "checks": {
+        "server": true,
+        "accumulate": true,
+        "httpOnly": true,
+        "domain": true,
+        "pathHidden": true,
+        "pathOrder": true,
+        "expiration": true,
+        "attributes": true,
+        "binding": true,
+        "httpShared": true,
+        "defaultPath": true,
+        "explicitPath": true,
+        "serverUpdate": true,
+        "variant": true
+      },
+      "passed": true
+    }
+  ]
+}

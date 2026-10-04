@@ -290,9 +290,14 @@ test("repeated pages have fresh cookies and guest globals", async () => {
       for (let cycle = 0; cycle < 20; cycle++) {
         // Sequential lifecycle checks detect stale state and failed page cleanup.
         // oxlint-disable-next-line eslint/no-await-in-loop
-        const response = await scrape(worker, "[typeof previous, (globalThis.previous = 1)]");
+        const response = await scrape(
+          worker,
+          "[typeof previous, (globalThis.previous = 1), document.cookie.includes('guest='), (document.cookie = 'guest=private; Path=/')]",
+        );
         // oxlint-disable-next-line eslint/no-await-in-loop
-        expect(await json(response)).toMatchObject({ value: ["undefined", 1] });
+        expect(await json(response)).toMatchObject({
+          value: ["undefined", 1, false, "guest=private; Path=/"],
+        });
       }
       expect(cookies).toHaveLength(20);
       expect(cookies.every((cookie) => cookie === null)).toBe(true);

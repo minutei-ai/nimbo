@@ -1,5 +1,4 @@
-import { decode_response } from "../../../dist/wasm/nimbo_engine.js";
-import { CookieJar } from "tough-cookie";
+import { decode_response, WasmCookies } from "../../../dist/wasm/nimbo_engine.js";
 import { ScrapeError, type Egress, type EngineLimits } from "./protocol";
 
 export async function readBytes(message: Request | Response, maximum: number): Promise<Uint8Array> {
@@ -44,7 +43,11 @@ export async function readBody(
 
 export class Transport {
   private readonly origin: string;
-  private readonly jar = new CookieJar();
+  readonly cookies: WasmCookies;
+
+  free(): void {
+    this.cookies.free();
+  }
   private requests = 0;
   private bytes = 0;
   private readonly encode = new TextEncoder();
@@ -55,6 +58,7 @@ export class Transport {
     private readonly egress?: Egress,
   ) {
     this.origin = this.resolve(url).origin;
+    this.cookies = new WasmCookies();
   }
 
   private resolve(value: string): URL {
@@ -81,7 +85,7 @@ export class Transport {
         throw new ScrapeError({ status: 422, reason: "request count limit" });
       this.requests++;
       const headers = new Headers({ "user-agent": "Nimbo/0.1", accept: "*/*" });
-      const cookie = this.jar.getCookieStringSync(url.href);
+      const cookie = this.cookies.header(url.href);
       if (cookie) headers.set("cookie", cookie);
       const request = new Request(url, {
         method,
@@ -94,14 +98,13 @@ export class Transport {
       // oxlint-disable-next-line eslint/no-await-in-loop
       const response = await (this.egress ? this.egress.fetch(request) : fetch(request));
       try {
-        for (const setCookie of response.headers.getSetCookie())
-          this.jar.setCookieSync(setCookie, url.href, { ignoreError: true });
-        const cookies = this.jar.serializeSync()?.cookies ?? [];
-        if (
-          cookies.length > 128 ||
-          this.encode.encode(JSON.stringify(cookies)).byteLength > 64 * 1024
-        )
-          throw new ScrapeError({ status: 422, reason: "cookie budget limit" });
+        for (const setCookie of response.headers.getSetCookie()) {
+          try {
+            this.cookies.set(url.href, setCookie);
+          } catch {
+            throw new ScrapeError({ status: 422, reason: "cookie budget limit" });
+          }
+        }
         if ([301, 302, 303, 307, 308].includes(response.status)) {
           const location = response.headers.get("location");
           if (!location)

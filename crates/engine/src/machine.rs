@@ -12,9 +12,7 @@ use rquickjs::{Context, Ctx, Exception, Function, Persistent, Promise, Runtime};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::{
-    Error, Limits, MediaEnvironment, Result, dom::Dom, modules::Modules, storage::Storage,
-};
+use crate::{Error, Limits, MediaEnvironment, Result, dom::Dom, modules::Modules};
 
 type Check = Arc<dyn Fn() -> bool + Send + Sync>;
 
@@ -147,7 +145,7 @@ impl Machine {
         limits: Limits,
         check: Check,
         execute_scripts: bool,
-        storage: Rc<RefCell<Storage>>,
+        session: crate::cookies::Session,
         media: MediaEnvironment,
     ) -> Result<Self> {
         if html.len() > limits.max_response_bytes {
@@ -213,7 +211,7 @@ impl Machine {
             base,
             dom: Rc::clone(&dom),
         };
-        machine.bootstrap(dom, url, storage, media)?;
+        machine.bootstrap(dom, url, session, media)?;
         machine.check_budget()?;
         Ok(machine)
     }
@@ -222,9 +220,10 @@ impl Machine {
         &mut self,
         dom: Rc<RefCell<Dom>>,
         url: &str,
-        storage: Rc<RefCell<Storage>>,
+        session: crate::cookies::Session,
         media: MediaEnvironment,
     ) -> Result<()> {
+        let storage = session.storage;
         let limits = self.limits;
         let pending = Rc::clone(&self.pending);
         let request_base = self.base.clone();
@@ -235,6 +234,7 @@ impl Machine {
         let (ready, timer, intersections, resource) = self.context.with(|ctx| -> Result<_> {
             let globals = ctx.globals();
             install_clock(&ctx, clock, limits)?;
+            js(&ctx, session.cookies.install(&ctx, self.base.clone()))?;
             let dom_function = Function::new(
                 ctx.clone(),
                 move |ctx: Ctx<'_>, op: String, handle: usize, arg: String, value: String| {

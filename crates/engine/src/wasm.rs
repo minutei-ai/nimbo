@@ -38,6 +38,7 @@ impl WasmPage {
         media: Option<String>,
         max_stylesheet_bytes: Option<usize>,
         max_layout_nodes: Option<usize>,
+        cookies: Option<WasmCookies>,
     ) -> Result<Self, String> {
         let media: MediaEnvironment = media
             .map_or_else(
@@ -65,7 +66,10 @@ impl WasmPage {
             limits,
             Arc::new(|| false),
             execute_scripts.unwrap_or(true),
-            std::rc::Rc::default(),
+            crate::cookies::Session {
+                storage: std::rc::Rc::default(),
+                cookies: cookies.map_or_else(crate::cookies::Cookies::default, |jar| jar.cookies),
+            },
             media,
         )
         .map(|machine| Self { machine })
@@ -141,4 +145,47 @@ pub fn engine_limits() -> String {
 pub fn decode_response(bytes: &[u8], content_type: &str) -> Result<String, String> {
     crate::response_encoding::decode(bytes, content_type, Limits::default().max_response_bytes)
         .map_err(|error| error.to_string())
+}
+
+/// Bounded session jar shared by the Rust page and the host HTTP transport.
+#[wasm_bindgen]
+#[derive(Debug, Default)]
+pub struct WasmCookies {
+    cookies: crate::cookies::Cookies,
+}
+
+#[wasm_bindgen]
+impl WasmCookies {
+    /// Creates an isolated cookie session.
+    #[wasm_bindgen(constructor)]
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Shares this jar without copying its cookie state.
+    #[must_use]
+    pub fn share(&self) -> Self {
+        Self {
+            cookies: self.cookies.clone(),
+        }
+    }
+
+    /// HTTP Cookie header for the destination, including `HttpOnly` cookies.
+    /// # Errors
+    /// Rejects an invalid HTTP(S) URL.
+    pub fn header(&self, url: &str) -> Result<String, String> {
+        crate::machine::parse_url(url)
+            .map(|url| self.cookies.header(&url, false))
+            .map_err(|error| error.to_string())
+    }
+
+    /// Accepts a Set-Cookie response header using the shared cookie rules.
+    /// # Errors
+    /// Rejects invalid destinations and exhausted session budgets.
+    pub fn set(&self, url: &str, value: &str) -> Result<(), String> {
+        crate::machine::parse_url(url)
+            .and_then(|url| self.cookies.set(&url, value, false))
+            .map_err(|error| error.to_string())
+    }
 }

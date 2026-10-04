@@ -1,0 +1,82 @@
+async function cookiesCase(variant) {
+  const jar = () => Object.fromEntries(document.cookie.split('; ').filter(Boolean).map(pair => {
+    const index = pair.indexOf('=');
+    return [pair.slice(0, index), pair.slice(index + 1)];
+  }));
+  const echo = path => fetch(path).then(response => response.json());
+  const result = {};
+  result.server = jar().boot === 'visible' && !('sid' in jar());
+  document.cookie = 'a=one';
+  document.cookie = 'b=two=three';
+  result.accumulate = jar().a === 'one' && jar().b === 'two=three';
+  document.cookie = 'sid=stolen; Path=/';
+  document.cookie = 'sid=gone; Path=/; Max-Age=0';
+  document.cookie = 'forged=secret; HttpOnly';
+  result.httpOnly = !('sid' in jar()) && !('forged' in jar());
+  document.cookie = 'foreign=no; Domain=example.com';
+  result.domain = !('foreign' in jar());
+  document.cookie = 'outside=yes; Path=/outside';
+  result.pathHidden = !('outside' in jar());
+  document.cookie = 'same=broad; Path=/';
+  document.cookie = 'same=narrow; Path=/cookies';
+  result.pathOrder = document.cookie.indexOf('same=narrow') < document.cookie.indexOf('same=broad');
+  document.cookie = 'removed=yes';
+  document.cookie = 'removed=; Max-Age=0';
+  document.cookie = 'expired=yes; Expires=Thu, 01 Jan 1970 00:00:00 GMT';
+  document.cookie = 'precedence=yes; Max-Age=60; Expires=Thu, 01 Jan 1970 00:00:00 GMT';
+  result.expiration = !('removed' in jar()) && !('expired' in jar()) && jar().precedence === 'yes';
+  document.cookie = 'trusted=yes; Secure';
+  document.cookie = '__Secure-invalid=no';
+  document.cookie = '__Host-invalid=no; Secure';
+  document.cookie = '__Host-valid=yes; Secure; Path=/';
+  document.cookie = '__Http-invalid=no; Secure';
+  document.cookie = 'noneInvalid=no; SameSite=None';
+  result.attributes = jar().trusted === 'yes' && jar()['__Host-valid'] === 'yes'
+    && !('__Secure-invalid' in jar()) && !('__Host-invalid' in jar())
+    && !('__Http-invalid' in jar()) && !('noneInvalid' in jar());
+  let symbol = false;
+  try { document.cookie = Symbol(); } catch (error) { symbol = error instanceof TypeError; }
+  const descriptor = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie');
+  let brand = false;
+  try { descriptor.get.call({}); } catch (error) { brand = error instanceof TypeError; }
+  result.binding = symbol && brand && descriptor.enumerable && typeof globalThis.nimboCookie === 'undefined';
+  const inside = await echo('/cookies/echo');
+  const outside = await echo('/outside/echo');
+  const boundary = await echo('/cookies-other/echo');
+  result.httpShared = inside.includes('sid=alpha') && inside.includes('a=one') && inside.includes('b=two=three')
+    && !inside.includes('sid=stolen') && !inside.includes('forged=') && !inside.includes('outside=');
+  result.defaultPath = !outside.includes('a=one') && !boundary.includes('a=one');
+  result.explicitPath = outside.includes('outside=yes') && !boundary.includes('outside=yes');
+  result.serverUpdate = jar().fetched === 'yes';
+  document.cookie = `variant=${variant}; Path=/`;
+  result.variant = (await echo('/cookies/echo')).includes(`variant=${variant}`);
+  return result;
+}
+async function cookiesExpirationCase() {
+  document.cookie = 'short=yes; Max-Age=1';
+  const before = document.cookie.includes('short=yes');
+  await new Promise(resolve => setTimeout(resolve, 1500));
+  const after = !document.cookie.includes('short=yes');
+  const header = await fetch('/cookies/echo').then(response => response.json());
+  return { before, after, httpExpired: !header.includes('short=yes') };
+}
+function cookiesCountCase() {
+  let count = 0;
+  let limited = false;
+  try {
+    for (; count < 127; count++) document.cookie = `item${count}=yes; Path=/`;
+  } catch (error) { limited = String(error).includes('cookie budget'); }
+  document.cookie = 'item0=; Path=/; Max-Age=0';
+  document.cookie = 'recovered=yes; Path=/';
+  return { limited, count: count === 126, atomic: !document.cookie.includes('item126='), recovered: document.cookie.includes('recovered=yes') };
+}
+function cookiesBytesCase() {
+  let limited = false;
+  let count = 0;
+  try {
+    for (; count < 30; count++) document.cookie = `bytes${count}=${'a'.repeat(3000)}; Path=/`;
+  } catch (error) { limited = String(error).includes('cookie budget'); }
+  document.cookie = 'bytes0=; Path=/; Max-Age=0';
+  document.cookie = 'bytesRecovered=yes; Path=/';
+  return { limited, bytes: count > 15 && count < 25, atomic: !document.cookie.includes(`bytes${count}=`), recovered: document.cookie.includes('bytesRecovered=yes') };
+}

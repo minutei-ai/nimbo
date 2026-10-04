@@ -218,7 +218,7 @@
       "name": "cookies",
       "file": "fixtures/cookies.html",
       "type": "eval",
-      "status": "failed"
+      "status": "passed"
     },
     {
       "name": "charset-shiftjis",
@@ -346,7 +346,7 @@
     ],
     "note": "Source-file inventory; neither a subtest count nor execution evidence."
   },
-  "obstacle_evidence": "docs/performance-obstacle-url.json",
+  "obstacle_evidence": "docs/performance-obstacle-cookies.json",
   "wpt_url_evidence": "docs/performance-wpt-url.json",
   "wpt_url_scope": "24 original .any.js files, 30 original window-global META variants; original testharness and assertions; SHA-256 verification; remaining WPT globals/files/suites pending"
 }

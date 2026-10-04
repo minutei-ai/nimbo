@@ -4,7 +4,6 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "effect": "4.0.0",
-    "tough-cookie": "6.0.1"
+    "effect": "4.0.0"
   }
 }

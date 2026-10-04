@@ -6,7 +6,6 @@ use crate::{
     Error, MediaEnvironment, Result,
     machine::{Action, Machine, Response, parse_url},
     network::Transport,
-    storage::Storage,
 };
 
 /// Documento carregado. Drop libera DOM, contexto JS e recursos da página.
@@ -30,7 +29,7 @@ impl Page {
     pub(crate) fn load(
         response: Response,
         transport: Rc<Transport>,
-        storage: Rc<RefCell<Storage>>,
+        session: crate::cookies::Session,
         media: MediaEnvironment,
     ) -> Result<Self> {
         transport.check_deadline()?;
@@ -41,7 +40,7 @@ impl Page {
             transport.limits,
             Arc::new(move || std::time::Instant::now() >= deadline),
             true,
-            storage,
+            session,
             media,
         )?;
         let page = Self {

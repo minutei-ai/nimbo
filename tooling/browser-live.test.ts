@@ -1,3 +1,4 @@
+import { cookiesFixture } from "./cookies-fixture";
 import { urlsFixture } from "./urls-fixture";
 import { responseEncodingCases, responseEncodingFixture } from "./response-encoding-fixture";
 import { namespacedElementsFixture } from "./namespaced-elements-fixture";
@@ -432,6 +433,8 @@ const origin = Bun.serve({
   port: 0,
   async fetch(request) {
     const path = new URL(request.url).pathname;
+    const cookies = cookiesFixture(path, request);
+    if (cookies) return cookies;
     const urls = urlsFixture(path);
     if (urls) return urls;
     const encoded = responseEncodingFixture(path);
@@ -5826,3 +5829,58 @@ test("real HTTP → workerd → Wasm: URL limits preserve query state and recove
     recovered: true,
   });
 });
+
+test.each(Array.from({ length: 64 }, (_, index) => index))(
+  "real HTTP → workerd → Wasm: document and transport cookie variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`cookies/${variant}`, origin.url).href,
+        expression: `cookiesCase(${variant})`,
+      }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing result");
+    expect(Reflect.get(result, "value")).toEqual({
+      server: true,
+      accumulate: true,
+      httpOnly: true,
+      domain: true,
+      pathHidden: true,
+      pathOrder: true,
+      expiration: true,
+      attributes: true,
+      binding: true,
+      httpShared: true,
+      defaultPath: true,
+      explicitPath: true,
+      serverUpdate: true,
+      variant: true,
+    });
+  },
+);
+
+test.each([
+  ["cookiesExpirationCase", { before: true, after: true, httpExpired: true }],
+  ["cookiesCountCase", { limited: true, count: true, atomic: true, recovered: true }],
+  ["cookiesBytesCase", { limited: true, bytes: true, atomic: true, recovered: true }],
+] as const)(
+  "real HTTP → workerd → Wasm: cookie expiry and budgets %s",
+  async (functionName, expected) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL("cookies/0", origin.url).href,
+        expression: `${functionName}()`,
+      }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing result");
+    expect(Reflect.get(result, "value")).toEqual(expected);
+  },
+);

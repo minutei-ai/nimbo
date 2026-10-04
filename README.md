@@ -80,7 +80,7 @@ The engine implements bounded browser subsets. See the [coverage inventory](docs
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | HTML and DOM                     | Parsing, selectors, attributes, text, mutations and selected element interfaces                                                                    |
 | JavaScript                       | Classic scripts, supported modules, live bindings, top-level await, Promises and bounded timers                                                    |
-| HTTP                             | Redirects, cookies, page fetch and per-page isolation; simplified browser networking                                                               |
+| HTTP                             | Redirects, shared HTTP/document cookies, page fetch and per-page isolation; simplified browser networking                                          |
 | URL                              | Native parsing and form encoding, live URLSearchParams and bounded Web IDL bindings; original WPT failures remain                                  |
 | Storage                          | Bounded local/session storage; Worker requests start fresh                                                                                         |
 | CSS                              | Native declarations, selector matching, cascade and computed-style subsets                                                                         |

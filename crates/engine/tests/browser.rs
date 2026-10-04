@@ -197,6 +197,28 @@ fn serve_sheet(request: Request) -> io::Result<()> {
     request.respond(response)
 }
 
+fn is_cookie_resource(path: &str) -> bool {
+    path.starts_with("/cookies/") || matches!(path, "/outside/echo" | "/cookies-other/echo")
+}
+
+fn serve_cookies(request: Request) -> io::Result<()> {
+    let mut headers = Vec::new();
+    let body = if request.url().starts_with("/cookies/") && request.url() != "/cookies/echo" {
+        headers.push(header("Set-Cookie", "sid=alpha; HttpOnly; Path=/")?);
+        headers.push(header("Set-Cookie", "boot=visible; Path=/")?);
+        script_fixture(include_str!("fixtures/cookies.txt"))
+    } else {
+        headers.push(header("Set-Cookie", "fetched=yes; Path=/")?);
+        let cookies = request
+            .headers()
+            .iter()
+            .find(|header| header.field.equiv("Cookie"))
+            .map_or("", |header| header.value.as_str());
+        serde_json::to_string(cookies).map_err(io::Error::other)?
+    };
+    respond(request, body, 200, "text/html; charset=utf-8", headers)
+}
+
 fn serve(mut request: Request) -> io::Result<()> {
     if is_resource(request.url()) {
         return serve_resource(request);
@@ -1409,6 +1431,9 @@ fn is_dom_resource(path: &str) -> bool {
 }
 
 fn serve_resource(request: Request) -> io::Result<()> {
+    if is_cookie_resource(request.url()) {
+        return serve_cookies(request);
+    }
     if is_dom_resource(request.url()) {
         return serve_dom_resources(request);
     }
@@ -1608,6 +1633,9 @@ fn binary_font_data_parses_real_bytes_and_tracks_status() -> TestResult {
 }
 
 fn is_resource(path: &str) -> bool {
+    if is_cookie_resource(path) {
+        return true;
+    }
     is_dom_resource(path)
         || [
             "/sheets-css/",
@@ -2698,5 +2726,56 @@ fn url_limits_preserve_state_and_allow_recovery() -> TestResult {
         page.evaluate("urlsLimitsCase()")?,
         json!({"boundedURL":true,"boundedQuery":true,"statePreserved":true,"recovered":true})
     );
+    Ok(())
+}
+
+#[test]
+fn document_cookies_share_real_http_state_and_keep_attributes() -> TestResult {
+    let fixture = Fixture::new()?;
+    for variant in 0..64 {
+        let browser = fixture.browser()?;
+        let page = browser.navigate(&fixture.path(&format!("/cookies/{variant}")))?;
+        let result = page.evaluate(&format!("cookiesCase({variant})"))?;
+        let checks = result.as_object().ok_or("missing cookie results")?;
+        assert_eq!(checks.len(), 14);
+        for (name, passed) in checks {
+            assert_eq!(*passed, json!(true), "variant {variant}: {name}");
+        }
+        let next = browser.navigate(&fixture.path("/static"))?;
+        assert_eq!(
+            next.evaluate(&format!("document.cookie.includes('variant={variant}')"))?,
+            json!(true)
+        );
+        let isolated = fixture.browser()?.navigate(&fixture.path("/static"))?;
+        assert_eq!(isolated.evaluate("document.cookie")?, json!(""));
+    }
+    Ok(())
+}
+
+#[test]
+fn document_cookies_expire_with_real_time_and_recover_from_budgets() -> TestResult {
+    let fixture = Fixture::new()?;
+    for (function, expected) in [
+        (
+            "cookiesExpirationCase",
+            json!({"before":true,"after":true,"httpExpired":true}),
+        ),
+        (
+            "cookiesCountCase",
+            json!({"limited":true,"count":true,"atomic":true,"recovered":true}),
+        ),
+        (
+            "cookiesBytesCase",
+            json!({"limited":true,"bytes":true,"atomic":true,"recovered":true}),
+        ),
+    ] {
+        let browser = fixture.browser()?;
+        let page = browser.navigate(&fixture.path("/cookies/0"))?;
+        assert_eq!(
+            page.evaluate(&format!("{function}()"))?,
+            expected,
+            "{function}"
+        );
+    }
     Ok(())
 }

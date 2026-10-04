@@ -39,10 +39,13 @@ const scrape = (request: Request, environment: Environment) =>
           ),
         ),
       );
-      const transport = yield* Effect.try({
-        try: () => new Transport(input.url, limits, environment.EGRESS),
-        catch: (cause) => failure(cause, 400),
-      });
+      const transport = yield* Effect.acquireRelease(
+        Effect.try({
+          try: () => new Transport(input.url, limits, environment.EGRESS),
+          catch: (cause) => failure(cause, 400),
+        }),
+        (connection) => Effect.sync(() => connection.free()),
+      );
       const response = yield* Effect.tryPromise({
         try: (signal) => transport.request(input.url, "GET", "", signal),
         catch: (cause) => failure(cause, 502),
@@ -64,6 +67,7 @@ const scrape = (request: Request, environment: Environment) =>
               input.media === undefined ? undefined : JSON.stringify(input.media),
               input.maxStylesheetBytes,
               input.maxLayoutNodes,
+              transport.cookies.share(),
             ),
           catch: (cause) => failure(cause),
         }),

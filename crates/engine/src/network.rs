@@ -1,14 +1,14 @@
-use std::{
-    cell::{Cell, RefCell},
-    io::Read,
-    rc::Rc,
-    time::Instant,
-};
+use std::{cell::Cell, io::Read, rc::Rc, time::Instant};
 
 use crate::machine::{Response, parse_url};
-use reqwest::{Url, blocking::Client, header::LOCATION, redirect::Policy};
+use reqwest::{
+    Url,
+    blocking::Client,
+    header::{COOKIE, LOCATION, SET_COOKIE},
+    redirect::Policy,
+};
 
-use crate::{Error, Limits, MediaEnvironment, Page, Result, storage::Storage};
+use crate::{Error, Limits, MediaEnvironment, Page, Result, cookies::Session};
 
 /// Uma sessão HTTP com cookies próprios e uma única origem autorizada.
 #[derive(Debug)]
@@ -17,7 +17,7 @@ pub struct Browser {
     origin: Url,
     limits: Limits,
     media: MediaEnvironment,
-    storage: Rc<RefCell<Storage>>,
+    session: Session,
 }
 
 impl Browser {
@@ -54,7 +54,6 @@ impl Browser {
             return Err(Error::Limit("invalid configuration"));
         }
         let client = Client::builder()
-            .cookie_store(true)
             .redirect(Policy::none())
             .no_proxy()
             .user_agent("Nimbo/0.1")
@@ -64,7 +63,7 @@ impl Browser {
             origin,
             limits,
             media,
-            storage: Rc::default(),
+            session: Session::default(),
         })
     }
 
@@ -83,6 +82,7 @@ impl Browser {
             limits: self.limits,
             requests: Cell::new(0),
             bytes: Cell::new(0),
+            cookies: self.session.cookies.clone(),
         });
         let response = transport.request(&self.origin, url, "GET", "", false)?;
         if !(200..300).contains(&response.status) {
@@ -94,7 +94,7 @@ impl Browser {
         Page::load(
             response,
             transport,
-            Rc::clone(&self.storage),
+            self.session.clone(),
             self.media.clone(),
         )
     }
@@ -108,6 +108,7 @@ pub(crate) struct Transport {
     pub limits: Limits,
     requests: Cell<usize>,
     bytes: Cell<usize>,
+    cookies: crate::cookies::Cookies,
 }
 
 impl Transport {
@@ -156,10 +157,19 @@ impl Transport {
                 .client
                 .request(method.clone(), url.clone())
                 .timeout(self.deadline.saturating_duration_since(Instant::now()));
+            let cookies = self.cookies.header(&url, false);
+            if !cookies.is_empty() {
+                request = request.header(COOKIE, cookies);
+            }
             if method == reqwest::Method::POST {
                 request = request.body(body.to_owned());
             }
             let response = request.send()?;
+            for header in response.headers().get_all(SET_COOKIE) {
+                if let Ok(value) = header.to_str() {
+                    self.cookies.set(&url, value, false)?;
+                }
+            }
             let status = response.status();
             if matches!(status.as_u16(), 301 | 302 | 303 | 307 | 308) {
                 let location = response

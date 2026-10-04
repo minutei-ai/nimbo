@@ -3,6 +3,7 @@
   const nativeDom = nimboDom;
   const nativeRequest = nimboRequest;
   const nativeStorage = nimboStorage;
+  const nativeCookie = nimboCookie;
   const nativeMedia = nimboMedia;
   const nativeEncode = nimboEncode;
   const nativeDecoder = nimboDecoder;
@@ -22,6 +23,7 @@
   Reflect.deleteProperty(globalThis, "nimboDom");
   Reflect.deleteProperty(globalThis, "nimboRequest");
   Reflect.deleteProperty(globalThis, "nimboStorage");
+  Reflect.deleteProperty(globalThis, "nimboCookie");
   Reflect.deleteProperty(globalThis, "nimboMedia");
   Reflect.deleteProperty(globalThis, "nimboEncode");
   Reflect.deleteProperty(globalThis, "nimboDecoder");
@@ -3450,6 +3452,15 @@
     },
   });
   class Document extends ParentNode {
+    get cookie(): string {
+      if (this !== document) throw new TypeError("Illegal invocation");
+      return nativeCookie(false, "");
+    }
+    set cookie(value: unknown) {
+      if (this !== document) throw new TypeError("Illegal invocation");
+      nativeCookie(true, domString(value));
+    }
+
     getElementsByTagName(qualifiedName: unknown): HTMLCollection {
       if (!(this instanceof Document)) throw new TypeError("Illegal invocation");
       required(1, arguments.length);
@@ -3562,7 +3573,7 @@
     }
     return target;
   }
-  for (const key of ["append", "prepend"]) {
+  for (const key of ["append", "prepend", "cookie"]) {
     const descriptor = Object.getOwnPropertyDescriptor(Document.prototype, key);
     if (descriptor)
       Object.defineProperty(Document.prototype, key, { ...descriptor, enumerable: true });

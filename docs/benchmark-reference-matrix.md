@@ -123,9 +123,17 @@ The [native URL repeat](performance-obstacle-url.json) preserves the same origin
 fixtures, expectations, source revision, three-second delay, one warmup and five
 measured attempts. It records **174 real HTTP extractions: 78 valid, 96 failed**.
 The original URL fixture now passes all six attempts, retaining every previously
-passing stage. The current result is **13/33 complete**, with 16 failed stages
+passing stage. That URL repeat records **13/33 complete**, with 16 failed stages
 and four unadapted outputs. This does not establish full URL, SPA or browser
 conformance; the original WPT failures remain visible below.
+
+The [shared-cookie repeat](performance-obstacle-cookies.json) preserves every
+original fixture, expression, expected value, three-second delay and attempt
+count. The original cookies stage now passes all six attempts, retaining the
+13 previously passing stages. It records **174 real HTTP extractions: 84 valid,
+90 failed**. The current result is **14/33 complete**, with 15 failed stages and
+four missing output adapters. This does not establish full cookie conformance
+or a complete upstream-suite pass.
 
 The following table records this latest repeat. All previous reports above remain
 historical evidence.
@@ -163,12 +171,12 @@ historical evidence.
 | `extract-links`         | extraction | adapter-missing | 0/0               |
 | `extract-html`          | extraction | adapter-missing | 0/0               |
 | `fingerprint`           | scraping   | failed          | 0/6               |
-| `cookies`               | scraping   | failed          | 0/6               |
+| `cookies`               | scraping   | passed          | 6/6               |
 | `charset-shiftjis`      | scraping   | passed          | 6/6               |
 
 The failures expose concrete next work: dynamic module graphs, text geometry,
 MutationObserver, animation frames, History and remaining URL parsing, structuredClone, shadow DOM,
-File API, Range/Selection, dialog/input methods, fingerprints, cookie behavior,
+File API, Range/Selection, dialog/input methods, fingerprints, complete cookie semantics,
 complete document/resource decoding and extraction modes. The original fixture values and
 assertions stay fixed while the engine changes.
 
@@ -176,6 +184,14 @@ An earlier [completion-polling diagnostic](performance-obstacle-polling-diagnost
 used the original fixtures and expressions but changed their settle timing. It
 is retained as diagnostic evidence and does not replace the original-delay suite
 result.
+
+The [three-runtime repeat after shared cookies](performance-comparison-cookies.json)
+uses the same nine supplemental scenarios, rotating runtime order, three warmups
+and 21 measured attempts. All 648 extractions are valid, with zero failures and
+567 measured samples. Nimbo has lower p50 than Chromium in 9/9 scenarios and
+lower p50 than public Obscura in 1/9; the remaining performance goal is open.
+This comparison does not replace the original 33-stage suite or establish
+causal speed changes from the cookie implementation.
 
 ## Acceptance and reporting
 

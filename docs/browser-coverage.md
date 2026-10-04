@@ -557,7 +557,7 @@ evidence cannot establish it.
 | XMLHttpRequest, forms, files and binary responses    | Partial    | Binary fetch body reads verified below; uploads, XHR, files, progress and cancellation remain     |
 | CORS, CSP, mixed content and origin policy           | Subset     | Current same-origin restriction is not a browser policy implementation                            |
 | Network interception, response fulfillment, blocking | Missing    | Actual request pause/continue/fail/fulfill and event/body correlation                             |
-| Cookies and per-navigation isolation                 | Subset     | Path/domain/expiry/Secure/HttpOnly/SameSite, independent contexts                                 |
+| Cookies and per-navigation isolation                 | Subset     | Shared HTTP/JS jar, attributes and budgets; cross-site semantics and full cookie WPT pending      |
 | Persistent sessions, cookies and storage             | Missing    | Restart/eviction recovery and tenant isolation via durable state                                  |
 | localStorage/sessionStorage/IndexedDB                | Subset     | Web Storage/quota tested; IndexedDB, durable state and storage events missing                     |
 | HTMLAnchorElement and document base                  | Subset     | Native links/relList and real script/module/fetch loads; navigation gaps                          |
@@ -2440,3 +2440,53 @@ The [three-runtime repeat](performance-comparison-url.json) records 648 valid
 extractions, zero failures and 567 measured samples over nine scenarios. Nimbo's
 p50 is lower than Chromium in 9/9 scenarios and lower than public Obscura in 1/9;
 these local control-adapter measurements do not establish universal superiority.
+
+## Shared document and HTTP cookies
+
+Guest `document.cookie`, native HTTP and Worker HTTP now use one bounded Rust
+session jar. Generic public cookie parsing and expiry libraries supply syntax,
+domain/path matching and real wall-clock expiration; Nimbo owns storage,
+ordering, guest bindings and transport integration. The Worker no longer keeps
+a separate JavaScript cookie jar. Obscura is not involved in this runtime path.
+
+The implementation includes multiple cookie assignments, default and explicit
+paths, domain rejection with a pinned public suffix list, duplicate names ordered
+by path and creation, replacement/deletion, Max-Age precedence, Secure cookies
+in trustworthy contexts, HttpOnly protection and selected cookie prefix rules.
+HTTP redirects and page fetches update the same jar. Guest bridge functions are
+removed from page globals before scripts execute. Native Browser instances keep
+their session across navigations; each Worker extraction starts a fresh session.
+The session is capped at 128 cookies and 64 KiB of cookie metadata. Rejected
+budget writes leave prior cookies intact, and deletion releases capacity.
+
+A shared synthetic fixture checks 14 contracts across 64 fresh documents:
+896 assertions in native Rust and 896 in real HTTP/workerd/Wasm. The same
+896 assertions pass in [ordinary Chromium 153](evidence/cookies-chromium.json).
+Separate real-time tests wait for a one-second cookie to expire and validate
+count/byte-budget recovery. These supplementary tests exercise engine contracts;
+original upstream fixtures and assertions remain unchanged.
+
+The original pinned URL WPT subset was repeated after this change and produced
+the identical recorded result: 3,820/4,712 completed tests pass, with 892 failures
+and one incomplete variant. Full cookie WPT execution remains pending.
+
+The [original upstream cookies stage](performance-obstacle-cookies.json) passes
+all six attempts with the original fixture, expression, expected value and
+three-second delay. The full 33-stage repeat records 14 passed, 15 failed and
+four missing output adapters; all 13 previously passing stages remain valid.
+
+The [three-runtime cookie repeat](performance-comparison-cookies.json) records
+648 valid extractions, zero failures and 567 measured samples across nine
+scenarios. Nimbo has lower p50 than Chromium in 9/9 and lower p50 than public
+Obscura in 1/9. The all-win performance goal and production Cloudflare validation
+remain pending. The recorded repeats do not establish causal speed changes.
+
+Transport remains restricted to a single origin. Cross-site SameSite decisions,
+partitioned multi-site storage, complete cookie syntax compatibility, full
+cookie WPT execution and durable restart recovery remain pending. The Secure
+fixture uses trustworthy loopback HTTP; it is not evidence of TLS delivery or
+controllable TLS fingerprints.
+
+References: [RFC 6265 storage and request rules](https://datatracker.ietf.org/doc/html/rfc6265),
+[public cookie parsing library](https://docs.rs/cookie_store/0.22.1/cookie_store/)
+and [pinned public suffix list](https://docs.rs/psl/2.1.239/psl/).
