@@ -1396,6 +1396,7 @@ fn serve_resource(request: Request) -> io::Result<()> {
     if [
         "/link-guard",
         "/large-dom/",
+        "/custom-boxes/",
         "/adopted-sheets/",
         "/constructed-sheets/",
     ]
@@ -1620,6 +1621,7 @@ fn is_resource(path: &str) -> bool {
         "/html-boxes/",
         "/link-guard",
         "/large-dom/",
+        "/custom-boxes/",
         "/adopted-sheets/",
         "/constructed-sheets/",
         "/html-boxes-assets/",
@@ -2497,6 +2499,15 @@ fn native_link_free_guard_discovers_dynamic_stylesheets() -> TestResult {
 }
 
 fn serve_dom_resources(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/custom-boxes/") {
+        return request.respond(
+            Response::from_string(format!(
+                "<script>{}</script>",
+                include_str!("fixtures/custom-boxes.txt")
+            ))
+            .with_header(header("Content-Type", "text/html")?),
+        );
+    }
     if request.url() == "/link-guard.css" {
         return request.respond(
             Response::from_string("#target {color:rgb(7,8,9)}")
@@ -2532,4 +2543,21 @@ fn serve_dom_resources(request: Request) -> io::Result<()> {
         );
     }
     request.respond(Response::empty(404))
+}
+
+#[test]
+fn custom_elements_and_contents_use_real_box_tree() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/custom-boxes/{variant}")))?;
+        let result = page.evaluate(&format!("customBoxesCase({variant})"))?;
+        let checks = result.as_object().ok_or("missing checks")?;
+        assert_eq!(checks.len(), 26);
+        assert!(
+            checks.values().all(|value| value == &json!(true)),
+            "{result}"
+        );
+    }
+    Ok(())
 }

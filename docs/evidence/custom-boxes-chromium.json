@@ -1,0 +1,13 @@
+{
+  "date": "2026-10-04",
+  "reference": "real Chromium over HTTP; fresh document per variant",
+  "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) T3Code(Alpha)/0.0.45 Chrome/152.0.7977.130 Electron/44.4.2 Safari/537.36",
+  "variants": 64,
+  "checks_per_variant": 26,
+  "matching_checks": 1536,
+  "differences": {
+    "reserved_unknown_html_tag": 64,
+    "noscript_computed_display_with_author_important": 64
+  },
+  "scope": "Custom HTML elements with explicit block/grid boxes and upgrade reactions; display contents flattening, flex ordering, nested contents, inherited fonts and variables, DOM identity, mutations and detached geometry. Scripting-enabled noscript geometry and programmatically inserted descendants agree; computed display under author important differs. Reserved names remain unsupported by native layout. Native and Wasm satisfy 1664 intended checks; Chromium agrees on 1536. Not full HTML rendering parity; noscript fragment parsing remains pending."
+}

@@ -1,0 +1,23 @@
+function customBoxesCase(v) {
+ document.body.innerHTML='';document.body.style.cssText='margin:0';document.documentElement.style.cssText='';
+ const checks={},parent=document.createElement('main');parent.style.cssText='display:flex;width:500px;height:200px;gap:2px;align-items:flex-start';document.body.append(parent);
+ const before=document.createElement('div'),wrap=document.createElement('x-wrapper'),nested=document.createElement('x-nested'),a=document.createElement('x-item'),b=document.createElement('x-item'),after=document.createElement('div');
+ const w=v+5,h=v%7+3;before.style.cssText='width:3px;height:2px';after.style.cssText='width:4px;height:2px';
+ wrap.style.cssText='display:contents;width:999px;height:999px;margin:99px;padding:88px;border:77px solid;font-size:'+(v+20)+'px;--width:'+w+'px';nested.style.display='contents';
+ for(const item of [a,b])item.style.cssText='width:var(--width);height:'+h+'px';nested.append(b);wrap.append(a,nested);parent.append(before,wrap,after);
+ let box=wrap.getBoundingClientRect();checks.contentsZero=box.x===0&&box.y===0&&box.width===0&&box.height===0;
+ checks.contentsStyle=getComputedStyle(wrap).display==='contents';checks.support=CSS.supports('display','contents');checks.domParent=a.parentElement===wrap&&b.parentElement===nested;
+ const ab=a.getBoundingClientRect(),bb=b.getBoundingClientRect(),end=after.getBoundingClientRect();checks.flexA=ab.x===5&&ab.y===0&&ab.width===w&&ab.height===h;checks.flexB=bb.x===w+7&&bb.width===w&&bb.height===h;checks.flexAfter=end.x===2*w+9;
+ checks.blockification=getComputedStyle(a).display==='block'&&getComputedStyle(b).display==='block';checks.fontInheritance=getComputedStyle(a).fontSize===(v+20)+'px';checks.nestedZero=nested.getBoundingClientRect().width===0;
+ wrap.style.display='none';checks.hidden=a.getBoundingClientRect().width===0&&b.getBoundingClientRect().height===0;checks.hiddenAfter=after.getBoundingClientRect().x===5;
+ wrap.style.cssText='display:block;width:'+(w+1)+'px;height:'+(2*h)+'px';a.style.cssText='display:block;width:'+w+'px;height:'+h+'px';nested.style.display='contents';b.style.cssText=a.style.cssText;
+ box=wrap.getBoundingClientRect();checks.blockWrapper=box.x===5&&box.width===w+1&&box.height===2*h;checks.blockChildA=a.getBoundingClientRect().x===5&&a.getBoundingClientRect().y===0;checks.blockChildB=b.getBoundingClientRect().x===5&&b.getBoundingClientRect().y===h;
+ wrap.remove();checks.detached=a.getBoundingClientRect().width===0&&wrap.getBoundingClientRect().width===0;parent.append(wrap);checks.reattached=wrap.getBoundingClientRect().width===w+1;
+ parent.style.cssText='';parent.innerHTML='';const unknown=document.createElement('x-unregistered');parent.append(unknown);checks.defaultInline=getComputedStyle(unknown).display==='inline';unknown.style.cssText='display:grid;width:20px;height:30px';checks.customGrid=unknown.getBoundingClientRect().width===20&&unknown.getBoundingClientRect().height===30;unknown.remove();
+ const name='x-upgraded-'+v;class Widget extends HTMLElement {connectedCallback(){this.style.cssText='display:block;width:'+w+'px;height:'+h+'px'}};const upgraded=document.createElement(name);parent.append(upgraded);customElements.define(name,Widget);checks.upgrade=upgraded instanceof Widget&&upgraded.getBoundingClientRect().width===w&&upgraded.getBoundingClientRect().height===h;
+ parent.innerHTML='';const unicode=document.createElement('x-\u00e9');unicode.style.cssText='display:block;width:9px;height:8px';parent.append(unicode);checks.unicode=unicode.getBoundingClientRect().width===9;
+ unicode.remove();const reserved=document.createElement('font-face');reserved.style.display='block';parent.append(reserved);try{reserved.getBoundingClientRect();checks.reserved=false}catch(error){checks.reserved=String(error).includes('element formatting: unsupported HTML tag')}reserved.remove();
+ const fallback=document.createElement('noscript');fallback.textContent='fallback';fallback.style.cssText='display:block!important;width:90px;height:40px';parent.append(fallback);checks.noscriptDisplay=getComputedStyle(fallback).display==='none';checks.noscriptBox=fallback.getBoundingClientRect().width===0;
+ const fallbackChild=document.createElement('x-hidden');fallbackChild.style.cssText='display:block;width:99px;height:99px';fallback.append(fallbackChild);checks.noscriptDescendant=fallbackChild.getBoundingClientRect().width===0;checks.hiddenDescendantStyle=getComputedStyle(fallbackChild).display==='block';fallback.remove();
+ return checks;
+}

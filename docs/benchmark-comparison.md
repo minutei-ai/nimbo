@@ -56,7 +56,9 @@ throughput, memory stability or production cost is established by this suite.
 The synthetic application is vanilla JavaScript; passing it does not establish
 compatibility with every framework or website.
 
-See [the recorded comparison](performance-comparison.json) and the preserved
+See [the recorded comparison](performance-comparison.json), its
+[repeat](performance-comparison-repeat.json), the
+[large-DOM optimization run](performance-comparison-large-dom.json) and the
 [baseline](performance-comparison-baseline.json). Default limits remain enabled.
 Capability failures matter alongside latency; rejected extractions never become
 successful timing samples.
@@ -73,14 +75,14 @@ extractions, zero failures and 504 measured samples**. All eight scenarios pass
 
 | Scenario               | Nimbo in celld p50 | Obscura p50 | Chromium p50 |
 | ---------------------- | ------------------ | ----------- | ------------ |
-| `static`               | 31.06 ms           | 16.93 ms    | 53.67 ms     |
-| `selectors-200`        | 30.58 ms           | 18.06 ms    | 59.43 ms     |
-| `dynamic-fetch`        | 29.53 ms           | 20.71 ms    | 61.23 ms     |
-| `js-dom-events`        | 35.77 ms           | 29.13 ms    | 57.48 ms     |
-| `js-modules`           | 39.19 ms           | 28.42 ms    | 65.03 ms     |
-| `js-dom-selectors-200` | 39.69 ms           | 29.46 ms    | 61.30 ms     |
-| `static-5000`          | 46.76 ms           | 40.31 ms    | 233.61 ms    |
-| `selectors-200-5000`   | 46.25 ms           | 86.85 ms    | 247.30 ms    |
+| `static`               | 39.01 ms           | 19.10 ms    | 61.56 ms     |
+| `selectors-200`        | 41.82 ms           | 19.68 ms    | 63.11 ms     |
+| `dynamic-fetch`        | 38.80 ms           | 21.19 ms    | 63.67 ms     |
+| `js-dom-events`        | 51.29 ms           | 29.91 ms    | 66.88 ms     |
+| `js-modules`           | 58.22 ms           | 30.73 ms    | 68.14 ms     |
+| `js-dom-selectors-200` | 44.79 ms           | 31.25 ms    | 64.74 ms     |
+| `static-5000`          | 57.68 ms           | 44.82 ms    | 245.41 ms    |
+| `selectors-200-5000`   | 66.63 ms           | 98.96 ms    | 261.91 ms    |
 
 The change avoids full-tree external stylesheet discovery when no potential link
 exists and materializes static NodeList wrappers only when accessed. Dynamically
@@ -88,18 +90,36 @@ created links still load through real HTTP; DOM operation and heap limits are
 unchanged. The 5000-row failure is resolved for these fixtures, not by raising a
 limit or dropping a workload.
 
-The repeated-selector large-page case has 1.88 times lower p50 latency than
-Obscura and 5.35 times lower than Chromium in this run. Obscura remains faster on
-the other seven scenarios. Nimbo's common-workload p50 changes are mixed: some
-improve, others stay close or regress. Both reports retain p95, failure counts
-and provenance. A single local repeat does not establish statistical significance
-or a universal speed ranking.
+The table is the first round after custom HTML boxes, contents flattening and
+scripting-enabled noscript geometry were added. Its large-page selector p50 is
+33% lower than Obscura and 75% lower than Chromium. Obscura remains faster on
+the other seven scenarios. Both rounds pass all 576 attempts, giving 1152 valid
+extractions and zero failures across the two rounds.
 
-Local validation passed 4611 Bun tests and 88 native Rust tests in debug and
-release, plus formatting, native/Wasm Clippy and Rust documentation. The first
-parallel debug run failed an 80 ms deadline test during JavaScript initialization;
-the complete debug suite passed with one test thread and the same deadline.
-The 64 large-DOM variants also have 448 real Chromium reference checks.
+| Nimbo scenario         | Earlier large-DOM run p50 | Current first round p50 | Current repeat p50 |
+| ---------------------- | ------------------------- | ----------------------- | ------------------ |
+| `static`               | 31.06 ms                  | 39.01 ms                | 36.68 ms           |
+| `selectors-200`        | 30.58 ms                  | 41.82 ms                | 44.19 ms           |
+| `dynamic-fetch`        | 29.53 ms                  | 38.80 ms                | 40.69 ms           |
+| `js-dom-events`        | 35.77 ms                  | 51.29 ms                | 57.26 ms           |
+| `js-modules`           | 39.19 ms                  | 58.22 ms                | 51.00 ms           |
+| `js-dom-selectors-200` | 39.69 ms                  | 44.79 ms                | 49.66 ms           |
+| `static-5000`          | 46.76 ms                  | 57.68 ms                | 64.81 ms           |
+| `selectors-200-5000`   | 46.25 ms                  | 66.63 ms                | 74.04 ms           |
+
+Both current rounds are slower than the earlier Nimbo run. All reports retain
+p95, failure counts and engine provenance. The cause is unresolved: these are
+local measurements at different times, not an interleaved comparison of both
+engine builds on the same host. Do not claim preserved performance or select the
+faster current round as a universal ranking. Further profiling and controlled
+comparisons are required.
+
+Local validation passed 4676 Bun tests and 89 native Rust tests in debug and
+release, plus formatting, native/Wasm Clippy and Rust documentation. Rust tests
+used four threads and unchanged engine limits/deadlines. The 64 large-DOM
+variants have 448 real Chromium reference checks; the custom/contents fixture
+has 1536 matches and 128 measured differences over 64 variants. See the
+[coverage inventory](browser-coverage.md) for their exact scope.
 
 These values describe this synthetic suite and the documented control adapters.
 They establish neither arbitrary website/framework compatibility nor production

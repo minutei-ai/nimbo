@@ -10,7 +10,8 @@
     {
       "name": "obscura",
       "version": "obscura 0.2.3",
-      "mode": "persistent public Obscura CDP server; fresh target and connection"
+      "mode": "persistent public Obscura CDP server; fresh target and connection",
+      "advertised_cdp_browser": "Chrome/145.0.0.0"
     },
     {
       "name": "chromium",
@@ -25,8 +26,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 39.01273100000026,
-      "p95_ms": 51.257182000000284
+      "p50_ms": 31.059965999999804,
+      "p95_ms": 48.42577300000039
     },
     {
       "runtime": "obscura",
@@ -34,8 +35,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 19.096927999999934,
-      "p95_ms": 20.540053999999827
+      "p50_ms": 16.928197000000182,
+      "p95_ms": 22.142610999999988
     },
     {
       "runtime": "chromium",
@@ -43,8 +44,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 61.56198100000029,
-      "p95_ms": 84.20518900000025
+      "p50_ms": 53.666741,
+      "p95_ms": 59.24460199999976
     },
     {
       "runtime": "nimbo-celld",
@@ -52,8 +53,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 41.81676400000015,
-      "p95_ms": 50.69340099999954
+      "p50_ms": 30.57738100000006,
+      "p95_ms": 42.40506499999992
     },
     {
       "runtime": "obscura",
@@ -61,8 +62,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 19.679927999999563,
-      "p95_ms": 20.816681999999673
+      "p50_ms": 18.064436999999998,
+      "p95_ms": 23.26132299999972
     },
     {
       "runtime": "chromium",
@@ -70,8 +71,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 63.1096579999994,
-      "p95_ms": 83.6313140000002
+      "p50_ms": 59.43059400000038,
+      "p95_ms": 65.5311900000006
     },
     {
       "runtime": "nimbo-celld",
@@ -79,8 +80,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 38.80202199999985,
-      "p95_ms": 52.9430769999999
+      "p50_ms": 29.528309000000263,
+      "p95_ms": 40.34499500000129
     },
     {
       "runtime": "obscura",
@@ -88,8 +89,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 21.191219000000274,
-      "p95_ms": 22.294237000000066
+      "p50_ms": 20.706223999999565,
+      "p95_ms": 23.849513000000115
     },
     {
       "runtime": "chromium",
@@ -97,8 +98,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 63.66962700000113,
-      "p95_ms": 89.40278099999978
+      "p50_ms": 61.234167000000525,
+      "p95_ms": 69.90527000000111
     },
     {
       "runtime": "nimbo-celld",
@@ -106,8 +107,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 51.289466000000175,
-      "p95_ms": 61.68031999999948
+      "p50_ms": 35.769288000001325,
+      "p95_ms": 46.41222999999991
     },
     {
       "runtime": "obscura",
@@ -115,8 +116,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 29.907532999999603,
-      "p95_ms": 36.42981999999938
+      "p50_ms": 29.12854200000038,
+      "p95_ms": 34.85089499999958
     },
     {
       "runtime": "chromium",
@@ -124,8 +125,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 66.88046600000052,
-      "p95_ms": 91.31505800000014
+      "p50_ms": 57.48258800000076,
+      "p95_ms": 70.71879000000081
     },
     {
       "runtime": "nimbo-celld",
@@ -133,8 +134,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 58.22423499999968,
-      "p95_ms": 63.72841300000073
+      "p50_ms": 39.186077000000296,
+      "p95_ms": 50.56026800000109
     },
     {
       "runtime": "obscura",
@@ -142,8 +143,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 30.729889999998704,
-      "p95_ms": 32.81347099999766
+      "p50_ms": 28.419488999999885,
+      "p95_ms": 33.19385600000169
     },
     {
       "runtime": "chromium",
@@ -151,8 +152,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 68.14205100000072,
-      "p95_ms": 94.40488499999992
+      "p50_ms": 65.0330670000003,
+      "p95_ms": 80.99897200000123
     },
     {
       "runtime": "nimbo-celld",
@@ -160,8 +161,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 44.78812499999913,
-      "p95_ms": 69.46032000000196
+      "p50_ms": 39.68750599999839,
+      "p95_ms": 48.2373869999974
     },
     {
       "runtime": "obscura",
@@ -169,8 +170,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 31.245402999997168,
-      "p95_ms": 39.16964200000075
+      "p50_ms": 29.460555999998178,
+      "p95_ms": 34.11005600000135
     },
     {
       "runtime": "chromium",
@@ -178,8 +179,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 64.74280999999974,
-      "p95_ms": 80.87043699999776
+      "p50_ms": 61.30367000000115,
+      "p95_ms": 88.518167000002
     },
     {
       "runtime": "nimbo-celld",
@@ -187,8 +188,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 57.68165299999964,
-      "p95_ms": 75.23290899999847
+      "p50_ms": 46.7560310000008,
+      "p95_ms": 62.74370600000111
     },
     {
       "runtime": "obscura",
@@ -196,8 +197,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 44.81641600000148,
-      "p95_ms": 58.470885999999155
+      "p50_ms": 40.312222999997175,
+      "p95_ms": 50.289904999997816
     },
     {
       "runtime": "chromium",
@@ -205,8 +206,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 245.41200499999832,
-      "p95_ms": 287.2367980000017
+      "p50_ms": 233.60749100000248,
+      "p95_ms": 263.16520599999785
     },
     {
       "runtime": "nimbo-celld",
@@ -214,8 +215,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 66.62698299999465,
-      "p95_ms": 77.71502799999871
+      "p50_ms": 46.25199900000007,
+      "p95_ms": 68.65547700000025
     },
     {
       "runtime": "obscura",
@@ -223,8 +224,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 98.95625399999699,
-      "p95_ms": 104.31413700000121
+      "p50_ms": 86.84646600000269,
+      "p95_ms": 120.41786099999808
     },
     {
       "runtime": "chromium",
@@ -232,8 +233,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 261.90529299999616,
-      "p95_ms": 282.75529500000266
+      "p50_ms": 247.3013460000002,
+      "p95_ms": 295.4331809999967
     }
   ],
   "fixture_requests": {
@@ -248,13 +249,11 @@
     "/static?rows=5000": 144
   },
   "provenance": {
-    "nimbo_wasm_sha256": "7faa0eea97d96f745c0e14527b1fd0ec827dcf3e1cbed38f3c268c81e98f370b",
+    "nimbo_wasm_sha256": "bf4025e18456ac9eb31a17f15829459ec63e623dbf55b604ca723375b3ccffa9",
     "obscura_release": "https://github.com/h4ckf0r0day/obscura/releases/tag/v0.2.3",
     "obscura_asset": "obscura-x86_64-linux.tar.gz",
     "obscura_asset_sha256": "1534d1e6ddaf3d080ec4091eb41d0a4d8cc042a48b607d3c410fc13b482a9eec",
-    "measurement": "real sequential comparison after complete local checks; Rust debug/release checks used four test threads; two isolated benchmark rounds retained; no competing checks or compilation from this task"
+    "measurement": "isolated repeat after build, lint, Bun tests, native debug/release tests and Rust documentation finished; same fixtures and default limits as baseline"
   },
-  "baseline": "performance-comparison-baseline.json",
-  "previous_engine_report": "performance-comparison-large-dom.json",
-  "repeat": "performance-comparison-repeat.json"
+  "baseline": "performance-comparison-baseline.json"
 }

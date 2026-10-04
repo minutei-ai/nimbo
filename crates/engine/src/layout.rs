@@ -139,6 +139,13 @@ pub(crate) fn supports(declarations: &Declarations) -> bool {
     }) {
         return false;
     }
+    if declarations.value("display").0 == "contents"
+        && declarations
+            .layout_entries()
+            .all(|(name, _, _)| name == "display")
+    {
+        return true;
+    }
     let mut operations = 0;
     let mut work = Work::new(&mut operations, 10_000, 1024);
     let Ok(fonts) = crate::fonts::Context::new(&MediaEnvironment::default()).compute(
@@ -455,6 +462,9 @@ impl Tree<'_, '_> {
         }
         self.visit(depth)?;
         let display = context.display.compute(node, &declarations, false, true)?;
+        if display.contents() {
+            return Ok(None);
+        }
         let mut style = style_for(node, &declarations, true, &display)?;
         let context = context.compute(&declarations, false, display, self.work)?;
         style.border = context.borders.geometry()?;
@@ -501,7 +511,8 @@ impl Tree<'_, '_> {
         parent: &Variables,
         parent_display: Display,
         context: &BoxContext,
-    ) -> Result<Option<taffy::NodeId>> {
+        output: &mut Vec<taffy::NodeId>,
+    ) -> Result<()> {
         self.visit(depth)?;
         if !node.is_element() {
             if node.is_text()
@@ -512,13 +523,15 @@ impl Tree<'_, '_> {
             {
                 return Err(unsupported("text shaping"));
             }
-            return Ok(None);
+            return Ok(());
         }
-        if ["head", "script", "style", "link", "meta", "title"]
-            .iter()
-            .any(|name| node.has_name(name))
+        if [
+            "head", "script", "style", "link", "meta", "title", "noscript",
+        ]
+        .iter()
+        .any(|name| node.has_name(name))
         {
-            return Ok(None);
+            return Ok(());
         }
         let declarations = if let Some(state) = self.styles.get(&node.id) {
             state.clone()
@@ -539,12 +552,16 @@ impl Tree<'_, '_> {
             .display
             .compute(node, &declarations, depth == 0, false)?;
         if display.none() {
-            return Ok(None);
+            return Ok(());
         }
         crate::html_boxes::validate(node)?;
+        if display.contents() {
+            let context = context.compute(&declarations, false, display, self.work)?;
+            return self.children(node, depth, &variables, parent_display, &context, output);
+        }
         let mut style = style_for(node, &declarations, false, &display)?;
         if style.display == Display::None {
-            return Ok(None);
+            return Ok(());
         }
         let context = context.compute(&declarations, depth == 0, display, self.work)?;
         style.border = context.borders.geometry()?;
@@ -552,40 +569,14 @@ impl Tree<'_, '_> {
         let container =
             crate::containers::Container::apply(&declarations, &mut style, parent_display, fonts)?;
         let mut children = Vec::new();
-        if let Some(before) = self.generated(
+        self.children(
             node,
-            crate::cascade::Generated::Before,
+            depth,
             &variables,
             style.display,
-            depth.saturating_add(1),
             &context,
-        )? {
-            children.push(before);
-        }
-        children.extend(
-            node.children_it(false)
-                .filter_map(|child| {
-                    self.build(
-                        child,
-                        depth.saturating_add(1),
-                        &variables,
-                        style.display,
-                        &context,
-                    )
-                    .transpose()
-                })
-                .collect::<Result<Vec<_>>>()?,
-        );
-        if let Some(after) = self.generated(
-            node,
-            crate::cascade::Generated::After,
-            &variables,
-            style.display,
-            depth.saturating_add(1),
-            &context,
-        )? {
-            children.push(after);
-        }
+            &mut children,
+        )?;
         let id = self
             .boxes
             .new_with_children(style, &children)
@@ -594,7 +585,49 @@ impl Tree<'_, '_> {
         if let Some(container) = container {
             self.next_containers.insert(node.id, container);
         }
-        Ok(Some(id))
+        output.push(id);
+        Ok(())
+    }
+    fn children(
+        &mut self,
+        node: NodeRef<'_>,
+        depth: usize,
+        variables: &Variables,
+        parent_display: Display,
+        context: &BoxContext,
+        output: &mut Vec<taffy::NodeId>,
+    ) -> Result<()> {
+        if let Some(before) = self.generated(
+            node,
+            crate::cascade::Generated::Before,
+            variables,
+            parent_display,
+            depth.saturating_add(1),
+            context,
+        )? {
+            output.push(before);
+        }
+        for child in node.children_it(false) {
+            self.build(
+                child,
+                depth.saturating_add(1),
+                variables,
+                parent_display,
+                context,
+                output,
+            )?;
+        }
+        if let Some(after) = self.generated(
+            node,
+            crate::cascade::Generated::After,
+            variables,
+            parent_display,
+            depth.saturating_add(1),
+            context,
+        )? {
+            output.push(after);
+        }
+        Ok(())
     }
 }
 
@@ -659,7 +692,8 @@ fn scene<T>(
             work,
         };
         tree.boxes.disable_rounding();
-        let root_id = tree.build(
+        let mut root_ids = Vec::new();
+        tree.build(
             root,
             0,
             &Variables::default(),
@@ -676,8 +710,9 @@ fn scene<T>(
                 family: crate::font_family::Family::default(),
                 display: crate::display::Computed::default(),
             },
+            &mut root_ids,
         )?;
-        if let Some(root_id) = root_id {
+        if let Some(root_id) = root_ids.first().copied() {
             tree.boxes
                 .compute_layout(
                     root_id,

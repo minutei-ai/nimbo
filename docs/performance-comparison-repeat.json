@@ -25,8 +25,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 39.01273100000026,
-      "p95_ms": 51.257182000000284
+      "p50_ms": 36.67579500000011,
+      "p95_ms": 48.21332600000005
     },
     {
       "runtime": "obscura",
@@ -34,8 +34,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 19.096927999999934,
-      "p95_ms": 20.540053999999827
+      "p50_ms": 18.696132000000034,
+      "p95_ms": 19.81079899999986
     },
     {
       "runtime": "chromium",
@@ -43,8 +43,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 61.56198100000029,
-      "p95_ms": 84.20518900000025
+      "p50_ms": 63.94150100000002,
+      "p95_ms": 87.81742299999996
     },
     {
       "runtime": "nimbo-celld",
@@ -52,8 +52,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 41.81676400000015,
-      "p95_ms": 50.69340099999954
+      "p50_ms": 44.19489700000031,
+      "p95_ms": 53.41861699999936
     },
     {
       "runtime": "obscura",
@@ -61,8 +61,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 19.679927999999563,
-      "p95_ms": 20.816681999999673
+      "p50_ms": 19.162058999999317,
+      "p95_ms": 22.614628000000266
     },
     {
       "runtime": "chromium",
@@ -70,8 +70,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 63.1096579999994,
-      "p95_ms": 83.6313140000002
+      "p50_ms": 62.293306000000484,
+      "p95_ms": 87.01982800000042
     },
     {
       "runtime": "nimbo-celld",
@@ -79,8 +79,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 38.80202199999985,
-      "p95_ms": 52.9430769999999
+      "p50_ms": 40.69324400000005,
+      "p95_ms": 54.617276999999376
     },
     {
       "runtime": "obscura",
@@ -88,8 +88,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 21.191219000000274,
-      "p95_ms": 22.294237000000066
+      "p50_ms": 21.608641000000716,
+      "p95_ms": 23.657493000000613
     },
     {
       "runtime": "chromium",
@@ -97,8 +97,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 63.66962700000113,
-      "p95_ms": 89.40278099999978
+      "p50_ms": 65.7274350000007,
+      "p95_ms": 89.40825800000039
     },
     {
       "runtime": "nimbo-celld",
@@ -106,8 +106,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 51.289466000000175,
-      "p95_ms": 61.68031999999948
+      "p50_ms": 57.25766300000032,
+      "p95_ms": 62.2197840000008
     },
     {
       "runtime": "obscura",
@@ -115,8 +115,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 29.907532999999603,
-      "p95_ms": 36.42981999999938
+      "p50_ms": 30.972978000001604,
+      "p95_ms": 33.049810000000434
     },
     {
       "runtime": "chromium",
@@ -124,8 +124,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 66.88046600000052,
-      "p95_ms": 91.31505800000014
+      "p50_ms": 71.26251000000047,
+      "p95_ms": 90.09250500000053
     },
     {
       "runtime": "nimbo-celld",
@@ -133,8 +133,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 58.22423499999968,
-      "p95_ms": 63.72841300000073
+      "p50_ms": 50.996720999999525,
+      "p95_ms": 64.39144500000111
     },
     {
       "runtime": "obscura",
@@ -142,8 +142,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 30.729889999998704,
-      "p95_ms": 32.81347099999766
+      "p50_ms": 30.660328000001755,
+      "p95_ms": 32.63188500000069
     },
     {
       "runtime": "chromium",
@@ -151,8 +151,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 68.14205100000072,
-      "p95_ms": 94.40488499999992
+      "p50_ms": 67.8362419999994,
+      "p95_ms": 89.16902500000288
     },
     {
       "runtime": "nimbo-celld",
@@ -160,8 +160,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 44.78812499999913,
-      "p95_ms": 69.46032000000196
+      "p50_ms": 49.65620400000262,
+      "p95_ms": 64.00636600000144
     },
     {
       "runtime": "obscura",
@@ -169,8 +169,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 31.245402999997168,
-      "p95_ms": 39.16964200000075
+      "p50_ms": 30.926086999999825,
+      "p95_ms": 36.13638799999899
     },
     {
       "runtime": "chromium",
@@ -178,8 +178,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 64.74280999999974,
-      "p95_ms": 80.87043699999776
+      "p50_ms": 63.66183100000126,
+      "p95_ms": 91.11957299999995
     },
     {
       "runtime": "nimbo-celld",
@@ -187,8 +187,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 57.68165299999964,
-      "p95_ms": 75.23290899999847
+      "p50_ms": 64.8050430000003,
+      "p95_ms": 75.14439800000036
     },
     {
       "runtime": "obscura",
@@ -196,8 +196,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 44.81641600000148,
-      "p95_ms": 58.470885999999155
+      "p50_ms": 42.780133000000205,
+      "p95_ms": 53.563937999999325
     },
     {
       "runtime": "chromium",
@@ -205,8 +205,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 245.41200499999832,
-      "p95_ms": 287.2367980000017
+      "p50_ms": 268.39870599999995,
+      "p95_ms": 298.67215999999826
     },
     {
       "runtime": "nimbo-celld",
@@ -214,8 +214,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 66.62698299999465,
-      "p95_ms": 77.71502799999871
+      "p50_ms": 74.0361419999972,
+      "p95_ms": 78.94481300000189
     },
     {
       "runtime": "obscura",
@@ -223,8 +223,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 98.95625399999699,
-      "p95_ms": 104.31413700000121
+      "p50_ms": 98.28060299999925,
+      "p95_ms": 103.94686799999909
     },
     {
       "runtime": "chromium",
@@ -232,8 +232,8 @@
       "valid": 24,
       "failures": {},
       "measured": 21,
-      "p50_ms": 261.90529299999616,
-      "p95_ms": 282.75529500000266
+      "p50_ms": 269.116151000002,
+      "p95_ms": 295.2018629999984
     }
   ],
   "fixture_requests": {
@@ -255,6 +255,5 @@
     "measurement": "real sequential comparison after complete local checks; Rust debug/release checks used four test threads; two isolated benchmark rounds retained; no competing checks or compilation from this task"
   },
   "baseline": "performance-comparison-baseline.json",
-  "previous_engine_report": "performance-comparison-large-dom.json",
-  "repeat": "performance-comparison-repeat.json"
+  "previous_engine_report": "performance-comparison-large-dom.json"
 }

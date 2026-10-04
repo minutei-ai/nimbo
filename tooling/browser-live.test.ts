@@ -1,3 +1,4 @@
+import { customBoxesFixture } from "./custom-boxes-fixture";
 import { largeDomFixture, largeDomExpression, linkGuardExpression } from "./large-dom-fixture";
 import { adoptedSheetsFixture } from "./adopted-sheets-fixture";
 import { backgroundLayersFixture } from "./background-layers-fixture";
@@ -427,6 +428,8 @@ const origin = Bun.serve({
   port: 0,
   async fetch(request) {
     const path = new URL(request.url).pathname;
+    const customBoxes = customBoxesFixture(path);
+    if (customBoxes) return customBoxes;
     const largeDom = largeDomFixture(path);
     if (largeDom) return largeDom;
     const adoptedSheets = await adoptedSheetsFixture(path);
@@ -5388,7 +5391,7 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
   },
 );
 
-test.each(["inline", "inline-block", "flow-root", "contents", "table-row", "ruby", "list-item"])(
+test.each(["inline", "inline-block", "flow-root", "table-row", "ruby", "list-item"])(
   "real HTTP → workerd → Wasm: computed %s display retains explicit unsupported formatting",
   async (display) => {
     const url = new URL("display/0", origin.url).href;
@@ -5596,5 +5599,55 @@ test.each(["create", "innerHTML"] as const)(
     });
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ value: "rgb(7, 8, 9)" });
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: custom boxes and contents variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`custom-boxes/${variant}`, origin.url).href,
+        expression: `customBoxesCase(${variant})`,
+      }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing result");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing checks");
+    expect(Object.keys(value)).toHaveLength(26);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each([
+  { count: 600, nested: false, maxLayoutNodes: 512, reason: "layout tree: nodes" },
+  { count: 130, nested: true, maxLayoutNodes: 2048, reason: "layout tree: depth" },
+])(
+  "real HTTP → workerd → Wasm: contents preserves $reason and recovery",
+  async ({ count, nested, maxLayoutNodes, reason }) => {
+    const url = new URL("custom-boxes/0", origin.url).href;
+    const expression = `(()=>{document.body.innerHTML='';let parent=document.body;for(let i=0;i<${count};i++){const e=document.createElement('x-flat');e.style.display='contents';parent.append(e);${nested ? "parent=e;" : ""}}return document.body.getBoundingClientRect().width})()`;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression, maxLayoutNodes }),
+    });
+    expect(response.status).toBe(422);
+    expect(await response.text()).toContain(reason);
+    const recovered = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url,
+        expression:
+          "(()=>{document.body.innerHTML='<div style=\"width:11px;height:7px\"></div>';return document.body.firstElementChild.getBoundingClientRect().width})()",
+      }),
+    });
+    expect(recovered.status).toBe(200);
+    expect(await recovered.json()).toMatchObject({ value: 11 });
   },
 );

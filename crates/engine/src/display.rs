@@ -80,6 +80,14 @@ impl Computed {
         root: bool,
         generated: bool,
     ) -> Result<Self> {
+        // Scripting is enabled in the QuickJS environment, even when application
+        // script execution is skipped. The HTML UA rule is important at UA origin.
+        if !generated && node.has_name("noscript") {
+            return Ok(Self {
+                value: Display::Keyword(DisplayKeyword::None),
+                container: false,
+            });
+        }
         let (value, _) = declarations.value("display");
         let mut value = match value.as_str() {
             "" | "revert" => ua(node, generated),
@@ -112,6 +120,9 @@ impl Computed {
     }
     pub(crate) fn none(&self) -> bool {
         matches!(self.value, Display::Keyword(DisplayKeyword::None))
+    }
+    pub(crate) fn contents(&self) -> bool {
+        matches!(self.value, Display::Keyword(DisplayKeyword::Contents))
     }
     pub(crate) fn layout(&self) -> Result<taffy::Display> {
         match &self.value {

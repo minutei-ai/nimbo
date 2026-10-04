@@ -2118,11 +2118,12 @@ updates, CSSOM priority/removal, stylesheet mutation and DOM attachment. Worker
 checks run this fixture and confirm explicit unsupported geometry alongside
 available scalar reads and conservative CSS.supports results.
 
-This does not implement ordinary inline formatting, independent flow-root/BFC
-layout, contents box-tree flattening, tables, ruby, markers or glyph shaping.
-Those values can be computed without fabricating box measurements. Their
-unsupported geometry still fails explicitly. Painting, complete display
-serialization, cascade layer rollback and full display parity remain pending.
+This original display comparison does not establish ordinary inline formatting,
+independent flow-root/BFC layout, tables, ruby, markers or glyph shaping. Their
+unsupported geometry still fails explicitly. Subsequent contents box-tree
+flattening is covered below with its own real-HTTP fixture. Painting, complete
+display serialization, cascade layer rollback and full display parity remain
+pending.
 
 Public reference: [CSS Display transformations](https://drafts.csswg.org/css-display/#transformations).
 
@@ -2235,3 +2236,39 @@ Rust and Worker/Wasm run the same fixture. See
 [the reference evidence](evidence/large-dom-chromium.json). DOM operation, heap,
 stylesheet and request budgets remain unchanged. This establishes this workload,
 not unrestricted large-page or arbitrary-framework support.
+
+### Custom HTML boxes and display contents
+
+Valid autonomous custom element names now enter native layout as non-replaced
+HTML elements. Explicit block, flex and grid styles use the existing native box
+engine; default inline style is computed, while inline text formatting remains
+unsupported. Registered upgrades and connected callbacks can change these boxes.
+Reserved custom-element names retain explicit rejection in this layout subset.
+
+`display: contents` omits the wrapper's principal box and flattens its children
+into the surrounding box tree. DOM ownership remains unchanged. Nested wrappers
+preserve inherited fonts and custom properties, flex ordering/blockification,
+style mutations and detached geometry. Ignored wrapper dimensions, margin,
+padding and border do not create offsets. Empty generated content can likewise
+omit a principal box. Layout node/depth budgets still count flattened DOM nodes;
+real Worker tests exhaust both and verify fresh-request recovery.
+
+Scripting remains enabled in the QuickJS environment when application scripts
+are skipped. `noscript` has no rendered geometry, including programmatically
+inserted descendants. The computed display implements the important UA rule in
+the [HTML rendering standard](https://html.spec.whatwg.org/multipage/rendering.html#hidden-elements).
+Full context-sensitive HTML fragment parsing remains pending, including noscript
+raw-text behavior; hiding fallback geometry does not establish parser parity.
+
+The real HTTP fixture runs 64 variants with 26 checks each. Native and
+Worker/Wasm satisfy 1664 intended checks. Chromium agrees on 1536, with 128
+differences: it renders reserved names as unknown HTML boxes and exposes an
+author-important noscript display value while keeping geometry zero. See
+[the measured evidence](evidence/custom-boxes-chromium.json). This does not
+establish shadow layout, native control/replaced-element layout, text shaping,
+unusual display-contents element rules or complete HTML rendering.
+Grid flattening and generated-contents geometry need additional comparative
+fixtures; the current contents geometry fixture covers block and flex contexts.
+
+Public references: [custom elements](https://html.spec.whatwg.org/multipage/custom-elements.html),
+[CSS box generation](https://drafts.csswg.org/css-display-3/#box-generation).
