@@ -48,6 +48,14 @@ fn unsupported(detail: &str) -> Error {
     Error::Dom(format!("layout unsupported: {detail}"))
 }
 
+fn unsupported_property(name: &str, value: &str) -> Error {
+    if name == "position" {
+        unsupported(&format!("position: {value}"))
+    } else {
+        unsupported(name)
+    }
+}
+
 fn layout_error(error: &TaffyError) -> Error {
     Error::Dom(format!("layout: {error}"))
 }
@@ -302,7 +310,7 @@ fn style_for(
             "justify-content" => {
                 style.justify_content = Some(value.parse().map_err(|_error| unsupported(name))?);
             }
-            _ => return Err(unsupported(name)),
+            _ => return Err(unsupported_property(name, value)),
         }
     }
     if !generated {

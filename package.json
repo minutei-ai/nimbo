@@ -32,7 +32,8 @@
     "bench:compare": "bun run build:worker && bun run tooling/benchmark-compare.ts",
     "bench:engine-compare": "bun run build:worker && bun run tooling/benchmark-engine-compare.ts",
     "bench:obstacle": "bun run build:worker && bun run tooling/benchmark-obstacle.ts",
-    "bench:wpt-url": "bun run build:worker && bun run tooling/benchmark-wpt-url.ts"
+    "bench:wpt-url": "bun run build:worker && bun run tooling/benchmark-wpt-url.ts",
+    "bench:wpt-sticky": "bun run build:worker && bun run tooling/benchmark-wpt-sticky.ts"
   },
   "devDependencies": {
     "@effect/tsgo": "0.47.2",

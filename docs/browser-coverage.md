@@ -2490,3 +2490,29 @@ controllable TLS fingerprints.
 References: [RFC 6265 storage and request rules](https://datatracker.ietf.org/doc/html/rfc6265),
 [public cookie parsing library](https://docs.rs/cookie_store/0.22.1/cookie_store/)
 and [pinned public suffix list](https://docs.rs/psl/2.1.239/psl/).
+
+## Original CSS sticky baseline
+
+The [original sticky-top WPT baseline](evidence/wpt-sticky-baseline.json) runs
+`css/css-position/sticky/position-sticky-top.html` from the same pinned WPT
+revision used above. Ordinary Chromium 153 passes all three original assertions;
+Nimbo's own Worker/Wasm engine inside celld fails all three. The harness itself
+completes in both runtimes. HTTP 200 does not count as a conformance pass.
+
+`tooling/wpt-sticky-sources.json` pins SHA-256 hashes for the original HTML,
+helper, testharness and vendor reporting integration file. The HTML, helper and
+core testharness are served unchanged. The adapter appends reporting callbacks
+to the original `testharnessreport.js`, which WPT reserves for vendor integration;
+it disables output and message events without changing assertions or values.
+Every failure remains in the report, and the command exits nonzero.
+
+Run `bun run bench:wpt-sticky` with `NIMBO_WPT_REFERENCE_ROOT` pointing to those
+original pinned files, `NIMBO_COMPARE_CHROMIUM_BINARY` pointing to ordinary
+Chromium and `CELLD_BINARY` pointing to celld. Operational paths remain private.
+
+This is one three-assertion fixture, not the full sticky or CSSOM View suites.
+The failure exposes missing offset/client geometry and scrolling interfaces.
+Layout also rejects `position: sticky`; unsupported position errors now include
+the keyword. Completing sticky requires real scroll offsets, scrollport
+constraints, containing-block boundaries and corresponding geometry APIs. The
+remaining original tests must run unchanged as these capabilities are added.
