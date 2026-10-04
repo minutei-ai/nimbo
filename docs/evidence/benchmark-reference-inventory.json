@@ -1,0 +1,349 @@
+{
+  "reviewed_date": "2026-10-04",
+  "policy": "All original fixtures and assertions; missing adapters and unsupported APIs remain pending, never successful skips. No comparator engine is a Nimbo backend.",
+  "repositories": [
+    {
+      "url": "https://github.com/h4ckf0r0day/obscura-benchmark",
+      "commit": "2d7bc304fbb7ebefc44f770938192e3cede87dbd"
+    },
+    {
+      "url": "https://github.com/abrahamjuliot/creepjs",
+      "commit": "10aa6724cd33a1015db1574211890518cd04f0cc"
+    },
+    {
+      "url": "https://github.com/rebrowser/rebrowser-bot-detector",
+      "commit": "e1a25b1ff264cc9a5b5ea7fe8a6dfc26e3b1c718"
+    },
+    {
+      "url": "https://github.com/berstend/puppeteer-extra",
+      "commit": "39248f1f5deeb21b1e7eb6ae07b8ef73f1231ab9"
+    },
+    {
+      "url": "https://github.com/tiliondev/fortress",
+      "commit": "2922461be6e1ba96ede0afd521dbec228ff0c1a4"
+    },
+    {
+      "url": "https://github.com/h4ckf0r0day/obscura",
+      "commit": "590f79e1a179a0157a50e7e21fbc568f1ab6b43f"
+    }
+  ],
+  "obstacle_stages": [
+    {
+      "name": "static",
+      "file": "fixtures/static.html",
+      "type": "eval",
+      "status": "passed"
+    },
+    {
+      "name": "dom-build",
+      "file": "fixtures/dom-build.html",
+      "type": "eval",
+      "status": "failed"
+    },
+    {
+      "name": "react",
+      "file": "fixtures/react-app.html",
+      "type": "eval",
+      "status": "failed"
+    },
+    {
+      "name": "preact",
+      "file": "fixtures/preact-app.html",
+      "type": "eval",
+      "status": "failed"
+    },
+    {
+      "name": "vue",
+      "file": "fixtures/vue-app.html",
+      "type": "eval",
+      "status": "passed"
+    },
+    {
+      "name": "ssr-hydrate",
+      "file": "fixtures/ssr-hydrate.html",
+      "type": "eval",
+      "status": "passed"
+    },
+    {
+      "name": "es-modules",
+      "file": "fixtures/es-modules.html",
+      "type": "eval",
+      "status": "failed"
+    },
+    {
+      "name": "observer-intersection",
+      "file": "fixtures/observer-intersection.html",
+      "type": "eval",
+      "status": "failed"
+    },
+    {
+      "name": "observer-mutation",
+      "file": "fixtures/observer-mutation.html",
+      "type": "eval",
+      "status": "failed"
+    },
+    {
+      "name": "storage-roundtrip",
+      "file": "fixtures/storage-roundtrip.html",
+      "type": "eval",
+      "status": "passed"
+    },
+    {
+      "name": "raf-update",
+      "file": "fixtures/raf-update.html",
+      "type": "eval",
+      "status": "failed"
+    },
+    {
+      "name": "modern-js-lang",
+      "file": "fixtures/modern-js-lang.html",
+      "type": "eval",
+      "status": "passed"
+    },
+    {
+      "name": "modern-js-platform",
+      "file": "fixtures/modern-js-platform.html",
+      "type": "eval",
+      "status": "failed"
+    },
+    {
+      "name": "spa-mini-app",
+      "file": "fixtures/spa-mini-app.html",
+      "type": "eval",
+      "status": "failed"
+    },
+    {
+      "name": "async-render",
+      "file": "fixtures/async-render.html",
+      "type": "eval",
+      "status": "passed"
+    },
+    {
+      "name": "spa-router",
+      "file": "fixtures/spa-router.html",
+      "type": "eval",
+      "status": "failed"
+    },
+    {
+      "name": "timers",
+      "file": "fixtures/timers.html",
+      "type": "eval",
+      "status": "passed"
+    },
+    {
+      "name": "web-component",
+      "file": "fixtures/web-component.html",
+      "type": "eval",
+      "status": "failed"
+    },
+    {
+      "name": "url",
+      "file": "fixtures/webapi-url.html",
+      "type": "eval",
+      "status": "failed"
+    },
+    {
+      "name": "textdecoder",
+      "file": "fixtures/webapi-textdecoder.html",
+      "type": "eval",
+      "status": "passed"
+    },
+    {
+      "name": "fileapi",
+      "file": "fixtures/webapi-fileapi.html",
+      "type": "eval",
+      "status": "failed"
+    },
+    {
+      "name": "range",
+      "file": "fixtures/webapi-range.html",
+      "type": "eval",
+      "status": "failed"
+    },
+    {
+      "name": "selection",
+      "file": "fixtures/webapi-selection.html",
+      "type": "eval",
+      "status": "failed"
+    },
+    {
+      "name": "custom-element",
+      "file": "fixtures/webapi-custom-element.html",
+      "type": "eval",
+      "status": "passed"
+    },
+    {
+      "name": "dialog",
+      "file": "fixtures/webapi-dialog.html",
+      "type": "eval",
+      "status": "failed"
+    },
+    {
+      "name": "input-step",
+      "file": "fixtures/webapi-input-step.html",
+      "type": "eval",
+      "status": "failed"
+    },
+    {
+      "name": "extract-article",
+      "file": "fixtures/extract-article.html",
+      "type": "dump",
+      "status": "adapter-missing"
+    },
+    {
+      "name": "extract-markdown",
+      "file": "fixtures/extract-markdown.html",
+      "type": "dump",
+      "status": "adapter-missing"
+    },
+    {
+      "name": "extract-links",
+      "file": "fixtures/extract-links.html",
+      "type": "dump",
+      "status": "adapter-missing"
+    },
+    {
+      "name": "extract-html",
+      "file": "fixtures/extract-html.html",
+      "type": "dump",
+      "status": "adapter-missing"
+    },
+    {
+      "name": "fingerprint",
+      "file": "fixtures/fingerprint.html",
+      "type": "eval",
+      "status": "failed"
+    },
+    {
+      "name": "cookies",
+      "file": "fixtures/cookies.html",
+      "type": "eval",
+      "status": "failed"
+    },
+    {
+      "name": "charset-shiftjis",
+      "file": "fixtures/charset-shiftjis.html",
+      "type": "eval",
+      "status": "failed"
+    }
+  ],
+  "wpt_commit": "03f14d4780c4d981bc84c65679b18e9327a1affe",
+  "live_sources": [
+    {
+      "url": "https://bot.sannysoft.com/",
+      "status": "not-run; dated live snapshot and loaded asset hashes pending"
+    },
+    {
+      "url": "https://www.browserscan.net/",
+      "status": "not-run; dated live snapshot and loaded asset hashes pending"
+    },
+    {
+      "url": "https://browserleaks.com/",
+      "status": "not-run; dated live snapshot and loaded asset hashes pending"
+    },
+    {
+      "url": "https://www.browserbench.org/",
+      "status": "not-run; dated live snapshot and loaded asset hashes pending"
+    },
+    {
+      "url": "https://developers.cloudflare.com/browser-run/kitesurf/",
+      "status": "not-run; dated live snapshot and loaded asset hashes pending"
+    }
+  ],
+  "obscura_rendering": {
+    "commit": "590f79e1a179a0157a50e7e21fbc568f1ab6b43f",
+    "expectations_url": "https://raw.githubusercontent.com/h4ckf0r0day/obscura/590f79e1a179a0157a50e7e21fbc568f1ab6b43f/render-repros/checks.json",
+    "expectations_sha256": "0fd94beb0d67db9a7eaedef24d62f9e26f763138d0e88097b66c75debf087fdb",
+    "status": "not-run",
+    "source_files": [
+      "render-repros/abs-fill.html",
+      "render-repros/absolute-containing-block.html",
+      "render-repros/absolute-static-position.html",
+      "render-repros/animation-fill-forwards.html",
+      "render-repros/background-shorthand-reset.html",
+      "render-repros/block-auto-margins.html",
+      "render-repros/block-whitespace-margin-collapse.html",
+      "render-repros/bootstrap-float-clearfix.html",
+      "render-repros/box-shadow-outset.html",
+      "render-repros/box-sizing.html",
+      "render-repros/capture-media-emulation.py",
+      "render-repros/capture_chromium.py",
+      "render-repros/carousel-clip.html",
+      "render-repros/cascade-priority.html",
+      "render-repros/check.py",
+      "render-repros/checks.json",
+      "render-repros/clear-float.html",
+      "render-repros/contained-flex-grid.html",
+      "render-repros/contextual-css-math.html",
+      "render-repros/contextual-grid-gap.html",
+      "render-repros/cssom-rule-ownership.html",
+      "render-repros/direction-rtl.html",
+      "render-repros/display-contents-cascade.html",
+      "render-repros/eventtarget-lifecycle.html",
+      "render-repros/fixed-table-layout.html",
+      "render-repros/flex-flow.html",
+      "render-repros/flex-post-ratio-cross-size.html",
+      "render-repros/flex-whitespace-items.html",
+      "render-repros/float-bfc-continuation.html",
+      "render-repros/float-flow-bands.html",
+      "render-repros/font-metric-line-height.html",
+      "render-repros/font-shorthand.html",
+      "render-repros/forced-line-breaks.html",
+      "render-repros/form-control-geometry.html",
+      "render-repros/form-control-quirks.html",
+      "render-repros/grid-auto-repeat.html",
+      "render-repros/grid-shorthand.html",
+      "render-repros/img-density-and-alt.html",
+      "render-repros/inline-block-flex-items.html",
+      "render-repros/inline-replaced-flow.html",
+      "render-repros/item-self-alignment.html",
+      "render-repros/legacy-center.html",
+      "render-repros/list-indentation.html",
+      "render-repros/live-form-state.html",
+      "render-repros/logical-borders.html",
+      "render-repros/long-full-page-capture.html",
+      "render-repros/max-height-replaced.html",
+      "render-repros/media-emulation.md",
+      "render-repros/media-text-track.html",
+      "render-repros/mixed-content-block.html",
+      "render-repros/mixed-float-run.html",
+      "render-repros/modern-containing-block-triggers.html",
+      "render-repros/modern-hydration-contracts.html",
+      "render-repros/modern-streams.html",
+      "render-repros/nested-float-clearance.html",
+      "render-repros/opposing-header-floats.html",
+      "render-repros/paired-corpus.py",
+      "render-repros/pdf-print-import.css",
+      "render-repros/pdf-print-media.html",
+      "render-repros/percentage-height-indefinite-parent.html",
+      "render-repros/probe_long_full_page_chromium.py",
+      "render-repros/ratio-only-inline-images.html",
+      "render-repros/reduced-motion-emulation.html",
+      "render-repros/relative-box-edges.html",
+      "render-repros/replaced-block-wrapper.html",
+      "render-repros/replaced-grid-order.html",
+      "render-repros/representative-suite/run.sh",
+      "render-repros/representative-suite/sites.txt",
+      "render-repros/representative-suite/test_suite.py",
+      "render-repros/retained-cssom-raster.html",
+      "render-repros/right-float-navigation.html",
+      "render-repros/run.sh",
+      "render-repros/scroll-into-view.html",
+      "render-repros/sparse-grid-scroll.html",
+      "render-repros/spot-sites.txt",
+      "render-repros/supports-var-feature-query.html",
+      "render-repros/table-row-geometry.html",
+      "render-repros/table-track-geometry.html",
+      "render-repros/tables.html",
+      "render-repros/test_check.py",
+      "render-repros/test_paired_corpus.py",
+      "render-repros/text-align-flex-items.html",
+      "render-repros/text-decoration-lines.html",
+      "render-repros/transform-containing-block.html",
+      "render-repros/video-poster.html",
+      "render-repros/viewport-consistency.html",
+      "render-repros/z-index.html"
+    ],
+    "note": "Source-file inventory; neither a subtest count nor execution evidence."
+  }
+}

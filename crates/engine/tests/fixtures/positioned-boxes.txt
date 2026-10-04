@@ -1,0 +1,24 @@
+function positionedBoxesCase(v) {
+ document.body.innerHTML='';document.body.style.cssText='margin:0';document.documentElement.style.cssText='';
+ const checks={},w=200+4*(v%16),h=160+4*(v%16),l=v+2,t=v+3;
+ const host=document.createElement('main'),middle=document.createElement('div'),box=document.createElement('div'),flow=document.createElement('div');
+ host.style.cssText='position:relative;width:'+w+'px;height:'+h+'px;padding:10px;border:3px solid';middle.style.cssText='width:120px;height:90px;margin-left:21px;margin-top:17px';flow.style.cssText='width:25px;height:17px';
+ document.body.append(host);host.append(middle,flow);middle.append(box);box.style.cssText='position:absolute;left:'+l+'px;top:'+t+'px;width:40px;height:20px';
+ const equal=(a,b)=>Math.abs(a-b)<0.01,rect=e=>e.getBoundingClientRect();let a=rect(box),p=rect(host),f=rect(flow);
+ checks.nearestAncestor=equal(a.x,p.x+3+l)&&equal(a.y,p.y+3+t);checks.size=a.width===40&&a.height===20;checks.domParent=box.parentElement===middle;checks.computed=getComputedStyle(box).position==='absolute'&&getComputedStyle(box).display==='block';
+ box.remove();checks.flowUnchanged=rect(flow).y===f.y&&rect(host).height===p.height;middle.append(box);
+ box.style.cssText='position:absolute;right:7px;bottom:9px;width:40px;height:20px';a=rect(box);checks.trailing=equal(a.x,p.x+3+w+20-7-40)&&equal(a.y,p.y+3+h+20-9-20);
+ box.style.cssText='position:absolute;left:25%;top:50%;width:50%;height:25%';a=rect(box);checks.percentCoordinates=equal(a.x,p.x+3+(w+20)/4)&&equal(a.y,p.y+3+(h+20)/2);checks.percentSizes=equal(a.width,(w+20)/2)&&equal(a.height,(h+20)/4);
+ box.style.cssText='position:absolute;left:4px;right:6px;top:5px;bottom:7px';a=rect(box);checks.stretchedCoordinates=equal(a.x,p.x+7)&&equal(a.y,p.y+8);checks.stretchedSizes=equal(a.width,w+10)&&equal(a.height,h+8);
+ box.style.cssText='position:absolute;left:'+l+'px;top:'+t+'px;width:40px;height:20px';const child=document.createElement('div');child.style.cssText='position:absolute;left:2px;top:1px;width:7px;height:6px';box.append(child);a=rect(box);const c=rect(child);checks.nested=equal(c.x,a.x+2)&&equal(c.y,a.y+1)&&c.width===7&&c.height===6;child.remove();
+ host.style.left='11px';host.style.top='13px';a=rect(box);p=rect(host);checks.relativeAncestor=equal(a.x,p.x+3+l)&&equal(a.y,p.y+3+t);
+ host.style.position='static';a=rect(box);checks.initialContainingBlock=equal(a.x,l)&&equal(a.y,t);
+ box.style.cssText='position:fixed;right:7px;bottom:9px;width:40px;height:20px';a=rect(box);checks.fixedViewport=equal(a.x,innerWidth-47)&&equal(a.y,innerHeight-29);host.style.position='relative';host.style.left='43px';host.style.top='37px';checks.fixedIgnoresRelative=equal(rect(box).x,a.x)&&equal(rect(box).y,a.y);
+ box.style.cssText='position:fixed;left:25%;top:50%;width:50%;height:25%';a=rect(box);checks.fixedPercent=equal(a.x,innerWidth/4)&&equal(a.y,innerHeight/2)&&equal(a.width,innerWidth/2)&&equal(a.height,innerHeight/4);
+ middle.style.cssText='display:contents;position:relative';box.style.cssText='position:absolute;left:'+l+'px;top:'+t+'px;width:40px;height:20px';a=rect(box);p=rect(host);checks.contentsAncestor=equal(a.x,p.x+3+l)&&equal(a.y,p.y+3+t);
+ host.style.position='initial';a=rect(box);checks.initialKeyword=equal(a.x,l)&&equal(a.y,t);host.style.position='unset';checks.unsetKeyword=equal(rect(box).x,l)&&equal(rect(box).y,t);
+ host.style.containerType='inline-size';a=rect(box);checks.sizeContainerNotPositioned=equal(a.x,l)&&equal(a.y,t);
+ box.style.position='fixed';a=rect(box);checks.fixedSizeContainer=equal(a.x,l)&&equal(a.y,t);
+ box.remove();checks.detached=rect(box).width===0;middle.append(box);checks.reattached=rect(box).width===40;host.style.display='none';checks.hidden=rect(box).width===0;host.style.display='block';checks.recovered=rect(box).width===40;
+ return checks;
+}

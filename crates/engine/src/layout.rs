@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use dom_query::{Document, NodeId, NodeRef};
 use serde::Serialize;
@@ -269,6 +269,12 @@ fn style_for(
                 }
             }
             "position" if matches!(value, "static" | "relative") => {}
+            "position" if matches!(value, "absolute" | "fixed") => {
+                if generated {
+                    return Err(unsupported("positioned generated boxes"));
+                }
+                style.position = Position::Absolute;
+            }
             "left" => assign!(style.inset.left, value, name),
             "right" => assign!(style.inset.right, value, name),
             "top" => assign!(style.inset.top, value, name),
@@ -302,9 +308,19 @@ fn style_for(
     if !generated {
         validate_overflow(node, &style)?;
     }
-    // Static positioning ignores inset properties. Taffy represents static and
-    // relative boxes with the same positioning enum, so clear the insets here.
-    if !declarations
+    position_insets(style, declarations)
+}
+
+fn position_insets(mut style: Style, declarations: &Declarations) -> Result<Style> {
+    // Static boxes ignore insets. Out-of-flow boxes need explicit coordinates
+    // until CSS static-position rectangles are implemented.
+    if style.position == Position::Absolute {
+        if (style.inset.left.is_auto() && style.inset.right.is_auto())
+            || (style.inset.top.is_auto() && style.inset.bottom.is_auto())
+        {
+            return Err(unsupported("absolute static position"));
+        }
+    } else if !declarations
         .layout_entries()
         .any(|(name, value, _)| name == "position" && value == "relative")
     {
@@ -402,6 +418,8 @@ impl BoxContext {
 struct Tree<'a, 'b> {
     boxes: TaffyTree<()>,
     ids: HashMap<NodeId, taffy::NodeId>,
+    positioned: HashSet<NodeId>,
+    out_of_flow: Vec<(taffy::NodeId, Option<NodeId>)>,
     styles: &'a HashMap<NodeId, Declarations>,
     visited: usize,
     cascade: &'a crate::cascade::Cascade,
@@ -486,15 +504,15 @@ impl Tree<'_, '_> {
             height: f64::from(measured.size.height),
             ..Bounds::default()
         };
-        for node in std::iter::once(target).chain(target.ancestors_it(None)) {
-            if let Some(id) = self.ids.get(&node.id) {
-                let measured = self
-                    .boxes
-                    .layout(*id)
-                    .map_err(|error| layout_error(&error))?;
-                result.x += f64::from(measured.location.x);
-                result.y += f64::from(measured.location.y);
-            }
+        let mut current = Some(*id);
+        while let Some(id) = current {
+            let measured = self
+                .boxes
+                .layout(id)
+                .map_err(|error| layout_error(&error))?;
+            result.x += f64::from(measured.location.x);
+            result.y += f64::from(measured.location.y);
+            current = self.boxes.parent(id);
         }
         if ![result.x, result.y, result.width, result.height]
             .iter()
@@ -568,6 +586,21 @@ impl Tree<'_, '_> {
         let fonts = context.fonts;
         let container =
             crate::containers::Container::apply(&declarations, &mut style, parent_display, fonts)?;
+        let (position, _) = declarations.value("position");
+        let position = defaulted("position", &position);
+        let out_of_flow = style.position == Position::Absolute;
+        let containing = if out_of_flow && position != "fixed" {
+            node.ancestors_it(None)
+                .find(|ancestor| self.positioned.contains(&ancestor.id))
+                .map(|ancestor| ancestor.id)
+        } else {
+            None
+        };
+        // display:contents contributes no box; size containers alone do not
+        // establish positioning containing blocks in CSS Conditional Rules 5.
+        if matches!(position, "relative" | "absolute" | "fixed") {
+            self.positioned.insert(node.id);
+        }
         let mut children = Vec::new();
         self.children(
             node,
@@ -582,11 +615,65 @@ impl Tree<'_, '_> {
             .new_with_children(style, &children)
             .map_err(|error| layout_error(&error))?;
         self.ids.insert(node.id, id);
+        if out_of_flow {
+            self.out_of_flow.push((id, containing));
+        }
         if let Some(container) = container {
             self.next_containers.insert(node.id, container);
         }
         output.push(id);
         Ok(())
+    }
+    fn position_boxes(
+        &mut self,
+        root: taffy::NodeId,
+        width: f32,
+        height: f32,
+    ) -> Result<taffy::NodeId> {
+        if self.out_of_flow.is_empty() {
+            return Ok(root);
+        }
+        let viewport = if self.out_of_flow.iter().any(|(_, parent)| parent.is_none()) {
+            self.visit(0)?;
+            Some(
+                self.boxes
+                    .new_with_children(
+                        Style {
+                            display: Display::Block,
+                            size: Size {
+                                width: Dimension::length(width),
+                                height: Dimension::length(height),
+                            },
+                            ..Style::default()
+                        },
+                        &[root],
+                    )
+                    .map_err(|error| layout_error(&error))?,
+            )
+        } else {
+            None
+        };
+        for (id, containing) in &self.out_of_flow {
+            self.work.charge()?;
+            let parent = if let Some(node) = containing {
+                self.ids.get(node).copied()
+            } else {
+                viewport
+            }
+            .ok_or_else(|| unsupported("missing positioning containing block"))?;
+            if self.boxes.parent(*id) == Some(parent) {
+                continue;
+            }
+            if let Some(old) = self.boxes.parent(*id) {
+                self.boxes
+                    .remove_child(old, *id)
+                    .map_err(|error| layout_error(&error))?;
+            }
+            self.boxes
+                .add_child(parent, *id)
+                .map_err(|error| layout_error(&error))?;
+        }
+        Ok(viewport.unwrap_or(root))
     }
     fn children(
         &mut self,
@@ -684,6 +771,8 @@ fn scene<T>(
         let mut tree = Tree {
             boxes: TaffyTree::new(),
             ids: HashMap::new(),
+            positioned: HashSet::new(),
+            out_of_flow: Vec::new(),
             styles: styles.inline,
             visited: 0,
             cascade: &cascade,
@@ -713,6 +802,7 @@ fn scene<T>(
             &mut root_ids,
         )?;
         if let Some(root_id) = root_ids.first().copied() {
+            let root_id = tree.position_boxes(root_id, width, height)?;
             tree.boxes
                 .compute_layout(
                     root_id,

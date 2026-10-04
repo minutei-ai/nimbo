@@ -1,3 +1,4 @@
+import { positionedBoxesFixture } from "./positioned-boxes-fixture";
 const htmlResponse = (body: string) =>
   new Response(body, { headers: { "content-type": "text/html", "cache-control": "no-store" } });
 
@@ -57,9 +58,21 @@ export const comparisonScenarios = [
     expression: benchmarkScenarios[1].expression,
     expected: "row",
   },
+  {
+    name: "js-positioned-boxes",
+    path: "/positioned-boxes/7",
+    expression:
+      "(()=>{const checks=positionedBoxesCase(7);return Object.keys(checks).length===25&&Object.values(checks).every(value=>value===true)?'positioned':'mismatch'})()",
+    expected: "positioned",
+  },
 ] as const;
 export function benchmarkFixture(request: Request): Response {
   const url = new URL(request.url);
+  const positioned = positionedBoxesFixture(url.pathname);
+  if (positioned) {
+    positioned.headers.set("cache-control", "no-store");
+    return positioned;
+  }
   const rows = url.searchParams.get("rows") === "5000" ? 5000 : 16;
   const html = `<title>Static</title><main><ul>${"<li class=entry>row</li>".repeat(rows)}</ul></main>`;
   const appScript = `async function render(data) {await new Promise(resolve=>setTimeout(resolve,5));const app=document.getElementById('app');for(const value of data){const card=document.createElement('div');card.className='entry';card.textContent='Item '+value;app.appendChild(card);}const button=document.createElement('button');button.id='action';button.addEventListener('click',()=>button.textContent='Clicked');app.appendChild(button);return true;}`;

@@ -1,3 +1,4 @@
+import { positionedBoxesFixture } from "./positioned-boxes-fixture";
 import { customBoxesFixture } from "./custom-boxes-fixture";
 import { largeDomFixture, largeDomExpression, linkGuardExpression } from "./large-dom-fixture";
 import { adoptedSheetsFixture } from "./adopted-sheets-fixture";
@@ -428,6 +429,8 @@ const origin = Bun.serve({
   port: 0,
   async fetch(request) {
     const path = new URL(request.url).pathname;
+    const positionedBoxes = positionedBoxesFixture(path);
+    if (positionedBoxes) return positionedBoxes;
     const customBoxes = customBoxesFixture(path);
     if (customBoxes) return customBoxes;
     const largeDom = largeDomFixture(path);
@@ -2245,7 +2248,7 @@ test.each([
   ],
   ["transform", "el.style.transform='translateX(10px)';"],
   ["environment substitution", "el.style.width='env(safe-area-inset-left, 10px)';"],
-  ["position", "el.style.position='absolute';"],
+  ["absolute static position", "el.style.position='absolute';"],
   ["display formatting", "const child=document.createElement('span');el.appendChild(child);"],
   ["element formatting", "const child=document.createElement('img');el.appendChild(child);"],
   ["width", "el.style.width='2em';"],
@@ -4759,7 +4762,7 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
   expect(await response.json()).toMatchObject({
     value: {
       font: "18px",
-      count: 18,
+      count: 19,
       names: [
         "background-attachment",
         "background-clip",
@@ -4777,6 +4780,7 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
         "outline-offset",
         "outline-style",
         "outline-width",
+        "position",
         "tab-size",
         "text-size-adjust",
       ],
@@ -5649,5 +5653,57 @@ test.each([
     });
     expect(recovered.status).toBe(200);
     expect(await recovered.json()).toMatchObject({ value: 11 });
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: positioned boxes variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`positioned-boxes/${variant}`, origin.url).href,
+        expression: `positionedBoxesCase(${variant})`,
+      }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing result");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing checks");
+    expect(Object.keys(value)).toHaveLength(25);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each([
+  { css: "position:absolute;top:0;width:10px;height:5px", reason: "absolute static position" },
+  { css: "position:fixed;left:0;width:10px;height:5px", reason: "absolute static position" },
+  { css: "position:sticky;left:0;top:0;width:10px;height:5px", reason: "position" },
+])(
+  "real HTTP → workerd → Wasm: positioned boxes reject $css and recover",
+  async ({ css, reason }) => {
+    const url = new URL("positioned-boxes/0", origin.url).href;
+    const expression = `(()=>{document.body.innerHTML='';const e=document.createElement('div');e.style.cssText=${JSON.stringify(css)};document.body.append(e);return e.getBoundingClientRect().width})()`;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression }),
+    });
+    expect(response.status).toBe(422);
+    expect(await response.text()).toContain(reason);
+    const recovered = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "positionedBoxesCase(0)" }),
+    });
+    expect(recovered.status).toBe(200);
+    const result: unknown = await recovered.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing result");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing checks");
+    expect(Object.keys(value)).toHaveLength(25);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
   },
 );

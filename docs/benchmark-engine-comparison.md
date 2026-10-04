@@ -3,7 +3,8 @@
 Use this comparison to isolate an engine change from the different control
 transports in the [three-runtime benchmark](benchmark-comparison.md). Both builds
 run inside separately owned celld hosts through the same authenticated HTTP API.
-The runner uses the same eight real HTTP and JavaScript workloads, default limits,
+The runner uses the same real HTTP and JavaScript workloads as the three-runtime
+comparison (currently nine scenarios), default limits,
 fresh pages, alternating order, three excluded warmups and 21 measured attempts.
 
 ## Run it
@@ -22,6 +23,10 @@ validated values, failures, p50/p95 and fixture request counts; the runner now a
 retains measured latency samples in execution order. Executable paths, tokens and
 fixture URLs are excluded. Both hosts and their temporary directories are cleaned
 up on completion.
+
+The recorded comparisons below used the original eight scenarios. The new
+positioned-box geometry workload requires a baseline that implements that contract;
+older engines may report capability failures, which must remain in the report.
 
 ## Recorded bootstrap optimization
 

@@ -1,0 +1,147 @@
+{
+  "date": "2026-10-04",
+  "reference": "T3 Code collaborative Chromium 152.0.7977.130 / Electron 44.4.2",
+  "reference_viewport": {
+    "width": 1280,
+    "height": 800
+  },
+  "fixture": "crates/engine/tests/fixtures/positioned-boxes.txt",
+  "scope": "64 fresh iframe documents loaded over real HTTP in the collaborative Chromium; 25 shared numeric/DOM checks per variant; viewport-relative expectations use each runtime's innerWidth and innerHeight; no mocks",
+  "variants": 64,
+  "checks_per_variant": 25,
+  "total_checks": 1600,
+  "matches": 1600,
+  "differences": 0,
+  "results": [
+    {
+      "check": "nearestAncestor",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "size",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "domParent",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "computed",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "flowUnchanged",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "trailing",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "percentCoordinates",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "percentSizes",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "stretchedCoordinates",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "stretchedSizes",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "nested",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "relativeAncestor",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "initialContainingBlock",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "fixedViewport",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "fixedIgnoresRelative",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "fixedPercent",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "contentsAncestor",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "initialKeyword",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "unsetKeyword",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "sizeContainerNotPositioned",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "fixedSizeContainer",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "detached",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "reattached",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "hidden",
+      "matches": 64,
+      "differences": 0
+    },
+    {
+      "check": "recovered",
+      "matches": 64,
+      "differences": 0
+    }
+  ],
+  "limitations": [
+    "Explicit horizontal and vertical insets are required; CSS static-position rectangles are not implemented.",
+    "Sticky scrolling, transformed containing blocks, generated positioned boxes, inline containing blocks and text/replaced formatting remain unsupported.",
+    "Computed position inheritance does not establish inherited-position layout or complete computed display blockification parity."
+  ]
+}

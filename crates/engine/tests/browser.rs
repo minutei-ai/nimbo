@@ -1397,6 +1397,7 @@ fn serve_resource(request: Request) -> io::Result<()> {
         "/link-guard",
         "/large-dom/",
         "/custom-boxes/",
+        "/positioned-boxes/",
         "/adopted-sheets/",
         "/constructed-sheets/",
     ]
@@ -1622,6 +1623,7 @@ fn is_resource(path: &str) -> bool {
         "/link-guard",
         "/large-dom/",
         "/custom-boxes/",
+        "/positioned-boxes/",
         "/adopted-sheets/",
         "/constructed-sheets/",
         "/html-boxes-assets/",
@@ -2499,6 +2501,15 @@ fn native_link_free_guard_discovers_dynamic_stylesheets() -> TestResult {
 }
 
 fn serve_dom_resources(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/positioned-boxes/") {
+        return request.respond(
+            Response::from_string(format!(
+                "<!doctype html><script>{}</script>",
+                include_str!("fixtures/positioned-boxes.txt")
+            ))
+            .with_header(header("Content-Type", "text/html")?),
+        );
+    }
     if request.url().starts_with("/custom-boxes/") {
         return request.respond(
             Response::from_string(format!(
@@ -2554,6 +2565,23 @@ fn custom_elements_and_contents_use_real_box_tree() -> TestResult {
         let result = page.evaluate(&format!("customBoxesCase({variant})"))?;
         let checks = result.as_object().ok_or("missing checks")?;
         assert_eq!(checks.len(), 26);
+        assert!(
+            checks.values().all(|value| value == &json!(true)),
+            "{result}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn positioned_boxes_use_containing_blocks_and_viewport() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/positioned-boxes/{variant}")))?;
+        let result = page.evaluate(&format!("positionedBoxesCase({variant})"))?;
+        let checks = result.as_object().ok_or("missing checks")?;
+        assert_eq!(checks.len(), 25);
         assert!(
             checks.values().all(|value| value == &json!(true)),
             "{result}"

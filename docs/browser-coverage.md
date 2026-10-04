@@ -2272,3 +2272,37 @@ fixtures; the current contents geometry fixture covers block and flex contexts.
 
 Public references: [custom elements](https://html.spec.whatwg.org/multipage/custom-elements.html),
 [CSS box generation](https://drafts.csswg.org/css-display-3/#box-generation).
+
+## Positioned box containing blocks
+
+The native box tree now lays out explicitly inset absolute and fixed boxes.
+Absolute boxes attach to the nearest positioned ancestor that generates a box;
+static intermediate DOM parents and display:contents ancestors do not become
+containing blocks. Fixed boxes attach to an internal viewport box. Bounds walk
+the actual layout parent chain, while DOM parent identity remains unchanged.
+The internal viewport has definite media dimensions and is charged to the
+existing layout-node and DOM-operation budgets. Reparenting work is charged too.
+
+The real HTTP fixture `positioned-boxes.txt` runs 64 variants with 25 checks each
+in the native engine and the Worker/Wasm suite. It covers padding-edge coordinates,
+borders, leading/trailing insets, percentage coordinates and dimensions, opposing
+insets with auto size, nested absolute boxes, normal-flow exclusion, relative
+ancestor movement, viewport positioning, display:contents, initial/unset keywords,
+size containers, detachment, display:none and recovery. The collaborative Chromium
+loads each variant into a fresh iframe document over real HTTP; all 1600 intended
+checks agree. Viewport-relative checks use each runtime's own viewport dimensions.
+See the [reference aggregate](evidence/positioned-boxes-chromium.json).
+
+Computed styles expose the position keyword, including CSS-wide inheritance.
+This does not establish inherited-position geometry or complete inherited-position
+computed display blockification. Size containers alone do not establish positioning
+containing blocks, following CSS Conditional Rules 5.
+
+Both axes currently need at least one non-auto inset. Automatic static-position
+rectangles, sticky scrolling, transformed containing blocks, positioned generated
+boxes, inline containing blocks, text/replaced formatting and full CSS Position/WPT
+parity remain pending. Unsupported automatic positioning and sticky inputs still
+fail instead of producing fabricated geometry; real Worker tests verify recovery.
+
+References: [CSS positioned containing blocks](https://www.w3.org/TR/css-position-3/#def-cb)
+and [CSS container types](https://drafts.csswg.org/css-conditional-5/#container-type).

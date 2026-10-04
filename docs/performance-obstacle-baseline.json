@@ -1,0 +1,453 @@
+{
+  "date": "2026-10-04",
+  "source": "https://github.com/h4ckf0r0day/obscura-benchmark",
+  "source_commit": "2d7bc304fbb7ebefc44f770938192e3cede87dbd",
+  "runtime": "celld 0.6.1",
+  "mode": "Nimbo own Wasm engine; real upstream HTTP fixtures and assertions; original manifest settle delay and timeout; default limits; sequential fresh pages; validated warmups; no mocks",
+  "parameters": {
+    "runs": 5,
+    "warmup": 1,
+    "wait_secs": 3,
+    "timeout_secs": 20
+  },
+  "timing_scope": "HTTP control, fresh page, fixture execution, original post-load delay, extraction and cleanup; not upstream cold CLI timings",
+  "results": [
+    {
+      "stage": "static",
+      "category": "baseline",
+      "status": "passed",
+      "attempts": 6,
+      "valid": 6,
+      "failures": {},
+      "samples_ms": [
+        3040.823422, 3069.4083580000006, 3098.1373220000005, 3042.0133939999996, 3069.1421899999987
+      ],
+      "last_value": "\"static:5:Static Page\""
+    },
+    {
+      "stage": "dom-build",
+      "category": "perf",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "HTTP 422: JavaScript: Error: resource limit: DOM operations": 6
+      },
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "react",
+      "category": "frameworks",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "HTTP 422: JavaScript: Error: invalid 'instanceof' right operand": 6
+      },
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "preact",
+      "category": "frameworks",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "HTTP 422: JavaScript: Error: not a function": 6
+      },
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "vue",
+      "category": "frameworks",
+      "status": "passed",
+      "attempts": 6,
+      "valid": 6,
+      "failures": {},
+      "samples_ms": [
+        3106.3843689999994, 3123.0647039999967, 3104.234910000003, 3350.736008, 3140.1152569999977
+      ],
+      "last_value": "\"vue:100:Item 0\""
+    },
+    {
+      "stage": "ssr-hydrate",
+      "category": "modern-web",
+      "status": "passed",
+      "attempts": 6,
+      "valid": 6,
+      "failures": {},
+      "samples_ms": [
+        3075.3531040000016, 3064.450603000005, 3065.9858999999997, 3068.1810200000036,
+        3053.0646600000036
+      ],
+      "last_value": "\"hydrate:10:client:45\""
+    },
+    {
+      "stage": "es-modules",
+      "category": "modern-web",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "Upstream expectation mismatch": 6
+      },
+      "samples_ms": [],
+      "last_value": "\"esm:error:module source is not loaded\""
+    },
+    {
+      "stage": "observer-intersection",
+      "category": "modern-web",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "HTTP 422: JavaScript: Error: DOM: layout unsupported: text shaping": 6
+      },
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "observer-mutation",
+      "category": "modern-web",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "HTTP 422: JavaScript: Error: MutationObserver is not defined": 6
+      },
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "storage-roundtrip",
+      "category": "modern-web",
+      "status": "passed",
+      "attempts": 6,
+      "valid": 6,
+      "failures": {},
+      "samples_ms": [
+        3051.084839000003, 3033.7379470000014, 3039.678537, 3057.9194590000116, 3263.799098999996
+      ],
+      "last_value": "\"storage:local-value:session-value:1:1\""
+    },
+    {
+      "stage": "raf-update",
+      "category": "modern-web",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "HTTP 422: JavaScript: Error: requestAnimationFrame is not defined": 6
+      },
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "modern-js-lang",
+      "category": "modern-web",
+      "status": "passed",
+      "attempts": 6,
+      "valid": 6,
+      "failures": {},
+      "samples_ms": [
+        3054.7088349999976, 3051.3756929999945, 3055.095218000002, 3057.0814399999945,
+        3026.9823130000004
+      ],
+      "last_value": "\"lang|opt=localhost:8080|dst=adspanbox|spr=1234/3|tpl=42|col=3:3|big=9007199254741001|fm=1,-1,2,-2,3,-3:-3|fe=3\""
+    },
+    {
+      "stage": "modern-js-platform",
+      "category": "modern-web",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "Upstream expectation mismatch": 6
+      },
+      "samples_ms": [],
+      "last_value": "\"platform:error:structuredClone is not defined\""
+    },
+    {
+      "stage": "spa-mini-app",
+      "category": "modern-web",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "Upstream expectation mismatch": 6
+      },
+      "samples_ms": [],
+      "last_value": "\"spa:error:TypeError: cannot read property 'match' of undefined\""
+    },
+    {
+      "stage": "async-render",
+      "category": "capability",
+      "status": "passed",
+      "attempts": 6,
+      "valid": 6,
+      "failures": {},
+      "samples_ms": [
+        3031.396338999999, 3061.7279879999987, 3046.507760999986, 3054.6371240000008,
+        3055.7219139999943
+      ],
+      "last_value": "\"async:5:alpha\""
+    },
+    {
+      "stage": "spa-router",
+      "category": "capability",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "HTTP 422: JavaScript: Error: history is not defined": 6
+      },
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "timers",
+      "category": "capability",
+      "status": "passed",
+      "attempts": 6,
+      "valid": 6,
+      "failures": {},
+      "samples_ms": [
+        3016.6488940000127, 3015.743567999976, 3037.63811900001, 3491.8509900000063,
+        3013.9248659999867
+      ],
+      "last_value": "\"timers:microtask,t1,t2:done\""
+    },
+    {
+      "stage": "web-component",
+      "category": "web-api",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "Upstream expectation mismatch": 6
+      },
+      "samples_ms": [],
+      "last_value": "\"wc:2:none\""
+    },
+    {
+      "stage": "url",
+      "category": "web-api",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "HTTP 422: JavaScript: Error: URL is not defined": 6
+      },
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "textdecoder",
+      "category": "web-api",
+      "status": "passed",
+      "attempts": 6,
+      "valid": 6,
+      "failures": {},
+      "samples_ms": [
+        3041.3757770000084, 3217.7833979999996, 3028.1362040000095, 3025.953760000004,
+        3027.550411000004
+      ],
+      "last_value": "\"td:\u3042\""
+    },
+    {
+      "stage": "fileapi",
+      "category": "web-api",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "HTTP 422: JavaScript: Error: Blob is not defined": 6
+      },
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "range",
+      "category": "web-api",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "HTTP 422: JavaScript: Error: not a function": 6
+      },
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "selection",
+      "category": "web-api",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "HTTP 422: JavaScript: Error: not a function": 6
+      },
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "custom-element",
+      "category": "web-api",
+      "status": "passed",
+      "attempts": 6,
+      "valid": 6,
+      "failures": {},
+      "samples_ms": [
+        3026.3648119999852, 3028.490219999978, 3036.3074079999933, 3066.7728469999856,
+        3562.6155140000046
+      ],
+      "last_value": "\"ce:widget-ready\""
+    },
+    {
+      "stage": "dialog",
+      "category": "web-api",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "HTTP 422: JavaScript: Error: not a function": 6
+      },
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "input-step",
+      "category": "web-api",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "HTTP 422: JavaScript: Error: not a function": 6
+      },
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "extract-article",
+      "category": "extraction",
+      "status": "adapter-missing",
+      "attempts": 0,
+      "valid": 0,
+      "failures": {},
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "extract-markdown",
+      "category": "extraction",
+      "status": "adapter-missing",
+      "attempts": 0,
+      "valid": 0,
+      "failures": {},
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "extract-links",
+      "category": "extraction",
+      "status": "adapter-missing",
+      "attempts": 0,
+      "valid": 0,
+      "failures": {},
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "extract-html",
+      "category": "extraction",
+      "status": "adapter-missing",
+      "attempts": 0,
+      "valid": 0,
+      "failures": {},
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "fingerprint",
+      "category": "scraping",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "HTTP 422: JavaScript: Error: navigator is not defined": 6
+      },
+      "samples_ms": [],
+      "last_value": null
+    },
+    {
+      "stage": "cookies",
+      "category": "scraping",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "Upstream expectation mismatch": 6
+      },
+      "samples_ms": [],
+      "last_value": "\"cookie:k=:session=abc123\""
+    },
+    {
+      "stage": "charset-shiftjis",
+      "category": "scraping",
+      "status": "failed",
+      "attempts": 6,
+      "valid": 0,
+      "failures": {
+        "HTTP 502: The encoded data was not valid.": 6
+      },
+      "samples_ms": [],
+      "last_value": null
+    }
+  ],
+  "origin_requests": {
+    "/data/articles.json": 6,
+    "/data/items.json": 6,
+    "/fixtures/async-render.html": 6,
+    "/fixtures/charset-shiftjis.html": 6,
+    "/fixtures/cookies.html": 6,
+    "/fixtures/dom-build.html": 6,
+    "/fixtures/es-modules.html": 6,
+    "/fixtures/fingerprint.html": 6,
+    "/fixtures/modern-js-lang.html": 6,
+    "/fixtures/modern-js-platform.html": 6,
+    "/fixtures/observer-intersection.html": 6,
+    "/fixtures/observer-mutation.html": 6,
+    "/fixtures/preact-app.html": 6,
+    "/fixtures/raf-update.html": 6,
+    "/fixtures/react-app.html": 6,
+    "/fixtures/spa-mini-app.html": 6,
+    "/fixtures/spa-router.html": 6,
+    "/fixtures/ssr-hydrate.html": 6,
+    "/fixtures/static.html": 6,
+    "/fixtures/storage-roundtrip.html": 6,
+    "/fixtures/timers.html": 6,
+    "/fixtures/vue-app.html": 6,
+    "/fixtures/web-component.html": 6,
+    "/fixtures/webapi-custom-element.html": 6,
+    "/fixtures/webapi-dialog.html": 6,
+    "/fixtures/webapi-fileapi.html": 6,
+    "/fixtures/webapi-input-step.html": 6,
+    "/fixtures/webapi-range.html": 6,
+    "/fixtures/webapi-selection.html": 6,
+    "/fixtures/webapi-textdecoder.html": 6,
+    "/fixtures/webapi-url.html": 6,
+    "/modules/util.js": 6,
+    "/vendor/preact.umd.js": 18,
+    "/vendor/react-dom.min.js": 6,
+    "/vendor/react.min.js": 6,
+    "/vendor/vue.global.js": 6
+  },
+  "engine_provenance": {
+    "predecessor_commit": "cf3cbe56a0da1e76a4c0df31bb89d3630deb9aee",
+    "candidate_change": "Own absolute and fixed box geometry with numeric Chromium references",
+    "wasm_sha256": "1241954e9289b01c670d98bd3af9240ffe9718e79ca4ed88c41c0e02038abeaa"
+  }
+}

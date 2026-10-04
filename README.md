@@ -83,7 +83,7 @@ The engine implements bounded browser subsets. See the [coverage inventory](docs
 | HTTP                             | Redirects, cookies, page fetch and per-page isolation; simplified browser networking                                                               |
 | Storage                          | Bounded local/session storage; Worker requests start fresh                                                                                         |
 | CSS                              | Native declarations, selector matching, cascade and computed-style subsets                                                                         |
-| Layout                           | Native block/flex/grid box geometry and selected HTML categories; incomplete text layout                                                           |
+| Layout                           | Native block/flex/grid geometry, explicitly inset absolute/fixed boxes and selected HTML categories; incomplete text layout                        |
 | CSSOM                            | Constructed sheets, ordered live rule lists, declarations and Document adoption; grouped rules and document-owned wrappers pending                 |
 | Canvas                           | Rust software OffscreenCanvas bitmap and selected 2D pixel operations                                                                              |
 | Compatibility work still pending | Full HTML/CSSOM/WPT behavior, text shaping, painting, screenshots/PDF, WebGL, video, controllable TLS, durable browser sessions and CDP automation |
@@ -115,11 +115,14 @@ cargo build --release -p nimbo-engine --locked
 bun run bench:browser  # native CLI; a fresh process per extraction
 bun run bench:worker   # an existing Worker endpoint; requires private environment settings
 bun run bench:compare  # Nimbo in celld vs public Obscura vs unmodified Chromium
+bun run bench:obstacle # original upstream obstacle fixtures in Nimbo/celld
 ```
 
 Native CLI timings, local celld HTTP timings and deployed Cloudflare measurements are different measurements. The remote driver requires a fixture origin reachable from the Worker; the [Cloudflare guide](docs/cloudflare.md) explains that setup. Local measurements do not establish production throughput, memory use or cost.
 
 See the [comparison guide](docs/benchmark-comparison.md) for the three-runtime benchmark, baseline failures and optimization results. Use the [engine build comparison](docs/benchmark-engine-comparison.md) to measure two Nimbo builds through the same celld HTTP adapter.
+
+The [upstream benchmark matrix](docs/benchmark-reference-matrix.md) records exact suite obligations, immutable public source revisions and the first 33-stage Obscura obstacle baseline. Passing the internal suite does not establish an upstream stealth or framework pass.
 
 ## Runtime guides
 

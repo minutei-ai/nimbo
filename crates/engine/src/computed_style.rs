@@ -6,7 +6,7 @@ use crate::{
     styles::{Declarations, Variables},
 };
 
-pub(crate) const PROPERTIES: [&str; 18] = [
+pub(crate) const PROPERTIES: [&str; 19] = [
     "background-attachment",
     "background-clip",
     "background-image",
@@ -23,6 +23,7 @@ pub(crate) const PROPERTIES: [&str; 18] = [
     "outline-offset",
     "outline-style",
     "outline-width",
+    "position",
     "tab-size",
     "text-size-adjust",
 ];
@@ -37,6 +38,7 @@ pub(crate) struct Computed {
     layers: crate::background_layers::Layers,
     family: crate::font_family::Family,
     display: crate::display::Computed,
+    position: &'static str,
 }
 
 pub(crate) fn property(name: &str) -> bool {
@@ -54,6 +56,8 @@ impl Computed {
             self.repeats.value(self.images.count())
         } else if name == "background-size" {
             self.sizes.value()
+        } else if name == "position" {
+            Ok(self.position.to_owned())
         } else if name == "display" {
             self.display.value()
         } else if name == "font-family" {
@@ -114,6 +118,7 @@ pub(crate) fn resolve(
     let mut layers = crate::background_layers::Layers::default();
     let mut family = crate::font_family::Family::default();
     let mut display = crate::display::Computed::default();
+    let mut position = "static";
     for (depth, node) in ancestors.into_iter().enumerate() {
         work.charge()?;
         let inline = sources.inline.get(&node.id).cloned().map_or_else(
@@ -142,6 +147,16 @@ pub(crate) fn resolve(
         sizes = sizes.compute(&declarations, images.count(), &fonts, work)?;
         layers = layers.compute(&declarations, images.count(), work)?;
         family = family.compute(&declarations, work)?;
+        let (specified, _) = declarations.value("position");
+        position = match specified.as_str() {
+            "" | "initial" | "unset" | "revert" | "static" => "static",
+            "inherit" => position,
+            "relative" => "relative",
+            "absolute" => "absolute",
+            "fixed" => "fixed",
+            "sticky" => "sticky",
+            _ => return Err(Error::Dom("layout unsupported: computed position".into())),
+        };
         display = display.compute(node, &declarations, depth == 0, false)?;
     }
     Ok(Computed {
@@ -154,5 +169,6 @@ pub(crate) fn resolve(
         layers,
         family,
         display,
+        position,
     })
 }

@@ -24,18 +24,21 @@ Chromium's OS sandbox cannot initialize; choose your host isolation accordingly.
 
 ## Workloads and measurement
 
-The same URLs and JavaScript extraction expressions run in all three engines:
+The same URLs and JavaScript extraction expressions run in all three engines.
+The current suite has nine scenarios; the historical reports below have the
+original eight:
 
-| Scenario               | Real work performed                                                                                     |
-| ---------------------- | ------------------------------------------------------------------------------------------------------- |
-| `static`               | Select text from 16 server-rendered rows                                                                |
-| `selectors-200`        | Run 200 selectors against those rows                                                                    |
-| `dynamic-fetch`        | Execute page JavaScript, fetch JSON and change the title                                                |
-| `js-dom-events`        | POST for data, wait on a real timer, construct DOM nodes, dispatch an event and extract generated text  |
-| `js-modules`           | Load an external ES module, POST for data, wait on a timer, construct the DOM and count generated nodes |
-| `js-dom-selectors-200` | Execute the JavaScript application and run 200 selectors against its generated DOM                      |
-| `static-5000`          | Select text from 5000 rows under default engine limits                                                  |
-| `selectors-200-5000`   | Run 200 selectors against 5000 rows under default engine limits                                         |
+| Scenario               | Real work performed                                                                                            |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `static`               | Select text from 16 server-rendered rows                                                                       |
+| `selectors-200`        | Run 200 selectors against those rows                                                                           |
+| `dynamic-fetch`        | Execute page JavaScript, fetch JSON and change the title                                                       |
+| `js-dom-events`        | POST for data, wait on a real timer, construct DOM nodes, dispatch an event and extract generated text         |
+| `js-modules`           | Load an external ES module, POST for data, wait on a timer, construct the DOM and count generated nodes        |
+| `js-dom-selectors-200` | Execute the JavaScript application and run 200 selectors against its generated DOM                             |
+| `static-5000`          | Select text from 5000 rows under default engine limits                                                         |
+| `selectors-200-5000`   | Run 200 selectors against 5000 rows under default engine limits                                                |
+| `js-positioned-boxes`  | Execute 25 numeric/DOM assertions for absolute/fixed box geometry, mutations and viewport-relative coordinates |
 
 Runtime hosts remain running throughout the benchmark. Each extraction creates
 a fresh page or target. Requests run sequentially with runtime order rotated on
@@ -157,3 +160,31 @@ Obscura in the large-page selector workload only. Obscura remains faster in the
 other seven. This run is separate from the three controlled bootstrap comparisons;
 use those comparisons to assess the build change with a matching transport.
 No universal speed or scraping compatibility claim follows from these results.
+
+## Nine-scenario positioning run
+
+The [positioning comparison](performance-comparison-positioned-boxes.json) on
+2026-10-04 includes all eight previous workloads and the new 25-assertion
+positioning workload. It records **648 valid extractions, zero failures and
+567 measured samples**, with unchanged default limits and the same three runtime
+versions. The local full gate passed 4743 Bun tests and 90 Rust tests in both
+debug and release, plus formatting, type-aware lint, native/Wasm Clippy and docs.
+
+| Scenario               | Nimbo in celld p50 | Obscura p50 | Chromium p50 |
+| ---------------------- | ------------------ | ----------- | ------------ |
+| `static`               | 32.37 ms           | 18.40 ms    | 60.01 ms     |
+| `selectors-200`        | 37.89 ms           | 19.64 ms    | 64.63 ms     |
+| `dynamic-fetch`        | 42.07 ms           | 20.85 ms    | 65.53 ms     |
+| `js-dom-events`        | 45.07 ms           | 30.31 ms    | 68.95 ms     |
+| `js-modules`           | 60.88 ms           | 31.55 ms    | 76.89 ms     |
+| `js-dom-selectors-200` | 54.73 ms           | 31.31 ms    | 68.17 ms     |
+| `static-5000`          | 64.72 ms           | 43.05 ms    | 269.80 ms    |
+| `selectors-200-5000`   | 67.80 ms           | 97.82 ms    | 262.03 ms    |
+| `js-positioned-boxes`  | 52.00 ms           | 34.43 ms    | 71.45 ms     |
+
+Nimbo is faster than Chromium on all nine workload medians in this run, and
+faster than Obscura on the large-DOM repeated-selector workload. Obscura remains
+faster on the other eight. This does not establish universal superiority or
+a complete browser capability pass. The [upstream suite baseline](benchmark-reference-matrix.md)
+exposes failures on original framework and API fixtures that these nine
+synthetic workloads do not cover.
