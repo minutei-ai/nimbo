@@ -1390,6 +1390,15 @@ fn registered_custom_properties_validate_before_substitution() -> TestResult {
 }
 
 fn serve_resource(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/constructed-sheets/") {
+        return request.respond(
+            Response::from_string(format!(
+                "<!doctype html><script>{}</script>",
+                include_str!("fixtures/constructed-sheets.txt")
+            ))
+            .with_header(header("Content-Type", "text/html")?),
+        );
+    }
     if request.url().starts_with("/html-boxes/") || request.url().starts_with("/html-boxes-assets/")
     {
         return serve_html_boxes(request);
@@ -1604,6 +1613,7 @@ fn is_resource(path: &str) -> bool {
         "/font-family/",
         "/display/",
         "/html-boxes/",
+        "/constructed-sheets/",
         "/html-boxes-assets/",
         "/display-assets/",
         "/font-family-assets/",
@@ -2408,4 +2418,23 @@ fn serve_html_boxes(request: Request) -> io::Result<()> {
         include_str!("fixtures/html-boxes.txt")
     );
     request.respond(Response::from_string(source).with_header(header("Content-Type", "text/html")?))
+}
+
+#[test]
+fn native_constructed_stylesheets_real_http() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/constructed-sheets/{variant}")))?;
+        let result = page.evaluate(&format!("constructedSheetsCase({variant})"))?;
+        let checks = result.as_object().ok_or("missing CSSOM checks")?;
+        assert_eq!(checks.len(), 46);
+        assert!(
+            checks
+                .iter()
+                .all(|(name, check)| *check == json!(name != "nonconfigIndexDefine")),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
 }

@@ -1,0 +1,70 @@
+# Running Nimbo on celld
+
+[celld](https://celld.dev/) is a self-hosted Workers runtime. Nimbo runs the same prebuilt Worker/Wasm bundle used by its Cloudflare stack. See the official [Wasm guide](https://celld.dev/docs/wasm/) and [runtime documentation](https://celld.dev/docs/).
+
+## Install and build
+
+Install celld from its [official releases](https://github.com/denoland/celld/releases). The local benchmark was run with version 0.6.1. Install Nimbo's prerequisites from the [README](../README.md), then:
+
+```sh
+bun install --frozen-lockfile
+bun run build:worker
+celld --version
+```
+
+`wrangler.celld.json` points to `dist/worker/index.js` with `no_bundle: true`. The adjacent Wasm module is already built; celld does not need to compile Rust or bundle TypeScript. The entry point must be inside the project directory.
+
+## Local development
+
+Supply the token in an ignored `.dev.vars` file beside the configuration. With `NIMBO_API_TOKEN` already set in your private environment:
+
+```sh
+bun -e 'const token = process.env.NIMBO_API_TOKEN; if (!token) throw new Error("Set NIMBO_API_TOKEN"); await Bun.write(".dev.vars", `API_TOKEN=${token}\n`);'
+chmod 600 .dev.vars
+celld dev wrangler.celld.json --no-watch
+```
+
+The default local listener is `http://127.0.0.1:9876`. Set `NIMBO_URL` privately to that listener and use the HTTP API examples in the [README](../README.md#http-api). celld stores local state under `.celld/dev`; both that directory and `.dev.vars` are ignored by Git.
+
+Persistent runtime state does not make Nimbo browser sessions durable. Each Worker extraction still creates its own page and cookie jar.
+
+## Benchmark inside celld
+
+```sh
+bun run bench:celld
+```
+
+If celld is outside your executable search path, set `CELLD_BINARY` privately. The runner:
+
+1. Checks the celld version and copies the prebuilt bundle into an owned temporary project.
+2. Creates an ephemeral API token and starts a real local HTTP fixture.
+3. Starts celld with watching disabled and waits for its health endpoint.
+4. Verifies all extraction results before accepting timings.
+5. Stops its celld process and fixture and deletes its temporary state.
+
+The fixture uses 16 HTML rows to keep the 200-selector scenario within the default DOM operation budget. A 5000-row attempt was rejected with HTTP 422 (`resource limit: DOM operations`). Three scenarios cover: static extraction, 200 repeated selectors and dynamic JSON fetch. Each has three excluded warmups and 21 measured samples, at concurrency one. Timings include the HTTP API round trip and response decoding; they are not isolated CPU measurements. The fixture host runs separately, while the Nimbo engine executes inside celld.
+
+See [recorded results](performance-celld.json). This local benchmark does not establish distributed throughput, production cost, Cloudflare CPU time or memory stability. The [Cloudflare guide](cloudflare.md#benchmark-a-deployed-worker) uses the same HTTP driver for a reachable deployed endpoint.
+
+## Deployment configuration
+
+celld deployment publishes an application to a storage bucket. The bucket, provider credentials and runtime node configuration belong in private operational settings. Consult the [official deployment documentation](https://celld.dev/docs/) for your provider and ingress setup.
+
+`.dev.vars` supplies local development bindings. For deployment, generate an ignored private configuration with the token binding:
+
+```sh
+bun -e 'const token = process.env.NIMBO_API_TOKEN; if (!token) throw new Error("Set NIMBO_API_TOKEN"); const config = await Bun.file("wrangler.celld.json").json(); config.vars = { API_TOKEN: token }; await Bun.write("wrangler.celld.private.json", JSON.stringify(config));'
+chmod 600 wrangler.celld.private.json
+celld deploy wrangler.celld.private.json --bucket "$CELLD_BUCKET" --dry-run
+celld deploy wrangler.celld.private.json --bucket "$CELLD_BUCKET"
+```
+
+Use provider credentials from the environment or the provider's credential chain. Add `--endpoint` or `--region` when your storage provider requires them. Treat the generated configuration and uploaded application configuration as sensitive.
+
+Start your runtime node against that bucket using private settings, for example:
+
+```sh
+celld --bucket "$CELLD_BUCKET" --listen 127.0.0.1:8080
+```
+
+Configure public routing and TLS through your own ingress according to celld's documentation. Verify health, authentication and extraction after deployment. Running Nimbo on celld does not add missing engine capabilities such as WebGL, video, TLS fingerprint controls or durable sessions.

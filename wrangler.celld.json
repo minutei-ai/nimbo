@@ -1,0 +1,6 @@
+{
+  "name": "nimbo",
+  "main": "dist/worker/index.js",
+  "compatibility_date": "2026-07-30",
+  "no_bundle": true
+}

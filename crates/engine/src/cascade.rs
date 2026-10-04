@@ -98,7 +98,7 @@ fn unsupported(detail: &str) -> Error {
     Error::Dom(format!("layout unsupported: {detail}"))
 }
 
-fn unknown_selector(selector: &lightningcss::selector::Selector<'_>) -> bool {
+pub(crate) fn unknown_selector(selector: &lightningcss::selector::Selector<'_>) -> bool {
     selector
         .iter_raw_match_order()
         .any(|component| match component {
@@ -118,7 +118,7 @@ fn unknown_selector(selector: &lightningcss::selector::Selector<'_>) -> bool {
         })
 }
 
-fn forgiving_unknown(selector: &lightningcss::selector::Selector<'_>) -> bool {
+pub(crate) fn forgiving_unknown(selector: &lightningcss::selector::Selector<'_>) -> bool {
     selector
         .iter_raw_match_order()
         .any(|component| match component {

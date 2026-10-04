@@ -1,27 +1,9 @@
+import { benchmarkScenarios, benchmarkFixture } from "./benchmark-fixture";
 import { Data, Effect } from "effect";
 
 class BenchmarkError extends Data.TaggedError("BenchmarkError")<{
   readonly cause: unknown;
 }> {}
-
-const rows = "<li class=entry>row</li>".repeat(5_000);
-const html = `<title>Static</title><main><ul>${rows}</ul></main>`;
-const scenarios = [
-  {
-    name: "static",
-    path: "/static",
-    expression: "document.querySelector('.entry').textContent",
-    expected: "row",
-  },
-  {
-    name: "selectors-200",
-    path: "/static",
-    expression:
-      "(() => { let value; for (let i = 0; i < 200; i++) value = document.querySelector('.entry').textContent; return value; })()",
-    expected: "row",
-  },
-  { name: "dynamic-fetch", path: "/dynamic", expression: "document.title", expected: "Loaded" },
-] as const;
 
 const program = Effect.gen(function* () {
   const server = yield* Effect.acquireRelease(
@@ -29,19 +11,7 @@ const program = Effect.gen(function* () {
       Bun.serve({
         hostname: "127.0.0.1",
         port: 0,
-        fetch(request) {
-          switch (new URL(request.url).pathname) {
-            case "/api":
-              return Response.json({ title: "Loaded" });
-            case "/dynamic":
-              return new Response(
-                `${html}<script>fetch('/api').then(r => r.json()).then(data => document.title = data.title);</script>`,
-                { headers: { "Content-Type": "text/html" } },
-              );
-            default:
-              return new Response(html, { headers: { "Content-Type": "text/html" } });
-          }
-        },
+        fetch: benchmarkFixture,
       }),
     ),
     (fixtureServer) => Effect.promise(() => fixtureServer.stop(true)),
@@ -50,7 +20,7 @@ const program = Effect.gen(function* () {
     try: async () => {
       const binary = process.argv[2] ?? "target/release/nimbo-engine";
       const results = [];
-      for (const scenario of scenarios) {
+      for (const scenario of benchmarkScenarios) {
         const times = [];
         for (let iteration = 0; iteration < 24; iteration++) {
           const start = performance.now();
@@ -83,7 +53,7 @@ const program = Effect.gen(function* () {
       }
       return {
         binary,
-        mode: "one process per extraction; local HTTP; 5000 rows; 3 warmups",
+        mode: "one process per extraction; local HTTP; 16 rows; 3 warmups",
         results,
       };
     },

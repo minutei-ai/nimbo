@@ -1,16 +1,19 @@
-# Worker
+# Nimbo Worker
 
-Worker TypeScript com Effect v4 que executa o motor Rust/QuickJS em Wasm.
-Expõe `GET /health` e `POST /scrape`, autenticado pelo secret `API_TOKEN`.
-O binding opcional `EGRESS` fornece transporte HTTP; sem ele, usa fetch direto.
+A TypeScript Worker using Effect v4 to run Nimbo's own Rust/QuickJS engine in WebAssembly.
 
-O campo opcional `scripts` aceita `execute` (padrão) ou `skip` para extração
-do HTML recebido sem executar scripts da página. Veja capacidades e limites
-no [README da raiz](../../README.md).
+- `GET /health`: engine identity and version.
+- `POST /scrape`: extraction authenticated by the `API_TOKEN` secret binding.
+- Optional `EGRESS`: HTTP transport binding; otherwise the host's `fetch` is used.
+- Optional `scripts: "skip"`: extract from received HTML without running page scripts. The default is `execute`.
 
-Build e testes em workerd: `bun run build:worker` e `bun run test:worker`
-na raiz. Deploy e transporte operacional exigem configuração privada e
-validação independente.
+From the repository root:
 
-O código em `src/` usa o `tsconfig.json` deste pacote. Lint, formatação e checks
-são executados na raiz do monorepo.
+```sh
+bun run build:worker
+bun run test:worker
+```
+
+Build output is a prebuilt JavaScript entry point and Wasm module. Both Cloudflare Workers and celld use that bundle. Formatting, linting and checks run from the root; source files use this package's `tsconfig.json`.
+
+See the [root README](../../README.md) for API fields, resource limits and browser coverage, the [Cloudflare guide](../../docs/cloudflare.md) for Alchemy deployment, and the [celld guide](../../docs/celld.md) for local execution and benchmarks. Production transport and deployment require independent validation.

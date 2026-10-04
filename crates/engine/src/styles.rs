@@ -787,7 +787,7 @@ impl Declarations {
             })
             .map_or_else(|| (String::new(), false), |value| (value, first.important))
     }
-    fn css_text(&self) -> String {
+    pub(crate) fn css_text(&self) -> String {
         let mut seen = Vec::new();
         let mut declarations = Vec::new();
         for entry in &self.entries {

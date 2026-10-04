@@ -3,6 +3,9 @@ target/
 dist/
 coverage/
 .alchemy/
+.celld/
+.dev.vars
+.dev.vars.*
 .lint-probe-*/
 .env
 .env.*

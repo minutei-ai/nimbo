@@ -11,6 +11,7 @@ mod canvas;
 mod cascade;
 mod computed_style;
 mod containers;
+mod cssom;
 mod display;
 mod dom;
 mod encoding;

@@ -2154,3 +2154,36 @@ replaced/media/control/SVG layout, CSSOM rule mutation and painting remain pendi
 
 Public references: [HTML rendering defaults](https://html.spec.whatwg.org/multipage/rendering.html),
 [HTML text-level semantics](https://html.spec.whatwg.org/multipage/text-level-semantics.html).
+
+### Native constructed stylesheet and style-rule state
+
+Constructed CSSStyleSheet objects now store ordered rule identifiers, selectors,
+parsed declarations, parent links and disabled state in a bounded Rust arena.
+The JavaScript bindings preserve wrapper identity and expose live CSSRuleList
+access, insertion/deletion, CSSStyleRule selectorText/cssText and declaration
+mutation through the existing native declaration parser. Removed rules retain
+their declarations and stable wrappers while parentStyleSheet becomes null.
+Rule.style keeps parentRule identity and forwards assignments to cssText.
+Invalid insertions preserve the list; unsupported grouped/at/nested rules and
+constructor options fail explicitly.
+
+The real-HTTP fixture has 64 variants with 46 comparisons each. Chromium passes
+all 2,944 comparisons. Native Rust and Worker/Wasm match 45 per variant (2,880
+matches). The remaining 64 expose an indexed-object reflection gap: Chromium
+accepts explicit nonconfigurable numeric CSSRuleList definitions while Nimbo's
+Proxy wrapper rejects them. The fixture retains this measured divergence.
+[The aggregate records the scope](evidence/constructed-sheets-chromium.json).
+Worker checks also exhaust the 256-sheet, 4,096-rule and 64 KiB input bounds and
+verify fresh-request recovery. Rule state has a separate 4 MiB bound and shares
+the page's existing DOM operation/write budgets; removed rules still consume
+retained-state capacity.
+
+This is structural constructed-sheet support, not a claim that these sheets
+affect document styling. Association with loaded link/style sheets, adopted
+sheets, cascading these mutations, constructor options, replace/replaceSync,
+MediaList, grouped/nested/at-rule APIs, cross-origin security and complete CSSOM
+remain pending. In particular, the earlier externalMutation comparison still
+diverges. Selector parsing follows the current native selector grammar; complete
+selector recovery and legacy-platform-object reflection remain pending too.
+
+Public reference: [CSSOM stylesheet and rule interfaces](https://drafts.csswg.org/cssom/#the-cssstylesheet-interface).

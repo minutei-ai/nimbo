@@ -18,6 +18,8 @@
     "browser": "cargo run -p nimbo-engine --locked --",
     "browser:release": "cargo run -p nimbo-engine --release --locked --",
     "bench:browser": "bun run tooling/benchmark.ts",
+    "bench:celld": "bun run build:worker && bun run tooling/benchmark-celld.ts",
+    "bench:worker": "bun run tooling/benchmark-worker.ts",
     "docs:rust": "RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features --no-deps --locked",
     "check": "bun run format:check && bun run build:worker && bun run lint && bun run test && bun run docs:rust && bun run test:release",
     "test:release": "cargo test --release --workspace --all-features --locked",

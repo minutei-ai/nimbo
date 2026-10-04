@@ -18,6 +18,7 @@ pub(crate) struct Dom {
     layout_version: usize,
     sheet_scan: Option<usize>,
     sheets: crate::stylesheets::Sheets,
+    cssom: crate::cssom::Arena,
     writes: usize,
     limits: Limits,
     media: crate::MediaEnvironment,
@@ -44,6 +45,7 @@ impl Dom {
             layout_version: 0,
             sheet_scan: None,
             sheets: crate::stylesheets::Sheets::new(base, limits.max_stylesheet_bytes),
+            cssom: crate::cssom::Arena::default(),
             writes: 0,
             limits,
             media,
@@ -94,6 +96,7 @@ impl Dom {
         let version = self.layout_version;
         self.begin(operation, arg)?;
         let result = match operation {
+            "cssom" => self.cssom_call(handle, arg, value)?,
             "baseHref" => json!(self.base_href()),
             "fontFaces" => self.font_faces()?,
             "cssSupports" => json!(crate::supports::query(arg)?),
@@ -452,6 +455,26 @@ impl Dom {
             }
         }
         Ok(())
+    }
+
+    fn cssom_call(&mut self, handle: usize, operation: &str, request: &str) -> Result<Value> {
+        let request: Value = serde_json::from_str(request)?;
+        let arg = request
+            .get("arg")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        let value = request
+            .get("value")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        if matches!(
+            operation,
+            "new" | "insert" | "delete" | "disabled" | "selector"
+        ) || (operation == "style" && matches!(arg, "text" | "set" | "remove"))
+        {
+            self.charge_write(arg.len().saturating_add(value.len()))?;
+        }
+        self.cssom.call(operation, handle, arg, value)
     }
 
     fn style(&mut self, handle: usize, operation: &str, request: &str) -> Result<Value> {

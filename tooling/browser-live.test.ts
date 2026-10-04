@@ -2,6 +2,7 @@ import { backgroundLayersFixture } from "./background-layers-fixture";
 import { fontFamilyFixture } from "./font-family-fixture";
 import { displayFixture } from "./display-fixture";
 import { htmlBoxesFixture } from "./html-boxes-fixture";
+import { constructedSheetsFixture } from "./constructed-sheets-fixture";
 import { backgroundSizeFixture } from "./background-size-fixture";
 import { backgroundRepeatFixture } from "./background-repeat-fixture";
 import { backgroundPositionFixture } from "./background-position-fixture";
@@ -424,6 +425,8 @@ const origin = Bun.serve({
   port: 0,
   async fetch(request) {
     const path = new URL(request.url).pathname;
+    const constructedSheets = await constructedSheetsFixture(path);
+    if (constructedSheets) return constructedSheets;
     const htmlBoxes = await htmlBoxesFixture(path);
     if (htmlBoxes) return htmlBoxes;
     const display = await displayFixture(path);
@@ -5440,4 +5443,64 @@ test.each([
   });
   expect(response.status).toBe(422);
   expect(await response.text()).toContain(`element formatting: ${category}`);
+});
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native constructed stylesheets variant %i",
+  async (variant) => {
+    const url = new URL(`constructed-sheets/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: `constructedSheetsCase(${variant})` }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing CSSOM checks");
+    expect(Object.keys(value)).toHaveLength(46);
+    for (const [name, check] of Object.entries(value))
+      expect(check).toBe(name !== "nonconfigIndexDefine");
+  },
+);
+
+test.each([
+  ["CSSOM sheets", "for(let i=0;i<257;i++)new CSSStyleSheet();"],
+  ["CSSOM state", "const s=new CSSStyleSheet();for(let i=0;i<4097;i++)s.insertRule('div{}',i);"],
+  ["CSSOM input", "new CSSStyleSheet().insertRule('div{'+ ' '.repeat(65537)+'}');"],
+])(
+  "real HTTP → workerd → Wasm: constructed stylesheet %s limit and recovery",
+  async (reason, setup) => {
+    const url = new URL("constructed-sheets/0", origin.url).href;
+    const request = (expression: string) =>
+      worker.dispatchFetch("https://nimbo.test/scrape", {
+        method: "POST",
+        headers: { authorization: "Bearer test-secret" },
+        body: JSON.stringify({ url, expression }),
+      });
+    const failed = await request(`(()=>{${setup}return true})()`);
+    expect(failed.status).toBe(422);
+    expect(await failed.text()).toContain(reason);
+    const recovered = await request("new CSSStyleSheet().cssRules.length");
+    expect(recovered.status).toBe(200);
+    expect(await recovered.json()).toMatchObject({ value: 0 });
+  },
+);
+
+test("real HTTP → workerd → Wasm: constructed stylesheet unsupported scope stays explicit", async () => {
+  const url = new URL("constructed-sheets/0", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression:
+        "(()=>{const s=new CSSStyleSheet();const failures=[];for(const fn of [()=>s.insertRule('@media all {div{width:1px}}'),()=>new CSSStyleSheet({disabled:true}),()=>s.insertRule('div{& span {width:1px}}')]){try{fn();failures.push('missing')}catch(e){failures.push(e.name)}}return {failures,length:s.cssRules.length}})()",
+    }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
+    value: { failures: ["NotSupportedError", "NotSupportedError", "NotSupportedError"], length: 0 },
+  });
 });

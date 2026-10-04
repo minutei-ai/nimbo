@@ -1,122 +1,130 @@
 # Nimbo
 
-Browser de scraping com **Rust e QuickJS compilados para Wasm, executados dentro de um Cloudflare Worker**. TypeScript com Effect v4 controla autenticação, transporte HTTP e liberação da página. Não depende de Containers.
+A scraping browser engine built in Rust and QuickJS, compiled to WebAssembly and run inside a Worker. TypeScript with Effect handles authentication, HTTP transport and page cleanup. Nimbo also provides a native CLI.
 
-O motor é independente: Obscura não é backend, dependência de runtime nem fallback. Seu executável pode ser usado separadamente como comparador opcional nos testes.
+Nimbo owns its browser implementation. Obscura is an optional, separate test comparator; it is never a runtime backend, dependency or fallback.
 
-O MVP foi validado localmente no `workerd`, o runtime dos Workers, e também possui uma CLI nativa para desenvolvimento. Deploy, integração com proxies e medições de custo em produção ainda não foram validados.
+[Cloudflare guide](docs/cloudflare.md) · [celld guide](docs/celld.md) · [Browser coverage](docs/browser-coverage.md) · [Quality policy](docs/rust-quality.md)
 
-## Monorepo
+## Getting started
 
-```text
-apps/worker/     Worker TypeScript + Effect: API e transporte
-crates/engine/   Rust: DOM, QuickJS, máquina de execução e CLI
-tooling/        build, testes de lint, workerd e benchmark nativo
-apps/infrastructure/  stack nativa Alchemy para o Worker e seu secret
-```
-
-Workspaces nativos Bun/Cargo, versões fixadas e lockfiles versionados. Todo código escrito no projeto é Rust ou TypeScript. O JavaScript necessário ao runtime é gerado em `target/` e `dist/`, ignorados pelo Git.
+Requirements: Bun, Rust, `clang`, `llvm-ar` and `wasm-ld`. The Rust toolchain configuration includes the Wasm target.
 
 ```sh
 bun install --frozen-lockfile
-# Rust instala o target wasm definido em rust-toolchain.toml.
-# Também são necessários clang, llvm-ar e wasm-ld no PATH.
 cargo install wasm-bindgen-cli --version 0.2.129 --locked
-bun run check
-```
-
-`check` compila o Worker, verifica formatação, roda Oxlint com tipos e o preset oficial strict de Effect, Clippy nativo e Wasm sem warnings, testes Bun/workerd e Rust, documentação e testes Rust em release. Novos crates devem herdar `[lints] workspace = true`. A política e benchmarks nativos anteriores estão em [docs/rust-quality.md](docs/rust-quality.md).
-
-```sh
-bun run build:worker   # dist/worker/index.js + nimbo_engine_bg.wasm
-bun run test:worker    # build e testes no workerd, sem rede externa
-bun run test:browser   # testes do adaptador HTTP nativo
+bun run build:worker
 bun run browser https://example.com 'document.querySelector("h1").textContent'
 ```
 
-## Worker e arquitetura
+```sh
+bun run check         # formatting, build, lint, tests, Rust docs and release tests
+bun run test:worker   # real workerd execution, including local HTTP fixtures
+bun run test:browser  # native HTTP adapter tests
+```
+
+The build produces `dist/worker/index.js` and `dist/worker/nimbo_engine_bg.wasm`. Generated artifacts are ignored by Git. Bun and Cargo workspaces use pinned dependencies and committed lockfiles.
+
+## Architecture
 
 ```mermaid
 flowchart LR
-    Client[Coletor] --> Worker[Worker TS + Effect]
+    Client[Collector] --> Worker[TypeScript + Effect Worker]
     Worker --> Engine[Rust Wasm: DOM + QuickJS]
-    Engine --> Actions[Ações HTTP / resultado JSON]
+    Engine --> Actions[HTTP actions / JSON result]
     Actions --> Worker
-    Worker --> Transport[Transporte fetch / EGRESS]
-    Transport --> Source[Origem HTTP]
+    Worker --> Transport[fetch / optional EGRESS binding]
+    Transport --> Source[HTTP origin]
 ```
 
-O núcleo Rust é uma máquina que produz ações HTTP e recebe respostas. Não abre sockets nem inicia threads. O mesmo núcleo atende ao Worker e à CLI; apenas o adaptador de transporte muda. Tokio não é necessário para esse alvo: o Worker já fornece o executor e o I/O assíncrono. JavaScript das páginas executa no QuickJS, separado das credenciais e bindings do host.
+The Rust engine produces HTTP actions and consumes responses. The host supplies transport and a monotonic clock. Page JavaScript runs in QuickJS, separate from host bindings and credentials. Cloudflare Workers and celld use the same prebuilt Worker/Wasm bundle; the native CLI uses a native HTTP adapter.
 
-- `GET /health`: versão e identidade do motor.
-- `POST /scrape`: `Authorization: Bearer <API_TOKEN>` e JSON `{ "url": "https://example.com", "expression": "document.title" }`.
-- Sucesso: `{ "url": "URL final", "value": "resultado", "engine": "rust-wasm-quickjs" }`.
-- Falha: status HTTP e `{ "error": "motivo" }`. Sem `API_TOKEN`, scraping fica indisponível.
+| Directory              | Purpose                                                         |
+| ---------------------- | --------------------------------------------------------------- |
+| `crates/engine/`       | Rust DOM, QuickJS execution, CSS, layout, canvas and native CLI |
+| `apps/worker/`         | Worker API, authentication and transport                        |
+| `apps/infrastructure/` | Alchemy Cloudflare stack                                        |
+| `tooling/`             | Builds, real HTTP fixtures, tests and benchmarks                |
+| `docs/`                | Coverage, evidence and runtime guides                           |
 
-Para HTML renderizado no servidor, envie `"scripts": "skip"`: scripts inline, externos, modules e async não executam nem são carregados. A expressão de extração continua usando o DOM recebido e QuickJS. O padrão `"scripts": "execute"` mantém a execução e as rejeições de scripts não suportados; não há fallback automático para conteúdo estático. Esse modo não hidrata aplicações nem produz conteúdo que depende de JavaScript.
+## HTTP API
 
-O campo opcional `maxStylesheetBytes` configura o orçamento de CSS por página, de 1 byte a 2 MiB no Worker; o padrão é 256 KiB. Ele limita cada stylesheet, o texto CSS das folhas ativas e o cache de respostas CSS carregadas. Por exemplo, `"maxStylesheetBytes": 1048576` permite até 1 MiB. O orçamento de respostas HTTP, as cotas de regras/seletores e o deadline continuam aplicáveis. Na biblioteca Rust, configure `Limits::max_stylesheet_bytes`.
-
-O campo opcional `maxLayoutNodes` configura de 1 a 4096 visitas por coleta CSS ou passe de layout no Worker; o padrão é 1024. A coleta conta também nós de texto e doctype; o layout conta caixas de conteúdo gerado. Por exemplo, `"maxLayoutNodes": 2048` admite documentos maiores. A profundidade máxima de 128 e o orçamento compartilhado de operações DOM continuam aplicáveis. Na biblioteca Rust, configure `Limits::max_layout_nodes`.
-
-O artefato inclui o módulo Wasm pré-compilado e o secret `API_TOKEN`. A stack em `apps/infrastructure/alchemy.run.ts` usa o recurso nativo Worker do Alchemy com `bundle: false`, preservando o JavaScript e o módulo Wasm produzidos pelo build. `NIMBO_API_TOKEN` vem do ambiente privado e é declarado como secret via `Config.Redacted`; autenticação Cloudflare usa o fluxo nativo do Alchemy. Nenhuma credencial acompanha o projeto.
+`GET /health` returns the engine identity and version. `POST /scrape` requires the `API_TOKEN` binding and a bearer token. Keep the endpoint and token in private environment variables:
 
 ```sh
-bun run dev:worker
-bun run plan:worker
-bun run deploy:worker
+curl "$NIMBO_URL/scrape" \
+  -H "Authorization: Bearer $NIMBO_API_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data '{"url":"https://example.com","expression":"document.title"}'
 ```
 
-A stack usa o estado local nativo do Alchemy, em `.alchemy/`, ignorado pelo Git. Mantenha esse estado entre operações de deploy. O workspace de infraestrutura fixa Effect `4.0.0-rc.115`, compatível com os imports do Alchemy `2.0.0-beta.79`; o runtime do Worker continua no Effect `4.0.0`. Os overrides dos pacotes auxiliares mantêm essa compatibilidade na instalação reproduzível. O plano local não comprova deploy nem funcionamento no ambiente Cloudflare.
+Successful responses contain `url`, `value` and `engine: "rust-wasm-quickjs"`. Failures return an HTTP status and an `error` field. Scraping is unavailable without an API token.
 
-O binding opcional `EGRESS` implementa `fetch(Request): Promise<Response>`, permitindo um transporte separado sem acoplar protocolos ao motor. Sem binding, o transporte utiliza `fetch` do Worker diretamente. Tinyproxy usa HTTP/CONNECT com autenticação configurada somente em ambiente privado; suporte HTTPS no Worker exige validação do caminho TLS.
+| Field                | Behavior                                                                                  |
+| -------------------- | ----------------------------------------------------------------------------------------- |
+| `url`                | HTTP destination                                                                          |
+| `expression`         | JavaScript extraction expression                                                          |
+| `scripts`            | `execute` by default; `skip` parses received HTML without loading or running page scripts |
+| `maxStylesheetBytes` | CSS budget: 1 byte–2 MiB; default 256 KiB                                                 |
+| `maxLayoutNodes`     | Visits per CSS collection/layout pass: 1–4096; default 1024                               |
 
-## Capacidades e limites
+The extraction expression still runs in `skip` mode. That mode does not hydrate JavaScript applications. Other request, DOM and execution limits still apply.
 
-| Superfície                                                                         | Estado                                                                  |
-| ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| HTML, seletores CSS, atributos, texto, criação/remoção de elementos                | Implementados e testados                                                |
-| Scripts clássicos inline/externos, Promises, GET/POST, ciclo DOMContentLoaded/load | Implementados com ciclo simplificado                                    |
-| setTimeout/setInterval, cancelamento e queueMicrotask                              | Testados com relógio real no nativo e workerd                           |
-| Redirects, cookies HttpOnly, isolamento entre páginas, liberação do Wasm           | Testados no workerd                                                     |
-| Limites de bytes, requests, DOM, heap JS, instruções e microtasks                  | Implementados; testes locais de falha e recuperação                     |
-| Proxy, deploy, custo, memória prolongada e throughput em produção                  | Pendentes                                                               |
-| Geometria de caixas block/flex e grid automático                                   | Subconjunto nativo testado; textos, cascata e layout completo pendentes |
-| Regras de style, prioridade, especificidade e grupos media                         | Subconjunto nativo testado; cascata completa pendente                   |
-| Variáveis CSS herdadas, fallbacks e shorthands pendentes                           | Subconjunto nativo testado; ciclos comparados com Chromium              |
-| Cascata completa, screenshots, Chromium/CDP, XHR e frames/idle                     | Não implementados                                                       |
-| Modules com imports relativos, ciclos, bindings vivos e top-level await            | Testados no nativo e workerd                                            |
-| Import maps, JSON modules e carregamento de novos imports dinâmicos                | Não implementados; scripts async rejeitados                             |
-| localStorage/sessionStorage, cota UTF-16 e persistência entre navegações nativas   | Testados; Worker inicia áreas vazias por request                        |
-| IndexedDB, storage events e sessões duráveis                                       | Não implementados                                                       |
-| Estilos inline: parser CSS nativo, var/env e estado de shorthands                  | Subconjunto testado; CSSOM completo e estilos computados pendentes      |
-| TextEncoder/TextDecoder, buffers e codecs Rust                                     | Testados; encoding streams e WPT completo pendentes                     |
-| HTMLElement, namespaces e atributos refletidos básicos                             | Testados; interfaces específicas pendentes                              |
-| Custom elements autônomos, upgrades, callbacks e whenDefined                       | Testados parcialmente; forms, shadow e registries scoped pendentes      |
-| classList/DOMTokenList, mutações ordenadas e atributos vivos                       | Testados no nativo e workerd; cobertura parcial                         |
-| matchMedia, viewport lógico e preferências explícitas                              | Testados; layout e eventos automáticos pendentes                        |
-| HTMLAnchorElement, componentes URL, relList e base do documento                    | Testados; navegação e processamento de links pendentes                  |
-| OffscreenCanvas, retângulos RGBA8 e leitura de pixels                              | Bitmap Rust nativo testado; Canvas completo e WebGL pendentes           |
-| Frames                                                                             | Rejeitados explicitamente                                               |
+The optional `EGRESS` binding implements `fetch(Request): Promise<Response>`. Without it, the Worker uses its own `fetch`. Proxy credentials and destination policies belong in private configuration. Generic HTTP/CONNECT support does not establish controllable TLS fingerprints.
 
-Scripts executam em ordem após parsing completo. Fetch suporta `method`/corpo string, `status`/`ok`/`url`, `text()` e `json()`. Não implementa headers customizados nem CORS entre origens. HTML e respostas devem ser UTF-8; imagens não são carregadas; stylesheets externos são carregados no subconjunto CSS documentado. Não equivale à compatibilidade de Chromium.
+## Browser capabilities
 
-OffscreenCanvas oferece um subconjunto de Canvas 2D com bitmap de software em Rust: fillRect, clearRect, alpha source-over, save/restore/reset, resize, ImageData, putImageData e os modos Porter–Duff/blend de globalCompositeOperation. Os pixels são calculados pelo mesmo motor no nativo e no Worker. Cada bitmap tem no máximo 4096 pixels por dimensão e 1.048.576 pixels; a página limita bitmaps alocados a 16 MiB e 64 objetos. Métodos de desenho ausentes falham explicitamente. HTMLCanvasElement, imagens/textos, codificação de arquivos, screenshots e WebGL continuam pendentes; a comparação de limpeza fracionária ainda diverge do Chromium. Veja a [cobertura e as evidências](docs/browser-coverage.md#native-software-canvas-pixels).
+The engine implements bounded browser subsets. See the [coverage inventory](docs/browser-coverage.md) for individual contracts, real Chromium comparisons, known divergences and pending work.
 
-Callbacks de timers executam no QuickJS da página; o host fornece tempo monotônico e atende esperas. Uma Promise de extração pendente avança tarefas futuras; uma extração já resolvida não espera todos os timers. O transporte HTTP permanece serializado. Os limites são 1024 timers pendentes e 10 mil callbacks por página, além do deadline total.
+| Surface                          | Current scope                                                                                                                                      |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| HTML and DOM                     | Parsing, selectors, attributes, text, mutations and selected element interfaces                                                                    |
+| JavaScript                       | Classic scripts, supported modules, live bindings, top-level await, Promises and bounded timers                                                    |
+| HTTP                             | Redirects, cookies, page fetch and per-page isolation; simplified browser networking                                                               |
+| Storage                          | Bounded local/session storage; Worker requests start fresh                                                                                         |
+| CSS                              | Native declarations, selector matching, cascade and computed-style subsets                                                                         |
+| Layout                           | Native block/flex/grid box geometry and selected HTML categories; incomplete text layout                                                           |
+| CSSOM                            | Constructed sheets, ordered live rule lists and rule declarations; document association and grouped rules pending                                  |
+| Canvas                           | Rust software OffscreenCanvas bitmap and selected 2D pixel operations                                                                              |
+| Compatibility work still pending | Full HTML/CSSOM/WPT behavior, text shaping, painting, screenshots/PDF, WebGL, video, controllable TLS, durable browser sessions and CDP automation |
 
-Cada extração cria uma página e cookie jar próprios. Uma página ativa por isolate, com excesso rejeitado em 429, limita sobreposição de heaps. Effect libera a página e o permit também em falhas. Os limites padrão são 10 s, 2 MiB de respostas acumuladas, 32 requests físicos incluindo redirects, 10 mil operações DOM, 4 MiB de escritas DOM, heap QuickJS de 32 MiB, expressão de 64 KiB, 512 callbacks de interrupção QuickJS e 10 mil microtasks.
+Scripts run after parsing; this is a simplified lifecycle. Frames are explicitly rejected. Images are not loaded. Import maps, JSON modules, IndexedDB and full CORS/networking contracts remain incomplete. Supported CSS metadata does not imply font rendering or painting.
 
-O orçamento de interrupções mede trabalho do QuickJS, não milissegundos nem um número exato de instruções. Ele impede loops mesmo com o relógio restrito dos Workers; o timeout Effect limita I/O. Parsing e callbacks nativos têm limites de tamanho/operações, mas não podem ser preemptados pelo timeout. O heap QuickJS não representa toda a memória do isolate. Ciclos locais de criar/liberar páginas não provam ausência de leaks.
+Constructed CSSOM currently differs from Chromium for a non-configurable indexed rule-list definition. Mutating document stylesheets is also pending. These divergences remain visible in the real fixtures and evidence.
 
-A política de mesma origem limita redirects e subrequests. Não é proteção completa contra SSRF/DNS rebinding; a política de destinos do proxy precisa ser definida antes de exposição pública em escala.
+## Resource limits
 
-## Performance e stealth
+Each extraction owns its page and cookie jar. One active page per isolate is allowed; overlapping requests receive HTTP 429. Effect releases the page and permit on failures.
 
-O build Wasm usa o perfil release com otimização 3 e LTO. Benchmarks nativos não comprovam desempenho nem custo no Worker. As próximas medições devem comparar CPU, memória, latência e custo por mil extrações válidas, incluindo falhas e tráfego do proxy.
+Defaults include a 10-second deadline, 2 MiB of accumulated HTTP responses, 32 physical requests including redirects, 10,000 DOM operations, 4 MiB of DOM writes, a 32 MiB QuickJS heap, a 64 KiB extraction expression and 10,000 microtasks. Timers have separate limits of 1024 pending timers and 10,000 callbacks.
 
-O transporte usa identidade explícita `Nimbo/0.1`. Challenges sinalizados pelo upstream falham explicitamente. Não há promessa de stealth: proxy muda a saída de rede, mas não cria compatibilidade de browser nem controla automaticamente o fingerprint TLS. ClientHello, APIs web e desafios precisam de provas por destino antes de qualquer alegação.
+QuickJS interrupt budgets bound JavaScript work; they are not elapsed milliseconds. Native callbacks have size/operation limits. The QuickJS heap limit does not describe total isolate memory. Same-origin restrictions do not provide complete SSRF or DNS-rebinding protection; operational destination policies need separate enforcement.
 
-Referências da plataforma: [Wasm nos Workers](https://developers.cloudflare.com/workers/runtime-apis/webassembly/), [relógio e performance](https://developers.cloudflare.com/workers/runtime-apis/performance/), [limites](https://developers.cloudflare.com/workers/platform/limits/) e [preços](https://developers.cloudflare.com/workers/platform/pricing/).
+## Benchmarks
 
-Bibliotecas reutilizadas preservam suas licenças: QuickJS/rquickjs e dom_query (MIT), html5ever e reqwest (MIT ou Apache-2.0). Não há código de projetos privados copiado.
+Run the Worker/Wasm benchmark **inside celld**:
+
+```sh
+bun run bench:celld
+```
+
+The runner starts an owned celld process and a real HTTP fixture, verifies extraction values, excludes three warmups and reports 21 measured samples per scenario. It cleans up its process and temporary state. `CELLD_BINARY` optionally selects the executable. See the [celld guide](docs/celld.md) and [recorded results](docs/performance-celld.json).
+
+```sh
+cargo build --release -p nimbo-engine --locked
+bun run bench:browser  # native CLI; a fresh process per extraction
+bun run bench:worker   # an existing Worker endpoint; requires private environment settings
+```
+
+Native CLI timings, local celld HTTP timings and deployed Cloudflare measurements are different measurements. The remote driver requires a fixture origin reachable from the Worker; the [Cloudflare guide](docs/cloudflare.md) explains that setup. Local measurements do not establish production throughput, memory use or cost.
+
+## Runtime guides
+
+- [Cloudflare Workers](docs/cloudflare.md): Alchemy configuration, secret binding, deployment and remote benchmarking.
+- [celld](docs/celld.md): prebuilt Wasm execution, local development, benchmarks and deployment configuration.
+
+The transport identifies itself as `Nimbo/0.1`. Upstream challenges fail explicitly. Nimbo currently makes no stealth or TLS fingerprint parity claim.
+
+## Contributing
+
+Run `bun run check` before submitting changes. New Rust crates inherit workspace lints. Keep examples synthetic and public: use `example.com` or reserved `.test` domains, and keep credentials, operational addresses, private checkout contents and infrastructure inventories out of commits and logs. Preserve credential scanning.

@@ -1670,6 +1670,7 @@
   const styleOwners = new WeakMap<object, number>();
   const computedStyles = new WeakSet<object>();
   const inlineStyles = new WeakMap<object, CSSStyleProperties>();
+  const ruleStyleOwners = new WeakMap<object, CSSStyleRule>();
   function styleOperation(
     owner: object,
     operation = "get",
@@ -1679,6 +1680,13 @@
   ): StyleOutput {
     const id = styleOwners.get(owner);
     if (id === undefined) throw new TypeError("Illegal invocation");
+    if (ruleStyleOwners.has(owner))
+      return cssomCall<StyleOutput>(
+        "style",
+        id,
+        operation,
+        JSON.stringify({ name, value, priority }),
+      );
     if (computedStyles.has(owner)) {
       if (operation !== "get" && operation !== "name")
         throw new DOMException("computed styles are read-only", "NoModificationAllowedError");
@@ -1699,9 +1707,9 @@
     get length(): number {
       return styleOperation(this).entries.length;
     }
-    get parentRule(): null {
+    get parentRule(): CSSStyleRule | null {
       styleOperation(this);
-      return null;
+      return ruleStyleOwners.get(this) ?? null;
     }
     item(index: unknown): string {
       styleOperation(this);
@@ -1768,15 +1776,17 @@
     if (key === "webkitTextSizeAdjust") return "text-size-adjust";
     return key.includes("-") ? key : key.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
   }
-  function inlineStyle(owner: object, computed = false): CSSStyleProperties {
-    const id = computed ? idOf(owner) : htmlId(owner);
+  function inlineStyle(owner: object, computed = false, rule?: CSSStyleRule): CSSStyleProperties {
+    const id = rule ? cssRuleId(rule) : computed ? idOf(owner) : htmlId(owner);
     const cached = computed ? undefined : inlineStyles.get(owner);
     if (cached) return cached;
-    const prototype = computed ? CSSStyleDeclaration.prototype : CSSStyleProperties.prototype;
+    const prototype =
+      computed || rule ? CSSStyleDeclaration.prototype : CSSStyleProperties.prototype;
     // Declarations are manufactured only by branded element APIs.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     const target = Object.create(prototype) as CSSStyleProperties;
     styleOwners.set(target, id);
+    if (rule) ruleStyleOwners.set(target, rule);
     if (computed) computedStyles.add(target);
     const proxy = new Proxy(target, {
       get(object, key, receiver): unknown {
@@ -1841,6 +1851,7 @@
       },
     });
     styleOwners.set(proxy, id);
+    if (rule) ruleStyleOwners.set(proxy, rule);
     if (computed) computedStyles.add(proxy);
     else inlineStyles.set(owner, proxy);
     return proxy;
@@ -1854,6 +1865,246 @@
       throw new DOMException("computed pseudo-elements are not implemented", "NotSupportedError");
     return inlineStyle(ownerElement, true);
   }
+  // Rules and declaration state live in Rust; these maps preserve wrapper identity only.
+  const cssSheetIds = new WeakMap<object, number>();
+  const cssSheets = new Map<number, CSSStyleSheet>();
+  const cssRuleIds = new WeakMap<object, number>();
+  const cssRules = new Map<number, CSSStyleRule>();
+  const cssListSheets = new WeakMap<object, CSSStyleSheet>();
+  const cssSheetLists = new WeakMap<object, CSSRuleList>();
+  type NativeSheet = { rules: number[]; disabled: boolean };
+  type NativeRule = { selector: string; cssText: string; parent: number | null };
+  // Native operation output shapes are fixed by the Rust CSSOM arena.
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
+  function cssomCall<T>(operation: string, id: number, arg = "", value = ""): T {
+    const result = call<T>("cssom", id, operation, JSON.stringify({ arg, value }));
+    if (
+      typeof result === "object" &&
+      result !== null &&
+      "exception" in result &&
+      typeof result.exception === "string"
+    )
+      throw new DOMException("CSSOM operation failed", result.exception);
+    return result;
+  }
+  function cssSheetId(owner: object): number {
+    const id = cssSheetIds.get(owner);
+    if (id === undefined) throw new TypeError("Illegal invocation");
+    return id;
+  }
+  function cssRuleId(owner: object): number {
+    const id = cssRuleIds.get(owner);
+    if (id === undefined) throw new TypeError("Illegal invocation");
+    return id;
+  }
+  function cssSheetState(owner: object): NativeSheet {
+    return cssomCall<NativeSheet>("sheet", cssSheetId(owner));
+  }
+  function cssRuleState(owner: object): NativeRule {
+    return cssomCall<NativeRule>("rule", cssRuleId(owner));
+  }
+  function cssIndex(value: unknown): number {
+    if (typeof value === "bigint") throw new TypeError("index must be a number");
+    // Web IDL ToNumber requires coercion, including user-defined conversion.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion, typescript/no-unnecessary-type-conversion
+    const number = +(value as number);
+    const integer = Number.isFinite(number) ? Math.trunc(number) : 0;
+    return ((integer % 4294967296) + 4294967296) % 4294967296;
+  }
+  class StyleSheet {
+    constructor(key?: symbol) {
+      if (key !== internal) throw new TypeError("Illegal constructor");
+    }
+    get type(): string {
+      cssSheetId(this);
+      return "text/css";
+    }
+    get href(): null {
+      cssSheetId(this);
+      return null;
+    }
+    get ownerNode(): null {
+      cssSheetId(this);
+      return null;
+    }
+    get parentStyleSheet(): null {
+      cssSheetId(this);
+      return null;
+    }
+    get title(): null {
+      cssSheetId(this);
+      return null;
+    }
+    get disabled(): boolean {
+      return cssSheetState(this).disabled;
+    }
+    set disabled(value: unknown) {
+      cssomCall("disabled", cssSheetId(this), "", String(Boolean(value)));
+    }
+  }
+  class CSSStyleSheet extends StyleSheet {
+    constructor(options?: unknown) {
+      super(internal);
+      if (options !== undefined && options !== null)
+        throw new DOMException("CSSStyleSheet options are not implemented", "NotSupportedError");
+      const id = cssomCall<number>("new", 0);
+      cssSheetIds.set(this, id);
+      cssSheets.set(id, this);
+    }
+    get ownerRule(): null {
+      cssSheetId(this);
+      return null;
+    }
+    get cssRules(): CSSRuleList {
+      cssSheetId(this);
+      let list = cssSheetLists.get(this);
+      if (!list) {
+        list = new CSSRuleList(internal, this);
+        cssSheetLists.set(this, list);
+      }
+      return list;
+    }
+    insertRule(rule: unknown, index?: unknown): number {
+      const id = cssSheetId(this);
+      if (arguments.length < 1) throw new TypeError("rule is required");
+      const source = domString(rule);
+      const position = cssIndex(index);
+      return cssomCall<number>("insert", id, String(position), source);
+    }
+    deleteRule(index: unknown): void {
+      const id = cssSheetId(this);
+      if (arguments.length < 1) throw new TypeError("index is required");
+      cssomCall("delete", id, String(cssIndex(index)));
+    }
+  }
+  class CSSRule {
+    static readonly STYLE_RULE = 1;
+    constructor() {
+      throw new TypeError("Illegal constructor");
+    }
+    get type(): number {
+      cssRuleId(this);
+      return 1;
+    }
+    get cssText(): string {
+      return cssRuleState(this).cssText;
+    }
+    set cssText(value: unknown) {
+      cssRuleId(this);
+      domString(value);
+    }
+    get parentRule(): null {
+      cssRuleId(this);
+      return null;
+    }
+    get parentStyleSheet(): CSSStyleSheet | null {
+      const parent = cssRuleState(this).parent;
+      return parent === null ? null : (cssSheets.get(parent) ?? null);
+    }
+  }
+  class CSSStyleRule extends CSSRule {
+    get selectorText(): string {
+      return cssRuleState(this).selector;
+    }
+    set selectorText(value: unknown) {
+      cssomCall("selector", cssRuleId(this), "", domString(value));
+    }
+    get style(): CSSStyleDeclaration {
+      cssRuleId(this);
+      return inlineStyle(this, false, this);
+    }
+    set style(value: unknown) {
+      cssRuleId(this);
+      inlineStyle(this, false, this).cssText = value;
+    }
+  }
+  Object.defineProperty(CSSRule.prototype, "STYLE_RULE", { value: 1, enumerable: true });
+  function cssRuleWrapper(id: number): CSSStyleRule {
+    const cached = cssRules.get(id);
+    if (cached) return cached;
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const owner = Object.create(CSSStyleRule.prototype) as CSSStyleRule;
+    cssRuleIds.set(owner, id);
+    cssRules.set(id, owner);
+    return owner;
+  }
+  function cssListState(owner: object): number[] {
+    const sheet = cssListSheets.get(owner);
+    if (!sheet) throw new TypeError("Illegal invocation");
+    return cssSheetState(sheet).rules;
+  }
+  class CSSRuleList {
+    constructor(token: symbol, sheet: CSSStyleSheet) {
+      if (token !== internal) throw new TypeError("Illegal constructor");
+      cssListSheets.set(this, sheet);
+      const proxy = new Proxy(this, {
+        get: (owner, key, receiver) => {
+          const index = propertyIndex(key);
+          const id = index === null ? undefined : cssListState(owner)[index];
+          return index === null
+            ? Reflect.get(owner, key, receiver)
+            : id === undefined
+              ? undefined
+              : cssRuleWrapper(id);
+        },
+        set: (owner, key, value, receiver) =>
+          propertyIndex(key) !== null || Reflect.set(owner, key, value, receiver),
+        has: (owner, key) => {
+          const index = propertyIndex(key);
+          return index === null ? Reflect.has(owner, key) : index < cssListState(owner).length;
+        },
+        ownKeys: (owner) => [
+          ...cssListState(owner).map((_, index) => String(index)),
+          ...Reflect.ownKeys(owner),
+        ],
+        getOwnPropertyDescriptor: (owner, key) => {
+          const index = propertyIndex(key);
+          if (index === null) return Reflect.getOwnPropertyDescriptor(owner, key);
+          const id = cssListState(owner)[index];
+          return id === undefined
+            ? undefined
+            : { value: cssRuleWrapper(id), writable: false, enumerable: true, configurable: true };
+        },
+        defineProperty: (owner, key, descriptor) =>
+          propertyIndex(key) !== null
+            ? descriptor.configurable !== false
+            : Reflect.defineProperty(owner, key, descriptor),
+        deleteProperty: (owner, key) => {
+          const index = propertyIndex(key);
+          return index === null
+            ? Reflect.deleteProperty(owner, key)
+            : index >= cssListState(owner).length;
+        },
+        preventExtensions: () => false,
+      });
+      cssListSheets.set(proxy, sheet);
+      return proxy;
+    }
+    get length(): number {
+      return cssListState(this).length;
+    }
+    item(index: unknown): CSSStyleRule | null {
+      cssListState(this);
+      if (arguments.length < 1) throw new TypeError("index is required");
+      const id = cssListState(this)[cssIndex(index)];
+      return id === undefined ? null : cssRuleWrapper(id);
+    }
+    *[Symbol.iterator](): Generator<CSSStyleRule> {
+      for (let i = 0; ; i++) {
+        const id = cssListState(this)[i];
+        if (id === undefined) return;
+        yield cssRuleWrapper(id);
+      }
+    }
+  }
+  for (const [prototype, tag] of [
+    [StyleSheet.prototype, "StyleSheet"],
+    [CSSStyleSheet.prototype, "CSSStyleSheet"],
+    [CSSRule.prototype, "CSSRule"],
+    [CSSStyleRule.prototype, "CSSStyleRule"],
+    [CSSRuleList.prototype, "CSSRuleList"],
+  ] as const)
+    Object.defineProperty(prototype, Symbol.toStringTag, { value: tag, configurable: true });
   const datasets = new WeakMap<object, DOMStringMap>();
   const svgElements = new WeakSet<object>();
   // The nonconstructible Web IDL interface still exposes a constructor/prototype pair.
@@ -4212,6 +4463,11 @@
     DOMStringMap,
     CSSStyleDeclaration,
     CSSStyleProperties,
+    StyleSheet,
+    CSSStyleSheet,
+    CSSRule,
+    CSSStyleRule,
+    CSSRuleList,
     getComputedStyle,
     CustomElementRegistry,
     Document,

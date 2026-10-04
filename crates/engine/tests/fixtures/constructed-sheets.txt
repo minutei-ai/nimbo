@@ -1,0 +1,48 @@
+function constructedSheetsCase(v) {
+  const checks={},s=new CSSStyleSheet(),list=s.cssRules,w=v+5,h=v%7+3;
+  function error(fn,name){try{fn();return false}catch(e){return e.name===name}}
+  checks.sheet=s instanceof CSSStyleSheet&&s instanceof StyleSheet&&Object.prototype.toString.call(s)==='[object CSSStyleSheet]';
+  checks.metadata=s.href===null&&s.ownerNode===null&&s.ownerRule===null&&s.parentStyleSheet===null&&s.title===null&&s.type==='text/css';
+  checks.initial=list===s.cssRules&&list.length===0&&list.item(0)===null&&list[0]===undefined;
+  checks.list=list instanceof CSSRuleList&&Object.prototype.toString.call(list)==='[object CSSRuleList]';
+  checks.disabled=s.disabled===false;s.disabled=1;checks.disable=s.disabled===true;s.disabled=0;checks.enable=s.disabled===false;
+  checks.insert=s.insertRule('#target, div { width: '+w+'px; height: '+h+'px; }')===0&&list.length===1;
+  const rule=list[0],style=rule.style;checks.identity=rule===list.item(0)&&rule===s.cssRules[0]&&style===rule.style;
+  checks.rule=rule instanceof CSSStyleRule&&rule instanceof CSSRule&&Object.prototype.toString.call(rule)==='[object CSSStyleRule]'&&rule.type===CSSRule.STYLE_RULE&&rule.STYLE_RULE===1;
+  checks.parents=rule.parentStyleSheet===s&&rule.parentRule===null&&style.parentRule===rule;
+  checks.selector=rule.selectorText==='#target, div';checks.text=rule.cssText==='#target, div { width: '+w+'px; height: '+h+'px; }';
+  checks.style=style instanceof CSSStyleDeclaration&&Object.prototype.toString.call(style)==='[object CSSStyleDeclaration]'&&style.width===w+'px'&&style.height===h+'px';
+  checks.indices=style.length===2&&style[0]==='width'&&style.item(1)==='height'&&style.item(2)==='';
+  style.width=(w+2)+'px';checks.width=style.width===(w+2)+'px'&&rule.cssText.includes('width: '+(w+2)+'px;');
+  style.setProperty('height',(h+4)+'px','important');checks.priority=style.height===(h+4)+'px'&&style.getPropertyPriority('height')==='important'&&rule.cssText.includes('height: '+(h+4)+'px !important;');
+  style.setProperty('height','1px','invalid');checks.badPriority=style.height===(h+4)+'px';
+  checks.remove=style.removeProperty('height')===(h+4)+'px'&&style.height===''&&style.length===1;
+  style.cssText='padding: 3px; width: '+w+'px; --v: '+v+';';checks.cssText=style.cssText==='padding: 3px; width: '+w+'px; --v: '+v+';'&&style.width===w+'px'&&style.getPropertyValue('--v')===String(v);
+  rule.style='height: '+h+'px;';checks.forward=style===rule.style&&style.cssText==='height: '+h+'px;';
+  rule.selectorText='main > .box';checks.selectorMutation=rule.selectorText==='main > .box'&&rule.cssText==='main > .box { height: '+h+'px; }';
+  rule.selectorText='[';checks.invalidSelector=rule.selectorText==='main > .box';
+  const old=rule.cssText;rule.cssText='a {width:1px}';checks.ignoredText=rule.cssText===old;
+  checks.front=s.insertRule('span {}',0)===0&&list[1]===rule&&list[0].cssText==='span { }';
+  checks.keys=Object.keys(list).join(',')==='0,1'&&0 in list&&1 in list&&!(2 in list);
+  checks.descriptor=Object.getOwnPropertyDescriptor(list,'0').writable===false&&Object.getOwnPropertyDescriptor(list,'0').value===list[0];
+  checks.readonly=Reflect.set(list,'0',null)===true&&Reflect.deleteProperty(list,'0')===false&&Reflect.defineProperty(list,'0',{value:null})===true&&list[1]===rule;
+  checks.nonconfigIndexDefine=Reflect.defineProperty(list,'0',{value:null,configurable:false});
+  checks.indexCoercion=list.item(4294967297)===rule&&list.item(1.8)===rule&&list.item(-1)===null;
+  checks.iterator=[...list][1]===rule;
+  checks.insertIndex=error(()=>s.insertRule('a {}',3),'IndexSizeError')&&list.length===2;
+  checks.deleteIndex=error(()=>s.deleteRule(2),'IndexSizeError')&&list.length===2;
+  checks.invalid=error(()=>s.insertRule('['),'SyntaxError')&&list.length===2;
+  checks.multiple=error(()=>s.insertRule('a {} b {}'),'SyntaxError')&&list.length===2;
+  checks.empty=error(()=>s.insertRule(''),'SyntaxError')&&list.length===2;
+  checks.required=error(()=>s.insertRule(),'TypeError')&&error(()=>s.deleteRule(),'TypeError')&&error(()=>list.item(),'TypeError');
+  checks.bigint=error(()=>list.item(1n),'TypeError')&&error(()=>s.deleteRule(1n),'TypeError')&&error(()=>s.insertRule('a{}',1n),'TypeError');
+  checks.symbol=error(()=>s.insertRule(Symbol()),'TypeError');
+  checks.constructors=error(()=>new StyleSheet(),'TypeError')&&error(()=>new CSSRule(),'TypeError')&&error(()=>new CSSStyleRule(),'TypeError')&&error(()=>new CSSRuleList(),'TypeError');
+  checks.brands=error(()=>CSSStyleSheet.prototype.insertRule.call({},'a{}'),'TypeError')&&error(()=>CSSRuleList.prototype.item.call({},0),'TypeError')&&error(()=>Object.getOwnPropertyDescriptor(CSSStyleRule.prototype,'selectorText').get.call({}),'TypeError');
+  const removed=list[0];s.deleteRule(0);checks.delete=list.length===1&&list[0]===rule&&removed.parentStyleSheet===null&&removed.cssText==='span { }';
+  s.deleteRule(0);checks.detach=list.length===0&&rule.parentStyleSheet===null&&style.parentRule===rule&&rule.cssText===old;
+  style.width=w+'px';checks.detachedMutation=style.width===w+'px'&&rule.parentStyleSheet===null&&list.length===0;
+  const other=new CSSStyleSheet();other.insertRule('div {width:1px}');checks.independent=other.cssRules.length===1&&list.length===0&&other.cssRules[0]!==rule;
+  checks.reuse=s.insertRule('article {width:2px}',0)===0&&list.length===1&&list[0].style.width==='2px';
+  return checks;
+}
