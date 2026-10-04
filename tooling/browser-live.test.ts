@@ -1,4 +1,5 @@
 import { backgroundLayersFixture } from "./background-layers-fixture";
+import { fontFamilyFixture } from "./font-family-fixture";
 import { backgroundSizeFixture } from "./background-size-fixture";
 import { backgroundRepeatFixture } from "./background-repeat-fixture";
 import { backgroundPositionFixture } from "./background-position-fixture";
@@ -421,6 +422,8 @@ const origin = Bun.serve({
   port: 0,
   async fetch(request) {
     const path = new URL(request.url).pathname;
+    const fontFamily = await fontFamilyFixture(path);
+    if (fontFamily) return fontFamily;
     requests.push(`${request.method} ${path}`);
     const backgroundLayers = await backgroundLayersFixture(path);
     if (backgroundLayers) return backgroundLayers;
@@ -4737,7 +4740,7 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
   expect(await response.json()).toMatchObject({
     value: {
       font: "18px",
-      count: 16,
+      count: 17,
       names: [
         "background-attachment",
         "background-clip",
@@ -4747,6 +4750,7 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
         "background-repeat",
         "background-size",
         "color",
+        "font-family",
         "font-size",
         "line-height",
         "outline-color",
@@ -5291,3 +5295,59 @@ test.each([
     expect(healthy.status).toBe(200);
   },
 );
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native font family variant %i",
+  async (variant) => {
+    const url = new URL(`font-family/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: `fontFamilyCase(${variant})` }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing font family values");
+    expect(Object.keys(value)).toHaveLength(75);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test("real HTTP → workerd → Wasm: font family scalar preserves explicit text shaping failure", async () => {
+  const url = new URL("font-family/0", origin.url).href;
+  const request = (expression: string) =>
+    worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression }),
+    });
+  const scalar = await request(
+    "(()=>{document.body.innerHTML='<div style=\"font-family:serif\">Actual text</div>';const e=document.body.firstElementChild;return {family:getComputedStyle(e).fontFamily,support:CSS.supports('font-family','serif')}})()",
+  );
+  expect(scalar.status).toBe(200);
+  expect(await scalar.json()).toMatchObject({ value: { family: "serif", support: false } });
+  const geometry = await request(
+    "(()=>{document.body.innerHTML='<div style=\"font-family:serif\">Actual text</div>';return document.body.firstElementChild.getBoundingClientRect().width})()",
+  );
+  expect(geometry.status).toBe(422);
+  expect(await geometry.text()).toContain("text shaping");
+});
+
+test("real HTTP → workerd → Wasm: font family list operation budget and recovery", async () => {
+  const url = new URL("font-family/0", origin.url).href;
+  const request = (expression: string) =>
+    worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression }),
+    });
+  const overflow = await request(
+    "(()=>{document.body.style.fontFamily=Array(10001).fill('Arial').join(',');return getComputedStyle(document.body).fontFamily})()",
+  );
+  expect(overflow.status).toBe(422);
+  expect(await overflow.text()).toContain("DOM operations");
+  const recovered = await request("fontFamilyCase(0)");
+  expect(recovered.status).toBe(200);
+});

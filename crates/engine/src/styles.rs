@@ -358,6 +358,13 @@ pub(crate) fn function_value(value: &str) -> bool {
 }
 
 fn native_property(name: &str, value: &str, important: bool) -> Option<Vec<Entry>> {
+    if name == "font-family" {
+        return Some(vec![Entry::new(
+            name,
+            crate::font_family::specified(value)?,
+            important,
+        )]);
+    }
     if crate::background_layers::property(name) {
         return Some(vec![Entry::new(
             name,
@@ -405,6 +412,7 @@ fn native_declaration(name: &str, value: &str) -> bool {
                 | "text-size-adjust"
                 | "tab-size"
                 | "line-height"
+                | "font-family"
                 | "background-image"
                 | "background-size"
                 | "background-position"

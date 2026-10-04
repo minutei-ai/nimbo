@@ -2053,3 +2053,36 @@ remain pending.
 
 Public references: [CSS Backgrounds attachment](https://drafts.csswg.org/css-backgrounds/#background-attachment)
 and [CSS Backgrounds Level 4 clipping](https://drafts.csswg.org/css-backgrounds-4/#background-clip).
+
+### Computed font family lists
+
+The native computed-style facade exposes font-family as its seventeenth enumerated
+property. A native CSS-tokenizer grammar stores distinct generic and named family
+items, preserves list order and joins unquoted multiword names with one space.
+Serialization quotes multiword, reserved and non-identifier names, preserves spaces
+inside strings, and normalizes generic keywords. The observed Chromium profile
+recognizes serif, sans-serif, cursive, fantasy, monospace, system-ui and math as
+case-insensitive generic keywords. It serializes emoji, fangsong and ui-* families
+as named identifiers, preserving their case; the fixture records that distinction.
+Additional generic family semantics remain pending.
+
+Family lists inherit by default. Explicit inherit/unset/revert retain the parent
+list; initial uses the virtual user agent's named "Times New Roman" family.
+This is computed metadata and does not assert that a corresponding font exists.
+Live CSSOM mutation, parent updates, external sheets, variables/registered defaults,
+author cascade and attachment state use the existing native resolution path.
+Family-list processing charges the shared operation budget and serialization
+retains the 2 MiB bound.
+
+The shared real-HTTP fixture compares 64 variants with 75 checks each against
+Chromium and the native engine. Chromium passed all 4,800 checks;
+[the aggregate records the scope](evidence/font-family-chromium.json).
+Worker checks exercise the same fixture, list limits/recovery and scalar reads
+alongside explicit text geometry failure. Empty-box dimensions remain unchanged.
+
+This does not implement installed-font discovery, font selection, glyph shaping,
+font metrics, fallback rasterization or text rendering. Nonempty text geometry
+continues to fail explicitly and CSS.supports remains false for font-family.
+Complete font shorthand serialization and cascade layer rollback remain pending.
+
+Public reference: [CSS Fonts family property](https://drafts.csswg.org/css-fonts/#font-family-prop).

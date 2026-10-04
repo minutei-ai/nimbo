@@ -1390,6 +1390,11 @@ fn registered_custom_properties_validate_before_substitution() -> TestResult {
 }
 
 fn serve_resource(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/font-family/")
+        || request.url().starts_with("/font-family-assets/")
+    {
+        return serve_font_family(request);
+    }
     if request.url().starts_with("/background-layers/")
         || request.url().starts_with("/background-layers-assets/")
     {
@@ -1589,6 +1594,8 @@ fn is_resource(path: &str) -> bool {
         "/background-size/",
         "/background-size-assets/",
         "/background-layers/",
+        "/font-family/",
+        "/font-family-assets/",
         "/background-layers-assets/",
         "/background-images-assets/",
         "/line-height-assets/",
@@ -2275,6 +2282,40 @@ fn serve_background_layers(request: Request) -> io::Result<()> {
     let source = format!(
         "<!doctype html><meta charset=utf-8><link rel=stylesheet href=/background-layers-assets/{variant}><script>{}</script>",
         include_str!("fixtures/background-layers.txt")
+    );
+    request.respond(Response::from_string(source).with_header(header("Content-Type", "text/html")?))
+}
+
+#[test]
+fn native_font_family_real_http() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/font-family/{variant}")))?;
+        let result = page.evaluate(&format!("fontFamilyCase({variant})"))?;
+        let fields = result.as_object().ok_or("missing font family result")?;
+        assert_eq!(fields.len(), 75);
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+fn serve_font_family(request: Request) -> io::Result<()> {
+    if let Some(value) = request.url().strip_prefix("/font-family-assets/") {
+        let variant = value.parse::<u32>().map_err(io::Error::other)?;
+        return request.respond(
+            Response::from_string(format!(
+                "#external{{font-family:\"External {variant}\",serif}}"
+            ))
+            .with_header(header("Content-Type", "text/css")?),
+        );
+    }
+    let variant = request.url().strip_prefix("/font-family/").unwrap_or("0");
+    let source = format!(
+        "<!doctype html><link rel=stylesheet href=/font-family-assets/{variant}><script>{}</script>",
+        include_str!("fixtures/font-family.txt")
     );
     request.respond(Response::from_string(source).with_header(header("Content-Type", "text/html")?))
 }

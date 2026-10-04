@@ -6,7 +6,7 @@ use crate::{
     styles::{Declarations, Variables},
 };
 
-pub(crate) const PROPERTIES: [&str; 16] = [
+pub(crate) const PROPERTIES: [&str; 17] = [
     "background-attachment",
     "background-clip",
     "background-image",
@@ -15,6 +15,7 @@ pub(crate) const PROPERTIES: [&str; 16] = [
     "background-repeat",
     "background-size",
     "color",
+    "font-family",
     "font-size",
     "line-height",
     "outline-color",
@@ -33,6 +34,7 @@ pub(crate) struct Computed {
     repeats: crate::background_repeat::Repeats,
     sizes: crate::background_size::Sizes,
     layers: crate::background_layers::Layers,
+    family: crate::font_family::Family,
 }
 
 pub(crate) fn property(name: &str) -> bool {
@@ -50,6 +52,8 @@ impl Computed {
             self.repeats.value(self.images.count())
         } else if name == "background-size" {
             self.sizes.value()
+        } else if name == "font-family" {
+            self.family.value()
         } else if name == "line-height" {
             self.fonts.line_height()
         } else if name == "tab-size" {
@@ -98,6 +102,7 @@ pub(crate) fn resolve(
     let mut repeats = crate::background_repeat::Repeats::default();
     let mut sizes = crate::background_size::Sizes::default();
     let mut layers = crate::background_layers::Layers::default();
+    let mut family = crate::font_family::Family::default();
     for (depth, node) in ancestors.into_iter().enumerate() {
         work.charge()?;
         let inline = sources.inline.get(&node.id).cloned().map_or_else(
@@ -125,6 +130,7 @@ pub(crate) fn resolve(
         repeats = repeats.compute(&declarations, images.count(), work)?;
         sizes = sizes.compute(&declarations, images.count(), &fonts, work)?;
         layers = layers.compute(&declarations, images.count(), work)?;
+        family = family.compute(&declarations, work)?;
     }
     Ok(Computed {
         fonts,
@@ -134,5 +140,6 @@ pub(crate) fn resolve(
         repeats,
         sizes,
         layers,
+        family,
     })
 }

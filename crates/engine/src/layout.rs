@@ -145,6 +145,7 @@ pub(crate) fn supports(declarations: &Declarations) -> bool {
                 | "background-repeat"
                 | "background-size"
                 | "opacity"
+                | "font-family"
         ) || crate::outlines::property(name)
             || crate::background_layers::property(name)
             || crate::background_position::property(name)
@@ -195,6 +196,7 @@ fn non_layout(name: &str) -> bool {
                 | "container-name"
                 | "container-type"
                 | "font-size"
+                | "font-family"
                 | "text-size-adjust"
                 | "tab-size"
                 | "line-height"
@@ -373,6 +375,7 @@ struct BoxContext {
     repeats: crate::background_repeat::Repeats,
     sizes: crate::background_size::Sizes,
     layers: crate::background_layers::Layers,
+    family: crate::font_family::Family,
 }
 
 impl BoxContext {
@@ -395,6 +398,7 @@ impl BoxContext {
             .compute(declarations, images.count(), &fonts, work)?;
         sizes.validate()?;
         let layers = self.layers.compute(declarations, images.count(), work)?;
+        let family = self.family.compute(declarations, work)?;
         Ok(Self {
             fonts,
             borders,
@@ -404,6 +408,7 @@ impl BoxContext {
             repeats,
             sizes,
             layers,
+            family,
         })
     }
 }
@@ -680,6 +685,7 @@ fn scene<T>(
                 repeats: crate::background_repeat::Repeats::default(),
                 sizes: crate::background_size::Sizes::default(),
                 layers: crate::background_layers::Layers::default(),
+                family: crate::font_family::Family::default(),
             },
         )?;
         if let Some(root_id) = root_id {
