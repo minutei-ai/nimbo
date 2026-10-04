@@ -34,6 +34,30 @@ impl Browser {
     /// # Errors
     /// Rejects invalid dimensions/preferences, origins, limits or TLS initialization.
     pub fn with_media(origin: &str, limits: Limits, media: MediaEnvironment) -> Result<Self> {
+        Self::with_media_and_proxy(origin, limits, media, None)
+    }
+
+    /// Creates a browser whose navigation and page subrequests share an explicit proxy.
+    /// HTTP proxies tunnel HTTPS with CONNECT; SOCKS5 supports local or remote DNS.
+    /// Credentials in the proxy URL stay in native transport and never enter page JS.
+    ///
+    /// # Errors
+    /// Rejects invalid proxy configuration, origins, limits, media or TLS initialization.
+    pub fn with_proxy(origin: &str, limits: Limits, proxy: &str) -> Result<Self> {
+        Self::with_media_and_proxy(origin, limits, MediaEnvironment::default(), Some(proxy))
+    }
+
+    /// Creates a browser with explicit media and an optional HTTP or SOCKS5 proxy.
+    /// Ambient system proxy variables are ignored, including when no proxy is supplied.
+    ///
+    /// # Errors
+    /// Rejects invalid proxy configuration, origins, limits, media or TLS initialization.
+    pub fn with_media_and_proxy(
+        origin: &str,
+        limits: Limits,
+        media: MediaEnvironment,
+        proxy: Option<&str>,
+    ) -> Result<Self> {
         media.validate()?;
         let origin = parse_url(origin)?;
         if limits.max_javascript_ticks == 0
@@ -53,11 +77,14 @@ impl Browser {
         {
             return Err(Error::Limit("invalid configuration"));
         }
-        let client = Client::builder()
+        let mut builder = Client::builder()
             .redirect(Policy::none())
             .no_proxy()
-            .user_agent("Nimbo/0.1")
-            .build()?;
+            .user_agent("Nimbo/0.1");
+        if let Some(proxy) = proxy {
+            builder = builder.proxy(explicit_proxy(proxy)?);
+        }
+        let client = builder.build()?;
         Ok(Self {
             client,
             origin,
@@ -240,4 +267,21 @@ impl Transport {
             content_type,
         })
     }
+}
+
+fn explicit_proxy(value: &str) -> Result<reqwest::Proxy> {
+    let invalid = || Error::Unsupported("invalid proxy configuration".into());
+    if value.len() > 8192 {
+        return Err(invalid());
+    }
+    let url = Url::parse(value).map_err(|_error| invalid())?;
+    if !matches!(url.scheme(), "http" | "https" | "socks5" | "socks5h")
+        || url.host_str().is_none()
+        || !matches!(url.path(), "" | "/")
+        || url.query().is_some()
+        || url.fragment().is_some()
+    {
+        return Err(invalid());
+    }
+    reqwest::Proxy::all(url).map_err(|_error| invalid())
 }

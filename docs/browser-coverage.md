@@ -579,7 +579,7 @@ evidence cannot establish it.
 | MCP navigation, reading, actions and diagnostics     | Missing    | Real MCP transports, page state and authenticated remote use                                                                                 |
 | Markdown, links, structured extraction and crawling  | Subset     | Current JS extraction only; native outputs and real crawl jobs missing                                                                       |
 | CLI batch scraping and library API                   | Subset     | Existing single-page CLI/library; bounded batches and cancellation                                                                           |
-| HTTP/CONNECT and SOCKS proxy support                 | Missing    | Generic authenticated proxy integration; no operational config in source                                                                     |
+| HTTP/CONNECT and SOCKS proxy support                 | Partial    | Native HTTP/HTTPS and SOCKS5 verified below; direct Worker proxy configuration remains pending                                               |
 | TLS fingerprint and transport control                | Unverified | Capture ClientHello/ALPN and verify scripted subrequests use the same transport                                                              |
 | WebGL and GPU-dependent pages                        | Missing    | Actual shader execution and pixels; software rendering must be labelled                                                                      |
 | Audio/video playback and codecs                      | Missing    | Decode real media, advance playback and produce frames/samples                                                                               |
@@ -2556,3 +2556,38 @@ control or durable session parity.
 
 References: [CSS sticky positioning](https://drafts.csswg.org/css-position-3/#stickypos-insets)
 and [CSSOM View geometry and scrolling](https://drafts.csswg.org/cssom-view/).
+
+## Native proxy transport
+
+The native CLI accepts `NIMBO_PROXY_URL` from private environment configuration
+or an explicit `--proxy <URL>` before the destination. The Rust API exposes
+`Browser::with_proxy` and `Browser::with_media_and_proxy`. HTTP/HTTPS proxy URLs
+support Basic authentication; HTTPS destinations use CONNECT. SOCKS5 supports
+local DNS (`socks5`) and remote DNS (`socks5h`) with optional username/password
+authentication. These are native reqwest transport capabilities, shared by all
+navigation and page subrequests; Obscura is not involved.
+
+`cargo test -p nimbo-engine --test proxy --locked` runs real isolated HTTP/TLS
+origins and forwarding sockets, with 64 fresh CLI pages in each of six proxy
+configurations: HTTP without/with authentication, HTTPS with authentication,
+SOCKS5 without/with authentication, and SOCKS5 with remote DNS/authentication.
+Half of the pages use HTTPS origins, with ephemeral certificates signed by an
+ephemeral local test CA. Certificate validation remains enabled. The fixture
+requires Python 3 and OpenSSL; certificates and keys are generated in temporary
+storage and deleted during cleanup.
+
+The 384 successful extractions verify 2688 real origin requests: navigation,
+redirects, CSS, classic scripts, module imports and JavaScript POST fetches. The
+checks verify extraction values, POST bodies, cookies across all subrequests,
+proxy credential isolation and remote SOCKS DNS. Additional checks reject four
+incorrect authentication configurations, one TLS hostname mismatch, five
+invalid proxy URLs and a dead proxy without direct fallback. Invalid proxy
+configuration errors do not echo supplied credentials.
+
+This proves native transport contracts against synthetic origins. It does not
+establish deployed proxy compatibility, controllable TLS fingerprints, challenge
+handling, direct socket proxy transport inside Workers or persistent browser
+sessions. Workers still use host fetch or the optional `EGRESS` binding. Ambient
+proxy environment variables are ignored; explicit configuration selects a proxy.
+
+Reference: [reqwest 0.13.5 proxy API](https://docs.rs/reqwest/0.13.5/reqwest/struct.Proxy.html).

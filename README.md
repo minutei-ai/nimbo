@@ -4,7 +4,7 @@ A headless browser engine for scraping JavaScript-driven pages and SPAs. It load
 
 Rust owns the browser implementation; QuickJS executes page JavaScript. The same engine runs as WebAssembly in Workers and celld, or through the native CLI.
 
-Nimbo owns its browser implementation. Obscura is an optional, separate test comparator; it is never a runtime backend, dependency or fallback.
+Nimbo's target is to provide Obscura's browser capabilities inside Cloudflare Workers through its own engine. Obscura is an optional, separate test comparator; it is never a runtime backend, dependency or fallback.
 
 [Cloudflare guide](docs/cloudflare.md) · [celld guide](docs/celld.md) · [Browser coverage](docs/browser-coverage.md) · [Quality policy](docs/rust-quality.md)
 
@@ -78,9 +78,23 @@ The optional `EGRESS` binding implements `fetch(Request): Promise<Response>`. Wi
 
 The core workflow is navigation, page JavaScript, asynchronous network activity,
 DOM updates and extraction. Proxy configuration belongs to the transport. The
-Worker currently accepts an optional `EGRESS` binding; native HTTP/CONNECT and
-SOCKS proxy options are still pending. Proxy addresses and credentials stay in
-private configuration.
+Worker currently accepts an optional `EGRESS` binding. The native CLI and Rust
+library support HTTP/HTTPS proxies and SOCKS5; direct Worker proxy configuration
+is still pending. Proxy addresses and credentials stay in private configuration.
+
+For the native CLI, load `NIMBO_PROXY_URL` from your private environment, then run:
+
+```sh
+bun run browser https://example.com 'document.title'
+```
+
+An explicit `--proxy <URL>` before the destination overrides `NIMBO_PROXY_URL`.
+Supported schemes are `http`, `https`, `socks5` (local DNS) and `socks5h` (proxy
+DNS). URL credentials configure proxy authentication. Navigation, redirects,
+stylesheets, scripts, modules and page fetch share that transport. A failed proxy
+returns an error; it never falls back to a direct connection. TLS certificate
+verification remains enabled. Ambient system proxy variables are ignored.
+See the [real proxy validation](docs/browser-coverage.md#native-proxy-transport).
 
 [Obscura](https://github.com/h4ckf0r0day/obscura) runs JavaScript in V8 and provides scraping commands,
 HTTP/SOCKS proxies and CDP automation, with optional rendering builds. [Kitesurf](https://developers.cloudflare.com/browser-run/kitesurf/)

@@ -55,4 +55,12 @@ The driver checks the engine identity and every extraction result. It runs seque
 
 An optional `EGRESS` binding can supply generic HTTP transport. Configure proxy authentication and destination policies privately. HTTP/CONNECT transport alone does not supply configurable ClientHello behavior or browser fingerprint parity.
 
+The native CLI's `NIMBO_PROXY_URL` does not configure Worker transport. Direct
+HTTP/CONNECT and SOCKS5 proxy configuration inside Workers is still pending.
+Cloudflare's [TCP socket API](https://developers.cloudflare.com/workers/runtime-apis/tcp-sockets/)
+provides outbound connections and a TLS upgrade, but blocks Cloudflare IP ranges,
+localhost and private network addresses. A future direct proxy transport needs
+real Worker socket, proxy authentication and TLS tests; native CLI results do
+not prove these runtime contracts.
+
 Worker platform limits apply in addition to Nimbo's own [engine limits](../README.md#resource-limits). Consult the current [Cloudflare limits](https://developers.cloudflare.com/workers/platform/limits/) when sizing workloads. Browser capabilities remain those of Nimbo's engine: deployment does not add WebGL, video, screenshots or durable browser sessions.
