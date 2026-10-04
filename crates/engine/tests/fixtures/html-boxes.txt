@@ -1,0 +1,24 @@
+function htmlBoxesCase(v,group) {
+  document.body.innerHTML='';document.body.style.cssText='margin:0';document.documentElement.style.cssText='';
+  const parent=document.createElement('main');document.body.append(parent);const sheet=document.createElement('style');document.head.append(sheet);const checks={};
+  const tags=['html','body','div','main','section','article','aside','header','footer','nav','hgroup','span','a','abbr','bdi','data','time'];
+  const width=v+5,height=v%9+7;
+  for(let i=0;i<tags.length;i++){
+    if(group!==undefined&&Math.floor(i/5)!==group)continue;
+    const tag=tags[i],e=document.createElement(tag);e.id='target';parent.append(e);if(tag==='a')e.setAttribute('href','https://example.test/link');
+    parent.style.cssText='width:300px;height:100px';e.style.cssText='margin:0';const s=getComputedStyle(e);checks['default'+i]=s.display===(i<11?'block':'inline');
+    e.style.cssText='display:block;width:'+width+'px;height:'+height+'px;padding:3px;border:2px solid;margin:0';let box=e.getBoundingClientRect();checks['block'+i]=box.width===width+10&&box.height===height+10&&box.x===0&&box.y===0;
+    e.style.display='';parent.style.display='flex';box=e.getBoundingClientRect();checks['flex'+i]=s.display==='block'&&box.width===width+10&&box.height===height+10&&box.x===0&&box.y===0;
+    parent.style.display='grid';box=e.getBoundingClientRect();checks['grid'+i]=s.display==='block'&&box.width===width+10&&box.height===height+10&&box.x===0&&box.y===0;
+    parent.style.display='block';e.style.display='block';const child=document.createElement('span');child.style.cssText='display:block;width:3px;height:2px';e.append(child);const nested=child.getBoundingClientRect();checks['nested'+i]=nested.width===3&&nested.height===2&&nested.x===5&&nested.y===5;
+    child.remove();parent.style.display='flex';e.style.display='inline-block';box=e.getBoundingClientRect();checks['inlineBlock'+i]=s.display==='block'&&box.width===width+10&&box.height===height+10;
+    parent.style.display='block';e.style.display='block';sheet.textContent='#target{width:'+(v+9)+'px!important}';box=e.getBoundingClientRect();checks['cascade'+i]=box.width===v+19;
+    sheet.textContent='';e.remove();checks['detached'+i]=e.getBoundingClientRect().width===0&&s.display==='';parent.append(e);checks['reattached'+i]=e.getBoundingClientRect().width===width+10;e.remove();
+  }
+  parent.style.cssText='';const external=document.createElement('span');external.id='external';parent.append(external);const first=external.getBoundingClientRect();checks.external=first.width===v+7&&first.height===v%6+3&&getComputedStyle(external).display==='block';
+  const link=document.querySelector('link');const rule=link.sheet&&link.sheet.cssRules[0];if(rule)rule.style.width=(v+11)+'px';checks.externalMutation=external.getBoundingClientRect().width===v+11&&first.width===v+7;
+  external.remove();const e=document.createElement('a');parent.append(e);e.style.cssText='display:flex;width:100px;height:30px';const child=document.createElement('time');child.style.cssText='width:20px;height:10px';e.append(child);const box=child.getBoundingClientRect();checks.anchorFlex=box.width===20&&box.height===10&&getComputedStyle(child).display==='block';
+  e.style.display='grid';checks.anchorGrid=child.getBoundingClientRect().width===20&&getComputedStyle(child).display==='block';
+  e.style.display='none';checks.hidden=child.getBoundingClientRect().width===0&&e.getBoundingClientRect().height===0;e.remove();
+  const unknown=document.createElement('img');unknown.style.display='none';parent.append(unknown);checks.hiddenReplaced=unknown.getBoundingClientRect().width===0;unknown.remove();sheet.remove();return checks;
+}

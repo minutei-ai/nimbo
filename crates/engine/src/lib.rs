@@ -19,6 +19,7 @@ mod font_faces;
 mod font_family;
 mod font_matching;
 mod fonts;
+mod html_boxes;
 mod layers;
 mod layout;
 mod line_height;

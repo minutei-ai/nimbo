@@ -2125,3 +2125,32 @@ unsupported geometry still fails explicitly. Painting, complete display
 serialization, cascade layer rollback and full display parity remain pending.
 
 Public reference: [CSS Display transformations](https://drafts.csswg.org/css-display/#transformations).
+
+### Native non-replaced HTML box categories
+
+The engine shares HTML box classification between computed display and layout.
+It adds the block default for hgroup and accepts span, a, abbr, bdi, data and
+time as simple non-replaced boxes when authored block/flex/grid display or
+flex/grid blockification produces a supported formatting context. Their normal
+inline display still fails explicitly when geometry needs inline formatting.
+SVG, other namespaces, replaced elements, native controls and unsupported HTML
+tags retain explicit layout errors; hidden descendants do not require layout.
+
+The shared real-HTTP fixture covers 17 HTML tags over 64 variants, using external
+CSS, author cascade, nested box dimensions, flex/grid blockification and DOM
+detach/reattach. Chromium passed all 10,176 assertions. Native Rust and
+Worker/Wasm match 158 of 159 unique assertions per variant (10,112 matches).
+The remaining 64 comparisons expose a CSSOM gap: link.sheet and cssRules-based
+rule mutation are unsupported. That divergence is retained in the fixture and
+asserted explicitly rather than counted as a passing capability.
+[The aggregate records these counts and limitations](evidence/html-boxes-chromium.json).
+
+Engine runs split each variant into four fresh HTTP requests with 51, 51, 51 and
+24 fields, retaining every case within unchanged production DOM operation
+budgets. Six shared checks repeat between groups; unique comparison counts
+exclude repetitions. This validates empty box geometry, not full HTML rendering.
+Inline line boxes, glyph shaping, full user-agent margins/fonts/link styling,
+replaced/media/control/SVG layout, CSSOM rule mutation and painting remain pending.
+
+Public references: [HTML rendering defaults](https://html.spec.whatwg.org/multipage/rendering.html),
+[HTML text-level semantics](https://html.spec.whatwg.org/multipage/text-level-semantics.html).

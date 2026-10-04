@@ -1,6 +1,7 @@
 import { backgroundLayersFixture } from "./background-layers-fixture";
 import { fontFamilyFixture } from "./font-family-fixture";
 import { displayFixture } from "./display-fixture";
+import { htmlBoxesFixture } from "./html-boxes-fixture";
 import { backgroundSizeFixture } from "./background-size-fixture";
 import { backgroundRepeatFixture } from "./background-repeat-fixture";
 import { backgroundPositionFixture } from "./background-position-fixture";
@@ -423,6 +424,8 @@ const origin = Bun.serve({
   port: 0,
   async fetch(request) {
     const path = new URL(request.url).pathname;
+    const htmlBoxes = await htmlBoxesFixture(path);
+    if (htmlBoxes) return htmlBoxes;
     const display = await displayFixture(path);
     if (display) return display;
     const fontFamily = await fontFamilyFixture(path);
@@ -2231,7 +2234,8 @@ test.each([
   ["transform", "el.style.transform='translateX(10px)';"],
   ["environment substitution", "el.style.width='env(safe-area-inset-left, 10px)';"],
   ["position", "el.style.position='absolute';"],
-  ["element formatting", "const child=document.createElement('span');el.appendChild(child);"],
+  ["display formatting", "const child=document.createElement('span');el.appendChild(child);"],
+  ["element formatting", "const child=document.createElement('img');el.appendChild(child);"],
   ["width", "el.style.width='2em';"],
 ])(
   "real HTTP → workerd → Wasm: geometry rejects %s without fictional values",
@@ -5396,3 +5400,44 @@ test.each(["inline", "inline-block", "flow-root", "contents", "table-row", "ruby
     expect(await geometry.text()).toContain("display formatting");
   },
 );
+
+test.each(Array.from({ length: 256 }, (_, index) => [Math.floor(index / 4), index % 4]))(
+  "real HTTP → workerd → Wasm: native HTML box categories variant %i group %i",
+  async (variant, group) => {
+    const url = new URL(`html-boxes/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: `htmlBoxesCase(${variant},${group})` }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing HTML box values");
+    expect(Object.keys(value)).toHaveLength(group === 3 ? 24 : 51);
+    // Rule mutation remains a measured divergence from Chromium, not a passing capability.
+    expect(Reflect.get(value, "externalMutation")).toBe(false);
+    for (const [name, check] of Object.entries(value)) {
+      expect(check).toBe(name !== "externalMutation");
+    }
+  },
+);
+
+test.each([
+  ["SVG", "(()=>{document.body.innerHTML='<svg></svg>';return document.body.firstElementChild})()"],
+  ["replaced element or native control", "document.createElement('button')"],
+  ["unsupported HTML tag", "document.createElement('table')"],
+])("real HTTP → workerd → Wasm: HTML box classification rejects %s", async (category, creation) => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression: `(()=>{const e=${creation};e.setAttribute('style','display:block');document.body.appendChild(e);return e.getBoundingClientRect().width})()`,
+    }),
+  });
+  expect(response.status).toBe(422);
+  expect(await response.text()).toContain(`element formatting: ${category}`);
+});

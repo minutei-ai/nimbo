@@ -1390,6 +1390,10 @@ fn registered_custom_properties_validate_before_substitution() -> TestResult {
 }
 
 fn serve_resource(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/html-boxes/") || request.url().starts_with("/html-boxes-assets/")
+    {
+        return serve_html_boxes(request);
+    }
     if request.url().starts_with("/display/") || request.url().starts_with("/display-assets/") {
         return serve_display(request);
     }
@@ -1599,6 +1603,8 @@ fn is_resource(path: &str) -> bool {
         "/background-layers/",
         "/font-family/",
         "/display/",
+        "/html-boxes/",
+        "/html-boxes-assets/",
         "/display-assets/",
         "/font-family-assets/",
         "/background-layers-assets/",
@@ -2360,6 +2366,46 @@ fn serve_display(request: Request) -> io::Result<()> {
     let source = format!(
         "<!doctype html><link rel=stylesheet href=/display-assets/{variant}><script>{}</script>",
         include_str!("fixtures/display.txt")
+    );
+    request.respond(Response::from_string(source).with_header(header("Content-Type", "text/html")?))
+}
+
+#[test]
+fn native_html_boxes_real_http() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        for group in 0..4 {
+            let page = browser.navigate(&fixture.path(&format!("/html-boxes/{variant}")))?;
+            let result = page.evaluate(&format!("htmlBoxesCase({variant},{group})"))?;
+            let fields = result.as_object().ok_or("missing HTML box result")?;
+            assert_eq!(fields.len(), if group == 3 { 24 } else { 51 });
+            assert!(
+                fields
+                    .iter()
+                    .all(|(name, value)| *value == json!(name != "externalMutation")),
+                "variant {variant}, group {group}: {result}"
+            );
+        }
+    }
+    Ok(())
+}
+fn serve_html_boxes(request: Request) -> io::Result<()> {
+    if let Some(value) = request.url().strip_prefix("/html-boxes-assets/") {
+        let variant = value.parse::<u32>().map_err(io::Error::other)?;
+        return request.respond(
+            Response::from_string(format!(
+                "#external{{display:block;width:{}px;height:{}px}}",
+                variant.saturating_add(7),
+                (variant % 6).saturating_add(3)
+            ))
+            .with_header(header("Content-Type", "text/css")?),
+        );
+    }
+    let variant = request.url().strip_prefix("/html-boxes/").unwrap_or("0");
+    let source = format!(
+        "<!doctype html><link rel=stylesheet href=/html-boxes-assets/{variant}><script>{}</script>",
+        include_str!("fixtures/html-boxes.txt")
     );
     request.respond(Response::from_string(source).with_header(header("Content-Type", "text/html")?))
 }

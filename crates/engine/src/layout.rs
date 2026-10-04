@@ -341,21 +341,6 @@ fn empty_generated_content(declarations: &Declarations) -> Result<bool> {
     Ok(strings > 0)
 }
 
-fn validate_element(node: NodeRef<'_>) -> Result<()> {
-    if ![
-        "html", "body", "div", "main", "section", "article", "aside", "header", "footer", "nav",
-    ]
-    .iter()
-    .any(|name| node.has_name(name))
-        || node
-            .qual_name_ref()
-            .is_none_or(|name| name.ns.as_ref() != "http://www.w3.org/1999/xhtml")
-    {
-        return Err(unsupported("element formatting"));
-    }
-    Ok(())
-}
-
 #[derive(Clone)]
 struct BoxContext {
     fonts: crate::fonts::Context,
@@ -556,7 +541,7 @@ impl Tree<'_, '_> {
         if display.none() {
             return Ok(None);
         }
-        validate_element(node)?;
+        crate::html_boxes::validate(node)?;
         let mut style = style_for(node, &declarations, false, &display)?;
         if style.display == Display::None {
             return Ok(None);

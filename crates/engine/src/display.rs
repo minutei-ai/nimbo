@@ -33,12 +33,7 @@ fn ua(node: NodeRef<'_>, generated: bool) -> Display {
     {
         return Display::Keyword(DisplayKeyword::None);
     }
-    if [
-        "html", "body", "div", "main", "section", "article", "aside", "header", "footer", "nav",
-    ]
-    .iter()
-    .any(|name| node.has_name(name))
-    {
+    if crate::html_boxes::block(node) {
         flow()
     } else {
         initial()
