@@ -13,6 +13,8 @@ pub(crate) struct Dom {
     matchers: HashMap<String, Matcher>,
     styles: HashMap<NodeId, crate::styles::Declarations>,
     computed_styles: HashMap<NodeId, crate::computed_style::Computed>,
+    transitions: std::cell::RefCell<crate::transitions::State>,
+    now: f64,
     style_bytes: usize,
     operations: usize,
     layout_version: usize,
@@ -43,6 +45,8 @@ impl Dom {
             matchers: HashMap::new(),
             styles: HashMap::new(),
             computed_styles: HashMap::new(),
+            transitions: std::cell::RefCell::default(),
+            now: 0.0,
             style_bytes: 0,
             operations: 0,
             layout_version: 0,
@@ -54,6 +58,14 @@ impl Dom {
             writes: 0,
             limits,
             media,
+        }
+    }
+
+    pub(crate) fn advance(&mut self, now: f64) {
+        self.now = now;
+        if self.transitions.borrow().active() {
+            self.layout_version = self.layout_version.saturating_add(1);
+            self.computed_styles.clear();
         }
     }
 
@@ -389,6 +401,8 @@ impl Dom {
                         node,
                         &crate::layout::Sources {
                             scroll: &self.scroll,
+                            transitions: &self.transitions,
+                            now: self.now,
                             inline: &self.styles,
                             external: &self.sheets,
                             constructed: &self.cssom,
@@ -447,6 +461,8 @@ impl Dom {
             &request.margin,
             &crate::layout::Sources {
                 scroll: &self.scroll,
+                transitions: &self.transitions,
+                now: self.now,
                 inline: &self.styles,
                 external: &self.sheets,
                 constructed: &self.cssom,
@@ -482,6 +498,8 @@ impl Dom {
                 .ok_or_else(|| Error::Dom("invalid node handle".into()))?,
             &crate::layout::Sources {
                 scroll: &self.scroll,
+                transitions: &self.transitions,
+                now: self.now,
                 inline: &self.styles,
                 external: &self.sheets,
                 constructed: &self.cssom,
@@ -540,6 +558,8 @@ impl Dom {
             target,
             &crate::layout::Sources {
                 scroll: &self.scroll,
+                transitions: &self.transitions,
+                now: self.now,
                 inline: &self.styles,
                 external: &self.sheets,
                 constructed: &self.cssom,

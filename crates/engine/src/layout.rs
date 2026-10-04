@@ -184,7 +184,8 @@ fn style(node: NodeRef<'_>, declarations: &Declarations) -> Result<Style> {
 }
 
 fn non_layout(name: &str) -> bool {
-    crate::background_layers::property(name)
+    crate::transitions::property(name)
+        || crate::background_layers::property(name)
         || matches!(
             name,
             "color"
@@ -447,6 +448,8 @@ struct Tree<'a, 'b> {
     box_nodes: HashMap<taffy::NodeId, NodeId>,
     sticky: HashMap<taffy::NodeId, Rect<LengthPercentageAuto>>,
     scroll: &'a ScrollState,
+    transitions: &'a std::cell::RefCell<crate::transitions::State>,
+    now: f64,
     viewport: Size<f64>,
     styles: &'a HashMap<NodeId, Declarations>,
     visited: usize,
@@ -569,6 +572,10 @@ impl Tree<'_, '_> {
             .cascade
             .animations
             .sample(&declarations, &variables, self.work)?;
+        let declarations = self
+            .transitions
+            .borrow_mut()
+            .sample(node, declarations, self.now)?;
         let display = context
             .display
             .compute(node, &declarations, depth == 0, false)?;
@@ -740,6 +747,8 @@ impl Tree<'_, '_> {
 
 pub(crate) struct Sources<'a> {
     pub scroll: &'a ScrollState,
+    pub transitions: &'a std::cell::RefCell<crate::transitions::State>,
+    pub now: f64,
     pub inline: &'a HashMap<NodeId, Declarations>,
     pub external: &'a crate::stylesheets::Sheets,
     pub constructed: &'a crate::cssom::Arena,
@@ -798,6 +807,8 @@ fn scene<T>(
             box_nodes: HashMap::new(),
             sticky: HashMap::new(),
             scroll: styles.scroll,
+            transitions: styles.transitions,
+            now: styles.now,
             viewport: Size {
                 width: f64::from(width),
                 height: f64::from(height),

@@ -1421,6 +1421,7 @@ fn is_dom_resource(path: &str) -> bool {
         "/custom-boxes/",
         "/positioned-boxes/",
         "/sticky-geometry/",
+        "/transitions/",
         "/z-index/",
         "/z-index-style",
         "/namespaced-elements/",
@@ -1434,6 +1435,9 @@ fn is_dom_resource(path: &str) -> bool {
 }
 
 fn serve_resource(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/transitions/") {
+        return serve_transitions(request);
+    }
     if request.url().starts_with("/z-index/") || request.url() == "/z-index-style" {
         return serve_z_index(request);
     }
@@ -2839,6 +2843,35 @@ fn serve_z_index(request: Request) -> io::Result<()> {
         return request.respond(Response::from_string(format!(
             "<!doctype html><link rel=\"stylesheet\" href=\"/z-index-style\"><body><script>{}\nglobalThis.comparison=zIndexCase({variant})</script>",
             include_str!("fixtures/z-index.txt")
+        )).with_header(header("Content-Type", "text/html")?));
+    }
+    request.respond(Response::empty(404))
+}
+
+#[test]
+fn css_transitions_advance_with_real_timers() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/transitions/{variant}")))?;
+        let result = page.evaluate("globalThis.comparison")?;
+        let checks = result.as_object().ok_or("missing transition checks")?;
+        assert_eq!(checks.len(), 25);
+        assert!(
+            checks.values().all(|value| value == &json!(true)),
+            "{result}; {}",
+            page.evaluate("globalThis.transitionDebug")?
+        );
+    }
+    Ok(())
+}
+
+fn serve_transitions(request: Request) -> io::Result<()> {
+    if let Some(variant) = request.url().strip_prefix("/transitions/") {
+        let variant = variant.parse::<usize>().unwrap_or_default();
+        return request.respond(Response::from_string(format!(
+            "<!doctype html><body><script>{}\nglobalThis.comparison=transitionsCase({variant})</script>",
+            include_str!("fixtures/transitions.txt")
         )).with_header(header("Content-Type", "text/html")?));
     }
     request.respond(Response::empty(404))

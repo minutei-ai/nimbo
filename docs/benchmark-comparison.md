@@ -315,3 +315,14 @@ ranges from 40.71 to 74.83 ms. This does not prove a speed improvement caused by
 z-index support: local runs vary, and the earlier proxy-bundle run remains
 available above. Obscura performance parity and general SPA compatibility are
 still pending.
+
+## Native transition bundle snapshot
+
+The [2026-10-04 transition-bundle run](performance-comparison-transitions.json)
+records the actual Wasm SHA-256 and all nine workloads in the same celld/Obscura/
+Chromium comparison. All 648 attempts return expected values; 567 samples remain
+after excluded warmups. There are zero extraction failures. Nimbo has a lower p50
+than Chromium in 9/9 scenarios and public Obscura in 1/9. This is a separate local
+run; it does not attribute timing differences to the transition implementation.
+The earlier [z-index snapshot](performance-comparison-z-index.json) is retained.
+All-win performance against Obscura remains pending.

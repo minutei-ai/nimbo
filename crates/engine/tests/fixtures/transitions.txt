@@ -1,0 +1,78 @@
+async function transitionsCase(variant) {
+  const checks = {};
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const width = (element) => element.getBoundingClientRect().width;
+  const close = (actual, expected, tolerance = 2) => Math.abs(actual - expected) <= tolerance;
+  function box(transition = 'width 600ms linear', important = false) {
+    const element = document.createElement('div');
+    element.id = `transition-${variant}-${document.body.children.length}`;
+    element.style.cssText = `height:2px;width:100px${important ? '!important' : ''};transition:${transition}`;
+    document.body.appendChild(element);
+    width(element);
+    return element;
+  }
+  const defaults = document.createElement('div');
+  document.body.appendChild(defaults);
+  const computed = getComputedStyle(defaults);
+  checks.defaults = computed.transitionProperty === 'all' && computed.transitionDuration === '0s' && computed.transitionDelay === '0s' && computed.transitionTimingFunction === 'ease';
+  checks.rejectNegativeDuration = !CSS.supports('transition-duration', '-1ms');
+  checks.rejectZeroSteps = !CSS.supports('transition-timing-function', 'steps(0)');
+  checks.rejectJumpNoneOne = !CSS.supports('transition-timing-function', 'steps(1,jump-none)');
+  checks.rejectBezierDomain = !CSS.supports('transition-timing-function', 'cubic-bezier(-1,0,1,1)');
+  const linear = box();
+  const delay = box('width 600ms linear 400ms');
+  const negative = box('width 600ms linear -300ms');
+  const step = box('width 600ms steps(4,end)');
+  const important = box('width 600ms linear', true);
+  const cancel = box();
+  const retarget = box();
+  const reverse = box();
+  const zero = box('width 0s linear 50ms');
+  const independent = box('width 0s');
+  checks.firstStyle = close(width(linear),100);
+  checks.controls = getComputedStyle(delay).transitionDuration === '0.6s' && getComputedStyle(delay).transitionDelay === '0.4s';
+  const child = document.createElement('div');
+  child.style.cssText = 'transition-property:inherit;transition-duration:inherit;transition-timing-function:inherit';
+  linear.appendChild(child);
+  checks.explicitControlInheritance = getComputedStyle(child).transitionProperty === 'width' && getComputedStyle(child).transitionDuration === '0.6s';
+  const originalDuration = linear.style.transitionDuration;
+  linear.style.transitionDuration = '-100ms';
+  checks.invalidDurationAtomic = linear.style.transitionDuration === originalDuration;
+  const start = performance.now();
+  for (const element of [linear, delay, negative, step, cancel, retarget, reverse, zero, independent]) {
+    element.style.width = '500px';
+    width(element);
+  }
+  important.style.setProperty('width','500px','important');
+  width(important);
+  checks.negativeDelayStartsMidway = close(width(negative),300,10);
+  checks.positiveDelayHolds = close(width(delay),100);
+  checks.zeroDurationDelayHolds = close(width(zero),100);
+  checks.zeroDurationImmediate = close(width(independent),500);
+  checks.specifiedTargetUnaffected = linear.style.width === '500px';
+  await sleep(100);
+  const elapsed = performance.now() - start;
+  const expected = 100 + 400 * Math.min(1,elapsed/600);
+  globalThis.transitionDebug = {elapsed, expected, linear:width(linear), important:width(important)};
+  checks.linearRealClock = close(width(linear),expected,20) && width(linear)>100 && width(linear)<500;
+  checks.importantTransitionWins = close(width(important),expected,20) && width(important)<500;
+  checks.delayRealClock = close(width(delay),100+400*Math.min(1,Math.max(0,(elapsed-400)/600)),20);
+  checks.stepRealClock = close(width(step),100 + 100*Math.min(4,Math.floor(elapsed/150)),10);
+  checks.zeroDurationDelayFinishes = close(width(zero),500);
+  cancel.style.transitionProperty = 'none';
+  checks.cancelToTarget = close(width(cancel),500);
+  const beforeRetarget = width(retarget);
+  retarget.style.width = '700px';
+  checks.retargetContinuous = close(width(retarget),beforeRetarget,10);
+  const beforeReverse = width(reverse);
+  reverse.style.width = '100px';
+  checks.reverseContinuous = close(width(reverse),beforeReverse,10);
+  const reverseDuration = Math.min(600,Math.max(0,(beforeReverse-100)*600/400));
+  await sleep(100);
+  checks.retargetAdvances = width(retarget)>beforeRetarget && width(retarget)<700;
+  await sleep(Math.max(60,reverseDuration-100+50));
+  checks.reverseShortens = close(width(reverse),100);
+  await sleep(850);
+  checks.finalTarget = close(width(linear),500) && close(width(delay),500) && close(width(negative),500) && close(width(step),500) && close(width(important),500) && close(width(retarget),700);
+  return checks;
+}

@@ -1,0 +1,279 @@
+{
+  "date": "2026-10-04",
+  "mode": "real HTTP; concurrency 1; rotating runtime order; 3 excluded warmups and 21 measured attempts per scenario; persistent hosts; fresh extraction pages; no mocks",
+  "runtimes": [
+    {
+      "name": "nimbo-celld",
+      "version": "celld 0.6.1",
+      "mode": "persistent celld; fresh Nimbo page; authenticated HTTP API",
+      "wasm_sha256": "f93010ef492d02bd7634e8a45223ce01f001483759f492026b5c130c894a1871"
+    },
+    {
+      "name": "obscura",
+      "version": "obscura 0.2.3",
+      "mode": "persistent public Obscura CDP server; fresh target and connection"
+    },
+    {
+      "name": "chromium",
+      "version": "Google Chrome for Testing 153.0.8010.12",
+      "mode": "persistent unmodified headless Chromium; fresh target and connection; CDP"
+    }
+  ],
+  "results": [
+    {
+      "runtime": "nimbo-celld",
+      "scenario": "static",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 45.39495399999987,
+      "p95_ms": 59.853939999999966
+    },
+    {
+      "runtime": "obscura",
+      "scenario": "static",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 19.056602999999996,
+      "p95_ms": 20.445870000000014
+    },
+    {
+      "runtime": "chromium",
+      "scenario": "static",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 62.517071999999644,
+      "p95_ms": 88.85684900000024
+    },
+    {
+      "runtime": "nimbo-celld",
+      "scenario": "selectors-200",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 37.53739300000052,
+      "p95_ms": 59.378249000000324
+    },
+    {
+      "runtime": "obscura",
+      "scenario": "selectors-200",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 20.459168999999747,
+      "p95_ms": 22.127629999999954
+    },
+    {
+      "runtime": "chromium",
+      "scenario": "selectors-200",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 63.987874000000375,
+      "p95_ms": 87.25985700000001
+    },
+    {
+      "runtime": "nimbo-celld",
+      "scenario": "dynamic-fetch",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 37.28261399999974,
+      "p95_ms": 51.6753400000016
+    },
+    {
+      "runtime": "obscura",
+      "scenario": "dynamic-fetch",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 20.814401999999973,
+      "p95_ms": 25.567284999999174
+    },
+    {
+      "runtime": "chromium",
+      "scenario": "dynamic-fetch",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 60.0823390000005,
+      "p95_ms": 83.92582799999946
+    },
+    {
+      "runtime": "nimbo-celld",
+      "scenario": "js-dom-events",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 57.198247000000265,
+      "p95_ms": 68.7986149999997
+    },
+    {
+      "runtime": "obscura",
+      "scenario": "js-dom-events",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 29.60784799999965,
+      "p95_ms": 32.645558000000165
+    },
+    {
+      "runtime": "chromium",
+      "scenario": "js-dom-events",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 60.990734000000884,
+      "p95_ms": 87.1557529999991
+    },
+    {
+      "runtime": "nimbo-celld",
+      "scenario": "js-modules",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 63.98431399999936,
+      "p95_ms": 73.39528799999971
+    },
+    {
+      "runtime": "obscura",
+      "scenario": "js-modules",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 31.000695000000633,
+      "p95_ms": 33.96743399999832
+    },
+    {
+      "runtime": "chromium",
+      "scenario": "js-modules",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 74.07048199999917,
+      "p95_ms": 97.89689700000054
+    },
+    {
+      "runtime": "nimbo-celld",
+      "scenario": "js-dom-selectors-200",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 55.45999799999845,
+      "p95_ms": 69.27701499999966
+    },
+    {
+      "runtime": "obscura",
+      "scenario": "js-dom-selectors-200",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 31.811730000001262,
+      "p95_ms": 34.21179900000061
+    },
+    {
+      "runtime": "chromium",
+      "scenario": "js-dom-selectors-200",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 70.44543999999951,
+      "p95_ms": 94.98888699999952
+    },
+    {
+      "runtime": "nimbo-celld",
+      "scenario": "static-5000",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 68.73029099999985,
+      "p95_ms": 78.85081099999661
+    },
+    {
+      "runtime": "obscura",
+      "scenario": "static-5000",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 42.96564899999794,
+      "p95_ms": 44.777515000001586
+    },
+    {
+      "runtime": "chromium",
+      "scenario": "static-5000",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 247.1452160000008,
+      "p95_ms": 276.9561529999992
+    },
+    {
+      "runtime": "nimbo-celld",
+      "scenario": "selectors-200-5000",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 71.00861799999984,
+      "p95_ms": 79.95169899999746
+    },
+    {
+      "runtime": "obscura",
+      "scenario": "selectors-200-5000",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 98.37182900000334,
+      "p95_ms": 103.4384710000013
+    },
+    {
+      "runtime": "chromium",
+      "scenario": "selectors-200-5000",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 266.68427599999995,
+      "p95_ms": 287.0870470000009
+    },
+    {
+      "runtime": "nimbo-celld",
+      "scenario": "js-positioned-boxes",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 67.35683199999767,
+      "p95_ms": 82.48226099999738
+    },
+    {
+      "runtime": "obscura",
+      "scenario": "js-positioned-boxes",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 34.33796599999914,
+      "p95_ms": 36.023903000001155
+    },
+    {
+      "runtime": "chromium",
+      "scenario": "js-positioned-boxes",
+      "valid": 24,
+      "failures": {},
+      "measured": 21,
+      "p50_ms": 69.15728699999454,
+      "p95_ms": 94.04142899999715
+    }
+  ],
+  "fixture_requests": {
+    "/static": 144,
+    "/favicon.ico": 216,
+    "/dynamic": 72,
+    "/api": 72,
+    "/app/classic": 144,
+    "/app/api": 216,
+    "/app/modules": 72,
+    "/app/data.js": 72,
+    "/static?rows=5000": 144,
+    "/positioned-boxes/7": 72
+  }
+}

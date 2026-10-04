@@ -1,3 +1,4 @@
+import { transitionsFixture } from "./transitions-fixture";
 import { zIndexFixture } from "./z-index-fixture";
 import { stickyGeometryFixture } from "./sticky-geometry-fixture";
 import { cookiesFixture } from "./cookies-fixture";
@@ -443,6 +444,8 @@ const origin = Bun.serve({
     if (encoded) return encoded;
     const namespaced = namespacedElementsFixture(path);
     if (namespaced) return namespaced;
+    const transitions = transitionsFixture(path);
+    if (transitions) return transitions;
     const zIndex = zIndexFixture(path);
     if (zIndex) return zIndex;
     const stickyGeometry = stickyGeometryFixture(path);
@@ -4780,7 +4783,7 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
   expect(await response.json()).toMatchObject({
     value: {
       font: "18px",
-      count: 20,
+      count: 24,
       names: [
         "background-attachment",
         "background-clip",
@@ -4801,6 +4804,10 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
         "position",
         "tab-size",
         "text-size-adjust",
+        "transition-delay",
+        "transition-duration",
+        "transition-property",
+        "transition-timing-function",
         "z-index",
       ],
     },
@@ -5958,3 +5965,44 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     expect(Object.values(value).every((check) => check === true)).toBe(true);
   },
 );
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: real-clock CSS transitions variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`transitions/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing result");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing checks");
+    expect(Object.keys(value)).toHaveLength(25);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test("real HTTP → workerd → Wasm: unsupported transition interpolation fails and releases the page", async () => {
+  const url = new URL("outlines/0", origin.url).href;
+  const failed = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression:
+        "(()=>{const b=document.body;b.style.cssText='color:red;transition:color 1s';getComputedStyle(b).color;b.style.color='blue';return getComputedStyle(b).color})()",
+    }),
+  });
+  expect(failed.status).toBe(422);
+  expect(await failed.text()).toContain("transition interpolation: color");
+  const healthy = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: "document.body.style.transitionDuration" }),
+  });
+  expect(healthy.status).toBe(200);
+});

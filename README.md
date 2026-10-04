@@ -6,6 +6,13 @@ Rust owns the browser implementation; QuickJS executes page JavaScript. The same
 
 Nimbo's target is to provide Obscura's browser capabilities inside Cloudflare Workers through its own engine. Obscura is an optional, separate test comparator; it is never a runtime backend, dependency or fallback.
 
+The target includes Kitesurf's public browser contracts and the capabilities it
+explicitly excludes. JavaScript and SPA scraping, with optional proxies, remain
+the core workflow. Browser features serve that workflow; unrelated product
+layers are outside the scope. Workers is the primary runtime, and any additional
+runtime must address a measured capability gap. This is the implementation
+target; the coverage inventory records what actually works today.
+
 [Cloudflare guide](docs/cloudflare.md) · [celld guide](docs/celld.md) · [Browser coverage](docs/browser-coverage.md) · [Quality policy](docs/rust-quality.md)
 
 ## Getting started
@@ -122,7 +129,7 @@ The engine implements bounded browser subsets. See the [coverage inventory](docs
 | HTTP                             | Redirects, shared HTTP/document cookies, page fetch and per-page isolation; simplified browser networking                                          |
 | URL                              | Native parsing and form encoding, live URLSearchParams and bounded Web IDL bindings; original WPT failures remain                                  |
 | Storage                          | Bounded local/session storage; Worker requests start fresh                                                                                         |
-| CSS                              | Native declarations, selector matching, cascade, computed z-index and other computed-style subsets                                                 |
+| CSS                              | Native declarations, selector matching, cascade, computed-style subsets and bounded numeric CSS transitions                                        |
 | Layout                           | Native block/flex/grid geometry, explicitly inset absolute/fixed boxes, selected sticky/scroll metrics and HTML categories; incomplete text layout |
 | CSSOM                            | Constructed sheets, ordered live rule lists, declarations and Document adoption; grouped rules and document-owned wrappers pending                 |
 | Canvas                           | Rust software OffscreenCanvas bitmap and selected 2D pixel operations                                                                              |
@@ -159,6 +166,8 @@ bun run bench:obstacle # original upstream obstacle fixtures in Nimbo/celld
 bun run bench:wpt-url  # pinned original URL WPT window variants in Nimbo/celld
 bun run bench:wpt-sticky # pinned original sticky WPT fixtures; optional Obscura comparator
 bun run bench:wpt-z-index # original z-index parsing and computed WPT fixtures
+bun run bench:wpt-transitions # original transition parsing/computed/shorthand WPT fixtures
+bun run compare:transitions # real-clock transition contracts in celld and Chromium
 ```
 
 Native CLI timings, local celld HTTP timings and deployed Cloudflare measurements are different measurements. The remote driver requires a fixture origin reachable from the Worker; the [Cloudflare guide](docs/cloudflare.md) explains that setup. Local measurements do not establish production throughput, memory use or cost.
@@ -179,21 +188,21 @@ Latency in milliseconds, **p50 / p95**:
 
 | Scenario                | Nimbo / celld |        Obscura |        Chromium |
 | ----------------------- | ------------: | -------------: | --------------: |
-| Static HTML             | 43.55 / 56.26 |  18.49 / 21.22 |   60.26 / 88.80 |
-| Selectors, 200 nodes    | 40.71 / 56.14 |  19.77 / 21.35 |   63.85 / 82.64 |
-| Dynamic fetch           | 43.50 / 59.85 |  22.02 / 23.87 |   66.78 / 87.73 |
-| JS, DOM and events      | 54.28 / 66.36 |  29.80 / 32.36 |   67.99 / 89.02 |
-| JS modules              | 64.77 / 70.45 |  31.42 / 32.89 |   75.59 / 97.40 |
-| JS selectors, 200 nodes | 64.38 / 73.34 |  31.67 / 36.48 |   71.96 / 94.48 |
-| Static HTML, 5000 nodes | 63.29 / 77.98 |  42.38 / 49.78 | 264.90 / 310.76 |
-| Selectors, 5000 nodes   | 74.83 / 79.47 | 99.27 / 102.57 | 262.56 / 285.61 |
-| JS positioned boxes     | 66.58 / 80.63 |  33.50 / 36.67 |   70.87 / 90.75 |
+| Static HTML             | 45.39 / 59.85 |  19.06 / 20.45 |   62.52 / 88.86 |
+| Selectors, 200 nodes    | 37.54 / 59.38 |  20.46 / 22.13 |   63.99 / 87.26 |
+| Dynamic fetch           | 37.28 / 51.68 |  20.81 / 25.57 |   60.08 / 83.93 |
+| JS, DOM and events      | 57.20 / 68.80 |  29.61 / 32.65 |   60.99 / 87.16 |
+| JS modules              | 63.98 / 73.40 |  31.00 / 33.97 |   74.07 / 97.90 |
+| JS selectors, 200 nodes | 55.46 / 69.28 |  31.81 / 34.21 |   70.45 / 94.99 |
+| Static HTML, 5000 nodes | 68.73 / 78.85 |  42.97 / 44.78 | 247.15 / 276.96 |
+| Selectors, 5000 nodes   | 71.01 / 79.95 | 98.37 / 103.44 | 266.68 / 287.09 |
+| JS positioned boxes     | 67.36 / 82.48 |  34.34 / 36.02 |   69.16 / 94.04 |
 
 Nimbo has a lower p50 than Chromium in **9/9** scenarios and Obscura in
 **1/9**. Matching or beating Obscura across the remaining scenarios is still
 pending. These local fixtures do not establish general SPA compatibility,
 production throughput, memory consumption or cost. See the
-[raw results](docs/performance-comparison-z-index.json) and
+[raw results](docs/performance-comparison-transitions.json) and
 [reproduction guide](docs/benchmark-comparison.md).
 
 ## Runtime guides

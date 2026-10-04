@@ -47,6 +47,7 @@ mod stylesheets;
 mod supports;
 mod tabs;
 mod text_adjust;
+mod transitions;
 #[cfg(target_arch = "wasm32")]
 mod wasm;
 mod z_index;

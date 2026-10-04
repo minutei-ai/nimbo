@@ -247,3 +247,18 @@ runner exit is expected while any variant fails or cannot complete. No full WPT,
 full URL-suite, dedicated-worker, browser-stealth or production runtime pass is
 claimed. This adapter does not replace the complete WPT server or remaining
 original suites.
+
+## Original CSS transition WPT contracts
+
+`bun run bench:wpt-transitions` uses the original seventeen parsing, computed,
+shorthand and behavior HTML files at the pinned WPT revision above. Original
+helpers and harness are SHA-verified by `tooling/wpt-transitions-sources.json`;
+only vendor reporting is appended. Select the original checkout with
+`NIMBO_WPT_REFERENCE_ROOT` and binaries through the private comparison settings.
+
+The [dated report](performance-wpt-transitions.json) records Nimbo/celld at
+146/157 completed subtests, eleven failures and one incomplete 28-subtest file.
+Chromium is 183/185; public Obscura 0.2.3 is 41/185. Neither failed assertions nor
+incomplete files count as passes. The command exits unsuccessfully when any
+runtime has a failed or incomplete file. Full transition behavior remains an
+obligation; see the [native implementation scope](browser-coverage.md#native-css-transition-timelines).

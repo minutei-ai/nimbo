@@ -352,7 +352,7 @@ fn progress(
     }
     Ok(Some(progress))
 }
-fn ease(source: &str, progress: f64) -> Result<f64> {
+pub(crate) fn ease(source: &str, progress: f64) -> Result<f64> {
     let value = EasingFunction::parse_string(source).map_err(|_error| unsupported("easing"))?;
     let (x1, y1, x2, y2) = match value {
         EasingFunction::Linear => return Ok(progress),
@@ -379,7 +379,7 @@ fn ease(source: &str, progress: f64) -> Result<f64> {
     }
     Ok(curve(low.midpoint(high), y1, y2))
 }
-fn interpolate(property: &str, from: &str, to: &str, progress: f64) -> Result<String> {
+pub(crate) fn interpolate(property: &str, from: &str, to: &str, progress: f64) -> Result<String> {
     if from == to {
         return Ok(from.into());
     }

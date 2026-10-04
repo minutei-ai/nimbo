@@ -33,6 +33,8 @@
     "bench:engine-compare": "bun run build:worker && bun run tooling/benchmark-engine-compare.ts",
     "bench:obstacle": "bun run build:worker && bun run tooling/benchmark-obstacle.ts",
     "bench:wpt-url": "bun run build:worker && bun run tooling/benchmark-wpt-url.ts",
+    "bench:wpt-transitions": "bun run build:worker && bun run tooling/benchmark-wpt-transitions.ts",
+    "compare:transitions": "bun run build:worker && bun run tooling/compare-transitions.ts",
     "bench:wpt-z-index": "bun run build:worker && bun run tooling/benchmark-wpt-z-index.ts",
     "compare:z-index": "bun run build:worker && bun run tooling/compare-z-index.ts",
     "bench:wpt-sticky": "bun run build:worker && bun run tooling/benchmark-wpt-sticky.ts",

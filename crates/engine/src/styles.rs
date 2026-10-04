@@ -358,6 +358,13 @@ pub(crate) fn function_value(value: &str) -> bool {
 }
 
 fn native_property(name: &str, value: &str, important: bool) -> Option<Vec<Entry>> {
+    if crate::transitions::property(name) {
+        return Some(vec![Entry::new(
+            name,
+            crate::transitions::specified(name, value)?,
+            important,
+        )]);
+    }
     if name == "display" {
         return Some(vec![Entry::new(
             name,
@@ -409,7 +416,8 @@ fn native_property(name: &str, value: &str, important: bool) -> Option<Vec<Entry
 }
 
 fn native_declaration(name: &str, value: &str) -> bool {
-    crate::background_layers::property(name)
+    crate::transitions::property(name)
+        || crate::background_layers::property(name)
         || matches!(
             name,
             "float"
@@ -504,6 +512,7 @@ fn expand(name: &str, value: &str, important: bool) -> Option<Vec<Entry>> {
     if matches!(parsed, Property::Unparsed(_))
         || !crate::borders::valid_literals(name, value)
         || !crate::outlines::valid(&parsed)
+        || !crate::transitions::valid(&parsed)
     {
         return None;
     }
@@ -518,13 +527,15 @@ fn expand(name: &str, value: &str, important: bool) -> Option<Vec<Entry>> {
         |ids| {
             ids.iter()
                 .map(|id| {
-                    Some(Entry::new(
-                        id.name(),
-                        animation_longhand(&parsed, id)?
-                            .value_to_css_string(PrinterOptions::default())
-                            .ok()?,
-                        important,
-                    ))
+                    let value = animation_longhand(&parsed, id)?
+                        .value_to_css_string(PrinterOptions::default())
+                        .ok()?;
+                    let value = if crate::transitions::property(id.name()) {
+                        crate::transitions::specified(id.name(), &value)?
+                    } else {
+                        value
+                    };
+                    Some(Entry::new(id.name(), value, important))
                 })
                 .collect()
         },
@@ -718,6 +729,17 @@ impl Declarations {
         }
         Ok(())
     }
+    pub(crate) fn transition_value(&mut self, name: &str, value: &str) -> crate::Result<()> {
+        let entries = expand(name, value, false).ok_or_else(|| {
+            crate::Error::Dom("layout unsupported: transition interpolated declaration".into())
+        })?;
+        for mut entry in entries {
+            entry.animated = true;
+            self.put(entry, false)
+                .map_err(|message| crate::Error::Dom(message.into()))?;
+        }
+        Ok(())
+    }
     fn get(&self, name: &str) -> (String, bool) {
         if let Some(entry) = self.entries.iter().find(|entry| entry.name == name) {
             return (
@@ -770,6 +792,10 @@ impl Declarations {
             )
         {
             return (first.value.clone(), first.important);
+        }
+        if name == "transition" {
+            return crate::transitions::specified_shorthand(self)
+                .map_or_else(|| (String::new(), false), |value| (value, first.important));
         }
         let mut block = DeclarationBlock::default();
         for entry in &entries {

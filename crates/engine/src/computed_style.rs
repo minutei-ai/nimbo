@@ -6,7 +6,7 @@ use crate::{
     styles::{Declarations, Variables},
 };
 
-pub(crate) const PROPERTIES: [&str; 20] = [
+pub(crate) const PROPERTIES: [&str; 24] = [
     "background-attachment",
     "background-clip",
     "background-image",
@@ -26,6 +26,10 @@ pub(crate) const PROPERTIES: [&str; 20] = [
     "position",
     "tab-size",
     "text-size-adjust",
+    "transition-delay",
+    "transition-duration",
+    "transition-property",
+    "transition-timing-function",
     "z-index",
 ];
 
@@ -41,14 +45,17 @@ pub(crate) struct Computed {
     display: crate::display::Computed,
     position: &'static str,
     index: crate::z_index::Index,
+    transitions: crate::transitions::Controls,
 }
 
 pub(crate) fn property(name: &str) -> bool {
-    PROPERTIES.contains(&name) || crate::background_position::property(name)
+    PROPERTIES.contains(&name) || name == "transition" || crate::background_position::property(name)
 }
 impl Computed {
     pub(crate) fn value(&self, name: &str) -> Result<String> {
-        if name == "background-image" {
+        if crate::transitions::property(name) || name == "transition" {
+            self.transitions.value(name)
+        } else if name == "background-image" {
             self.images.value(self.outlines.color())
         } else if crate::background_layers::property(name) {
             self.layers.value(name, self.images.count())
@@ -85,11 +92,6 @@ pub(crate) fn resolve(
     media: &MediaEnvironment,
     work: &mut Work<'_>,
 ) -> Result<Computed> {
-    if !target.ancestors_it(None).any(|node| node.is_document()) {
-        return Err(Error::Dom(
-            "computed style requires an attached element".into(),
-        ));
-    }
     let cascade = crate::cascade::Cascade::collect(
         document,
         sources.external,
@@ -103,15 +105,7 @@ pub(crate) fn resolve(
             "layout unsupported: computed style container queries".into(),
         ));
     }
-    let mut ancestors: Vec<_> = target
-        .ancestors_it(None)
-        .filter(NodeRef::is_element)
-        .collect();
-    ancestors.reverse();
-    ancestors.push(target);
-    if ancestors.len() > 128 {
-        return Err(Error::Limit("computed style depth"));
-    }
+    let ancestors = ancestors(target)?;
     let mut variables = Variables::default();
     let mut fonts = crate::fonts::Context::new(media);
     let mut outlines = crate::outlines::Outlines::default();
@@ -124,6 +118,7 @@ pub(crate) fn resolve(
     let mut display = crate::display::Computed::default();
     let mut position = "static";
     let mut index = crate::z_index::Index::default();
+    let mut transitions = crate::transitions::Controls::default();
     for (depth, node) in ancestors.into_iter().enumerate() {
         work.charge()?;
         let inline = sources.inline.get(&node.id).cloned().map_or_else(
@@ -144,6 +139,12 @@ pub(crate) fn resolve(
             declarations.compute_registered(&variables, &cascade.registrations, work)?;
         variables = next_variables;
         let declarations = cascade.animations.sample(&declarations, &variables, work)?;
+        transitions = transitions.compute(&declarations)?;
+        let declarations =
+            sources
+                .transitions
+                .borrow_mut()
+                .sample(node, declarations, sources.now)?;
         fonts = fonts.compute(&declarations, depth == 0, work)?;
         outlines = outlines.compute(&declarations, &fonts, work)?;
         images = images.compute(&declarations, &fonts, work)?;
@@ -177,5 +178,24 @@ pub(crate) fn resolve(
         display,
         position,
         index,
+        transitions,
     })
+}
+
+fn ancestors(target: NodeRef<'_>) -> Result<Vec<NodeRef<'_>>> {
+    if !target.ancestors_it(None).any(|node| node.is_document()) {
+        return Err(Error::Dom(
+            "computed style requires an attached element".into(),
+        ));
+    }
+    let mut ancestors: Vec<_> = target
+        .ancestors_it(None)
+        .filter(NodeRef::is_element)
+        .collect();
+    ancestors.reverse();
+    ancestors.push(target);
+    if ancestors.len() > 128 {
+        return Err(Error::Limit("computed style depth"));
+    }
+    Ok(ancestors)
 }

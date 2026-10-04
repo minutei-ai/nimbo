@@ -1,0 +1,1437 @@
+{
+  "date": "2026-10-04",
+  "source": "https://github.com/web-platform-tests/wpt",
+  "source_commit": "03f14d4780c4d981bc84c65679b18e9327a1affe",
+  "files": [
+    "css/css-transitions/parsing/transition-property-computed.html",
+    "css/css-transitions/parsing/transition-property-valid.html",
+    "css/css-transitions/parsing/transition-property-invalid.html",
+    "css/css-transitions/parsing/transition-duration-computed.html",
+    "css/css-transitions/parsing/transition-duration-valid.html",
+    "css/css-transitions/parsing/transition-duration-invalid.html",
+    "css/css-transitions/parsing/transition-delay-computed.html",
+    "css/css-transitions/parsing/transition-delay-valid.html",
+    "css/css-transitions/parsing/transition-delay-invalid.html",
+    "css/css-transitions/parsing/transition-timing-function-computed.html",
+    "css/css-transitions/parsing/transition-timing-function-valid.html",
+    "css/css-transitions/parsing/transition-timing-function-invalid.html",
+    "css/css-transitions/parsing/transition-computed.html",
+    "css/css-transitions/parsing/transition-valid.html",
+    "css/css-transitions/parsing/transition-invalid.html",
+    "css/css-transitions/parsing/transition-shorthand.html",
+    "css/css-transitions/parsing/transition-behavior.html"
+  ],
+  "scope": "Seventeen original CSS transition parsing/computed/shorthand HTML files, original helpers and testharness; original vendor integration script plus reporting-only append; output/message events disabled; real HTTP; default engine limits; no mocks; unsupported Level 2 behavior remains in the results",
+  "results": [
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-transitions/parsing/transition-property-computed.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 2,
+        "passed": 2,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-transitions/parsing/transition-property-computed.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 2,
+        "passed": 0,
+        "failed": [
+          {
+            "name": "Property transition-property value 'left, top, right, bottom'",
+            "status": 1,
+            "message": "assert_true: 'left, top, right, bottom' is a supported value for transition-property. expected true got false"
+          },
+          {
+            "name": "Property transition-property value 'one, two, three'",
+            "status": 1,
+            "message": "assert_true: 'one, two, three' is a supported value for transition-property. expected true got false"
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-transitions/parsing/transition-property-computed.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 2,
+        "passed": 2,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-transitions/parsing/transition-property-valid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 7,
+        "passed": 7,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-transitions/parsing/transition-property-valid.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 7,
+        "passed": 6,
+        "failed": [
+          {
+            "name": "e.style['transition-property'] = \"ALL, INVALID, SYNTAX, SRC\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"all, INVALID, SYNTAX, SRC\" but got \"ALL, INVALID, SYNTAX, SRC\""
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-transitions/parsing/transition-property-valid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 7,
+        "passed": 7,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-transitions/parsing/transition-property-invalid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 15,
+        "passed": 15,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-transitions/parsing/transition-property-invalid.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 15,
+        "passed": 0,
+        "failed": [
+          {
+            "name": "e.style['transition-property'] = \"one two three\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"one two three\""
+          },
+          {
+            "name": "e.style['transition-property'] = \"1, 2, 3\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"1, 2, 3\""
+          },
+          {
+            "name": "e.style['transition-property'] = \"none, one\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"none, one\""
+          },
+          {
+            "name": "e.style['transition-property'] = \"initial, top\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"initial, top\""
+          },
+          {
+            "name": "e.style['transition-property'] = \"top, initial\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"top, initial\""
+          },
+          {
+            "name": "e.style['transition-property'] = \"inherit, top\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"inherit, top\""
+          },
+          {
+            "name": "e.style['transition-property'] = \"top, inherit\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"top, inherit\""
+          },
+          {
+            "name": "e.style['transition-property'] = \"unset, top\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"unset, top\""
+          },
+          {
+            "name": "e.style['transition-property'] = \"top, unset\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"top, unset\""
+          },
+          {
+            "name": "e.style['transition-property'] = \"default, top\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"default, top\""
+          },
+          {
+            "name": "e.style['transition-property'] = \"top, default\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"top, default\""
+          },
+          {
+            "name": "e.style['transition-property'] = \"revert, top\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"revert, top\""
+          },
+          {
+            "name": "e.style['transition-property'] = \"top, revert\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"top, revert\""
+          },
+          {
+            "name": "e.style['transition-property'] = \"revert-layer, top\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"revert-layer, top\""
+          },
+          {
+            "name": "e.style['transition-property'] = \"top, revert-layer\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"top, revert-layer\""
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-transitions/parsing/transition-property-invalid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 15,
+        "passed": 15,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-transitions/parsing/transition-duration-computed.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 3,
+        "passed": 3,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-transitions/parsing/transition-duration-computed.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 3,
+        "passed": 0,
+        "failed": [
+          {
+            "name": "Property transition-duration value '500ms'",
+            "status": 1,
+            "message": "assert_true: '500ms' is a supported value for transition-duration. expected true got false"
+          },
+          {
+            "name": "Property transition-duration value 'calc(2 * 3s)'",
+            "status": 1,
+            "message": "assert_true: 'calc(2 * 3s)' is a supported value for transition-duration. expected true got false"
+          },
+          {
+            "name": "Property transition-duration value '20s, 10s'",
+            "status": 1,
+            "message": "assert_true: '20s, 10s' is a supported value for transition-duration. expected true got false"
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-transitions/parsing/transition-duration-computed.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 3,
+        "passed": 3,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-transitions/parsing/transition-duration-valid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 3,
+        "passed": 3,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-transitions/parsing/transition-duration-valid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 3,
+        "passed": 3,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-transitions/parsing/transition-duration-valid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 3,
+        "passed": 3,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-transitions/parsing/transition-duration-invalid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 5,
+        "passed": 5,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-transitions/parsing/transition-duration-invalid.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 5,
+        "passed": 0,
+        "failed": [
+          {
+            "name": "e.style['transition-duration'] = \"infinite\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"infinite\""
+          },
+          {
+            "name": "e.style['transition-duration'] = \"-500ms\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"-500ms\""
+          },
+          {
+            "name": "e.style['transition-duration'] = \"1s 2s\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"1s 2s\""
+          },
+          {
+            "name": "e.style['transition-duration'] = \"1s, initial\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"1s, initial\""
+          },
+          {
+            "name": "e.style['transition-duration'] = \"initial, 1s\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"initial, 1s\""
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-transitions/parsing/transition-duration-invalid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 5,
+        "passed": 5,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-transitions/parsing/transition-delay-computed.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 1,
+        "passed": 1,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-transitions/parsing/transition-delay-computed.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 1,
+        "passed": 0,
+        "failed": [
+          {
+            "name": "Property transition-delay value '-500ms, calc(2 * 3s)'",
+            "status": 1,
+            "message": "assert_true: '-500ms, calc(2 * 3s)' is a supported value for transition-delay. expected true got false"
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-transitions/parsing/transition-delay-computed.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 1,
+        "passed": 1,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-transitions/parsing/transition-delay-valid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 4,
+        "passed": 4,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-transitions/parsing/transition-delay-valid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 4,
+        "passed": 4,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-transitions/parsing/transition-delay-valid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 4,
+        "passed": 4,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-transitions/parsing/transition-delay-invalid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 5,
+        "passed": 5,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-transitions/parsing/transition-delay-invalid.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 5,
+        "passed": 0,
+        "failed": [
+          {
+            "name": "e.style['transition-delay'] = \"infinite\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"infinite\""
+          },
+          {
+            "name": "e.style['transition-delay'] = \"0\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"0\""
+          },
+          {
+            "name": "e.style['transition-delay'] = \"500ms 0.5s\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"500ms 0.5s\""
+          },
+          {
+            "name": "e.style['transition-delay'] = \"-3s, initial\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"-3s, initial\""
+          },
+          {
+            "name": "e.style['transition-delay'] = \"initial, -3s\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"initial, -3s\""
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-transitions/parsing/transition-delay-invalid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 5,
+        "passed": 5,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-transitions/parsing/transition-timing-function-computed.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 22,
+        "passed": 22,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-transitions/parsing/transition-timing-function-computed.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 22,
+        "passed": 0,
+        "failed": [
+          {
+            "name": "Property transition-timing-function value 'linear'",
+            "status": 1,
+            "message": "assert_true: 'linear' is a supported value for transition-timing-function. expected true got false"
+          },
+          {
+            "name": "Property transition-timing-function value 'ease'",
+            "status": 1,
+            "message": "assert_true: 'ease' is a supported value for transition-timing-function. expected true got false"
+          },
+          {
+            "name": "Property transition-timing-function value 'ease-in'",
+            "status": 1,
+            "message": "assert_true: 'ease-in' is a supported value for transition-timing-function. expected true got false"
+          },
+          {
+            "name": "Property transition-timing-function value 'ease-out'",
+            "status": 1,
+            "message": "assert_true: 'ease-out' is a supported value for transition-timing-function. expected true got false"
+          },
+          {
+            "name": "Property transition-timing-function value 'ease-in-out'",
+            "status": 1,
+            "message": "assert_true: 'ease-in-out' is a supported value for transition-timing-function. expected true got false"
+          },
+          {
+            "name": "Property transition-timing-function value 'cubic-bezier(0.1, 0.2, 0.8, 0.9)'",
+            "status": 1,
+            "message": "assert_true: 'cubic-bezier(0.1, 0.2, 0.8, 0.9)' is a supported value for transition-timing-function. expected true got false"
+          },
+          {
+            "name": "Property transition-timing-function value 'cubic-bezier(0, -2, 1, 3)'",
+            "status": 1,
+            "message": "assert_true: 'cubic-bezier(0, -2, 1, 3)' is a supported value for transition-timing-function. expected true got false"
+          },
+          {
+            "name": "Property transition-timing-function value 'cubic-bezier(0, 0.7, 1, 1.3)'",
+            "status": 1,
+            "message": "assert_true: 'cubic-bezier(0, 0.7, 1, 1.3)' is a supported value for transition-timing-function. expected true got false"
+          },
+          {
+            "name": "Property transition-timing-function value 'step-start'",
+            "status": 1,
+            "message": "assert_true: 'step-start' is a supported value for transition-timing-function. expected true got false"
+          },
+          {
+            "name": "Property transition-timing-function value 'step-end'",
+            "status": 1,
+            "message": "assert_true: 'step-end' is a supported value for transition-timing-function. expected true got false"
+          },
+          {
+            "name": "Property transition-timing-function value 'steps(4)'",
+            "status": 1,
+            "message": "assert_true: 'steps(4)' is a supported value for transition-timing-function. expected true got false"
+          },
+          {
+            "name": "Property transition-timing-function value 'steps(4, start)'",
+            "status": 1,
+            "message": "assert_true: 'steps(4, start)' is a supported value for transition-timing-function. expected true got false"
+          },
+          {
+            "name": "Property transition-timing-function value 'steps(2, end)'",
+            "status": 1,
+            "message": "assert_true: 'steps(2, end)' is a supported value for transition-timing-function. expected true got false"
+          },
+          {
+            "name": "Property transition-timing-function value 'steps(2, jump-start)'",
+            "status": 1,
+            "message": "assert_true: 'steps(2, jump-start)' is a supported value for transition-timing-function. expected true got false"
+          },
+          {
+            "name": "Property transition-timing-function value 'steps(2, jump-end)'",
+            "status": 1,
+            "message": "assert_true: 'steps(2, jump-end)' is a supported value for transition-timing-function. expected true got false"
+          },
+          {
+            "name": "Property transition-timing-function value 'steps(2, jump-both)'",
+            "status": 1,
+            "message": "assert_true: 'steps(2, jump-both)' is a supported value for transition-timing-function. expected true got false"
+          },
+          {
+            "name": "Property transition-timing-function value 'steps(2, jump-none)'",
+            "status": 1,
+            "message": "assert_true: 'steps(2, jump-none)' is a supported value for transition-timing-function. expected true got false"
+          },
+          {
+            "name": "Property transition-timing-function value 'steps(calc(2 * sibling-index()), jump-none)'",
+            "status": 1,
+            "message": "assert_true: 'steps(calc(2 * sibling-index()), jump-none)' is a supported value for transition-timing-function. expected true got false"
+          },
+          {
+            "name": "Property transition-timing-function value 'steps(sibling-index(), jump-none)'",
+            "status": 1,
+            "message": "assert_true: 'steps(sibling-index(), jump-none)' is a supported value for transition-timing-function. expected true got false"
+          },
+          {
+            "name": "Property transition-timing-function value 'steps(calc(2 * sign(1em - 1000px)), jump-none)'",
+            "status": 1,
+            "message": "assert_true: 'steps(calc(2 * sign(1em - 1000px)), jump-none)' is a supported value for transition-timing-function. expected true got false"
+          },
+          {
+            "name": "Property transition-timing-function value 'steps(calc(2 * sign(1em - 1000px)), start)'",
+            "status": 1,
+            "message": "assert_true: 'steps(calc(2 * sign(1em - 1000px)), start)' is a supported value for transition-timing-function. expected true got false"
+          },
+          {
+            "name": "Property transition-timing-function value 'linear, ease, linear'",
+            "status": 1,
+            "message": "assert_true: 'linear, ease, linear' is a supported value for transition-timing-function. expected true got false"
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-transitions/parsing/transition-timing-function-computed.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 22,
+        "passed": 18,
+        "failed": [
+          {
+            "name": "Property transition-timing-function value 'steps(calc(2 * sibling-index()), jump-none)'",
+            "status": 1,
+            "message": "assert_true: 'steps(calc(2 * sibling-index()), jump-none)' is a supported value for transition-timing-function. expected true got false"
+          },
+          {
+            "name": "Property transition-timing-function value 'steps(sibling-index(), jump-none)'",
+            "status": 1,
+            "message": "assert_true: 'steps(sibling-index(), jump-none)' is a supported value for transition-timing-function. expected true got false"
+          },
+          {
+            "name": "Property transition-timing-function value 'steps(calc(2 * sign(1em - 1000px)), jump-none)'",
+            "status": 1,
+            "message": "assert_true: 'steps(calc(2 * sign(1em - 1000px)), jump-none)' is a supported value for transition-timing-function. expected true got false"
+          },
+          {
+            "name": "Property transition-timing-function value 'steps(calc(2 * sign(1em - 1000px)), start)'",
+            "status": 1,
+            "message": "assert_true: 'steps(calc(2 * sign(1em - 1000px)), start)' is a supported value for transition-timing-function. expected true got false"
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-transitions/parsing/transition-timing-function-valid.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 22,
+        "passed": 20,
+        "failed": [
+          {
+            "name": "e.style['transition-timing-function'] = \"step-start\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"steps(1, start)\" but got \"step-start\""
+          },
+          {
+            "name": "e.style['transition-timing-function'] = \"step-end\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"steps(1)\" but got \"step-end\""
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-transitions/parsing/transition-timing-function-valid.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 22,
+        "passed": 18,
+        "failed": [
+          {
+            "name": "e.style['transition-timing-function'] = \"step-start\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"steps(1, start)\" but got \"step-start\""
+          },
+          {
+            "name": "e.style['transition-timing-function'] = \"step-end\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"steps(1)\" but got \"step-end\""
+          },
+          {
+            "name": "e.style['transition-timing-function'] = \"steps(2, end)\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"steps(2)\" but got \"steps(2, end)\""
+          },
+          {
+            "name": "e.style['transition-timing-function'] = \"steps(2, jump-end)\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"steps(2)\" but got \"steps(2, jump-end)\""
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-transitions/parsing/transition-timing-function-valid.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 22,
+        "passed": 18,
+        "failed": [
+          {
+            "name": "e.style['transition-timing-function'] = \"linear(0 0%, 0.5 50%, 1 100%)\" should set the property value",
+            "status": 1,
+            "message": "assert_not_equals: property should be set got disallowed value \"\""
+          },
+          {
+            "name": "e.style['transition-timing-function'] = \"linear(0 0%, 10 10%, 10 50%, 25.4 75%, 100 100%)\" should set the property value",
+            "status": 1,
+            "message": "assert_not_equals: property should be set got disallowed value \"\""
+          },
+          {
+            "name": "e.style['transition-timing-function'] = \"linear(0 0%, 1 100%)\" should set the property value",
+            "status": 1,
+            "message": "assert_not_equals: property should be set got disallowed value \"\""
+          },
+          {
+            "name": "e.style['transition-timing-function'] = \"steps(sibling-index(), jump-none)\" should set the property value",
+            "status": 1,
+            "message": "assert_not_equals: property should be set got disallowed value \"\""
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-transitions/parsing/transition-timing-function-invalid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 25,
+        "passed": 25,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-transitions/parsing/transition-timing-function-invalid.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 25,
+        "passed": 0,
+        "failed": [
+          {
+            "name": "e.style['transition-timing-function'] = \"auto\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"auto\""
+          },
+          {
+            "name": "e.style['transition-timing-function'] = \"ease-in ease-out\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"ease-in ease-out\""
+          },
+          {
+            "name": "e.style['transition-timing-function'] = \"cubic-bezier(foobar)\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"cubic-bezier(foobar)\""
+          },
+          {
+            "name": "e.style['transition-timing-function'] = \"cubic-bezier(1, 2, 3)\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"cubic-bezier(1, 2, 3)\""
+          },
+          {
+            "name": "e.style['transition-timing-function'] = \"cubic-bezier(1, 2, 3, infinite)\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"cubic-bezier(1, 2, 3, infinite)\""
+          },
+          {
+            "name": "e.style['transition-timing-function'] = \"cubic-bezier(1, 2, 3, 4, 5)\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"cubic-bezier(1, 2, 3, 4, 5)\""
+          },
+          {
+            "name": "e.style['transition-timing-function'] = \"cubic-bezier(-0.1, 0.1, 0.5, 0.9)\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"cubic-bezier(-0.1, 0.1, 0.5, 0.9)\""
+          },
+          {
+            "name": "e.style['transition-timing-function'] = \"cubic-bezier(0.5, 0.1, 1.1, 0.9)\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"cubic-bezier(0.5, 0.1, 1.1, 0.9)\""
+          },
+          {
+            "name": "e.style['transition-timing-function'] = \"steps(foobar)\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"steps(foobar)\""
+          },
+          {
+            "name": "e.style['transition-timing-function'] = \"steps(3.3, end)\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"steps(3.3, end)\""
+          },
+          {
+            "name": "e.style['transition-timing-function'] = \"steps(3, top)\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"steps(3, top)\""
+          },
+          {
+            "name": "e.style['transition-timing-function'] = \"steps(-3, top)\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"steps(-3, top)\""
+          },
+          {
+            "name": "e.style['transition-timing-function'] = \"steps(0, jump-start)\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"steps(0, jump-start)\""
+          },
+          {
+            "name": "e.style['transition-timing-function'] = \"steps(0, jump-end)\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"steps(0, jump-end)\""
+          },
+          {
+            "name": "e.style['transition-timing-function'] = \"steps(0, jump-both)\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"steps(0, jump-both)\""
+          },
+          {
+            "name": "e.style['transition-timing-function'] = \"steps(1, jump-none)\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"steps(1, jump-none)\""
+          },
+          {
+            "name": "e.style['transition-timing-function'] = \"steps(2,()start)\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"steps(2,()start)\""
+          },
+          {
+            "name": "e.style['transition-timing-function'] = \"steps(2,() start)\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"steps(2,() start)\""
+          },
+          {
+            "name": "e.style['transition-timing-function'] = \"steps(2, ()start)\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"steps(2, ()start)\""
+          },
+          {
+            "name": "e.style['transition-timing-function'] = \"steps(2())\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"steps(2())\""
+          },
+          {
+            "name": "e.style['transition-timing-function'] = \"steps(2 ())\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"steps(2 ())\""
+          },
+          {
+            "name": "e.style['transition-timing-function'] = \"steps(2,())\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"steps(2,())\""
+          },
+          {
+            "name": "e.style['transition-timing-function'] = \"steps(2, ())\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"steps(2, ())\""
+          },
+          {
+            "name": "e.style['transition-timing-function'] = \"initial, cubic-bezier(0, -2, 1, 3)\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"initial, cubic-bezier(0, -2, 1, 3)\""
+          },
+          {
+            "name": "e.style['transition-timing-function'] = \"cubic-bezier(0, -2, 1, 3), initial\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"cubic-bezier(0, -2, 1, 3), initial\""
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-transitions/parsing/transition-timing-function-invalid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 25,
+        "passed": 25,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-transitions/parsing/transition-computed.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 10,
+        "passed": 10,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-transitions/parsing/transition-computed.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 10,
+        "passed": 0,
+        "failed": [
+          {
+            "name": "Default transition value",
+            "status": 1,
+            "message": "assert_equals: expected \"all\" but got \"none\""
+          },
+          {
+            "name": "Property transition value '1s'",
+            "status": 1,
+            "message": "assert_true: '1s' is a supported value for transition. expected true got false"
+          },
+          {
+            "name": "Property transition value 'cubic-bezier(0, -2, 1, 3)'",
+            "status": 1,
+            "message": "assert_true: 'cubic-bezier(0, -2, 1, 3)' is a supported value for transition. expected true got false"
+          },
+          {
+            "name": "Property transition value '1s -3s'",
+            "status": 1,
+            "message": "assert_true: '1s -3s' is a supported value for transition. expected true got false"
+          },
+          {
+            "name": "Property transition value 'none'",
+            "status": 1,
+            "message": "assert_true: 'none' is a supported value for transition. expected true got false"
+          },
+          {
+            "name": "Property transition value 'top'",
+            "status": 1,
+            "message": "assert_true: 'top' is a supported value for transition. expected true got false"
+          },
+          {
+            "name": "Property transition value '1s -3s cubic-bezier(0, -2, 1, 3) top'",
+            "status": 1,
+            "message": "assert_true: '1s -3s cubic-bezier(0, -2, 1, 3) top' is a supported value for transition. expected true got false"
+          },
+          {
+            "name": "Property transition value '1s -3s, cubic-bezier(0, -2, 1, 3) top'",
+            "status": 1,
+            "message": "assert_true: '1s -3s, cubic-bezier(0, -2, 1, 3) top' is a supported value for transition. expected true got false"
+          },
+          {
+            "name": "Property transition value 'all, all'",
+            "status": 1,
+            "message": "assert_true: 'all, all' is a supported value for transition. expected true got false"
+          },
+          {
+            "name": "Transition with a delay but no duration",
+            "status": 1,
+            "message": "assert_equals: expected \"0s 1s\" but got \"initial\""
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-transitions/parsing/transition-computed.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 10,
+        "passed": 10,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-transitions/parsing/transition-valid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 10,
+        "passed": 10,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-transitions/parsing/transition-valid.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 10,
+        "passed": 7,
+        "failed": [
+          {
+            "name": "e.style['transition'] = \"1s -3s cubic-bezier(0, -2, 1, 3) top\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"top 1s cubic-bezier(0, -2, 1, 3) -3s\" but got \"1s -3s cubic-bezier(0, -2, 1, 3) top\""
+          },
+          {
+            "name": "e.style['transition'] = \"1s -3s, cubic-bezier(0, -2, 1, 3) top\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"1s -3s, top cubic-bezier(0, -2, 1, 3)\" but got \"1s -3s, cubic-bezier(0, -2, 1, 3) top\""
+          },
+          {
+            "name": "e.style['transition'] = \"all 1s\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"1s\" but got \"all 1s\""
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-transitions/parsing/transition-valid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 10,
+        "passed": 10,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-transitions/parsing/transition-invalid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 5,
+        "passed": 5,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-transitions/parsing/transition-invalid.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 5,
+        "passed": 0,
+        "failed": [
+          {
+            "name": "e.style['transition'] = \"1s 2s 3s\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"1s 2s 3s\""
+          },
+          {
+            "name": "e.style['transition'] = \"-1s -2s\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"-1s -2s\""
+          },
+          {
+            "name": "e.style['transition'] = \"steps(1) steps(2)\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"steps(1) steps(2)\""
+          },
+          {
+            "name": "e.style['transition'] = \"none top\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"none top\""
+          },
+          {
+            "name": "e.style['transition'] = \"initial 1s\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"initial 1s\""
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-transitions/parsing/transition-invalid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 5,
+        "passed": 5,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-transitions/parsing/transition-shorthand.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 18,
+        "passed": 18,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-transitions/parsing/transition-shorthand.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 18,
+        "passed": 0,
+        "failed": [
+          {
+            "name": "e.style['transition'] = \"1s -3s cubic-bezier(0, -2, 1, 3) top\" should set transition-behavior",
+            "status": 1,
+            "message": "assert_equals: transition-behavior should be canonical expected \"normal\" but got \"\""
+          },
+          {
+            "name": "e.style['transition'] = \"1s -3s cubic-bezier(0, -2, 1, 3) top\" should set transition-delay",
+            "status": 1,
+            "message": "assert_equals: transition-delay should be canonical expected \"-3s\" but got \"\""
+          },
+          {
+            "name": "e.style['transition'] = \"1s -3s cubic-bezier(0, -2, 1, 3) top\" should set transition-duration",
+            "status": 1,
+            "message": "assert_equals: transition-duration should be canonical expected \"1s\" but got \"\""
+          },
+          {
+            "name": "e.style['transition'] = \"1s -3s cubic-bezier(0, -2, 1, 3) top\" should set transition-property",
+            "status": 1,
+            "message": "assert_equals: transition-property should be canonical expected \"top\" but got \"\""
+          },
+          {
+            "name": "e.style['transition'] = \"1s -3s cubic-bezier(0, -2, 1, 3) top\" should set transition-timing-function",
+            "status": 1,
+            "message": "assert_equals: transition-timing-function should be canonical expected \"cubic-bezier(0, -2, 1, 3)\" but got \"\""
+          },
+          {
+            "name": "e.style['transition'] = \"1s -3s cubic-bezier(0, -2, 1, 3) top\" should not set unrelated longhands",
+            "status": 1,
+            "message": "assert_true: expected true got false"
+          },
+          {
+            "name": "e.style['transition'] = \"1s -3s, cubic-bezier(0, -2, 1, 3) top\" should set transition-behavior",
+            "status": 1,
+            "message": "assert_equals: transition-behavior should be canonical expected \"normal, normal\" but got \"\""
+          },
+          {
+            "name": "e.style['transition'] = \"1s -3s, cubic-bezier(0, -2, 1, 3) top\" should set transition-delay",
+            "status": 1,
+            "message": "assert_equals: transition-delay should be canonical expected \"-3s, 0s\" but got \"\""
+          },
+          {
+            "name": "e.style['transition'] = \"1s -3s, cubic-bezier(0, -2, 1, 3) top\" should set transition-duration",
+            "status": 1,
+            "message": "assert_equals: transition-duration should be canonical expected \"1s, 0s\" but got \"\""
+          },
+          {
+            "name": "e.style['transition'] = \"1s -3s, cubic-bezier(0, -2, 1, 3) top\" should set transition-property",
+            "status": 1,
+            "message": "assert_equals: transition-property should be canonical expected \"all, top\" but got \"\""
+          },
+          {
+            "name": "e.style['transition'] = \"1s -3s, cubic-bezier(0, -2, 1, 3) top\" should set transition-timing-function",
+            "status": 1,
+            "message": "assert_equals: transition-timing-function should be canonical expected \"ease, cubic-bezier(0, -2, 1, 3)\" but got \"\""
+          },
+          {
+            "name": "e.style['transition'] = \"1s -3s, cubic-bezier(0, -2, 1, 3) top\" should not set unrelated longhands",
+            "status": 1,
+            "message": "assert_true: expected true got false"
+          },
+          {
+            "name": "e.style['transition'] = \"cubic-bezier(0, -2, 1, 3) top, 1s -3s\" should set transition-behavior",
+            "status": 1,
+            "message": "assert_equals: transition-behavior should be canonical expected \"normal, normal\" but got \"\""
+          },
+          {
+            "name": "e.style['transition'] = \"cubic-bezier(0, -2, 1, 3) top, 1s -3s\" should set transition-delay",
+            "status": 1,
+            "message": "assert_equals: transition-delay should be canonical expected \"0s, -3s\" but got \"\""
+          },
+          {
+            "name": "e.style['transition'] = \"cubic-bezier(0, -2, 1, 3) top, 1s -3s\" should set transition-duration",
+            "status": 1,
+            "message": "assert_equals: transition-duration should be canonical expected \"0s, 1s\" but got \"\""
+          },
+          {
+            "name": "e.style['transition'] = \"cubic-bezier(0, -2, 1, 3) top, 1s -3s\" should set transition-property",
+            "status": 1,
+            "message": "assert_equals: transition-property should be canonical expected \"top, all\" but got \"\""
+          },
+          {
+            "name": "e.style['transition'] = \"cubic-bezier(0, -2, 1, 3) top, 1s -3s\" should set transition-timing-function",
+            "status": 1,
+            "message": "assert_equals: transition-timing-function should be canonical expected \"cubic-bezier(0, -2, 1, 3), ease\" but got \"\""
+          },
+          {
+            "name": "e.style['transition'] = \"cubic-bezier(0, -2, 1, 3) top, 1s -3s\" should not set unrelated longhands",
+            "status": 1,
+            "message": "assert_true: expected true got false"
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-transitions/parsing/transition-shorthand.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 18,
+        "passed": 15,
+        "failed": [
+          {
+            "name": "e.style['transition'] = \"1s -3s cubic-bezier(0, -2, 1, 3) top\" should set transition-behavior",
+            "status": 1,
+            "message": "assert_equals: transition-behavior should be canonical expected (string) \"normal\" but got (undefined) undefined"
+          },
+          {
+            "name": "e.style['transition'] = \"1s -3s, cubic-bezier(0, -2, 1, 3) top\" should set transition-behavior",
+            "status": 1,
+            "message": "assert_equals: transition-behavior should be canonical expected (string) \"normal, normal\" but got (undefined) undefined"
+          },
+          {
+            "name": "e.style['transition'] = \"cubic-bezier(0, -2, 1, 3) top, 1s -3s\" should set transition-behavior",
+            "status": 1,
+            "message": "assert_equals: transition-behavior should be canonical expected (string) \"normal, normal\" but got (undefined) undefined"
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-transitions/parsing/transition-behavior.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 28,
+        "passed": 28,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-transitions/parsing/transition-behavior.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 28,
+        "passed": 3,
+        "failed": [
+          {
+            "name": "Property transition-behavior value 'normal'",
+            "status": 1,
+            "message": "assert_true: 'normal' is a supported value for transition-behavior. expected true got false"
+          },
+          {
+            "name": "Property transition-behavior value 'allow-discrete'",
+            "status": 1,
+            "message": "assert_true: 'allow-discrete' is a supported value for transition-behavior. expected true got false"
+          },
+          {
+            "name": "e.style['transition'] = \"allow-discrete display\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"display allow-discrete\" but got \"allow-discrete display\""
+          },
+          {
+            "name": "Property transition value 'allow-discrete display'",
+            "status": 1,
+            "message": "assert_true: 'allow-discrete display' is a supported value for transition. expected true got false"
+          },
+          {
+            "name": "e.style['transition'] = \"allow-discrete display 3s\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"display 3s allow-discrete\" but got \"allow-discrete display 3s\""
+          },
+          {
+            "name": "Property transition value 'allow-discrete display 3s'",
+            "status": 1,
+            "message": "assert_true: 'allow-discrete display 3s' is a supported value for transition. expected true got false"
+          },
+          {
+            "name": "e.style['transition'] = \"allow-discrete display 3s 1s\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"display 3s 1s allow-discrete\" but got \"allow-discrete display 3s 1s\""
+          },
+          {
+            "name": "Property transition value 'allow-discrete display 3s 1s'",
+            "status": 1,
+            "message": "assert_true: 'allow-discrete display 3s 1s' is a supported value for transition. expected true got false"
+          },
+          {
+            "name": "e.style['transition'] = \"allow-discrete display 3s ease-in-out\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"display 3s ease-in-out allow-discrete\" but got \"allow-discrete display 3s ease-in-out\""
+          },
+          {
+            "name": "Property transition value 'allow-discrete display 3s ease-in-out'",
+            "status": 1,
+            "message": "assert_true: 'allow-discrete display 3s ease-in-out' is a supported value for transition. expected true got false"
+          },
+          {
+            "name": "e.style['transition'] = \"allow-discrete display 3s ease-in-out 1s\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"display 3s ease-in-out 1s allow-discrete\" but got \"allow-discrete display 3s ease-in-out 1s\""
+          },
+          {
+            "name": "Property transition value 'allow-discrete display 3s ease-in-out 1s'",
+            "status": 1,
+            "message": "assert_true: 'allow-discrete display 3s ease-in-out 1s' is a supported value for transition. expected true got false"
+          },
+          {
+            "name": "e.style['transition'] = \"asdf display\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"asdf display\""
+          },
+          {
+            "name": "e.style['transition'] = \"display asdf\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"display asdf\""
+          },
+          {
+            "name": "e.style['transition'] = \"display allow-discrete 3s ease-in-out 1s\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"display 3s ease-in-out 1s allow-discrete\" but got \"display allow-discrete 3s ease-in-out 1s\""
+          },
+          {
+            "name": "e.style['transition'] = \"display 3s allow-discrete ease-in-out 1s\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"display 3s ease-in-out 1s allow-discrete\" but got \"display 3s allow-discrete ease-in-out 1s\""
+          },
+          {
+            "name": "e.style['transition'] = \"display 3s ease-in-out allow-discrete 1s\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"display 3s ease-in-out 1s allow-discrete\" but got \"display 3s ease-in-out allow-discrete 1s\""
+          },
+          {
+            "name": "Property transition value 'display allow-discrete 3s ease-in-out 1s'",
+            "status": 1,
+            "message": "assert_true: 'display allow-discrete 3s ease-in-out 1s' is a supported value for transition. expected true got false"
+          },
+          {
+            "name": "Property transition value 'display 3s allow-discrete ease-in-out 1s'",
+            "status": 1,
+            "message": "assert_true: 'display 3s allow-discrete ease-in-out 1s' is a supported value for transition. expected true got false"
+          },
+          {
+            "name": "Property transition value 'display 3s ease-in-out allow-discrete 1s'",
+            "status": 1,
+            "message": "assert_true: 'display 3s ease-in-out allow-discrete 1s' is a supported value for transition. expected true got false"
+          },
+          {
+            "name": "Property transition value 'display 3s ease-in-out 1s allow-discrete'",
+            "status": 1,
+            "message": "assert_true: 'display 3s ease-in-out 1s allow-discrete' is a supported value for transition. expected true got false"
+          },
+          {
+            "name": "e.style['transition'] = \"allow-discrete display, normal opacity, color\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"display allow-discrete, opacity, color\" but got \"allow-discrete display, normal opacity, color\""
+          },
+          {
+            "name": "Property transition value 'allow-discrete display, normal opacity, color'",
+            "status": 1,
+            "message": "assert_true: 'allow-discrete display, normal opacity, color' is a supported value for transition. expected true got false"
+          },
+          {
+            "name": "e.style['transition'] = \"normal opacity, color, allow-discrete display\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"opacity, color, display allow-discrete\" but got \"normal opacity, color, allow-discrete display\""
+          },
+          {
+            "name": "Property transition value 'normal opacity, color, allow-discrete display'",
+            "status": 1,
+            "message": "assert_true: 'normal opacity, color, allow-discrete display' is a supported value for transition. expected true got false"
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-transitions/parsing/transition-behavior.html",
+      "status": "incomplete",
+      "error": "Error: HTTP 422: resource limit: DOM operations"
+    }
+  ]
+}

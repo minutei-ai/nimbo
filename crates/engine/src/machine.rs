@@ -114,13 +114,14 @@ impl Drop for Machine {
 
 fn install_clock(ctx: &Ctx<'_>, clock: Rc<Cell<f64>>, limits: Limits) -> Result<()> {
     let globals = ctx.globals();
-    js(
-        ctx,
-        globals.set(
-            "nimboNow",
-            js(ctx, Function::new(ctx.clone(), move || clock.get()))?,
-        ),
-    )?;
+    let now = js(ctx, Function::new(ctx.clone(), move || clock.get()))?;
+    js(ctx, globals.set("nimboNow", now.clone()))?;
+    // QuickJS's independent clock must not diverge from host-driven browser timelines.
+    let performance = js(ctx, rquickjs::Object::new(ctx.clone()))?;
+    js(ctx, performance.set("now", now))?;
+    let origin: f64 = js(ctx, ctx.eval("Date.now()"))?;
+    js(ctx, performance.set("timeOrigin", origin))?;
+    js(ctx, globals.set("performance", performance))?;
     js(ctx, globals.set("nimboTimerLimit", limits.max_timers))?;
     js(
         ctx,
@@ -331,6 +332,7 @@ impl Machine {
             ));
         }
         self.clock.set(milliseconds);
+        self.dom.borrow_mut().advance(milliseconds);
         Ok(())
     }
 

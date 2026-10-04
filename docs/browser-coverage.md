@@ -2670,3 +2670,51 @@ records Nimbo/celld and Chromium at 11/11 subtests. Public Obscura 0.2.3 passes
 6/11; its calculation-support and invalid-value failures are preserved, without
 inferring that all z-index behavior is absent. The shared CSS WPT runner also
 retains 16/16 original sticky subtests in Nimbo/celld and Chromium.
+
+## Native CSS transition timelines
+
+Rust owns per-element before/after style snapshots and active numeric timelines.
+The existing host monotonic clock advances values, invalidates computed-style and
+geometry caches while transitions run, and also backs page `performance.now()`.
+Clock sampling occurs at host machine steps; continuous timing within a long
+synchronous JavaScript task and full Performance API conformance remain pending.
+
+Implemented controls include property matching (including supported shorthands),
+last-match precedence, repeating duration/delay/easing lists, explicit control
+inheritance and canonical computed times in seconds. Initial style observation
+does not start a transition. Timelines support positive and negative delay,
+zero-duration delayed changes, cancellation, retargeting from the current value,
+and shortened reversal. Transition values override `!important`; the specified
+style retains its target value. Numeric interpolation reuses the native animation
+sampler, with linear, cubic-Bezier and bounded step easing.
+
+The [shared real-clock fixture](../crates/engine/tests/fixtures/transitions.txt)
+checks 25 supplemental contracts across 64 fresh pages per runtime. It uses real
+HTTP and real timers in the native adapter, workerd, celld and ordinary Chromium.
+It verifies geometry progression rather than property recognition alone. The
+[celld/Chromium report](transitions-chromium.json) records 1600/1600 checks in each
+runtime. These repeated checks do not establish full transition conformance.
+
+`bun run bench:wpt-transitions` executes seventeen original WPT HTML files and
+original parsing/computed/shorthand helpers and testharness at
+`03f14d4780c4d981bc84c65679b18e9327a1affe`. The SHA manifest is
+`tooling/wpt-transitions-sources.json`. Assertions and original files remain
+unchanged; only vendor reporting is appended. The
+[original results](performance-wpt-transitions.json) record Nimbo/celld at
+146/157 completed subtests, with eleven failures and the 28-subtest
+`transition-behavior` file incomplete at the DOM-operation limit. Chromium passes
+183/185 and public Obscura 0.2.3 passes 41/185. Comparator failures stay in the
+report and make the command exit unsuccessfully.
+
+Remaining failures include `linear()` easing, context-dependent step counts,
+and Level 2 transition behavior. Transition events, WAAPI integration, generated
+boxes, complete detach/display lifecycle, logical property interpolation,
+computed opacity, color/transform interpolation, mixed units and exhaustive
+numeric/default/inherited value handling remain pending. Unsupported color
+interpolation fails explicitly; a real Worker test verifies failure cleanup
+and subsequent successful extraction. Snapshots are bounded to 8192 observed
+nodes and 2 MiB of serialized style/control values per page, in addition to the
+existing DOM and layout limits.
+
+References: [CSS Transitions Level 1](https://drafts.csswg.org/css-transitions-1/),
+[original WPT transition tests](https://github.com/web-platform-tests/wpt/tree/03f14d4780c4d981bc84c65679b18e9327a1affe/css/css-transitions/parsing).
