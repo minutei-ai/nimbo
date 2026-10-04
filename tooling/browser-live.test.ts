@@ -1,3 +1,4 @@
+import { logicalSpacingFixture } from "./logical-spacing-fixture";
 import { transitionsFixture } from "./transitions-fixture";
 import { zIndexFixture } from "./z-index-fixture";
 import { stickyGeometryFixture } from "./sticky-geometry-fixture";
@@ -444,6 +445,8 @@ const origin = Bun.serve({
     if (encoded) return encoded;
     const namespaced = namespacedElementsFixture(path);
     if (namespaced) return namespaced;
+    const logicalSpacing = logicalSpacingFixture(path);
+    if (logicalSpacing) return logicalSpacing;
     const transitions = transitionsFixture(path);
     if (transitions) return transitions;
     const zIndex = zIndexFixture(path);
@@ -6005,4 +6008,29 @@ test("real HTTP → workerd → Wasm: unsupported transition interpolation fails
     body: JSON.stringify({ url, expression: "document.body.style.transitionDuration" }),
   });
   expect(healthy.status).toBe(200);
+});
+
+test.each([
+  ...Array.from({ length: 64 }, (_, variant) => ({ route: "logical-spacing", count: 45, variant })),
+  ...Array.from({ length: 64 }, (_, variant) => ({
+    route: "logical-spacing-transitions",
+    count: 11,
+    variant,
+  })),
+])("real HTTP → workerd → Wasm: logical spacing contract %j", async ({ route, count, variant }) => {
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url: new URL(`${route}/${variant}`, origin.url).href,
+      expression: "globalThis.comparison",
+    }),
+  });
+  expect(response.status).toBe(200);
+  const result: unknown = await response.json();
+  if (typeof result !== "object" || result === null) throw new Error("Missing result");
+  const value: unknown = Reflect.get(result, "value");
+  if (typeof value !== "object" || value === null) throw new Error("Missing checks");
+  expect(Object.keys(value)).toHaveLength(count);
+  expect(Object.values(value).every((check) => check === true)).toBe(true);
 });

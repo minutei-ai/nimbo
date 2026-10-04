@@ -115,10 +115,14 @@ impl Controls {
     fn plan(&self, property: &str) -> Result<Option<Plan>> {
         let index = self.0[0].iter().rposition(|name| {
             name == "all"
-                || name == property
+                || crate::layout::logical::physical(name) == property
                 || PropertyId::from(name.as_str())
                     .longhands()
-                    .is_some_and(|names| names.iter().any(|name| name.name() == property))
+                    .is_some_and(|names| {
+                        names
+                            .iter()
+                            .any(|name| crate::layout::logical::physical(name.name()) == property)
+                    })
         });
         let Some(index) = index else {
             return Ok(None);
@@ -289,8 +293,8 @@ impl State {
             .map(|parent| parent.controls.clone())
             .unwrap_or_default();
         let controls = parent.compute(&declarations)?;
-        let values: HashMap<_, _> = declarations
-            .layout_entries()
+        let values: HashMap<_, _> = crate::layout::logical::entries(&declarations)
+            .into_iter()
             .filter(|(name, _, _)| {
                 !property(name) && !name.starts_with("animation-") && !name.starts_with("--")
             })

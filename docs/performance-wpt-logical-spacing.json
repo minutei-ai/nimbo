@@ -1,0 +1,1539 @@
+{
+  "date": "2026-10-04",
+  "source": "https://github.com/web-platform-tests/wpt",
+  "source_commit": "03f14d4780c4d981bc84c65679b18e9327a1affe",
+  "files": [
+    "css/css-logical/parsing/margin-block-inline-computed.html",
+    "css/css-logical/parsing/margin-block-inline-valid.html",
+    "css/css-logical/parsing/margin-block-inline-invalid.html",
+    "css/css-logical/parsing/margin-block-inline-shorthand.html",
+    "css/css-logical/parsing/padding-block-inline-computed.html",
+    "css/css-logical/parsing/padding-block-inline-valid.html",
+    "css/css-logical/parsing/padding-block-inline-invalid.html",
+    "css/css-logical/parsing/padding-block-inline-shorthand.html",
+    "css/css-logical/parsing/inset-block-inline-computed.html",
+    "css/css-logical/parsing/inset-block-inline-valid.html",
+    "css/css-logical/parsing/inset-block-inline-invalid.html",
+    "css/css-logical/parsing/inset-block-inline-shorthand.html",
+    "css/css-logical/parsing/inset-computed.html",
+    "css/css-logical/parsing/inset-valid.html",
+    "css/css-logical/parsing/inset-invalid.html",
+    "css/css-logical/parsing/inset-shorthand.html"
+  ],
+  "scope": "Sixteen original logical margin/padding/inset and physical inset parsing, computed and shorthand HTML files, original helpers and testharness; original vendor reporting plus reporting-only append; assertions unchanged; real HTTP; default engine limits; no mocks; unsupported computed values remain failures",
+  "results": [
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-logical/parsing/margin-block-inline-computed.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 12,
+        "passed": 12,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-logical/parsing/margin-block-inline-computed.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 12,
+        "passed": 6,
+        "failed": [
+          {
+            "name": "Property margin-block-end value '10%'",
+            "status": 1,
+            "message": "assert_equals: expected \"20px\" but got \"10%\""
+          },
+          {
+            "name": "Property margin-inline-end value '1em'",
+            "status": 1,
+            "message": "assert_equals: expected \"40px\" but got \"1em\""
+          },
+          {
+            "name": "Property margin-block-start value 'calc(10% + 40px)'",
+            "status": 1,
+            "message": "assert_equals: expected \"60px\" but got \"calc(10% + 40px)\""
+          },
+          {
+            "name": "Property margin-block-end value 'calc(10px + 0.5em)'",
+            "status": 1,
+            "message": "assert_equals: expected \"30px\" but got \"calc(10px + 0.5em)\""
+          },
+          {
+            "name": "Property margin-inline-start value 'calc(10px + 0.5em)'",
+            "status": 1,
+            "message": "assert_equals: expected \"30px\" but got \"calc(10px + 0.5em)\""
+          },
+          {
+            "name": "Property margin-inline-end value 'calc(10% + 40px)'",
+            "status": 1,
+            "message": "assert_equals: expected \"60px\" but got \"calc(10% + 40px)\""
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-logical/parsing/margin-block-inline-computed.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 12,
+        "passed": 0,
+        "failed": [
+          {
+            "name": "Property margin-block-start value '10px'",
+            "status": 1,
+            "message": "DOM: layout unsupported: computed style margin-block-start"
+          },
+          {
+            "name": "Property margin-block-end value '10%'",
+            "status": 1,
+            "message": "DOM: layout unsupported: computed style margin-block-end"
+          },
+          {
+            "name": "Property margin-inline-start value '30px'",
+            "status": 1,
+            "message": "DOM: layout unsupported: computed style margin-inline-start"
+          },
+          {
+            "name": "Property margin-inline-end value '1em'",
+            "status": 1,
+            "message": "assert_true: '1em' is a supported value for margin-inline-end. expected true got false"
+          },
+          {
+            "name": "Property margin-block-start value 'calc(10% + 40px)'",
+            "status": 1,
+            "message": "assert_true: 'calc(10% + 40px)' is a supported value for margin-block-start. expected true got false"
+          },
+          {
+            "name": "Property margin-block-end value 'calc(10px + 0.5em)'",
+            "status": 1,
+            "message": "assert_true: 'calc(10px + 0.5em)' is a supported value for margin-block-end. expected true got false"
+          },
+          {
+            "name": "Property margin-inline-start value 'calc(10px + 0.5em)'",
+            "status": 1,
+            "message": "assert_true: 'calc(10px + 0.5em)' is a supported value for margin-inline-start. expected true got false"
+          },
+          {
+            "name": "Property margin-inline-end value 'calc(10% + 40px)'",
+            "status": 1,
+            "message": "assert_true: 'calc(10% + 40px)' is a supported value for margin-inline-end. expected true got false"
+          },
+          {
+            "name": "Property margin-block value '10px'",
+            "status": 1,
+            "message": "DOM: layout unsupported: computed style margin-block"
+          },
+          {
+            "name": "Property margin-block value '10px 20px'",
+            "status": 1,
+            "message": "DOM: layout unsupported: computed style margin-block"
+          },
+          {
+            "name": "Property margin-inline value '30px'",
+            "status": 1,
+            "message": "DOM: layout unsupported: computed style margin-inline"
+          },
+          {
+            "name": "Property margin-inline value '30px 40px'",
+            "status": 1,
+            "message": "DOM: layout unsupported: computed style margin-inline"
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-logical/parsing/margin-block-inline-valid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 14,
+        "passed": 14,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-logical/parsing/margin-block-inline-valid.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 14,
+        "passed": 13,
+        "failed": [
+          {
+            "name": "e.style['margin-block'] = \"auto auto\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"auto\" but got \"auto auto\""
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-logical/parsing/margin-block-inline-valid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 14,
+        "passed": 14,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-logical/parsing/margin-block-inline-invalid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 7,
+        "passed": 7,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-logical/parsing/margin-block-inline-invalid.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 7,
+        "passed": 0,
+        "failed": [
+          {
+            "name": "e.style['margin-block-start'] = \"none\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"none\""
+          },
+          {
+            "name": "e.style['margin-block-end'] = \"10\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"10\""
+          },
+          {
+            "name": "e.style['margin-inline-start'] = \"20% calc(10px - 0.5em)\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"20% calc(10px - 0.5em)\""
+          },
+          {
+            "name": "e.style['margin-inline-end'] = \"10px, auto\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"10px, auto\""
+          },
+          {
+            "name": "e.style['margin-block'] = \"none\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"none\""
+          },
+          {
+            "name": "e.style['margin-block'] = \"20%, calc(10px - 0.5em)\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"20%, calc(10px - 0.5em)\""
+          },
+          {
+            "name": "e.style['margin-inline'] = \"10px auto 20px\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"10px auto 20px\""
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-logical/parsing/margin-block-inline-invalid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 7,
+        "passed": 7,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-logical/parsing/margin-block-inline-shorthand.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 12,
+        "passed": 12,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-logical/parsing/margin-block-inline-shorthand.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 12,
+        "passed": 0,
+        "failed": [
+          {
+            "name": "e.style['margin-block'] = \"10px\" should set margin-block-end",
+            "status": 1,
+            "message": "assert_equals: margin-block-end should be canonical expected \"10px\" but got \"\""
+          },
+          {
+            "name": "e.style['margin-block'] = \"10px\" should set margin-block-start",
+            "status": 1,
+            "message": "assert_equals: margin-block-start should be canonical expected \"10px\" but got \"\""
+          },
+          {
+            "name": "e.style['margin-block'] = \"10px\" should not set unrelated longhands",
+            "status": 1,
+            "message": "assert_equals: expected 0 but got 1"
+          },
+          {
+            "name": "e.style['margin-block'] = \"20% auto\" should set margin-block-end",
+            "status": 1,
+            "message": "assert_equals: margin-block-end should be canonical expected \"auto\" but got \"\""
+          },
+          {
+            "name": "e.style['margin-block'] = \"20% auto\" should set margin-block-start",
+            "status": 1,
+            "message": "assert_equals: margin-block-start should be canonical expected \"20%\" but got \"\""
+          },
+          {
+            "name": "e.style['margin-block'] = \"20% auto\" should not set unrelated longhands",
+            "status": 1,
+            "message": "assert_equals: expected 0 but got 1"
+          },
+          {
+            "name": "e.style['margin-inline'] = \"30%\" should set margin-inline-end",
+            "status": 1,
+            "message": "assert_equals: margin-inline-end should be canonical expected \"30%\" but got \"\""
+          },
+          {
+            "name": "e.style['margin-inline'] = \"30%\" should set margin-inline-start",
+            "status": 1,
+            "message": "assert_equals: margin-inline-start should be canonical expected \"30%\" but got \"\""
+          },
+          {
+            "name": "e.style['margin-inline'] = \"30%\" should not set unrelated longhands",
+            "status": 1,
+            "message": "assert_equals: expected 0 but got 1"
+          },
+          {
+            "name": "e.style['margin-inline'] = \"auto 40px\" should set margin-inline-end",
+            "status": 1,
+            "message": "assert_equals: margin-inline-end should be canonical expected \"40px\" but got \"\""
+          },
+          {
+            "name": "e.style['margin-inline'] = \"auto 40px\" should set margin-inline-start",
+            "status": 1,
+            "message": "assert_equals: margin-inline-start should be canonical expected \"auto\" but got \"\""
+          },
+          {
+            "name": "e.style['margin-inline'] = \"auto 40px\" should not set unrelated longhands",
+            "status": 1,
+            "message": "assert_equals: expected 0 but got 1"
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-logical/parsing/margin-block-inline-shorthand.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 12,
+        "passed": 12,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-logical/parsing/padding-block-inline-computed.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 16,
+        "passed": 16,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-logical/parsing/padding-block-inline-computed.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 16,
+        "passed": 6,
+        "failed": [
+          {
+            "name": "Property padding-block-end value '10%'",
+            "status": 1,
+            "message": "assert_equals: expected \"20px\" but got \"10%\""
+          },
+          {
+            "name": "Property padding-inline-end value '1em'",
+            "status": 1,
+            "message": "assert_equals: expected \"40px\" but got \"1em\""
+          },
+          {
+            "name": "Property padding-block-start value 'calc(10% + 40px)'",
+            "status": 1,
+            "message": "assert_equals: expected \"60px\" but got \"calc(10% + 40px)\""
+          },
+          {
+            "name": "Property padding-block-end value 'calc(10% - 40px)'",
+            "status": 1,
+            "message": "assert_equals: expected \"0px\" but got \"calc(10% - 40px)\""
+          },
+          {
+            "name": "Property padding-inline-start value 'calc(10% - 40px)'",
+            "status": 1,
+            "message": "assert_equals: expected \"0px\" but got \"calc(10% - 40px)\""
+          },
+          {
+            "name": "Property padding-inline-end value 'calc(10% + 40px)'",
+            "status": 1,
+            "message": "assert_equals: expected \"60px\" but got \"calc(10% + 40px)\""
+          },
+          {
+            "name": "Property padding-block-start value 'calc(10px - 0.5em)'",
+            "status": 1,
+            "message": "assert_equals: expected \"0px\" but got \"calc(10px - 0.5em)\""
+          },
+          {
+            "name": "Property padding-block-end value 'calc(10px + 0.5em)'",
+            "status": 1,
+            "message": "assert_equals: expected \"30px\" but got \"calc(10px + 0.5em)\""
+          },
+          {
+            "name": "Property padding-inline-start value 'calc(10px + 0.5em)'",
+            "status": 1,
+            "message": "assert_equals: expected \"30px\" but got \"calc(10px + 0.5em)\""
+          },
+          {
+            "name": "Property padding-inline-end value 'calc(10px - 0.5em)'",
+            "status": 1,
+            "message": "assert_equals: expected \"0px\" but got \"calc(10px - 0.5em)\""
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-logical/parsing/padding-block-inline-computed.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 16,
+        "passed": 0,
+        "failed": [
+          {
+            "name": "Property padding-block-start value '10px'",
+            "status": 1,
+            "message": "DOM: layout unsupported: computed style padding-block-start"
+          },
+          {
+            "name": "Property padding-block-end value '10%'",
+            "status": 1,
+            "message": "DOM: layout unsupported: computed style padding-block-end"
+          },
+          {
+            "name": "Property padding-inline-start value '30px'",
+            "status": 1,
+            "message": "DOM: layout unsupported: computed style padding-inline-start"
+          },
+          {
+            "name": "Property padding-inline-end value '1em'",
+            "status": 1,
+            "message": "assert_true: '1em' is a supported value for padding-inline-end. expected true got false"
+          },
+          {
+            "name": "Property padding-block-start value 'calc(10% + 40px)'",
+            "status": 1,
+            "message": "assert_true: 'calc(10% + 40px)' is a supported value for padding-block-start. expected true got false"
+          },
+          {
+            "name": "Property padding-block-end value 'calc(10% - 40px)'",
+            "status": 1,
+            "message": "assert_true: 'calc(10% - 40px)' is a supported value for padding-block-end. expected true got false"
+          },
+          {
+            "name": "Property padding-inline-start value 'calc(10% - 40px)'",
+            "status": 1,
+            "message": "assert_true: 'calc(10% - 40px)' is a supported value for padding-inline-start. expected true got false"
+          },
+          {
+            "name": "Property padding-inline-end value 'calc(10% + 40px)'",
+            "status": 1,
+            "message": "assert_true: 'calc(10% + 40px)' is a supported value for padding-inline-end. expected true got false"
+          },
+          {
+            "name": "Property padding-block-start value 'calc(10px - 0.5em)'",
+            "status": 1,
+            "message": "assert_true: 'calc(10px - 0.5em)' is a supported value for padding-block-start. expected true got false"
+          },
+          {
+            "name": "Property padding-block-end value 'calc(10px + 0.5em)'",
+            "status": 1,
+            "message": "assert_true: 'calc(10px + 0.5em)' is a supported value for padding-block-end. expected true got false"
+          },
+          {
+            "name": "Property padding-inline-start value 'calc(10px + 0.5em)'",
+            "status": 1,
+            "message": "assert_true: 'calc(10px + 0.5em)' is a supported value for padding-inline-start. expected true got false"
+          },
+          {
+            "name": "Property padding-inline-end value 'calc(10px - 0.5em)'",
+            "status": 1,
+            "message": "assert_true: 'calc(10px - 0.5em)' is a supported value for padding-inline-end. expected true got false"
+          },
+          {
+            "name": "Property padding-block value '10px'",
+            "status": 1,
+            "message": "DOM: layout unsupported: computed style padding-block"
+          },
+          {
+            "name": "Property padding-block value '10px 20px'",
+            "status": 1,
+            "message": "DOM: layout unsupported: computed style padding-block"
+          },
+          {
+            "name": "Property padding-inline value '30px'",
+            "status": 1,
+            "message": "DOM: layout unsupported: computed style padding-inline"
+          },
+          {
+            "name": "Property padding-inline value '30px 40px'",
+            "status": 1,
+            "message": "DOM: layout unsupported: computed style padding-inline"
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-logical/parsing/padding-block-inline-valid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 9,
+        "passed": 9,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-logical/parsing/padding-block-inline-valid.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 9,
+        "passed": 8,
+        "failed": [
+          {
+            "name": "e.style['padding-block-start'] = \"0\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"0px\" but got \"0\""
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-logical/parsing/padding-block-inline-valid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 9,
+        "passed": 9,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-logical/parsing/padding-block-inline-invalid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 17,
+        "passed": 17,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-logical/parsing/padding-block-inline-invalid.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 17,
+        "passed": 0,
+        "failed": [
+          {
+            "name": "e.style['padding-block-start'] = \"none\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"none\""
+          },
+          {
+            "name": "e.style['padding-block-start'] = \"-10px\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"-10px\""
+          },
+          {
+            "name": "e.style['padding-block-end'] = \"1px 2px\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"1px 2px\""
+          },
+          {
+            "name": "e.style['padding-block-end'] = \"auto\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"auto\""
+          },
+          {
+            "name": "e.style['padding-block-end'] = \"10\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"10\""
+          },
+          {
+            "name": "e.style['padding-block-end'] = \"1px, 2px\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"1px, 2px\""
+          },
+          {
+            "name": "e.style['padding-inline-start'] = \"20% calc(10px - 0.5em)\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"20% calc(10px - 0.5em)\""
+          },
+          {
+            "name": "e.style['padding-inline-start'] = \"2px auto\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"2px auto\""
+          },
+          {
+            "name": "e.style['padding-inline-end'] = \"-20%\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"-20%\""
+          },
+          {
+            "name": "e.style['padding-inline-end'] = \"10px, auto\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"10px, auto\""
+          },
+          {
+            "name": "e.style['padding-block'] = \"none\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"none\""
+          },
+          {
+            "name": "e.style['padding-block'] = \"20% -10px\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"20% -10px\""
+          },
+          {
+            "name": "e.style['padding-block'] = \"auto, -10px\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"auto, -10px\""
+          },
+          {
+            "name": "e.style['padding-block'] = \"20%, calc(10px - 0.5em)\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"20%, calc(10px - 0.5em)\""
+          },
+          {
+            "name": "e.style['padding-inline'] = \"10px auto 20px\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"10px auto 20px\""
+          },
+          {
+            "name": "e.style['padding-inline'] = \"1px 2px 3px\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"1px 2px 3px\""
+          },
+          {
+            "name": "e.style['padding-inline'] = \"-20% calc(20% + 10px)\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"-20% calc(20% + 10px)\""
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-logical/parsing/padding-block-inline-invalid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 17,
+        "passed": 17,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-logical/parsing/padding-block-inline-shorthand.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 12,
+        "passed": 12,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-logical/parsing/padding-block-inline-shorthand.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 12,
+        "passed": 0,
+        "failed": [
+          {
+            "name": "e.style['padding-block'] = \"0% 10px\" should set padding-block-end",
+            "status": 1,
+            "message": "assert_equals: padding-block-end should be canonical expected \"10px\" but got \"\""
+          },
+          {
+            "name": "e.style['padding-block'] = \"0% 10px\" should set padding-block-start",
+            "status": 1,
+            "message": "assert_equals: padding-block-start should be canonical expected \"0%\" but got \"\""
+          },
+          {
+            "name": "e.style['padding-block'] = \"0% 10px\" should not set unrelated longhands",
+            "status": 1,
+            "message": "assert_equals: expected 0 but got 1"
+          },
+          {
+            "name": "e.style['padding-block'] = \"20%\" should set padding-block-end",
+            "status": 1,
+            "message": "assert_equals: padding-block-end should be canonical expected \"20%\" but got \"\""
+          },
+          {
+            "name": "e.style['padding-block'] = \"20%\" should set padding-block-start",
+            "status": 1,
+            "message": "assert_equals: padding-block-start should be canonical expected \"20%\" but got \"\""
+          },
+          {
+            "name": "e.style['padding-block'] = \"20%\" should not set unrelated longhands",
+            "status": 1,
+            "message": "assert_equals: expected 0 but got 1"
+          },
+          {
+            "name": "e.style['padding-inline'] = \"10px 30%\" should set padding-inline-end",
+            "status": 1,
+            "message": "assert_equals: padding-inline-end should be canonical expected \"30%\" but got \"\""
+          },
+          {
+            "name": "e.style['padding-inline'] = \"10px 30%\" should set padding-inline-start",
+            "status": 1,
+            "message": "assert_equals: padding-inline-start should be canonical expected \"10px\" but got \"\""
+          },
+          {
+            "name": "e.style['padding-inline'] = \"10px 30%\" should not set unrelated longhands",
+            "status": 1,
+            "message": "assert_equals: expected 0 but got 1"
+          },
+          {
+            "name": "e.style['padding-inline'] = \"0%\" should set padding-inline-end",
+            "status": 1,
+            "message": "assert_equals: padding-inline-end should be canonical expected \"0%\" but got \"\""
+          },
+          {
+            "name": "e.style['padding-inline'] = \"0%\" should set padding-inline-start",
+            "status": 1,
+            "message": "assert_equals: padding-inline-start should be canonical expected \"0%\" but got \"\""
+          },
+          {
+            "name": "e.style['padding-inline'] = \"0%\" should not set unrelated longhands",
+            "status": 1,
+            "message": "assert_equals: expected 0 but got 1"
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-logical/parsing/padding-block-inline-shorthand.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 12,
+        "passed": 12,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-logical/parsing/inset-block-inline-computed.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 12,
+        "passed": 12,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-logical/parsing/inset-block-inline-computed.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 12,
+        "passed": 7,
+        "failed": [
+          {
+            "name": "Property inset-inline-end value 'calc(10px - 0.5em)'",
+            "status": 1,
+            "message": "assert_equals: expected \"-10px\" but got \"calc(10px - 0.5em)\""
+          },
+          {
+            "name": "Property inset-block value 'calc(10px - 0.5em) -20%'",
+            "status": 1,
+            "message": "assert_equals: expected \"-10px -20%\" but got \"calc(10px - 0.5em) -20%\""
+          },
+          {
+            "name": "Property inset-block value 'auto auto'",
+            "status": 1,
+            "message": "assert_equals: expected \"auto\" but got \"auto auto\""
+          },
+          {
+            "name": "Property inset-inline value 'calc(10px - 0.5em)'",
+            "status": 1,
+            "message": "assert_equals: expected \"-10px\" but got \"calc(10px - 0.5em)\""
+          },
+          {
+            "name": "Property inset-inline value 'auto calc(10px + 0.5em)'",
+            "status": 1,
+            "message": "assert_equals: expected \"auto 30px\" but got \"auto calc(10px + 0.5em)\""
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-logical/parsing/inset-block-inline-computed.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 12,
+        "passed": 0,
+        "failed": [
+          {
+            "name": "Property inset-block-start value 'auto'",
+            "status": 1,
+            "message": "DOM: layout unsupported: computed style inset-block-start"
+          },
+          {
+            "name": "Property inset-block-end value '-10px'",
+            "status": 1,
+            "message": "DOM: layout unsupported: computed style inset-block-end"
+          },
+          {
+            "name": "Property inset-inline-start value '-20%'",
+            "status": 1,
+            "message": "DOM: layout unsupported: computed style inset-inline-start"
+          },
+          {
+            "name": "Property inset-inline-end value 'calc(10px - 0.5em)'",
+            "status": 1,
+            "message": "assert_true: 'calc(10px - 0.5em)' is a supported value for inset-inline-end. expected true got false"
+          },
+          {
+            "name": "Property inset-block value 'auto'",
+            "status": 1,
+            "message": "DOM: layout unsupported: computed style inset-block"
+          },
+          {
+            "name": "Property inset-block value '-10px'",
+            "status": 1,
+            "message": "DOM: layout unsupported: computed style inset-block"
+          },
+          {
+            "name": "Property inset-block value 'calc(10px - 0.5em) -20%'",
+            "status": 1,
+            "message": "assert_true: 'calc(10px - 0.5em) -20%' is a supported value for inset-block. expected true got false"
+          },
+          {
+            "name": "Property inset-block value 'auto auto'",
+            "status": 1,
+            "message": "DOM: layout unsupported: computed style inset-block"
+          },
+          {
+            "name": "Property inset-inline value '-20%'",
+            "status": 1,
+            "message": "DOM: layout unsupported: computed style inset-inline"
+          },
+          {
+            "name": "Property inset-inline value 'calc(10px - 0.5em)'",
+            "status": 1,
+            "message": "assert_true: 'calc(10px - 0.5em)' is a supported value for inset-inline. expected true got false"
+          },
+          {
+            "name": "Property inset-inline value '-10px auto'",
+            "status": 1,
+            "message": "DOM: layout unsupported: computed style inset-inline"
+          },
+          {
+            "name": "Property inset-inline value 'auto calc(10px + 0.5em)'",
+            "status": 1,
+            "message": "assert_true: 'auto calc(10px + 0.5em)' is a supported value for inset-inline. expected true got false"
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-logical/parsing/inset-block-inline-valid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 12,
+        "passed": 12,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-logical/parsing/inset-block-inline-valid.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 12,
+        "passed": 7,
+        "failed": [
+          {
+            "name": "e.style['inset-inline-end'] = \"calc(10px - 0.5em)\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"calc(-0.5em + 10px)\" but got \"calc(10px - 0.5em)\""
+          },
+          {
+            "name": "e.style['inset-block'] = \"calc(10px - 0.5em) -20%\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"calc(-0.5em + 10px) -20%\" but got \"calc(10px - 0.5em) -20%\""
+          },
+          {
+            "name": "e.style['inset-block'] = \"auto auto\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"auto\" but got \"auto auto\""
+          },
+          {
+            "name": "e.style['inset-inline'] = \"calc(10px - 0.5em)\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"calc(-0.5em + 10px)\" but got \"calc(10px - 0.5em)\""
+          },
+          {
+            "name": "e.style['inset-inline'] = \"auto calc(10px + 0.5em)\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"auto calc(0.5em + 10px)\" but got \"auto calc(10px + 0.5em)\""
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-logical/parsing/inset-block-inline-valid.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 12,
+        "passed": 8,
+        "failed": [
+          {
+            "name": "e.style['inset-inline-end'] = \"calc(10px - 0.5em)\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"calc(-0.5em + 10px)\" but got \"calc(10px - .5em)\""
+          },
+          {
+            "name": "e.style['inset-block'] = \"calc(10px - 0.5em) -20%\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"calc(-0.5em + 10px) -20%\" but got \"calc(10px - .5em) -20%\""
+          },
+          {
+            "name": "e.style['inset-inline'] = \"calc(10px - 0.5em)\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"calc(-0.5em + 10px)\" but got \"calc(10px - .5em)\""
+          },
+          {
+            "name": "e.style['inset-inline'] = \"auto calc(10px + 0.5em)\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"auto calc(0.5em + 10px)\" but got \"auto calc(10px + .5em)\""
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-logical/parsing/inset-block-inline-invalid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 7,
+        "passed": 7,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-logical/parsing/inset-block-inline-invalid.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 7,
+        "passed": 0,
+        "failed": [
+          {
+            "name": "e.style['inset-block-start'] = \"none\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"none\""
+          },
+          {
+            "name": "e.style['inset-block-end'] = \"10\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"10\""
+          },
+          {
+            "name": "e.style['inset-inline-start'] = \"20% calc(10px - 0.5em)\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"20% calc(10px - 0.5em)\""
+          },
+          {
+            "name": "e.style['inset-inline-end'] = \"10px, auto\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"10px, auto\""
+          },
+          {
+            "name": "e.style['inset-block'] = \"none\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"none\""
+          },
+          {
+            "name": "e.style['inset-block'] = \"20%, calc(10px - 0.5em)\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"20%, calc(10px - 0.5em)\""
+          },
+          {
+            "name": "e.style['inset-inline'] = \"10px auto 20px\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"10px auto 20px\""
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-logical/parsing/inset-block-inline-invalid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 7,
+        "passed": 7,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-logical/parsing/inset-block-inline-shorthand.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 12,
+        "passed": 12,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-logical/parsing/inset-block-inline-shorthand.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 12,
+        "passed": 0,
+        "failed": [
+          {
+            "name": "e.style['inset-block'] = \"10px\" should set inset-block-end",
+            "status": 1,
+            "message": "assert_equals: inset-block-end should be canonical expected \"10px\" but got \"\""
+          },
+          {
+            "name": "e.style['inset-block'] = \"10px\" should set inset-block-start",
+            "status": 1,
+            "message": "assert_equals: inset-block-start should be canonical expected \"10px\" but got \"\""
+          },
+          {
+            "name": "e.style['inset-block'] = \"10px\" should not set unrelated longhands",
+            "status": 1,
+            "message": "assert_equals: expected 0 but got 1"
+          },
+          {
+            "name": "e.style['inset-block'] = \"20% auto\" should set inset-block-end",
+            "status": 1,
+            "message": "assert_equals: inset-block-end should be canonical expected \"auto\" but got \"\""
+          },
+          {
+            "name": "e.style['inset-block'] = \"20% auto\" should set inset-block-start",
+            "status": 1,
+            "message": "assert_equals: inset-block-start should be canonical expected \"20%\" but got \"\""
+          },
+          {
+            "name": "e.style['inset-block'] = \"20% auto\" should not set unrelated longhands",
+            "status": 1,
+            "message": "assert_equals: expected 0 but got 1"
+          },
+          {
+            "name": "e.style['inset-inline'] = \"30%\" should set inset-inline-end",
+            "status": 1,
+            "message": "assert_equals: inset-inline-end should be canonical expected \"30%\" but got \"\""
+          },
+          {
+            "name": "e.style['inset-inline'] = \"30%\" should set inset-inline-start",
+            "status": 1,
+            "message": "assert_equals: inset-inline-start should be canonical expected \"30%\" but got \"\""
+          },
+          {
+            "name": "e.style['inset-inline'] = \"30%\" should not set unrelated longhands",
+            "status": 1,
+            "message": "assert_equals: expected 0 but got 1"
+          },
+          {
+            "name": "e.style['inset-inline'] = \"auto 40px\" should set inset-inline-end",
+            "status": 1,
+            "message": "assert_equals: inset-inline-end should be canonical expected \"40px\" but got \"\""
+          },
+          {
+            "name": "e.style['inset-inline'] = \"auto 40px\" should set inset-inline-start",
+            "status": 1,
+            "message": "assert_equals: inset-inline-start should be canonical expected \"auto\" but got \"\""
+          },
+          {
+            "name": "e.style['inset-inline'] = \"auto 40px\" should not set unrelated longhands",
+            "status": 1,
+            "message": "assert_equals: expected 0 but got 1"
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-logical/parsing/inset-block-inline-shorthand.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 12,
+        "passed": 12,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-logical/parsing/inset-computed.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 8,
+        "passed": 8,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-logical/parsing/inset-computed.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 8,
+        "passed": 1,
+        "failed": [
+          {
+            "name": "Property inset value 'auto'",
+            "status": 1,
+            "message": "assert_true: 'auto' is a supported value for inset. expected true got false"
+          },
+          {
+            "name": "Property inset value 'calc(10px - 0.5em) -20%'",
+            "status": 1,
+            "message": "assert_equals: expected \"-10px -20%\" but got \"calc(10px - 0.5em) -20%\""
+          },
+          {
+            "name": "Property inset value 'auto auto'",
+            "status": 1,
+            "message": "assert_true: 'auto auto' is a supported value for inset. expected true got false"
+          },
+          {
+            "name": "Property inset value '10px calc(10px - 0.5em) -30px'",
+            "status": 1,
+            "message": "assert_equals: expected \"10px -10px -30px\" but got \"10px calc(10px - 0.5em) -30px\""
+          },
+          {
+            "name": "Property inset value 'auto auto auto'",
+            "status": 1,
+            "message": "assert_true: 'auto auto auto' is a supported value for inset. expected true got false"
+          },
+          {
+            "name": "Property inset value '10px 20px auto -30px'",
+            "status": 1,
+            "message": "assert_true: '10px 20px auto -30px' is a supported value for inset. expected true got false"
+          },
+          {
+            "name": "Property inset value 'auto auto auto auto'",
+            "status": 1,
+            "message": "assert_true: 'auto auto auto auto' is a supported value for inset. expected true got false"
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-logical/parsing/inset-computed.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 8,
+        "passed": 0,
+        "failed": [
+          {
+            "name": "Property inset value 'auto'",
+            "status": 1,
+            "message": "DOM: layout unsupported: computed style inset"
+          },
+          {
+            "name": "Property inset value '-10px'",
+            "status": 1,
+            "message": "DOM: layout unsupported: computed style inset"
+          },
+          {
+            "name": "Property inset value 'calc(10px - 0.5em) -20%'",
+            "status": 1,
+            "message": "assert_true: 'calc(10px - 0.5em) -20%' is a supported value for inset. expected true got false"
+          },
+          {
+            "name": "Property inset value 'auto auto'",
+            "status": 1,
+            "message": "DOM: layout unsupported: computed style inset"
+          },
+          {
+            "name": "Property inset value '10px calc(10px - 0.5em) -30px'",
+            "status": 1,
+            "message": "assert_true: '10px calc(10px - 0.5em) -30px' is a supported value for inset. expected true got false"
+          },
+          {
+            "name": "Property inset value 'auto auto auto'",
+            "status": 1,
+            "message": "DOM: layout unsupported: computed style inset"
+          },
+          {
+            "name": "Property inset value '10px 20px auto -30px'",
+            "status": 1,
+            "message": "DOM: layout unsupported: computed style inset"
+          },
+          {
+            "name": "Property inset value 'auto auto auto auto'",
+            "status": 1,
+            "message": "DOM: layout unsupported: computed style inset"
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-logical/parsing/inset-valid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 8,
+        "passed": 8,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-logical/parsing/inset-valid.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 8,
+        "passed": 5,
+        "failed": [
+          {
+            "name": "e.style['inset'] = \"auto auto\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"auto\" but got \"auto auto\""
+          },
+          {
+            "name": "e.style['inset'] = \"auto auto auto\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"auto\" but got \"auto auto auto\""
+          },
+          {
+            "name": "e.style['inset'] = \"auto auto auto auto\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"auto\" but got \"auto auto auto auto\""
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-logical/parsing/inset-valid.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 8,
+        "passed": 5,
+        "failed": [
+          {
+            "name": "e.style['inset'] = \"calc(-0.5em + 10px) -20%\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"calc(-0.5em + 10px) -20%\" but got \"calc(10px - .5em) -20%\""
+          },
+          {
+            "name": "e.style['inset'] = \"10px calc(-0.5em + 10px) -30px\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"10px calc(-0.5em + 10px) -30px\" but got \"10px calc(10px - .5em) -30px\""
+          },
+          {
+            "name": "e.style['inset'] = \"10px calc(-0.5em + 10px) auto -30px\" should set the property value",
+            "status": 1,
+            "message": "assert_equals: serialization should be canonical expected \"10px calc(-0.5em + 10px) auto -30px\" but got \"10px calc(10px - .5em) auto -30px\""
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-logical/parsing/inset-invalid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 3,
+        "passed": 3,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-logical/parsing/inset-invalid.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 3,
+        "passed": 0,
+        "failed": [
+          {
+            "name": "e.style['inset'] = \"none\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"none\""
+          },
+          {
+            "name": "e.style['inset'] = \"20%, calc(10px - 0.5em)\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"20%, calc(10px - 0.5em)\""
+          },
+          {
+            "name": "e.style['inset'] = \"10px auto 20px auto 30px\" should not set the property value",
+            "status": 1,
+            "message": "assert_equals: expected \"\" but got \"10px auto 20px auto 30px\""
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-logical/parsing/inset-invalid.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 3,
+        "passed": 3,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/css-logical/parsing/inset-shorthand.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 20,
+        "passed": 20,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/css-logical/parsing/inset-shorthand.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 20,
+        "passed": 0,
+        "failed": [
+          {
+            "name": "e.style['inset'] = \"1px 2px 3px 4px\" should set bottom",
+            "status": 1,
+            "message": "assert_equals: bottom should be canonical expected \"3px\" but got \"\""
+          },
+          {
+            "name": "e.style['inset'] = \"1px 2px 3px 4px\" should set left",
+            "status": 1,
+            "message": "assert_equals: left should be canonical expected \"4px\" but got \"\""
+          },
+          {
+            "name": "e.style['inset'] = \"1px 2px 3px 4px\" should set right",
+            "status": 1,
+            "message": "assert_equals: right should be canonical expected \"2px\" but got \"\""
+          },
+          {
+            "name": "e.style['inset'] = \"1px 2px 3px 4px\" should set top",
+            "status": 1,
+            "message": "assert_equals: top should be canonical expected \"1px\" but got \"\""
+          },
+          {
+            "name": "e.style['inset'] = \"1px 2px 3px 4px\" should not set unrelated longhands",
+            "status": 1,
+            "message": "assert_equals: expected 0 but got 1"
+          },
+          {
+            "name": "e.style['inset'] = \"1px 2px 3px\" should set bottom",
+            "status": 1,
+            "message": "assert_equals: bottom should be canonical expected \"3px\" but got \"\""
+          },
+          {
+            "name": "e.style['inset'] = \"1px 2px 3px\" should set left",
+            "status": 1,
+            "message": "assert_equals: left should be canonical expected \"2px\" but got \"\""
+          },
+          {
+            "name": "e.style['inset'] = \"1px 2px 3px\" should set right",
+            "status": 1,
+            "message": "assert_equals: right should be canonical expected \"2px\" but got \"\""
+          },
+          {
+            "name": "e.style['inset'] = \"1px 2px 3px\" should set top",
+            "status": 1,
+            "message": "assert_equals: top should be canonical expected \"1px\" but got \"\""
+          },
+          {
+            "name": "e.style['inset'] = \"1px 2px 3px\" should not set unrelated longhands",
+            "status": 1,
+            "message": "assert_equals: expected 0 but got 1"
+          },
+          {
+            "name": "e.style['inset'] = \"1px 2px\" should set bottom",
+            "status": 1,
+            "message": "assert_equals: bottom should be canonical expected \"1px\" but got \"\""
+          },
+          {
+            "name": "e.style['inset'] = \"1px 2px\" should set left",
+            "status": 1,
+            "message": "assert_equals: left should be canonical expected \"2px\" but got \"\""
+          },
+          {
+            "name": "e.style['inset'] = \"1px 2px\" should set right",
+            "status": 1,
+            "message": "assert_equals: right should be canonical expected \"2px\" but got \"\""
+          },
+          {
+            "name": "e.style['inset'] = \"1px 2px\" should set top",
+            "status": 1,
+            "message": "assert_equals: top should be canonical expected \"1px\" but got \"\""
+          },
+          {
+            "name": "e.style['inset'] = \"1px 2px\" should not set unrelated longhands",
+            "status": 1,
+            "message": "assert_equals: expected 0 but got 1"
+          },
+          {
+            "name": "e.style['inset'] = \"1px\" should set bottom",
+            "status": 1,
+            "message": "assert_equals: bottom should be canonical expected \"1px\" but got \"\""
+          },
+          {
+            "name": "e.style['inset'] = \"1px\" should set left",
+            "status": 1,
+            "message": "assert_equals: left should be canonical expected \"1px\" but got \"\""
+          },
+          {
+            "name": "e.style['inset'] = \"1px\" should set right",
+            "status": 1,
+            "message": "assert_equals: right should be canonical expected \"1px\" but got \"\""
+          },
+          {
+            "name": "e.style['inset'] = \"1px\" should set top",
+            "status": 1,
+            "message": "assert_equals: top should be canonical expected \"1px\" but got \"\""
+          },
+          {
+            "name": "e.style['inset'] = \"1px\" should not set unrelated longhands",
+            "status": 1,
+            "message": "assert_equals: expected 0 but got 1"
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/css-logical/parsing/inset-shorthand.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 20,
+        "passed": 20,
+        "failed": []
+      }
+    }
+  ]
+}

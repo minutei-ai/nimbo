@@ -1722,7 +1722,7 @@ inherited sizing, then recover through fresh successful requests.
 Writing-mode is now syntax-checked natively because the pinned declaration
 parser does not recognize it. Horizontal-tb is admitted; vertical and sideways
 values remain explicit layout failures. Complete writing-mode/direction layout,
-logical margins/padding/borders/insets, inherited sizing, contextual lengths,
+logical borders, inherited sizing, contextual lengths,
 intrinsic-size coverage, text shaping/painting and unmodified WPT remain pending.
 These checks do not prove complete CSS logical-property conformance.
 
@@ -2708,7 +2708,7 @@ report and make the command exit unsuccessfully.
 
 Remaining failures include `linear()` easing, context-dependent step counts,
 and Level 2 transition behavior. Transition events, WAAPI integration, generated
-boxes, complete detach/display lifecycle, logical property interpolation,
+boxes, complete detach/display lifecycle, full writing-mode interpolation,
 computed opacity, color/transform interpolation, mixed units and exhaustive
 numeric/default/inherited value handling remain pending. Unsupported color
 interpolation fails explicitly; a real Worker test verifies failure cleanup
@@ -2718,3 +2718,32 @@ existing DOM and layout limits.
 
 References: [CSS Transitions Level 1](https://drafts.csswg.org/css-transitions-1/),
 [original WPT transition tests](https://github.com/web-platform-tests/wpt/tree/03f14d4780c4d981bc84c65679b18e9327a1affe/css/css-transitions/parsing).
+
+## Native logical box spacing
+
+The horizontal-tb, left-to-right layout maps logical margin, padding and inset
+edges to their physical counterparts. Physical and logical declarations compete
+through the existing cascade, including importance, layers, specificity and
+source order. CSSOM retains logical names. Pair shorthands, variables,
+percentages, negative margins and literal padding validation use the native
+engine. Numeric transitions resolve matching logical/physical aliases;
+transition samples outrank important declarations, while animation samples stay
+below important declarations.
+
+The shared real-HTTP fixture has two fresh-page scenarios per variant: 45
+geometry/cascade/CSSOM contracts and 11 transition contracts using real timers
+and the host clock. Sixty-four variants yield 128 pages and 3584 checks per
+runtime under default limits. The split preserves all assertions without raising
+the DOM-operation budget. Geometry checks compare actual positions and sizes;
+the Chromium comparison does not substitute a browser backend into Nimbo.
+All 3584 checks pass in each of native Rust, workerd/Wasm, celld and Chromium;
+see the [celld/Chromium results](logical-spacing-chromium.json).
+The [original WPT report](performance-wpt-logical-spacing.json) records
+126/181 passing Nimbo/celld subtests, with ten passing and six failing files.
+
+Full RTL/vertical layout, inherited/contextual values, computed spacing CSSOM,
+calculation range clamping, logical borders and complete browser conformance
+remain pending. Original WPT assertions remain separate from these supplemental
+fixtures and unsupported values remain visible failures.
+
+Reference: [CSS Logical Properties and Values](https://drafts.csswg.org/css-logical-1/#margin-properties).

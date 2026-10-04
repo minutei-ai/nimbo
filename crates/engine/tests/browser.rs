@@ -1421,6 +1421,9 @@ fn is_dom_resource(path: &str) -> bool {
         "/custom-boxes/",
         "/positioned-boxes/",
         "/sticky-geometry/",
+        "/logical-spacing/",
+        "/logical-spacing-transitions/",
+        "/logical-spacing-style",
         "/transitions/",
         "/z-index/",
         "/z-index-style",
@@ -1434,7 +1437,16 @@ fn is_dom_resource(path: &str) -> bool {
     .any(|prefix| path.starts_with(prefix))
 }
 
+fn is_logical_spacing_resource(path: &str) -> bool {
+    path.starts_with("/logical-spacing/")
+        || path.starts_with("/logical-spacing-transitions/")
+        || path == "/logical-spacing-style"
+}
+
 fn serve_resource(request: Request) -> io::Result<()> {
+    if is_logical_spacing_resource(request.url()) {
+        return serve_logical_spacing(request);
+    }
     if request.url().starts_with("/transitions/") {
         return serve_transitions(request);
     }
@@ -2875,4 +2887,49 @@ fn serve_transitions(request: Request) -> io::Result<()> {
         )).with_header(header("Content-Type", "text/html")?));
     }
     request.respond(Response::empty(404))
+}
+
+fn serve_logical_spacing(request: Request) -> io::Result<()> {
+    if request.url() == "/logical-spacing-style" {
+        return request.respond(
+            Response::from_string(
+                "#external{margin-inline-start:17px!important;padding-block-end:9px}",
+            )
+            .with_header(header("Content-Type", "text/css")?),
+        );
+    }
+    let timed = request.url().starts_with("/logical-spacing-transitions/");
+    let function = if timed {
+        "logicalSpacingTransitionsCase"
+    } else {
+        "logicalSpacingCase"
+    };
+    let variant = request
+        .url()
+        .rsplit('/')
+        .next()
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or_default();
+    request.respond(Response::from_string(format!(
+        "<!doctype html><link rel=\"stylesheet\" href=\"/logical-spacing-style\"><body><script>{}\nglobalThis.comparison={function}({variant})</script>",
+        include_str!("fixtures/logical-spacing.txt")
+    )).with_header(header("Content-Type", "text/html")?))
+}
+#[test]
+fn logical_spacing_maps_cascade_to_real_geometry() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for (route, count) in [("logical-spacing", 45), ("logical-spacing-transitions", 11)] {
+        for variant in 0..64 {
+            let page = browser.navigate(&fixture.path(&format!("/{route}/{variant}")))?;
+            let result = page.evaluate("globalThis.comparison")?;
+            let checks = result.as_object().ok_or("missing logical spacing checks")?;
+            assert_eq!(checks.len(), count);
+            assert!(
+                checks.values().all(|value| value == &json!(true)),
+                "{result}"
+            );
+        }
+    }
+    Ok(())
 }

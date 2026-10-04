@@ -168,6 +168,8 @@ bun run bench:wpt-sticky # pinned original sticky WPT fixtures; optional Obscura
 bun run bench:wpt-z-index # original z-index parsing and computed WPT fixtures
 bun run bench:wpt-transitions # original transition parsing/computed/shorthand WPT fixtures
 bun run compare:transitions # real-clock transition contracts in celld and Chromium
+bun run bench:wpt-logical-spacing # original logical spacing WPT files
+bun run compare:logical-spacing # real geometry and logical transitions in celld/Chromium
 ```
 
 Native CLI timings, local celld HTTP timings and deployed Cloudflare measurements are different measurements. The remote driver requires a fixture origin reachable from the Worker; the [Cloudflare guide](docs/cloudflare.md) explains that setup. Local measurements do not establish production throughput, memory use or cost.
@@ -188,21 +190,21 @@ Latency in milliseconds, **p50 / p95**:
 
 | Scenario                | Nimbo / celld |        Obscura |        Chromium |
 | ----------------------- | ------------: | -------------: | --------------: |
-| Static HTML             | 45.39 / 59.85 |  19.06 / 20.45 |   62.52 / 88.86 |
-| Selectors, 200 nodes    | 37.54 / 59.38 |  20.46 / 22.13 |   63.99 / 87.26 |
-| Dynamic fetch           | 37.28 / 51.68 |  20.81 / 25.57 |   60.08 / 83.93 |
-| JS, DOM and events      | 57.20 / 68.80 |  29.61 / 32.65 |   60.99 / 87.16 |
-| JS modules              | 63.98 / 73.40 |  31.00 / 33.97 |   74.07 / 97.90 |
-| JS selectors, 200 nodes | 55.46 / 69.28 |  31.81 / 34.21 |   70.45 / 94.99 |
-| Static HTML, 5000 nodes | 68.73 / 78.85 |  42.97 / 44.78 | 247.15 / 276.96 |
-| Selectors, 5000 nodes   | 71.01 / 79.95 | 98.37 / 103.44 | 266.68 / 287.09 |
-| JS positioned boxes     | 67.36 / 82.48 |  34.34 / 36.02 |   69.16 / 94.04 |
+| Static HTML             | 40.84 / 73.78 |  18.85 / 27.75 |   63.24 / 82.83 |
+| Selectors, 200 nodes    | 43.21 / 55.84 |  19.55 / 25.27 |   64.74 / 95.30 |
+| Dynamic fetch           | 35.93 / 52.90 |  20.63 / 21.61 |   61.03 / 81.18 |
+| JS, DOM and events      | 45.20 / 59.19 |  30.44 / 35.00 |   59.06 / 74.36 |
+| JS modules              | 55.19 / 69.86 |  30.15 / 34.07 |   70.07 / 92.26 |
+| JS selectors, 200 nodes | 49.84 / 69.07 |  31.09 / 33.72 |   66.46 / 88.47 |
+| Static HTML, 5000 nodes | 60.57 / 81.53 |  42.29 / 52.86 | 251.20 / 284.39 |
+| Selectors, 5000 nodes   | 66.48 / 83.20 | 97.79 / 119.11 | 258.11 / 284.40 |
+| JS positioned boxes     | 64.20 / 80.22 |  32.41 / 42.32 |   68.58 / 85.95 |
 
 Nimbo has a lower p50 than Chromium in **9/9** scenarios and Obscura in
 **1/9**. Matching or beating Obscura across the remaining scenarios is still
 pending. These local fixtures do not establish general SPA compatibility,
 production throughput, memory consumption or cost. See the
-[raw results](docs/performance-comparison-transitions.json) and
+[raw results](docs/performance-comparison-logical-spacing.json) and
 [reproduction guide](docs/benchmark-comparison.md).
 
 ## Runtime guides

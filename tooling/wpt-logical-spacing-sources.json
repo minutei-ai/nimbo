@@ -1,0 +1,89 @@
+{
+  "commit": "03f14d4780c4d981bc84c65679b18e9327a1affe",
+  "files": [
+    {
+      "path": "css/css-logical/parsing/margin-block-inline-computed.html",
+      "sha256": "8ecaa1295c95cf431859e3dca45b5352b28f2f4d238cb57c286c4d48873c7784"
+    },
+    {
+      "path": "css/css-logical/parsing/margin-block-inline-valid.html",
+      "sha256": "063d41496bb65aaab308f67fda0fca7b85101065f84f529c7c1424bbb26acdd9"
+    },
+    {
+      "path": "css/css-logical/parsing/margin-block-inline-invalid.html",
+      "sha256": "1b45bb92d8a43fa8a84b4aafbc0677b02057e317bcdb724a39c4c4429dd1a099"
+    },
+    {
+      "path": "css/css-logical/parsing/margin-block-inline-shorthand.html",
+      "sha256": "55df17030e8dfbb11ca43b566875b5fef54756d07e5393f2a58f8e54e32ba802"
+    },
+    {
+      "path": "css/css-logical/parsing/padding-block-inline-computed.html",
+      "sha256": "e7919d56527ba3c8286b70bf722b8bf571f0d3a361be8f14ac5690046b4761ee"
+    },
+    {
+      "path": "css/css-logical/parsing/padding-block-inline-valid.html",
+      "sha256": "f906aaba8413f094b7d5be91d1df868afd05adf9f40872e70cc40d3019566cef"
+    },
+    {
+      "path": "css/css-logical/parsing/padding-block-inline-invalid.html",
+      "sha256": "9771556c0f34dfb5469db01130d0692c596f22f296aa4b2213d1edc2f34e5aad"
+    },
+    {
+      "path": "css/css-logical/parsing/padding-block-inline-shorthand.html",
+      "sha256": "9f9140f4dbace01dc564dfd109f79bc55fcf3a310e7eaa21980d05c8c4fba8bb"
+    },
+    {
+      "path": "css/css-logical/parsing/inset-block-inline-computed.html",
+      "sha256": "648d33a33d2718394e32003d6edf750c3d126a51ac914462080f43b0f441e7a4"
+    },
+    {
+      "path": "css/css-logical/parsing/inset-block-inline-valid.html",
+      "sha256": "1999cee9154762e2ad7f8b596fc788e09d727e78382dbfa76c908ac0066b0b18"
+    },
+    {
+      "path": "css/css-logical/parsing/inset-block-inline-invalid.html",
+      "sha256": "381ded26e471ca2fd91b78087fbab8bdf411bed8591759a27761ce655d76d196"
+    },
+    {
+      "path": "css/css-logical/parsing/inset-block-inline-shorthand.html",
+      "sha256": "7a960585a0a57fb0477acaa041710fe71c959db4990f05c71d1299d82ede4bbf"
+    },
+    {
+      "path": "css/css-logical/parsing/inset-computed.html",
+      "sha256": "e7c24e7bc0aadb57be64d667c4824656eb5fb555ed1ccb26277cd0e66ad21563"
+    },
+    {
+      "path": "css/css-logical/parsing/inset-valid.html",
+      "sha256": "c5170b0450c51609725feea9014fee152038800071d145cf5d8ff99d5cdb107e"
+    },
+    {
+      "path": "css/css-logical/parsing/inset-invalid.html",
+      "sha256": "c03a41eedd7828e005d1bcbd30993cf7d7eb13faf4f40a5ea1e7853289d79dfb"
+    },
+    {
+      "path": "css/css-logical/parsing/inset-shorthand.html",
+      "sha256": "2e9932cc9aa3b0360169219f254445acb375039219a1693d4fcd8f221aa17952"
+    },
+    {
+      "path": "css/support/computed-testcommon.js",
+      "sha256": "20bd767e8a8bd9e4857a29aecfd52cad305ed4af1cf73a5064916a8a1d38ab01"
+    },
+    {
+      "path": "css/support/parsing-testcommon.js",
+      "sha256": "ac482e1e1908e9b98f8f1c4b2c457ec77ae5ad2baa074205c4b0f7812f4024b5"
+    },
+    {
+      "path": "css/support/shorthand-testcommon.js",
+      "sha256": "fa4fcb5e79cb6d1ea9bacc5d3ca11c7b80b52f4049f7f3c201ca5a1f690aea67"
+    },
+    {
+      "path": "resources/testharness.js",
+      "sha256": "d2399236c2a09c429804ff2299ad6629e17e2b53f17a74dd341e936adb11ae3e"
+    },
+    {
+      "path": "resources/testharnessreport.js",
+      "sha256": "3777176fc736b0a78cf7617b9613b220f635daae7536ec7ebb99c61dbb525aae"
+    }
+  ]
+}

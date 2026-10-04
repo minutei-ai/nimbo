@@ -262,3 +262,19 @@ Chromium is 183/185; public Obscura 0.2.3 is 41/185. Neither failed assertions n
 incomplete files count as passes. The command exits unsuccessfully when any
 runtime has a failed or incomplete file. Full transition behavior remains an
 obligation; see the [native implementation scope](browser-coverage.md#native-css-transition-timelines).
+
+## Original logical box spacing WPT contracts
+
+`bun run bench:wpt-logical-spacing` executes sixteen original logical
+margin/padding/inset and physical inset parsing, computed and shorthand HTML
+files at WPT revision `03f14d4780c4d981bc84c65679b18e9327a1affe`. Five original
+helpers and the HTML files are SHA-verified against
+`tooling/wpt-logical-spacing-sources.json`. Vendor reporting has only a
+reporting adapter; assertions and original source bytes remain unchanged.
+
+The [dated report](performance-wpt-logical-spacing.json) records Nimbo/celld at
+126/181 subtests, Chromium at 181/181 and public Obscura 0.2.3 at 53/181. Nimbo
+passes ten files and fails six; no file is incomplete. Computed spacing and calc
+serialization remain failures. The runner correctly exits unsuccessfully.
+These original results are separate from the supplemental geometry and
+real-clock transition fixture; neither establishes full logical CSS parity.

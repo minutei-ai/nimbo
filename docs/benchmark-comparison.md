@@ -326,3 +326,11 @@ than Chromium in 9/9 scenarios and public Obscura in 1/9. This is a separate loc
 run; it does not attribute timing differences to the transition implementation.
 The earlier [z-index snapshot](performance-comparison-z-index.json) is retained.
 All-win performance against Obscura remains pending.
+
+The latest [logical spacing build report](performance-comparison-logical-spacing.json)
+was measured on 2026-10-04 after all functional checks completed. The Worker/Wasm
+hash is recorded in the report. All 648 attempts returned the expected values;
+567 samples were measured after excluding warmups. Nimbo/celld has a lower p50
+than Chromium in 9/9 scenarios and public Obscura in 1/9. The README uses this
+snapshot. Differences from earlier snapshots are measurements, not proof that
+logical spacing caused a performance improvement.

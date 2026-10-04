@@ -31,6 +31,13 @@ enum PositionOrigin {
     Shorthand,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SampleOrigin {
+    Declaration,
+    Animation,
+    Transition,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 struct Entry {
     name: String,
@@ -41,20 +48,25 @@ struct Entry {
     #[serde(skip)]
     deferred: bool,
     #[serde(skip)]
-    animated: bool,
+    sampled: SampleOrigin,
     #[serde(skip)]
     position_origin: PositionOrigin,
 }
 
 impl Entry {
     fn new(name: &str, value: String, important: bool) -> Self {
+        let value = if value == "0" && crate::layout::logical::spacing(name) {
+            "0px".into()
+        } else {
+            value
+        };
         Self {
             name: name.to_owned(),
             value,
             important,
             pending: None,
             deferred: false,
-            animated: false,
+            sampled: SampleOrigin::Declaration,
             position_origin: PositionOrigin::Axis,
         }
     }
@@ -473,7 +485,7 @@ fn expand(name: &str, value: &str, important: bool) -> Option<Vec<Entry>> {
                     important,
                     pending: None,
                     deferred: true,
-                    animated: false,
+                    sampled: SampleOrigin::Declaration,
                     position_origin: PositionOrigin::Axis,
                 }]
             },
@@ -485,7 +497,7 @@ fn expand(name: &str, value: &str, important: bool) -> Option<Vec<Entry>> {
                         important,
                         pending: Some(Rc::clone(&pending)),
                         deferred: true,
-                        animated: false,
+                        sampled: SampleOrigin::Declaration,
                         position_origin: PositionOrigin::Axis,
                     })
                     .collect()
@@ -499,9 +511,12 @@ fn expand(name: &str, value: &str, important: bool) -> Option<Vec<Entry>> {
             important,
             pending: None,
             deferred,
-            animated: false,
+            sampled: SampleOrigin::Declaration,
             position_origin: PositionOrigin::Axis,
         }]);
+    }
+    if !crate::layout::logical::valid_spacing(name, value) {
+        return None;
     }
     if native_declaration(name, value) {
         return native_property(name, value, important);
@@ -642,13 +657,18 @@ impl Declarations {
     }
     pub(crate) fn layout_priorities(
         &self,
-    ) -> impl Iterator<Item = (&str, &str, bool, (bool, bool, usize))> {
+    ) -> impl Iterator<Item = (&str, &str, bool, (bool, bool, bool, usize))> {
         self.entries.iter().enumerate().map(|(index, entry)| {
             (
                 entry.name.as_str(),
                 entry.value.as_str(),
                 entry.deferred,
-                (entry.important, entry.animated, index),
+                (
+                    entry.sampled == SampleOrigin::Transition,
+                    entry.important,
+                    entry.sampled == SampleOrigin::Animation,
+                    index,
+                ),
             )
         })
     }
@@ -723,7 +743,7 @@ impl Declarations {
             crate::Error::Dom("layout unsupported: animation interpolated declaration".into())
         })?;
         for mut entry in entries {
-            entry.animated = true;
+            entry.sampled = SampleOrigin::Animation;
             self.put(entry, false)
                 .map_err(|message| crate::Error::Dom(message.into()))?;
         }
@@ -734,7 +754,7 @@ impl Declarations {
             crate::Error::Dom("layout unsupported: transition interpolated declaration".into())
         })?;
         for mut entry in entries {
-            entry.animated = true;
+            entry.sampled = SampleOrigin::Transition;
             self.put(entry, false)
                 .map_err(|message| crate::Error::Dom(message.into()))?;
         }

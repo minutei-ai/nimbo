@@ -8,6 +8,7 @@ export async function compareCssContracts(
   fixturePath: string,
   expectedCount: number,
   scope: string,
+  scenarios: ReadonlyArray<{ route: string; expectedCount: number }> = [{ route, expectedCount }],
 ) {
   const binary = process.env.NIMBO_COMPARE_CHROMIUM_BINARY;
   if (!binary) throw new Error("Set NIMBO_COMPARE_CHROMIUM_BINARY to ordinary Chromium");
@@ -23,6 +24,7 @@ export async function compareCssContracts(
   const results: {
     runtime: string;
     variant: number;
+    scenario?: string;
     status: string;
     checks?: Record<string, boolean>;
     error?: string;
@@ -31,39 +33,42 @@ export async function compareCssContracts(
     browser = await startCdpBrowser("chromium", binary);
     celld = await startCelld();
     for (const runtime of [browser.version, celld.version]) {
-      for (let variant = 0; variant < 64; variant++) {
-        const row: (typeof results)[number] = { runtime, variant, status: "incomplete" };
-        results.push(row);
-        const url = new URL(`${route}/${variant}`, fixture.url).href;
-        try {
-          let value: unknown;
-          if (runtime === browser.version) {
-            // oxlint-disable-next-line eslint/no-await-in-loop
-            value = await browser.extract(url, "globalThis.comparison");
-          } else {
-            // oxlint-disable-next-line eslint/no-await-in-loop
-            const response = await fetch(new URL("/scrape", celld.endpoint), {
-              method: "POST",
-              headers: {
-                authorization: `Bearer ${celld.token}`,
-                "content-type": "application/json",
-              },
-              body: JSON.stringify({ url, expression: "globalThis.comparison" }),
-            });
-            // oxlint-disable-next-line eslint/no-await-in-loop
-            const body: unknown = await response.json();
-            if (!response.ok || typeof body !== "object" || body === null)
-              throw new Error(`HTTP ${response.status}`);
-            value = Reflect.get(body, "value");
+      for (const scenario of scenarios) {
+        for (let variant = 0; variant < 64; variant++) {
+          const row: (typeof results)[number] = { runtime, variant, status: "incomplete" };
+          if (scenarios.length > 1) row.scenario = scenario.route;
+          results.push(row);
+          const url = new URL(`${scenario.route}/${variant}`, fixture.url).href;
+          try {
+            let value: unknown;
+            if (runtime === browser.version) {
+              // oxlint-disable-next-line eslint/no-await-in-loop
+              value = await browser.extract(url, "globalThis.comparison");
+            } else {
+              // oxlint-disable-next-line eslint/no-await-in-loop
+              const response = await fetch(new URL("/scrape", celld.endpoint), {
+                method: "POST",
+                headers: {
+                  authorization: `Bearer ${celld.token}`,
+                  "content-type": "application/json",
+                },
+                body: JSON.stringify({ url, expression: "globalThis.comparison" }),
+              });
+              // oxlint-disable-next-line eslint/no-await-in-loop
+              const body: unknown = await response.json();
+              if (!response.ok || typeof body !== "object" || body === null)
+                throw new Error(`HTTP ${response.status}`);
+              value = Reflect.get(body, "value");
+            }
+            row.checks = decode(value);
+            row.status =
+              Object.keys(row.checks).length === scenario.expectedCount &&
+              Object.values(row.checks).every(Boolean)
+                ? "passed"
+                : "failed";
+          } catch (error) {
+            row.error = String(error);
           }
-          row.checks = decode(value);
-          row.status =
-            Object.keys(row.checks).length === expectedCount &&
-            Object.values(row.checks).every(Boolean)
-              ? "passed"
-              : "failed";
-        } catch (error) {
-          row.error = String(error);
         }
       }
     }

@@ -1,0 +1,103 @@
+function logicalSpacingEnvironment() {
+  document.body.style.cssText='margin:0;position:relative;width:400px;height:500px';
+  const checks={}, close=(a,b)=>Math.abs(a-b)<.005;
+  const sheet=document.createElement('style');document.head.append(sheet);
+  function create(css,rules='',id='target') {
+    sheet.textContent=rules;
+    const root=document.createElement('main');root.style.cssText='position:absolute;left:20px;top:30px;width:240px;display:flex;align-items:flex-start';
+    const box=document.createElement('div');box.id=id;box.className='case';
+    box.style.cssText='flex:none;width:20px;height:10px;'+css;
+    const next=document.createElement('div');next.style.cssText='flex:none;width:5px;height:5px';
+    root.append(box,next);document.body.append(root);
+    return {root,box,next};
+  }
+  function check(name,css,expected,rules='',id='target') {
+    const {root,box,next}=create(css,rules,id), a=box.getBoundingClientRect(), b=next.getBoundingClientRect(), c=root.getBoundingClientRect();
+    const actual=[a.x,a.y,a.width,a.height,b.x,c.height];
+    checks[name]=actual.every((value,index)=>close(value,expected[index]));
+    root.remove();
+  }
+  return {checks,close,sheet,create,check};
+}
+function logicalSpacingCase(variant) {
+  const {checks,close,sheet,create,check}=logicalSpacingEnvironment();
+  const amount=5+variant;
+  check('marginInlineStart',`margin-inline-start:${amount}px`,[20+amount,30,20,10,40+amount,10]);
+  check('marginInlineEnd',`margin-inline-end:${amount}px`,[20,30,20,10,40+amount,10]);
+  check('marginBlockStart',`margin-block-start:${amount}px`,[20,30+amount,20,10,40,10+amount]);
+  check('marginBlockEnd',`margin-block-end:${amount}px`,[20,30,20,10,40,10+amount]);
+  check('paddingInlineStart',`padding-inline-start:${amount}px`,[20,30,20+amount,10,40+amount,10]);
+  check('paddingInlineEnd',`padding-inline-end:${amount}px`,[20,30,20+amount,10,40+amount,10]);
+  check('paddingBlockStart',`padding-block-start:${amount}px`,[20,30,20,10+amount,40,10+amount]);
+  check('paddingBlockEnd',`padding-block-end:${amount}px`,[20,30,20,10+amount,40,10+amount]);
+  check('insetInlineStart',`position:relative;inset-inline-start:${amount}px`,[20+amount,30,20,10,40,10]);
+  check('insetInlineEnd',`position:relative;inset-inline-end:${amount}px`,[20-amount,30,20,10,40,10]);
+  check('insetBlockStart',`position:relative;inset-block-start:${amount}px`,[20,30+amount,20,10,40,10]);
+  check('insetBlockEnd',`position:relative;inset-block-end:${amount}px`,[20,30-amount,20,10,40,10]);
+  check('marginPair','margin-inline:3px 6px;margin-block:4px 7px',[23,34,20,10,49,21]);
+  check('paddingPair','padding-inline:3px 6px;padding-block:4px 7px',[20,30,29,21,49,21]);
+  check('insetPair','position:relative;inset-inline:2px 3px;inset-block:7px 9px',[22,37,20,10,40,10]);
+  check('physicalThenLogical','margin-left:7px;margin-inline-start:11px',[31,30,20,10,51,10]);
+  check('logicalThenPhysical','margin-inline-start:11px;margin-left:7px',[27,30,20,10,47,10]);
+  check('repeatedPhysical','margin-left:7px;margin-inline-start:11px;margin-left:9px',[29,30,20,10,49,10]);
+  check('importantPhysical','margin-left:7px!important;margin-inline-start:11px',[27,30,20,10,47,10]);
+  check('importantLogical','margin-inline-start:11px!important;margin-left:7px',[31,30,20,10,51,10]);
+  check('importantSourceOrder','margin-left:7px!important;margin-inline-start:11px!important',[31,30,20,10,51,10]);
+  check('independentSides','margin-top:14px!important;margin-inline-start:12px',[32,44,20,10,52,24]);
+  check('shorthandOrder','padding:1px 2px 3px 4px;padding-inline:5px 6px',[20,30,31,14,51,14]);
+  check('autoMargins','margin-inline:auto',[127.5,30,20,10,255,10]);
+  check('marginPercent','margin-block-start:10%;margin-inline-end:10%',[20,54,20,10,64,34]);
+  check('paddingPercent','padding-block-start:10%',[20,30,20,34,40,34]);
+  check('negativeMargin','margin-inline-start:-5px',[15,30,20,10,35,10]);
+  check('marginInitial','margin-left:17px;margin-inline-start:initial',[20,30,20,10,40,10]);
+  check('paddingUnset','padding-left:17px;padding-inline-start:unset',[20,30,20,10,40,10]);
+  check('insetUnset','position:relative;left:17px;inset-inline-start:unset',[20,30,20,10,40,10]);
+  check('variable','--gap:7px;margin-inline-start:var(--gap)',[27,30,20,10,47,10]);
+  check('invalidComputed','margin-left:17px;margin-inline-start:var(--missing)',[20,30,20,10,40,10]);
+  check('specificity','', [31,30,20,10,51,10], '.case{margin-inline-start:7px}#target{margin-left:11px}');
+  check('inlineOrigin','margin-inline-start:13px',[33,30,20,10,53,10], '#target{margin-left:11px}');
+  check('sheetImportant','margin-inline-start:13px',[31,30,20,10,51,10], '#target{margin-left:11px!important}');
+  check('layers','',[31,30,20,10,51,10], '@layer early,late;@layer early{#target{margin-inline-start:7px}}@layer late{#target{margin-left:11px}}');
+  check('importantLayers','',[27,30,20,10,47,10], '@layer early,late;@layer early{#target{margin-inline-start:7px!important}}@layer late{#target{margin-left:11px!important}}');
+  check('externalStylesheet','margin-left:11px',[37,30,20,19,57,19],'','external');
+  const {root,box}=create('margin-left:7px;margin-inline-start:11px');
+  box.style.marginLeft='9px';checks.cssomPhysical=close(box.getBoundingClientRect().x,29);
+  box.style.marginInlineStart='13px';checks.cssomLogical=close(box.getBoundingClientRect().x,33);
+  checks.cssomNames=box.style.getPropertyValue('margin-left')==='9px'&&box.style.getPropertyValue('margin-inline-start')==='13px';
+  box.style.removeProperty('margin-inline-start');checks.cssomRemoval=close(box.getBoundingClientRect().x,29);
+  checks.supports=CSS.supports('margin-inline-start','5px')&&CSS.supports('padding-block','2px 3px')&&CSS.supports('inset-inline','1px auto');
+  checks.rejectPaddingAuto=!CSS.supports('padding-inline-start','auto');
+  checks.rejectPaddingNegative=!CSS.supports('padding-inline-start','-1px');
+  root.remove();sheet.remove();
+  return checks;
+}
+async function logicalSpacingTransitionsCase(variant) {
+  const {checks,close,sheet,create}=logicalSpacingEnvironment();
+  const timed=[];
+  const scenarios=[
+    ['logicalMargin','margin-inline-start:0!important;transition:margin-left 600ms linear','margin-inline-start',80,'x'],
+    ['physicalMargin','margin-left:0!important;transition:margin-inline-start 600ms linear','margin-left',80,'x'],
+    ['logicalPadding','padding-inline-start:0;transition:padding-inline 600ms linear','padding-inline-start',80,'width'],
+    ['logicalInset','position:relative;inset-inline-start:0;transition:inset-inline-start 600ms linear','inset-inline-start',80,'x'],
+    ['logicalSize','inline-size:20px;transition:width 600ms linear','inline-size',100,'width'],
+  ];
+  const start=performance.now();
+  for (const [name,css,property,target,axis] of scenarios) {
+    const item=create(css);
+    const before=item.box.getBoundingClientRect()[axis];
+    item.box.style.setProperty(property,`${target}px`,name.includes('Margin')?'important':'');
+    checks[name+'Starts']=close(item.box.getBoundingClientRect()[axis],before);
+    timed.push({...item,name,axis,before});
+  }
+  await new Promise(resolve=>setTimeout(resolve,120));
+  const progress=Math.min(1,(performance.now()-start)/600);
+  for (const item of timed) {
+    const actual=item.box.getBoundingClientRect()[item.axis];
+    checks[item.name+'RealClock']=Math.abs(actual-(item.before+80*progress))<8&&actual>item.before&&actual<item.before+80;
+  }
+  await new Promise(resolve=>setTimeout(resolve,700));
+  checks.logicalTransitionTargets=timed.every(item=>close(item.box.getBoundingClientRect()[item.axis],item.before+80));
+  for (const item of timed) item.root.remove();
+  sheet.remove();
+  return checks;
+}
