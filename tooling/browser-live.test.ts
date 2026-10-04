@@ -1,3 +1,4 @@
+import { urlsFixture } from "./urls-fixture";
 import { responseEncodingCases, responseEncodingFixture } from "./response-encoding-fixture";
 import { namespacedElementsFixture } from "./namespaced-elements-fixture";
 import { positionedBoxesFixture } from "./positioned-boxes-fixture";
@@ -431,6 +432,8 @@ const origin = Bun.serve({
   port: 0,
   async fetch(request) {
     const path = new URL(request.url).pathname;
+    const urls = urlsFixture(path);
+    if (urls) return urls;
     const encoded = responseEncodingFixture(path);
     if (encoded) return encoded;
     const namespaced = namespacedElementsFixture(path);
@@ -5782,3 +5785,44 @@ test.each(
     });
   },
 );
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: URL objects and live query variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`urls/${variant}`, origin.url).href,
+        expression: `urlsCase(${variant})`,
+      }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing result");
+    const checks: unknown = Reflect.get(result, "value");
+    if (typeof checks !== "object" || checks === null) throw new Error("Missing checks");
+    expect(Object.keys(checks)).toHaveLength(42);
+    expect(Object.values(checks).every((value) => value === true)).toBe(true);
+  },
+);
+
+test("real HTTP → workerd → Wasm: URL limits preserve query state and recover", async () => {
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url: new URL("urls/0", origin.url).href,
+      expression: "urlsLimitsCase()",
+    }),
+  });
+  expect(response.status).toBe(200);
+  const result: unknown = await response.json();
+  if (typeof result !== "object" || result === null) throw new Error("Missing result");
+  expect(Reflect.get(result, "value")).toEqual({
+    boundedURL: true,
+    boundedQuery: true,
+    statePreserved: true,
+    recovered: true,
+  });
+});

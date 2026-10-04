@@ -34,6 +34,8 @@ an upstream engine or its framework assets.
 The public Obscura WPT configuration pins
 `03f14d4780c4d981bc84c65679b18e9327a1affe` in the
 [original WPT repository](https://github.com/web-platform-tests/wpt/tree/03f14d4780c4d981bc84c65679b18e9327a1affe).
+The [original URL subset](performance-wpt-url.json) now executes 24 `.any.js`
+files and all 30 window-global META variants through the original harness.
 That full-suite execution remains pending.
 
 Source revisions are recorded in the [reference inventory](evidence/benchmark-reference-inventory.json).
@@ -114,11 +116,19 @@ executes all original evaluation stages with the same source revision, expected
 values, three-second settle delay, one warmup and five measured attempts. It
 records **174 real HTTP extractions: 72 valid, 102 failed**. The original Shift_JIS
 page now passes all six attempts and the previously passing stages remain valid.
-The current result is **12/33 complete**, with 17 failures and four output
+That decoding repeat records **12/33 complete**, with 17 failures and four output
 adapters still missing. No original page or assertion was changed.
 
-The following table records this latest repeat. The original baseline above is
-retained as historical evidence.
+The [native URL repeat](performance-obstacle-url.json) preserves the same original
+fixtures, expectations, source revision, three-second delay, one warmup and five
+measured attempts. It records **174 real HTTP extractions: 78 valid, 96 failed**.
+The original URL fixture now passes all six attempts, retaining every previously
+passing stage. The current result is **13/33 complete**, with 16 failed stages
+and four unadapted outputs. This does not establish full URL, SPA or browser
+conformance; the original WPT failures remain visible below.
+
+The following table records this latest repeat. All previous reports above remain
+historical evidence.
 
 | Original stage          | Category   | Status          | Valid / attempted |
 | ----------------------- | ---------- | --------------- | ----------------- |
@@ -140,7 +150,7 @@ retained as historical evidence.
 | `spa-router`            | capability | failed          | 0/6               |
 | `timers`                | capability | passed          | 6/6               |
 | `web-component`         | web-api    | failed          | 0/6               |
-| `url`                   | web-api    | failed          | 0/6               |
+| `url`                   | web-api    | passed          | 6/6               |
 | `textdecoder`           | web-api    | passed          | 6/6               |
 | `fileapi`               | web-api    | failed          | 0/6               |
 | `range`                 | web-api    | failed          | 0/6               |
@@ -157,7 +167,7 @@ retained as historical evidence.
 | `charset-shiftjis`      | scraping   | passed          | 6/6               |
 
 The failures expose concrete next work: dynamic module graphs, text geometry,
-MutationObserver, animation frames, history/URL, structuredClone, shadow DOM,
+MutationObserver, animation frames, History and remaining URL parsing, structuredClone, shadow DOM,
 File API, Range/Selection, dialog/input methods, fingerprints, cookie behavior,
 complete document/resource decoding and extraction modes. The original fixture values and
 assertions stay fixed while the engine changes.
@@ -192,3 +202,32 @@ For fingerprint suites, preserve the upstream expected values. Profile-specific
 checks remain pending until Nimbo has corresponding native controls and actual
 behavior. A fabricated GPU string, media object or quota must not be counted as
 an implemented capability. Nimbo currently makes no full stealth parity claim.
+
+## Original URL WPT adapter
+
+Set `NIMBO_WPT_REFERENCE_ROOT` privately to a checkout of the original WPT
+repository at the revision above. The runner verifies SHA-256 for every original
+harness, test, dependency and data file against the
+[source manifest](../tooling/wpt-url-sources.json) before launching celld.
+
+```sh
+git clone https://github.com/web-platform-tests/wpt.git "$NIMBO_WPT_REFERENCE_ROOT"
+git -C "$NIMBO_WPT_REFERENCE_ROOT" checkout 03f14d4780c4d981bc84c65679b18e9327a1affe
+bun run bench:wpt-url
+```
+
+The HTTP adapter generates window wrappers from the original META dependencies,
+query variants and long-timeout marker. It uses the original window-global
+metadata from `tools/serve/serve.py`, retains the server's WebIDLParser rewrite,
+and observes `testharness.js` completion callbacks. HTML output and cross-window
+message reporting are disabled through harness configuration. Assertions, test
+data and expected values remain unchanged. Each variant owns a fresh Nimbo page
+with the default engine limits.
+
+The [Nimbo report](performance-wpt-url.json) includes every failed assertion and
+incomplete variant. The [Chromium report](evidence/wpt-url-chromium.json) retains
+all failures from the same adapter and original source revision. A nonzero
+runner exit is expected while any variant fails or cannot complete. No full WPT,
+full URL-suite, dedicated-worker, browser-stealth or production runtime pass is
+claimed. This adapter does not replace the complete WPT server or remaining
+original suites.

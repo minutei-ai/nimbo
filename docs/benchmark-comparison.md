@@ -248,3 +248,38 @@ no outliers or failed assertions were removed. This is one sequential elapsed-ti
 run with rotating runtime order and host/transport costs. It is not a controlled
 baseline/candidate A/B experiment or proof of universal speed improvement.
 The existing cold-process, resource-isolation, TLS and coverage limitations remain.
+
+## Native URL bindings repeat
+
+The [current URL-bindings report](performance-comparison-url.json) records
+**648 valid real HTTP extractions, zero failures and 567 measured samples**.
+All nine scenarios use the same own Nimbo Worker/Wasm bundle inside celld,
+public Obscura and unmodified Chromium, with three excluded warmups, 21 measured
+attempts, rotating runtime order and fresh extraction pages. Tests and builds
+were finished before these measurements.
+
+| Scenario               | Nimbo/celld p50 | Obscura p50 | Chromium p50 |
+| ---------------------- | --------------- | ----------- | ------------ |
+| `static`               | 34.69 ms        | 18.16 ms    | 55.47 ms     |
+| `selectors-200`        | 36.76 ms        | 19.80 ms    | 64.72 ms     |
+| `dynamic-fetch`        | 33.81 ms        | 20.89 ms    | 63.23 ms     |
+| `js-dom-events`        | 42.56 ms        | 30.92 ms    | 70.12 ms     |
+| `js-modules`           | 50.26 ms        | 30.19 ms    | 69.48 ms     |
+| `js-dom-selectors-200` | 51.24 ms        | 31.20 ms    | 66.16 ms     |
+| `static-5000`          | 51.82 ms        | 41.47 ms    | 255.48 ms    |
+| `selectors-200-5000`   | 63.86 ms        | 100.25 ms   | 262.16 ms    |
+| `js-positioned-boxes`  | 53.92 ms        | 35.08 ms    | 77.88 ms     |
+
+Nimbo's median is lower than Chromium in 9/9 scenarios and lower than Obscura
+in 1/9. These end-to-end measurements include the documented HTTP/CDP control
+adapters. No isolated A/B improvement, universal speed advantage or production
+Cloudflare result is established. All previous reports and current p95 values
+remain available; further performance work remains necessary.
+
+Local validation passes 5001 Bun tests and 95 Rust tests in both debug and
+release, plus formatting, Worker/Wasm builds, native/Wasm Clippy and Rust docs.
+The [original URL WPT result](performance-wpt-url.json) separately records
+3,820 passes out of 4,712 completed tests, 892 failures and one incomplete variant.
+The [33-stage original obstacle repeat](performance-obstacle-url.json) records
+13 passed stages, 16 failures and four missing output adapters. Passing local
+regression checks does not replace those original-suite requirements.

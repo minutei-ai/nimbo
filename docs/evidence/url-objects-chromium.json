@@ -1,0 +1,329 @@
+{
+  "date": "2026-10-04",
+  "runtime": "Google Chrome for Testing 153.0.8010.12",
+  "mode": "Ordinary Chromium fresh CDP target; same owned real HTTP supplemental fixture; no mocks",
+  "documents": 64,
+  "checks": 2688,
+  "results": [
+    {
+      "variant": 0,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 1,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 2,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 3,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 4,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 5,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 6,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 7,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 8,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 9,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 10,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 11,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 12,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 13,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 14,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 15,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 16,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 17,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 18,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 19,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 20,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 21,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 22,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 23,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 24,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 25,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 26,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 27,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 28,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 29,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 30,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 31,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 32,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 33,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 34,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 35,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 36,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 37,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 38,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 39,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 40,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 41,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 42,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 43,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 44,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 45,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 46,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 47,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 48,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 49,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 50,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 51,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 52,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 53,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 54,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 55,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 56,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 57,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 58,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 59,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 60,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 61,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 62,
+      "checks": 42,
+      "failed": []
+    },
+    {
+      "variant": 63,
+      "checks": 42,
+      "failed": []
+    }
+  ]
+}

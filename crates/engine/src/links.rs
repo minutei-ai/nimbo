@@ -84,6 +84,38 @@ fn set(property: &str, input: Option<&str>, base: &str, value: &str) -> Option<S
     Some(url.to_string())
 }
 
+fn parse(input: Option<&str>, fallback: &str) -> Option<String> {
+    let base = if fallback.is_empty() {
+        None
+    } else {
+        Some(Url::parse(fallback).ok()?)
+    };
+    Url::options()
+        .base_url(base.as_ref())
+        .parse(input?)
+        .ok()
+        .map(|url| url.to_string())
+}
+
+fn query(operation: &str, input: &str) -> crate::Result<serde_json::Value> {
+    if operation == "queryParse" {
+        Ok(json!(
+            url::form_urlencoded::parse(input.as_bytes())
+                .into_owned()
+                .collect::<Vec<_>>()
+        ))
+    } else {
+        let pairs: Vec<(String, String)> = serde_json::from_str(input)?;
+        let result = url::form_urlencoded::Serializer::new(String::new())
+            .extend_pairs(pairs)
+            .finish();
+        if result.len() > INPUT_LIMIT {
+            return Err(crate::Error::Limit("URL query output"));
+        }
+        Ok(json!(result))
+    }
+}
+
 pub(crate) fn install(ctx: &Ctx<'_>) -> rquickjs::Result<()> {
     ctx.globals().set(
         "nimboLink",
@@ -104,6 +136,11 @@ pub(crate) fn install(ctx: &Ctx<'_>) -> rquickjs::Result<()> {
                     return Err(Exception::throw_message(&ctx, "URL input limit"));
                 }
                 let result = match operation.as_str() {
+                    "parse" => json!(parse(input.as_deref(), &fallback)),
+                    "queryParse" | "querySerialize" => {
+                        query(&operation, input.as_deref().unwrap_or_default())
+                            .map_err(|error| Exception::throw_message(&ctx, &error.to_string()))?
+                    }
                     "base" => json!(base(input.as_deref(), &fallback).map(|url| url.to_string())),
                     "get" => json!(get(&property, input.as_deref(), &fallback)),
                     "set" => json!(set(&property, input.as_deref(), &fallback, &value)),

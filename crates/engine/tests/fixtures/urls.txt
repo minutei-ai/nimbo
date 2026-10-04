@@ -1,0 +1,73 @@
+function urlsCase(variant) {
+  const checks = {};
+  const typeError = callback => { try { callback(); return false; } catch(error) { return error instanceof TypeError; } };
+  const base = 'https://example.test/a/b?x=1#old';
+  const url = new URL('../c?x=2#new',base);
+  checks.relative = url.href === 'https://example.test/c?x=2#new';
+  checks.components = url.protocol === 'https:' && url.hostname === 'example.test' && url.host === 'example.test' && url.port === '' && url.pathname === '/c' && url.search === '?x=2' && url.hash === '#new';
+  checks.origin = url.origin === 'https://example.test';
+  checks.credentials = new URL('https://a:b@example.test:443/').href === 'https://a:b@example.test/';
+  checks.idna = new URL('https://münich.example/').hostname === 'xn--mnich-kva.example';
+  checks.ipv6 = new URL('http://[0:0:0:0:0:0:0:1]:80/').host === '[::1]';
+  checks.file = new URL('file:///C:/a/../b').href === 'file:///C:/b';
+  checks.opaque = new URL('mailto:a@example.test').origin === 'null';
+  checks.blob = new URL('blob:https://example.test/id').origin === 'https://example.test';
+  checks.invalid = typeError(()=>new URL('/relative')) && typeError(()=>new URL(base,'')) && typeError(()=>new URL());
+  checks.usv = new URL('https://example.test/\uD800').pathname === '/%EF%BF%BD';
+  checks.statics = URL.canParse('../c',base) && !URL.canParse('https://[bad') && URL.parse('/c',base).href === 'https://example.test/c' && URL.parse('/c') === null;
+  checks.staticThrows = typeError(()=>URL.canParse()) && typeError(()=>URL.parse()) && typeError(()=>URL.parse(Symbol()));
+  checks.stringifiers = url.toString() === url.href && url.toJSON() === url.href && JSON.stringify(url) === JSON.stringify(url.href);
+  const params = url.searchParams;
+  url.href = 'https://example.test/?a=1&a=2&b=hello%20world';
+  checks.identity = url.searchParams === params && params.getAll('a').join(',') === '1,2';
+  params.append('c', 'a b~');
+  checks.coupled = url.search === '?a=1&a=2&b=hello+world&c=a+b%7E';
+  url.search = '?z=3';
+  checks.reverse = params.toString() === 'z=3' && params === url.searchParams;
+  url.pathname = '/c d'; url.hostname = 'new.example.test'; url.port = '8443'; url.username = 'a b'; url.hash = '#c d';
+  checks.setters = url.pathname === '/c%20d' && url.hostname === 'new.example.test' && url.port === '8443' && url.username === 'a%20b' && url.hash === '#c%20d';
+  const old = url.href;
+  checks.invalidHref = typeError(()=>{url.href='bad'}) && url.href === old;
+  url.port = 'invalid'; checks.invalidPort = url.href === old;
+  const query = new URLSearchParams('?a=1&a=2&x=a+b&bad=%FF&raw=%2&nul=%00');
+  checks.decoding = query.get('x') === 'a b' && query.get('bad') === '\uFFFD' && query.get('raw') === '%2' && query.get('nul') === '\0';
+  checks.size = query.size === 6 && query.getAll('a').join(',') === '1,2' && query.get('none') === null;
+  checks.matching = query.has('a','2') && !query.has('a','3');
+  query.delete('a','1'); checks.deleteValue = query.getAll('a').join(',') === '2';
+  query.append('a','3'); query.set('a','4'); checks.setOrder = [...query.keys()].join(',') === 'a,x,bad,raw,nul' && query.get('a') === '4';
+  query.delete('a'); checks.deleteAll = !query.has('a');
+  checks.sequence = new URLSearchParams([[1,2],['x','\uD800']]).toString() === '1=2&x=%EF%BF%BD';
+  checks.record = new URLSearchParams({'\uD800x':'1','x':'2','\uD801x':'3'}).toString() === '%EF%BF%BDx=3&x=2';
+  const recordInput={get a(){delete this.b;return '1'},b:'2'};
+  checks.record = checks.record && typeError(()=>new URLSearchParams({[Symbol('key')]:'1'})) && new URLSearchParams(recordInput).toString()==='a=1';
+  checks.null = new URLSearchParams(null).toString() === 'null=';
+  checks.pairLength = typeError(()=>new URLSearchParams([['a']])) && typeError(()=>new URLSearchParams([['a','b','c']])) && typeError(()=>new URLSearchParams(['ab']));
+  const sorted = new URLSearchParams('b=1&a=2&b=3'); sorted.sort(); checks.stableSort = sorted.toString() === 'a=2&b=1&b=3';
+  const live = new URLSearchParams('a=1'); const iterator=live.entries(); const first=iterator.next().value; live.append('b','2'); const second=iterator.next().value; iterator.next(); live.append('c','3');
+  checks.iterator = first.join(',') === 'a,1' && second.join(',') === 'b,2' && iterator.next().value.join(',') === 'c,3';
+  const visits=[]; const each=new URLSearchParams('a=1'); const receiver={variant}; each.forEach(function(value,key,owner){visits.push([value,key,owner===each,this===receiver]); if(key==='a')owner.append('b','2')},receiver);
+  checks.forEach = JSON.stringify(visits) === '[["1","a",true,true],["2","b",true,true]]';
+  checks.brands = typeError(()=>URL.prototype.toString.call({})) && typeError(()=>URLSearchParams.prototype.get.call({},'a')) && typeError(()=>new URLSearchParams().append('a')) && typeError(()=>new URLSearchParams().forEach());
+  checks.tags = Object.prototype.toString.call(url) === '[object URL]' && Object.prototype.toString.call(query) === '[object URLSearchParams]' && URLSearchParams.prototype[Symbol.iterator] === URLSearchParams.prototype.entries;
+  let reads=0;const custom=new URLSearchParams({[Symbol.iterator](){let index=0;return {get next(){reads++;return ()=>index++?{done:true}:{done:false,value:['a','b']}}}}});
+  checks.iteratorGetter = reads === 1 && custom.toString() === 'a=b';
+  let closed=false;checks.iteratorClose=typeError(()=>new URLSearchParams({[Symbol.iterator](){return {next(){return {value:['a',Symbol()],done:false}},return(){closed=true;return {done:true}}}}})) && !closed;
+  let consumed=false;const iterable={*[Symbol.iterator](){yield ['a'];consumed=true;yield ['b','c']}};
+  checks.sequenceOrder=typeError(()=>new URLSearchParams(iterable)) && consumed;
+  const parent=document.createElement('div'); const names=parent.getElementsByTagName('I'); const item=document.createElement('i'); item.id='url-item-'+variant; parent.append(item);
+  checks.liveCollection = names instanceof HTMLCollection && names.length===1 && names[0]===item && names.namedItem(item.id)===item;
+  item.remove();checks.collectionRemoval=names.length===0;
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','linearGradient');parent.append(svg);
+  checks.foreignCase=parent.getElementsByTagName('linearGradient').length===1 && parent.getElementsByTagName('lineargradient').length===0 && parent.getElementsByTagName('*').length===1;
+  const own = new URL(location.href);
+  checks.location = location.pathname === own.pathname && location.search === own.search && location.origin === own.origin;
+  return checks;
+}
+function urlsLimitsCase() {
+  const url = new URL('https://example.test/?safe=1');
+  const before = url.href;
+  let boundedURL = false, boundedQuery = false;
+  try { new URL('https://example.test/' + 'a'.repeat(70000)); } catch(error) { boundedURL = String(error).includes('URL input limit'); }
+  try { url.searchParams.append('large', 'é'.repeat(16000)); } catch(error) { boundedQuery = String(error).includes('URL query output'); }
+  return {boundedURL,boundedQuery,statePreserved:url.href===before && url.searchParams.toString()==='safe=1',recovered:new URL('/ok','https://example.test/').href==='https://example.test/ok'};
+}

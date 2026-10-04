@@ -1392,20 +1392,24 @@ fn registered_custom_properties_validate_before_substitution() -> TestResult {
     Ok(())
 }
 
-fn serve_resource(request: Request) -> io::Result<()> {
-    if [
+fn is_dom_resource(path: &str) -> bool {
+    [
         "/link-guard",
         "/large-dom/",
         "/custom-boxes/",
         "/positioned-boxes/",
         "/namespaced-elements/",
+        "/urls/",
         "/response-encoding/",
         "/adopted-sheets/",
         "/constructed-sheets/",
     ]
     .iter()
-    .any(|prefix| request.url().starts_with(prefix))
-    {
+    .any(|prefix| path.starts_with(prefix))
+}
+
+fn serve_resource(request: Request) -> io::Result<()> {
+    if is_dom_resource(request.url()) {
         return serve_dom_resources(request);
     }
     if request.url().starts_with("/html-boxes/") || request.url().starts_with("/html-boxes-assets/")
@@ -1604,53 +1608,46 @@ fn binary_font_data_parses_real_bytes_and_tracks_status() -> TestResult {
 }
 
 fn is_resource(path: &str) -> bool {
-    [
-        "/sheets-css/",
-        "/layout-budget/",
-        "/logical-size/",
-        "/outlines/",
-        "/tabs/",
-        "/line-height/",
-        "/background-images/",
-        "/background-position/",
-        "/background-position-assets/",
-        "/background-repeat/",
-        "/background-repeat-assets/",
-        "/background-size/",
-        "/background-size-assets/",
-        "/background-layers/",
-        "/font-family/",
-        "/display/",
-        "/html-boxes/",
-        "/link-guard",
-        "/large-dom/",
-        "/custom-boxes/",
-        "/positioned-boxes/",
-        "/namespaced-elements/",
-        "/response-encoding/",
-        "/adopted-sheets/",
-        "/constructed-sheets/",
-        "/html-boxes-assets/",
-        "/display-assets/",
-        "/font-family-assets/",
-        "/background-layers-assets/",
-        "/background-images-assets/",
-        "/line-height-assets/",
-        "/tabs-assets/",
-        "/text-adjust/",
-        "/text-adjust-assets/",
-        "/outline-assets/",
-        "/canvas/",
-        "/borders/",
-        "/css-budget/",
-        "/css-budget-assets/",
-        "/binary/",
-        "/font-assets/",
-        "/font-loading/",
-        "/font-matching/",
-    ]
-    .iter()
-    .any(|prefix| path.starts_with(prefix))
+    is_dom_resource(path)
+        || [
+            "/sheets-css/",
+            "/layout-budget/",
+            "/logical-size/",
+            "/outlines/",
+            "/tabs/",
+            "/line-height/",
+            "/background-images/",
+            "/background-position/",
+            "/background-position-assets/",
+            "/background-repeat/",
+            "/background-repeat-assets/",
+            "/background-size/",
+            "/background-size-assets/",
+            "/background-layers/",
+            "/font-family/",
+            "/display/",
+            "/html-boxes/",
+            "/html-boxes-assets/",
+            "/display-assets/",
+            "/font-family-assets/",
+            "/background-layers-assets/",
+            "/background-images-assets/",
+            "/line-height-assets/",
+            "/tabs-assets/",
+            "/text-adjust/",
+            "/text-adjust-assets/",
+            "/outline-assets/",
+            "/canvas/",
+            "/borders/",
+            "/css-budget/",
+            "/css-budget-assets/",
+            "/binary/",
+            "/font-assets/",
+            "/font-loading/",
+            "/font-matching/",
+        ]
+        .iter()
+        .any(|prefix| path.starts_with(prefix))
 }
 
 fn serve_fonts(request: Request) -> io::Result<()> {
@@ -2523,6 +2520,15 @@ fn serve_dom_resources(request: Request) -> io::Result<()> {
         );
     }
 
+    if request.url().starts_with("/urls/") {
+        return request.respond(
+            Response::from_string(format!(
+                "<!doctype html><meta charset=utf-8>{}",
+                script_fixture(include_str!("fixtures/urls.txt"))
+            ))
+            .with_header(header("Content-Type", "text/html")?),
+        );
+    }
     if request.url().starts_with("/namespaced-elements/") {
         return request.respond(
             Response::from_string(format!(
@@ -2663,5 +2669,34 @@ fn response_encodings_decode_before_dom_and_javascript() -> TestResult {
             );
         }
     }
+    Ok(())
+}
+
+#[test]
+fn url_objects_and_live_queries_use_native_url_parser() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/urls/{variant}")))?;
+        let result = page.evaluate(&format!("urlsCase({variant})"))?;
+        let checks = result.as_object().ok_or("missing URL checks")?;
+        assert_eq!(checks.len(), 42);
+        assert!(
+            checks.values().all(|value| value == &json!(true)),
+            "{result}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn url_limits_preserve_state_and_allow_recovery() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    let page = browser.navigate(&fixture.path("/urls/0"))?;
+    assert_eq!(
+        page.evaluate("urlsLimitsCase()")?,
+        json!({"boundedURL":true,"boundedQuery":true,"statePreserved":true,"recovered":true})
+    );
     Ok(())
 }

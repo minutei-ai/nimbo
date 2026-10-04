@@ -562,7 +562,8 @@ evidence cannot establish it.
 | localStorage/sessionStorage/IndexedDB                | Subset     | Web Storage/quota tested; IndexedDB, durable state and storage events missing                     |
 | HTMLAnchorElement and document base                  | Subset     | Native links/relList and real script/module/fetch loads; navigation gaps                          |
 | TextEncoder/TextDecoder                              | Subset     | Native bytes/codecs, Unicode, streams of chunks and fatal queue tests; WPT gaps                   |
-| URL, encoding streams, File APIs and WebCrypto       | Missing    | Pinned WPT with actual algorithms and binary round trips                                          |
+| URL and URLSearchParams                              | Partial    | Original URL WPT execution and recorded failures; remaining globals and tests pending             |
+| Encoding streams, File APIs and WebCrypto            | Missing    | Pinned WPT with actual algorithms and binary round trips                                          |
 | Page WebAssembly and Web Workers                     | Missing    | Guest modules, imports, worker messages, termination and isolation                                |
 | Media queries and logical viewport                   | Subset     | Native queries/configuration tested; live updates and full CSSOM/MQ WPT missing                   |
 | Inline CSS declarations                              | Subset     | Native property grammar and live HTML style mutations tested; full CSSOM missing                  |
@@ -2394,3 +2395,48 @@ text. The corrected fixture adapter sends the same MIME media types as upstream
 Python without injecting a UTF-8 charset. The [historical transport diagnostic](performance-obstacle-response-encoding-transport-diagnostic.json)
 retains the failed result under the prior, incorrect forced-UTF-8 header. Neither
 record establishes complete encoding conformance or a full obstacle-course pass.
+
+## URL objects and original URL WPT execution
+
+Nimbo implements URL and URLSearchParams inside its own engine. Rust's existing
+URL parser and form codec handle canonicalization, component parsing and query
+bytes; page bindings implement USVString conversion, Web IDL argument and brand
+checks, ordered duplicate pairs, live URL/query coupling, mutation and iteration.
+Parsing a URL does not authorize fetching its scheme or destination. URL input
+and serialized query output remain bounded at 64 KiB; resource failures preserve
+query state. Location exposes the current URL's components; navigation, History
+and independent browsing contexts remain pending.
+
+The supplemental fixture has 42 assertions across 64 fresh HTTP documents in
+each native and Worker/Wasm execution, including constructor/coercion order,
+Unicode, component mutation, query ordering, iteration after exhaustion, live
+HTMLCollection tag matching and Location decomposition. The
+[ordinary Chromium reference](evidence/url-objects-chromium.json) executes those
+same 2,688 assertions in Chromium 153 and records no mismatches. Separate native
+and Worker tests exercise the engine's input/output caps and recovery; Chromium
+is not expected to share those engine resource limits.
+
+The [original WPT result](performance-wpt-url.json) preserves the pinned original
+harness, 24 URL `.any.js` files, data, META dependencies and all 30 window-global
+variants: **3,820 of 4,712 completed tests pass**, with 892 failures and one
+incomplete variant containing 137 tests in the Chromium run. Source hashes are
+verified before execution. No assertion is replaced
+or relaxed. The original URL interface IDL tests pass 77/77; broader parsing and
+IDNA failures, missing Request/FormData/body APIs, structured cloning and the
+file-constructor variant's DOM operation limit remain visible. Incomplete
+variants do not enter the completed-subtest count or count as passes.
+
+The [Chromium 152 reference](evidence/wpt-url-chromium.json) executes the same
+original 4,849 window-global tests and records 4,673 passes and 176 failures.
+Version-dependent failures retain the original expectations. This is a selected
+URL subset, not the full URL suite, complete WPT execution, browser parity or a
+stealth pass. Dedicated-worker globals, `.html`, `.window.js` and XHTML files and
+all broader benchmark obligations remain required.
+
+The [original URL obstacle fixture](performance-obstacle-url.json) passes all
+six attempts with the original three-second delay and expected value. The full
+33-stage repeat records 13 passes, 16 failures and four missing output adapters.
+The [three-runtime repeat](performance-comparison-url.json) records 648 valid
+extractions, zero failures and 567 measured samples over nine scenarios. Nimbo's
+p50 is lower than Chromium in 9/9 scenarios and lower than public Obscura in 1/9;
+these local control-adapter measurements do not establish universal superiority.

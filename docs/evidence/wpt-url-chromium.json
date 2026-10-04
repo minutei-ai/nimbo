@@ -1,0 +1,1233 @@
+{
+  "date": "2026-10-04",
+  "source": "https://github.com/web-platform-tests/wpt",
+  "source_commit": "03f14d4780c4d981bc84c65679b18e9327a1affe",
+  "runtime": "T3 collaborative Chromium 152 / Electron 44.4.2",
+  "mode": "Same verified original WPT HTTP fixture adapter and window-global META variants as Nimbo; original testharness, data and assertions; no mocks",
+  "scope": "24 url/*.any.js files, 30 window-global variants; other globals and URL files remain pending; original expectations retained even when Chromium fails",
+  "variants": 30,
+  "total": 4849,
+  "passed": 4673,
+  "failed": 176,
+  "results": [
+    {
+      "file": "url/IdnaTestV2-removed.any.js",
+      "variant": "",
+      "verdict": {
+        "failed": [],
+        "message": null,
+        "passed": 21,
+        "status": 0,
+        "total": 21
+      }
+    },
+    {
+      "file": "url/IdnaTestV2.any.js",
+      "variant": "",
+      "verdict": {
+        "failed": [
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"≠ᢙ≯.솣-ᡴⴀ\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"≠ᢙ≯.솣-ᡴႠ\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"≯1.。ß\") A4_2 (ignored)",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"≯1.。SS\") A4_2 (ignored)",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"≯1.。ss\") A4_2 (ignored)",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"≯1.。Ss\") A4_2 (ignored)",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"ᡙ.≯𐋲≠\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"。。Ⴃ≯\") A4_2 (ignored)",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"。。ⴃ≯\") A4_2 (ignored)",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"⾆．ꡈ５≯ß\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"舌.ꡈ5≯ß\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"舌.ꡈ5≯SS\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"舌.ꡈ5≯ss\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"舌.ꡈ5≯Ss\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"⾆．ꡈ５≯SS\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"⾆．ꡈ５≯ss\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"⾆．ꡈ５≯Ss\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"ⴁ畝.≮\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"Ⴁ畝.≮\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"Ⴕ。۰≮ß݅\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"ⴕ。۰≮ß݅\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"Ⴕ。۰≮SS݅\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"ⴕ。۰≮ss݅\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"Ⴕ。۰≮Ss݅\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"ⴕ.۰≮ss݅\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"Ⴕ.۰≮SS݅\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"Ⴕ.۰≮Ss݅\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"ⴕ.۰≮ß݅\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"8≮.\") A4_2 (ignored)",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"羚｡≯\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"羚。≯\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"羚.≯\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"🂴Ⴋ.≮\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"🂴ⴋ.≮\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"≮𝟕．謖ß≯\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"≮7.謖ß≯\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"≮7.謖SS≯\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"≮7.謖ss≯\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"≮7.謖Ss≯\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"≮𝟕．謖SS≯\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"≮𝟕．謖ss≯\")",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "ToASCII(\"≮𝟕．謖Ss≯\")",
+            "status": 1
+          }
+        ],
+        "message": null,
+        "passed": 2629,
+        "status": 0,
+        "total": 2671
+      }
+    },
+    {
+      "file": "url/historical.any.js",
+      "variant": "",
+      "verdict": {
+        "failed": [],
+        "message": null,
+        "passed": 8,
+        "status": 0,
+        "total": 8
+      }
+    },
+    {
+      "file": "url/idlharness.any.js",
+      "variant": "",
+      "verdict": {
+        "failed": [],
+        "message": null,
+        "passed": 77,
+        "status": 0,
+        "total": 77
+      }
+    },
+    {
+      "file": "url/url-constructor.any.js",
+      "variant": "?include=file",
+      "verdict": {
+        "failed": [
+          {
+            "message": "assert_equals: href expected \"file:///c:/foo/bar.html\" but got \"file:///tmp/mock/c:/foo/bar.html\"",
+            "name": "Parsing: <file:c:\\foo\\bar.html> against <file:///tmp/mock/path>",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file:///c:////foo/bar.html\" but got \"file:///tmp/mock/c%7C////foo/bar.html\"",
+            "name": "Parsing: <  File:c|////foo\\bar.html> against <file:///tmp/mock/path>",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file:///C:/foo/bar\" but got \"file:///tmp/mock/C%7C/foo/bar\"",
+            "name": "Parsing: <C|/foo/bar> against <file:///tmp/mock/path>",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file:///C:/foo/bar\" but got \"file:///C%7C/foo/bar\"",
+            "name": "Parsing: </C|\\foo\\bar> against <file:///tmp/mock/path>",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "Parsing: <//C|/foo/bar> against <file:///tmp/mock/path>",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file:///\" but got \"file://localhost/\"",
+            "name": "Parsing: <file://localhost> against <file:///tmp/mock/path>",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file:///\" but got \"file://localhost/\"",
+            "name": "Parsing: <file://localhost/> against <file:///tmp/mock/path>",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file:///test\" but got \"file://localhost/test\"",
+            "name": "Parsing: <file://localhost/test> against <file:///tmp/mock/path>",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file:///w|m\" but got \"file:///w%7Cm\"",
+            "name": "Parsing: <file:///w|m> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file:///w||m\" but got \"file:///w%7C%7Cm\"",
+            "name": "Parsing: <file:///w||m> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file:///w:/m\" but got \"file:///w%7C/m\"",
+            "name": "Parsing: <file:///w|/m> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file:///C:/m/\" but got \"file:///C%7C/m/\"",
+            "name": "Parsing: <file:C|/m/> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file:///C||/m/\" but got \"file:///C%7C%7C/m/\"",
+            "name": "Parsing: <file:C||/m/> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file:///C:/\" but got \"file:///\"",
+            "name": "Parsing: <..> against <file:///C:/>",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file:///C:/\" but got \"file:///\"",
+            "name": "Parsing: </> against <file:///C:/a/b>",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file://h/C:/\" but got \"file://h/\"",
+            "name": "Parsing: </> against <file://h/C:/a/b>",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "Parsing: <//d:> against <file:///C:/a/b>",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "Parsing: <//d:/..> against <file:///C:/a/b>",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file:////\" but got \"file:///\"",
+            "name": "Parsing: <file:\\\\//> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file:////\" but got \"file:///\"",
+            "name": "Parsing: <file:\\\\\\\\> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file:////?fox\" but got \"file:///?fox\"",
+            "name": "Parsing: <file:\\\\\\\\?fox> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file:////#guppy\" but got \"file:///#guppy\"",
+            "name": "Parsing: <file:\\\\\\\\#guppy> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file:////\" but got \"file://localhost//\"",
+            "name": "Parsing: <file:\\\\localhost//> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file:////localhost//cat\" but got \"file:///localhost//cat\"",
+            "name": "Parsing: <file://\\/localhost//cat> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file://///\" but got \"file://localhost///\"",
+            "name": "Parsing: <file://localhost//a//../..//> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file://///mouse\" but got \"file:///mouse\"",
+            "name": "Parsing: </////mouse> against <file:///elephant>",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file:////pig\" but got \"file://localhost//pig\"",
+            "name": "Parsing: <\\/localhost//pig> against <file://lion/>",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file:////pig\" but got \"file://localhost//pig\"",
+            "name": "Parsing: <//localhost//pig> against <file://lion/>",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file://host/C:\" but got \"file://host/dir/C%7C\"",
+            "name": "Parsing: <C|> against <file://host/dir/file>",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file://host/C:\" but got \"file://host/D:/dir1/dir2/C%7C\"",
+            "name": "Parsing: <C|> against <file://host/D:/dir1/dir2/file>",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file://host/C:#\" but got \"file://host/dir/C%7C#\"",
+            "name": "Parsing: <C|#> against <file://host/dir/file>",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file://host/C:?\" but got \"file://host/dir/C%7C?\"",
+            "name": "Parsing: <C|?> against <file://host/dir/file>",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file://host/C:/\" but got \"file://host/dir/C%7C/\"",
+            "name": "Parsing: <C|/> against <file://host/dir/file>",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file://host/C:/\" but got \"file://host/dir/C%7C/\"",
+            "name": "Parsing: <C|\n/> against <file://host/dir/file>",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file://host/C:/\" but got \"file://host/dir/C%7C/\"",
+            "name": "Parsing: <C|\\> against <file://host/dir/file>",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file://host/dir/C|a\" but got \"file://host/dir/C%7Ca\"",
+            "name": "Parsing: <C|a> against <file://host/dir/file>",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file:///c:/foo/bar\" but got \"file:///c%7C/foo/bar\"",
+            "name": "Parsing: </c|/foo/bar> against <file:///c:/baz/qux>",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file://x/C:/\" but got \"file://x/\"",
+            "name": "Parsing: <..> against <file://x/C:/>",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file://host/C:/\" but got \"file://host/C%7C/\"",
+            "name": "Parsing: <C|/> against <file://host/>",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "Parsing: <//C:/> against <file://host/>",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "Parsing: <file://C:/> against <file://host/>",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file:///C:/\" but got \"file:///C%7C/\"",
+            "name": "Parsing: <file:/C|/> without base",
+            "status": 1
+          },
+          {
+            "message": "Failed to construct 'URL': Invalid URL",
+            "name": "Parsing: <file://C|/> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file://///foo\" but got \"file://localhost///foo\"",
+            "name": "Parsing: <file://localhost//a//../..//foo> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file://////foo\" but got \"file://localhost////foo\"",
+            "name": "Parsing: <file://localhost////foo> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file:////foo\" but got \"file:///foo\"",
+            "name": "Parsing: <file:////foo> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file:////one/two\" but got \"file:///one/two\"",
+            "name": "Parsing: <file:////one/two> against <file:///>",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file:////one/two\" but got \"file:///one/two\"",
+            "name": "Parsing: <////one/two> against <file:///>",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file:///usr/bin\" but got \"file://localhost/usr/bin\"",
+            "name": "Parsing: <file://loC𝐀𝐋𝐇𝐨𝐬𝐭/usr/bin> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"file://////\" but got \"file:///\"",
+            "name": "Parsing: </\\//\\/a/../> against <file:///>",
+            "status": 1
+          }
+        ],
+        "message": null,
+        "passed": 87,
+        "status": 0,
+        "total": 137
+      }
+    },
+    {
+      "file": "url/url-constructor.any.js",
+      "variant": "?include=javascript",
+      "verdict": {
+        "failed": [],
+        "message": null,
+        "passed": 13,
+        "status": 0,
+        "total": 13
+      }
+    },
+    {
+      "file": "url/url-constructor.any.js",
+      "variant": "?include=mailto",
+      "verdict": {
+        "failed": [],
+        "message": null,
+        "passed": 14,
+        "status": 0,
+        "total": 14
+      }
+    },
+    {
+      "file": "url/url-constructor.any.js",
+      "variant": "?exclude=(file|javascript|mailto)",
+      "verdict": {
+        "failed": [
+          {
+            "message": "assert_throws_js: function \"function() {\n          new URL(expected.input, base);\n        }\" did not throw",
+            "name": "Parsing: <http://example example.com> against <http://other.com/>",
+            "status": 1
+          },
+          {
+            "message": "assert_throws_js: function \"function() {\n          new URL(expected.input, base);\n        }\" did not throw",
+            "name": "Parsing: <http://GOO 　goo.com> against <http://other.com/>",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"non-special:opaque %20?hi\" but got \"non-special:opaque  ?hi\"",
+            "name": "Parsing: <non-special:opaque  ?hi> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"non-special:opaque %20#hi\" but got \"non-special:opaque  #hi\"",
+            "name": "Parsing: <non-special:opaque  #hi> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"non-special:opaque  %20#hi\" but got \"non-special:opaque   #hi\"",
+            "name": "Parsing: <non-special:opaque \t\t  \t#hi> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"non-special:opaque  %20#hi\" but got \"non-special:opaque   #hi\"",
+            "name": "Parsing: <non-special:opaque \t\t  #hi> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"non-special:opaque  %20#hi\" but got \"non-special:opaque   #hi\"",
+            "name": "Parsing: <non-special:opaque\t\t  \r #hi> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_throws_js: function \"function() {\n          new URL(expected.input, base);\n        }\" did not throw",
+            "name": "Parsing: <http://％４１.com> against <http://other.com/>",
+            "status": 1
+          },
+          {
+            "message": "assert_throws_js: function \"function() {\n          new URL(expected.input, base);\n        }\" did not throw",
+            "name": "Parsing: <http://%ef%bc%85%ef%bc%94%ef%bc%91.com> against <http://other.com/>",
+            "status": 1
+          },
+          {
+            "message": "assert_throws_js: function \"function() {\n          new URL(expected.input, base);\n        }\" did not throw",
+            "name": "Parsing: <http://192.168.0.1 hello> against <http://other.com/>",
+            "status": 1
+          },
+          {
+            "message": "assert_throws_js: function \"function() {\n          new URL(expected.input, base);\n        }\" did not throw",
+            "name": "Parsing: <https://x x:12> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_throws_js: function \"function() {\n          new URL(expected.input, base);\n        }\" did not throw",
+            "name": "Parsing: <http://[::%31]> against <http://other.com/>",
+            "status": 1
+          },
+          {
+            "message": "assert_throws_js: function \"function() {\n          new URL(expected.input, base);\n        }\" did not throw",
+            "name": "Parsing: <http://%5B::1]> against <http://other.com/>",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"notspecial://host/?'\" but got \"notspecial://host/?%27\"",
+            "name": "Parsing: <notspecial://host/?'> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_throws_js: function \"function() {\n          new URL(expected.input, base);\n        }\" did not throw",
+            "name": "Parsing: <http://a b/> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_throws_js: function \"function() {\n          new URL(expected.input, base);\n        }\" did not throw",
+            "name": "Parsing: <http://ho%20st/> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"http://!\\\"$&'()*+,-.;=_`{}~/\" but got \"http://!\\\"$&'()%2A+,-.;=_`{}~/\"",
+            "name": "Parsing: <http://!\"$&'()*+,-.;=_`{}~/> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_throws_js: function \"function() {\n          new URL(expected.input, base);\n        }\" did not throw",
+            "name": "Parsing: <https://[0:1:2:3:4:5:192.0.02.1]/> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"foo://%20!%22$%&'()*+,-.%3B%3C%3D%3E%40%5B%5C%5D%5E_%60%7B%7C%7D~@host/\" but got \"foo://%20!%22$%&%27()*+,-.%3B%3C%3D%3E%40%5B%5C%5D%5E_%60%7B%7C%7D~@host/\"",
+            "name": "Parsing: <foo:// !\"$%&'()*+,-.;<=>@[\\]^_`{|}~@host/> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"wss://%20!%22$%&'()*+,-.%3B%3C%3D%3E%40%5B%5D%5E_%60%7B%7C%7D~@host/\" but got \"wss://%20!%22$%&%27()*+,-.%3B%3C%3D%3E%40%5B%5D%5E_%60%7B%7C%7D~@host/\"",
+            "name": "Parsing: <wss:// !\"$%&'()*+,-.;<=>@[]^_`{|}~@host/> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"foo://joe:%20!%22$%&'()*+,-.%3A%3B%3C%3D%3E%40%5B%5C%5D%5E_%60%7B%7C%7D~@host/\" but got \"foo://joe:%20!%22$%&%27()*+,-.%3A%3B%3C%3D%3E%40%5B%5C%5D%5E_%60%7B%7C%7D~@host/\"",
+            "name": "Parsing: <foo://joe: !\"$%&'()*+,-.:;<=>@[\\]^_`{|}~@host/> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"wss://joe:%20!%22$%&'()*+,-.%3A%3B%3C%3D%3E%40%5B%5D%5E_%60%7B%7C%7D~@host/\" but got \"wss://joe:%20!%22$%&%27()*+,-.%3A%3B%3C%3D%3E%40%5B%5D%5E_%60%7B%7C%7D~@host/\"",
+            "name": "Parsing: <wss://joe: !\"$%&'()*+,-.:;<=>@[]^_`{|}~@host/> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"wss://!\\\"$&'()*+,-.;=_`{}~/\" but got \"wss://!\\\"$&'()%2A+,-.;=_`{}~/\"",
+            "name": "Parsing: <wss://!\"$&'()*+,-.;=_`{}~/> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"foo://host/%20!%22$%&'()*+,-./:;%3C=%3E@[\\\\]%5E_%60%7B|%7D~\" but got \"foo://host/%20!%22$%&'()*+,-./:;%3C=%3E@[\\\\]%5E_%60%7B%7C%7D~\"",
+            "name": "Parsing: <foo://host/ !\"$%&'()*+,-./:;<=>@[\\]^_`{|}~> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"wss://host/%20!%22$%&'()*+,-./:;%3C=%3E@[/]%5E_%60%7B|%7D~\" but got \"wss://host/%20!%22$%&'()*+,-./:;%3C=%3E@[/]%5E_%60%7B%7C%7D~\"",
+            "name": "Parsing: <wss://host/ !\"$%&'()*+,-./:;<=>@[\\]^_`{|}~> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"foo://host/dir/?%20!%22$%&'()*+,-./:;%3C=%3E?@[\\\\]^_`{|}~\" but got \"foo://host/dir/?%20!%22$%&%27()*+,-./:;%3C=%3E?@[\\\\]^_`{|}~\"",
+            "name": "Parsing: <foo://host/dir/? !\"$%&'()*+,-./:;<=>?@[\\]^_`{|}~> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: host expected \"x:0\" but got \"\"",
+            "name": "Parsing: <android://x:0/a> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: host expected \"x:0\" but got \"\"",
+            "name": "Parsing: <drivefs://x:0/a> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: host expected \"x:0\" but got \"\"",
+            "name": "Parsing: <chromeos-steam://x:0/a> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: host expected \"x:0\" but got \"\"",
+            "name": "Parsing: <steam://x:0/a> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: host expected \"x:0\" but got \"\"",
+            "name": "Parsing: <materialized-view://x:0/a> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"chrome-extension://x:0\" but got \"chrome-extension://x/\"",
+            "name": "Parsing: <chrome-extension://x:0> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"foo://foo/\\\\a\" but got \"foo://foo/a\"",
+            "name": "Parsing: <\\a> against <foo://foo/a>",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"foo://foo/\\\\/a\" but got \"foo:/\\\\/a\"",
+            "name": "Parsing: <\\/a> against <foo://foo/a>",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"foo://foo/\\\\\\\\a\" but got \"foo:/\\\\\\\\a\"",
+            "name": "Parsing: <\\\\a> against <foo://foo/a>",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: href expected \"data:text/plain,test#%00%01%1F%20!%22#$%&'()*+,-./09:;%3C=%3E?@AZ[\\\\]^_%60az{|}~%7F%C2%80%C2%81%C3%89%C3%A9\" but got \"data:text/plain,test#%00%01%09%0A%0D%1F%20!%22#$%&'()*+,-./09:;%3C=%3E?@AZ[\\\\]^_%60az{|}~%7F%C2%80%C2%81%C3%89%C3%A9\"",
+            "name": "Parsing: <data:text/plain,test#\u0000\u0001\t\n\r\u001f !\"#$%&'()*+,-./09:;<=>?@AZ[\\]^_`az{|}~Éé> without base",
+            "status": 1
+          }
+        ],
+        "message": null,
+        "passed": 701,
+        "status": 0,
+        "total": 737
+      }
+    },
+    {
+      "file": "url/url-origin.any.js",
+      "variant": "",
+      "verdict": {
+        "failed": [
+          {
+            "message": "assert_equals: origin expected \"http://!\\\"$&'()*+,-.;=_`{}~\" but got \"http://!\\\"$&'()%2A+,-.;=_`{}~\"",
+            "name": "Origin parsing: <http://!\"$&'()*+,-.;=_`{}~/> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: origin expected \"null\" but got \"ftp://host\"",
+            "name": "Origin parsing: <blob:ftp://host/path> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: origin expected \"null\" but got \"ws://example.org\"",
+            "name": "Origin parsing: <blob:ws://example.org/> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: origin expected \"null\" but got \"wss://example.org\"",
+            "name": "Origin parsing: <blob:wss://example.org/> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: origin expected \"wss://!\\\"$&'()*+,-.;=_`{}~\" but got \"wss://!\\\"$&'()%2A+,-.;=_`{}~\"",
+            "name": "Origin parsing: <wss://!\"$&'()*+,-.;=_`{}~/> without base",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: origin expected \"null\" but got \"chrome-extension://x\"",
+            "name": "Origin parsing: <chrome-extension://x:0> without base",
+            "status": 1
+          }
+        ],
+        "message": null,
+        "passed": 407,
+        "status": 0,
+        "total": 413
+      }
+    },
+    {
+      "file": "url/url-searchparams.any.js",
+      "variant": "",
+      "verdict": {
+        "failed": [],
+        "message": null,
+        "passed": 4,
+        "status": 0,
+        "total": 4
+      }
+    },
+    {
+      "file": "url/url-setters-stripping.any.js",
+      "variant": "",
+      "verdict": {
+        "failed": [
+          {
+            "message": "assert_equals: property expected \"http:\" but got \"https:\"",
+            "name": "Setting protocol with leading U+0009 (https:)",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: property expected \"http:\" but got \"https:\"",
+            "name": "Setting protocol with U+0009 before inserted colon (https:)",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: property expected \"http:\" but got \"https:\"",
+            "name": "Setting protocol with leading U+000A (https:)",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: property expected \"http:\" but got \"https:\"",
+            "name": "Setting protocol with U+000A before inserted colon (https:)",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: property expected \"http:\" but got \"https:\"",
+            "name": "Setting protocol with leading U+000D (https:)",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: property expected \"http:\" but got \"https:\"",
+            "name": "Setting protocol with U+000D before inserted colon (https:)",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: property expected \"wpt--:\" but got \"wpt++:\"",
+            "name": "Setting protocol with leading U+0009 (wpt++:)",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: property expected \"wpt--:\" but got \"wpt++:\"",
+            "name": "Setting protocol with U+0009 before inserted colon (wpt++:)",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: property expected \"wpt--:\" but got \"wpt++:\"",
+            "name": "Setting protocol with leading U+000A (wpt++:)",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: property expected \"wpt--:\" but got \"wpt++:\"",
+            "name": "Setting protocol with U+000A before inserted colon (wpt++:)",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: property expected \"wpt--:\" but got \"wpt++:\"",
+            "name": "Setting protocol with leading U+000D (wpt++:)",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: property expected \"wpt--:\" but got \"wpt++:\"",
+            "name": "Setting protocol with U+000D before inserted colon (wpt++:)",
+            "status": 1
+          }
+        ],
+        "message": null,
+        "passed": 248,
+        "status": 0,
+        "total": 260
+      }
+    },
+    {
+      "file": "url/url-setters.any.js",
+      "variant": "?include=file",
+      "verdict": {
+        "failed": [
+          {
+            "message": "assert_equals: expected \"file:///\" but got \"http://localhost/\"",
+            "name": "URL: Setting <file://localhost/>.protocol = 'http' Can’t switch from file URL with no host",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: expected \"file://y/\" but got \"file://x/\"",
+            "name": "URL: Setting <file://y/>.host = 'x:123'",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: expected \"file:///\" but got \"file://localhost/\"",
+            "name": "URL: Setting <file://y/>.host = 'loc%41lhost'",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: expected \"file:///\" but got \"file://localhost/\"",
+            "name": "URL: Setting <file://y/>.hostname = 'loc%41lhost'",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: expected \"file:///\" but got \"file://localhost/\"",
+            "name": "URL: Setting <file://localhost/>.port = '12'",
+            "status": 1
+          }
+        ],
+        "message": null,
+        "passed": 17,
+        "status": 0,
+        "total": 22
+      }
+    },
+    {
+      "file": "url/url-setters.any.js",
+      "variant": "?include=javascript",
+      "verdict": {
+        "failed": [],
+        "message": null,
+        "passed": 7,
+        "status": 0,
+        "total": 7
+      }
+    },
+    {
+      "file": "url/url-setters.any.js",
+      "variant": "?include=mailto",
+      "verdict": {
+        "failed": [
+          {
+            "message": "assert_equals: expected \"mailto:me@example.net\" but got \"http://me@example.net/\"",
+            "name": "URL: Setting <mailto:me@example.net>.protocol = 'http' Cannot-be-a-base URL doesn’t have a host, but URL in a special scheme must.",
+            "status": 1
+          }
+        ],
+        "message": null,
+        "passed": 6,
+        "status": 0,
+        "total": 7
+      }
+    },
+    {
+      "file": "url/url-setters.any.js",
+      "variant": "?exclude=(file|javascript|mailto)",
+      "verdict": {
+        "failed": [
+          {
+            "message": "assert_equals: expected \"ssh://me@example.net\" but got \"http://me@example.net/\"",
+            "name": "URL: Setting <ssh://me@example.net>.protocol = 'http' Can’t switch from non-special scheme to special",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: expected \"ssh://me@example.net\" but got \"https://me@example.net/\"",
+            "name": "URL: Setting <ssh://me@example.net>.protocol = 'https'",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: expected \"ssh://me@example.net\" but got \"file://me%40example.net/\"",
+            "name": "URL: Setting <ssh://me@example.net>.protocol = 'file'",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: expected \"ssh://example.net\" but got \"file://example.net/\"",
+            "name": "URL: Setting <ssh://example.net>.protocol = 'file'",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: expected \"nonsense:///test\" but got \"https://test/\"",
+            "name": "URL: Setting <nonsense:///test>.protocol = 'https'",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: expected \"https://test/\" but got \"http://test/\"",
+            "name": "URL: Setting <http://test/>.protocol = 'h\r\ntt\tps' Tab and newline are stripped",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: expected \"https://test/\" but got \"http://test/\"",
+            "name": "URL: Setting <http://test/>.protocol = 'https\r'",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: expected \"http://%00%01%09%0A%0D%1F%20!%22%23$%&'()*+,-.%2F09%3A%3B%3C%3D%3E%3F%40AZ%5B%5C%5D%5E_%60az%7B%7C%7D~%7F%C2%80%C2%81%C3%89%C3%A9@example.net/\" but got \"http://%00%01%09%0A%0D%1F%20!%22%23$%&%27()*+,-.%2F09%3A%3B%3C%3D%3E%3F%40AZ%5B%5C%5D%5E_%60az%7B%7C%7D~%7F%C2%80%C2%81%C3%89%C3%A9@example.net/\"",
+            "name": "URL: Setting <http://example.net>.username = '\u0000\u0001\t\n\r\u001f !\"#$%&'()*+,-./09:;<=>?@AZ[\\]^_`az{|}~Éé' UTF-8 percent encoding with the userinfo encode set.",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: expected \"http://:%00%01%09%0A%0D%1F%20!%22%23$%&'()*+,-.%2F09%3A%3B%3C%3D%3E%3F%40AZ%5B%5C%5D%5E_%60az%7B%7C%7D~%7F%C2%80%C2%81%C3%89%C3%A9@example.net/\" but got \"http://:%00%01%09%0A%0D%1F%20!%22%23$%&%27()*+,-.%2F09%3A%3B%3C%3D%3E%3F%40AZ%5B%5C%5D%5E_%60az%7B%7C%7D~%7F%C2%80%C2%81%C3%89%C3%A9@example.net/\"",
+            "name": "URL: Setting <http://example.net>.password = '\u0000\u0001\t\n\r\u001f !\"#$%&'()*+,-./09:;<=>?@AZ[\\]^_`az{|}~Éé' UTF-8 percent encoding with the userinfo encode set.",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: expected \"https://*/\" but got \"https://%2A/\"",
+            "name": "URL: Setting <https://test.invalid/>.host = '*'",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: expected \"https://*/\" but got \"https://%2A/\"",
+            "name": "URL: Setting <https://test.invalid/>.hostname = '*'",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: expected \"a:/%00%01%1F%20!%22%23$%&'()*+,-./09:;%3C=%3E%3F@AZ[\\\\]%5E_%60az%7B|%7D~%7F%C2%80%C2%81%C3%89%C3%A9\" but got \"a:/%00%01%1F%20!%22%23$%&'()*+,-./09:;%3C=%3E%3F@AZ[\\\\]%5E_%60az%7B%7C%7D~%7F%C2%80%C2%81%C3%89%C3%A9\"",
+            "name": "URL: Setting <a:/>.pathname = '\u0000\u0001\t\n\r\u001f !\"#$%&'()*+,-./09:;<=>?@AZ[\\]^_`az{|}~Éé' UTF-8 percent encoding with the default encode set. Tabs and newlines are removed.",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: expected \"https://example.net/?#nav\" but got \"https://example.net/#nav\"",
+            "name": "URL: Setting <https://example.net?lang=en-US#nav>.search = '?'",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: expected \"a:/?%00%01%1F%20!%22%23$%&'()*+,-./09:;%3C=%3E?@AZ[\\\\]^_`az{|}~%7F%C2%80%C2%81%C3%89%C3%A9\" but got \"a:/?%00%01%1F%20!%22%23$%&%27()*+,-./09:;%3C=%3E?@AZ[\\\\]^_`az{|}~%7F%C2%80%C2%81%C3%89%C3%A9\"",
+            "name": "URL: Setting <a:/>.search = '\u0000\u0001\t\n\r\u001f !\"#$%&'()*+,-./09:;<=>?@AZ[\\]^_`az{|}~Éé' UTF-8 percent encoding with the query encode set. Tabs and newlines are removed.",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: expected \"data:space%20\" but got \"data:space \"",
+            "name": "URL: Setting <data:space ?query>.search = '' Trailing spaces and opaque paths",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: expected \"sc:space%20\" but got \"sc:space \"",
+            "name": "URL: Setting <sc:space ?query>.search = ''",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: expected \"data:space %20#fragment\" but got \"data:space  #fragment\"",
+            "name": "URL: Setting <data:space  ?query#fragment>.search = '' Trailing spaces and opaque paths",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: expected \"sc:space %20#fragment\" but got \"sc:space  #fragment\"",
+            "name": "URL: Setting <sc:space  ?query#fragment>.search = ''",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: expected \"data:space                                                                                                                                 %20\" but got \"data:space                                                                                                                                  \"",
+            "name": "URL: Setting <data:space                                                                                                                                  #fragment>.hash = '' Trailing spaces and opaque paths",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: expected \"sc:space   %20\" but got \"sc:space    \"",
+            "name": "URL: Setting <sc:space    #fragment>.hash = ''",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: expected \"data:space %20?query\" but got \"data:space  ?query\"",
+            "name": "URL: Setting <data:space  ?query#fragment>.hash = '' Trailing spaces and opaque paths",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: expected \"sc:space %20?query\" but got \"sc:space  ?query\"",
+            "name": "URL: Setting <sc:space  ?query#fragment>.hash = ''",
+            "status": 1
+          }
+        ],
+        "message": null,
+        "passed": 224,
+        "status": 0,
+        "total": 246
+      }
+    },
+    {
+      "file": "url/url-statics-canparse.any.js",
+      "variant": "",
+      "verdict": {
+        "failed": [],
+        "message": null,
+        "passed": 8,
+        "status": 0,
+        "total": 8
+      }
+    },
+    {
+      "file": "url/url-statics-parse.any.js",
+      "variant": "",
+      "verdict": {
+        "failed": [],
+        "message": null,
+        "passed": 8,
+        "status": 0,
+        "total": 8
+      }
+    },
+    {
+      "file": "url/url-tojson.any.js",
+      "variant": "",
+      "verdict": {
+        "failed": [],
+        "message": null,
+        "passed": 1,
+        "status": 0,
+        "total": 1
+      }
+    },
+    {
+      "file": "url/urlencoded-parser.any.js",
+      "variant": "",
+      "verdict": {
+        "failed": [],
+        "message": null,
+        "passed": 105,
+        "status": 0,
+        "total": 105
+      }
+    },
+    {
+      "file": "url/urlsearchparams-append.any.js",
+      "variant": "",
+      "verdict": {
+        "failed": [],
+        "message": null,
+        "passed": 4,
+        "status": 0,
+        "total": 4
+      }
+    },
+    {
+      "file": "url/urlsearchparams-constructor.any.js",
+      "variant": "",
+      "verdict": {
+        "failed": [],
+        "message": null,
+        "passed": 27,
+        "status": 0,
+        "total": 27
+      }
+    },
+    {
+      "file": "url/urlsearchparams-delete.any.js",
+      "variant": "",
+      "verdict": {
+        "failed": [
+          {
+            "message": "assert_equals: expected \"space   %20\" but got \"space    \"",
+            "name": "Changing the query of a URL with an opaque path with trailing spaces",
+            "status": 1
+          },
+          {
+            "message": "assert_equals: expected \"space   %20\" but got \"space    \"",
+            "name": "Changing the query of a URL with an opaque path with trailing spaces and a fragment",
+            "status": 1
+          }
+        ],
+        "message": null,
+        "passed": 6,
+        "status": 0,
+        "total": 8
+      }
+    },
+    {
+      "file": "url/urlsearchparams-foreach.any.js",
+      "variant": "",
+      "verdict": {
+        "failed": [],
+        "message": null,
+        "passed": 6,
+        "status": 0,
+        "total": 6
+      }
+    },
+    {
+      "file": "url/urlsearchparams-get.any.js",
+      "variant": "",
+      "verdict": {
+        "failed": [],
+        "message": null,
+        "passed": 2,
+        "status": 0,
+        "total": 2
+      }
+    },
+    {
+      "file": "url/urlsearchparams-getall.any.js",
+      "variant": "",
+      "verdict": {
+        "failed": [],
+        "message": null,
+        "passed": 2,
+        "status": 0,
+        "total": 2
+      }
+    },
+    {
+      "file": "url/urlsearchparams-has.any.js",
+      "variant": "",
+      "verdict": {
+        "failed": [],
+        "message": null,
+        "passed": 4,
+        "status": 0,
+        "total": 4
+      }
+    },
+    {
+      "file": "url/urlsearchparams-set.any.js",
+      "variant": "",
+      "verdict": {
+        "failed": [],
+        "message": null,
+        "passed": 2,
+        "status": 0,
+        "total": 2
+      }
+    },
+    {
+      "file": "url/urlsearchparams-size.any.js",
+      "variant": "",
+      "verdict": {
+        "failed": [],
+        "message": null,
+        "passed": 4,
+        "status": 0,
+        "total": 4
+      }
+    },
+    {
+      "file": "url/urlsearchparams-sort.any.js",
+      "variant": "",
+      "verdict": {
+        "failed": [],
+        "message": null,
+        "passed": 17,
+        "status": 0,
+        "total": 17
+      }
+    },
+    {
+      "file": "url/urlsearchparams-stringifier.any.js",
+      "variant": "",
+      "verdict": {
+        "failed": [],
+        "message": null,
+        "passed": 14,
+        "status": 0,
+        "total": 14
+      }
+    }
+  ]
+}

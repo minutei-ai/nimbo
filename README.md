@@ -81,6 +81,7 @@ The engine implements bounded browser subsets. See the [coverage inventory](docs
 | HTML and DOM                     | Parsing, selectors, attributes, text, mutations and selected element interfaces                                                                    |
 | JavaScript                       | Classic scripts, supported modules, live bindings, top-level await, Promises and bounded timers                                                    |
 | HTTP                             | Redirects, cookies, page fetch and per-page isolation; simplified browser networking                                                               |
+| URL                              | Native parsing and form encoding, live URLSearchParams and bounded Web IDL bindings; original WPT failures remain                                  |
 | Storage                          | Bounded local/session storage; Worker requests start fresh                                                                                         |
 | CSS                              | Native declarations, selector matching, cascade and computed-style subsets                                                                         |
 | Layout                           | Native block/flex/grid geometry, explicitly inset absolute/fixed boxes and selected HTML categories; incomplete text layout                        |
@@ -116,6 +117,7 @@ bun run bench:browser  # native CLI; a fresh process per extraction
 bun run bench:worker   # an existing Worker endpoint; requires private environment settings
 bun run bench:compare  # Nimbo in celld vs public Obscura vs unmodified Chromium
 bun run bench:obstacle # original upstream obstacle fixtures in Nimbo/celld
+bun run bench:wpt-url  # pinned original URL WPT window variants in Nimbo/celld
 ```
 
 Native CLI timings, local celld HTTP timings and deployed Cloudflare measurements are different measurements. The remote driver requires a fixture origin reachable from the Worker; the [Cloudflare guide](docs/cloudflare.md) explains that setup. Local measurements do not establish production throughput, memory use or cost.

@@ -1219,6 +1219,24 @@
       return id === null ? null : element(id);
     }
   }
+  function tagElements(owner: Element | Document, qualifiedName: unknown): HTMLCollection {
+    const id = idOf(owner);
+    const name = domString(qualifiedName);
+    const lower = name.replace(/[A-Z]/g, (letter) => letter.toLowerCase());
+    return makeCollection(
+      new HTMLCollection(internal),
+      () =>
+        call<number[]>("query", id, "*").filter((candidate) => {
+          if (name === "*") return true;
+          const namespace = call<string | null>("get", candidate, "namespaceURI");
+          const local = call<string>("get", candidate, "localName");
+          const prefix = call<string | null>("get", candidate, "prefix");
+          const qualified = prefix === null ? local : `${prefix}:${local}`;
+          return qualified === (namespace === "http://www.w3.org/1999/xhtml" ? lower : name);
+        }),
+      true,
+    );
+  }
   const tokenElements = new WeakMap<object, { id: number; attribute: string }>();
   const classLists = new WeakMap<Element, Map<string, DOMTokenList>>();
   function tokenAttribute(list: object): string {
@@ -1550,6 +1568,12 @@
     Object.defineProperty(prototype, Symbol.toStringTag, { value: tag, configurable: true });
   }
   class Element extends ParentNode {
+    getElementsByTagName(qualifiedName: unknown): HTMLCollection {
+      if (!(this instanceof Element)) throw new TypeError("Illegal invocation");
+      required(1, arguments.length);
+      return tagElements(this, qualifiedName);
+    }
+
     append(...values: unknown[]): void {
       if (!(this instanceof Element)) throw new TypeError("Illegal invocation");
       parentOperation(this, false, values);
@@ -2316,6 +2340,376 @@
     if (result === null || typeof result === "string") return result;
     throw new Error("invalid native URL result");
   }
+  type QueryPair = [string, string];
+  type QueryState = { pairs: QueryPair[]; owner?: URL };
+  const queryStates = new WeakMap<object, QueryState>();
+  const urlStates = new WeakMap<object, { href: string; params: URLSearchParams }>();
+  function queryState(owner: object): QueryState {
+    const state = queryStates.get(owner);
+    if (!state) throw new TypeError("Illegal invocation");
+    return state;
+  }
+  function urlState(owner: object) {
+    const state = urlStates.get(owner);
+    if (!state) throw new TypeError("Illegal invocation");
+    return state;
+  }
+  function queryParse(input: string): QueryPair[] {
+    const result: unknown = JSON.parse(nativeLink("queryParse", "", input, "", ""));
+    if (!Array.isArray(result)) throw new Error("invalid native query result");
+    return result.map((entry: unknown): QueryPair => {
+      if (
+        !Array.isArray(entry) ||
+        entry.length !== 2 ||
+        typeof entry[0] !== "string" ||
+        typeof entry[1] !== "string"
+      )
+        throw new Error("invalid native query pair");
+      return [entry[0], entry[1]];
+    });
+  }
+  function querySerialize(pairs: QueryPair[]): string {
+    return linkValue("querySerialize", "", JSON.stringify(pairs), "") ?? "";
+  }
+  function updateQuery(state: QueryState, pairs: QueryPair[]): void {
+    const serialized = querySerialize(pairs);
+    const owner = state.owner;
+    if (owner) {
+      const url = urlState(owner);
+      url.href = linkValue("set", "search", url.href, "", serialized) ?? url.href;
+    }
+    state.pairs = pairs;
+  }
+  function required(count: number, actual: number): void {
+    if (actual < count) throw new TypeError("Missing required argument");
+  }
+  function sequence(value: unknown, method?: unknown): Iterable<unknown> {
+    if ((typeof value !== "object" || value === null) && typeof value !== "function")
+      throw new TypeError("Sequence must be an object");
+    const iteratorMethod: unknown = method ?? Reflect.get(value, Symbol.iterator);
+    if (typeof iteratorMethod !== "function") throw new TypeError("Sequence is not iterable");
+    const iterator: unknown = Reflect.apply(iteratorMethod, value, []);
+    if ((typeof iterator !== "object" || iterator === null) && typeof iterator !== "function")
+      throw new TypeError("Invalid iterator");
+    const next: unknown = Reflect.get(iterator, "next");
+    if (typeof next !== "function") throw new TypeError("Invalid iterator next method");
+    return {
+      [Symbol.iterator]: () => ({
+        // The native for-of protocol validates the returned iterator result.
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        next: () => Reflect.apply(next, iterator, []) as IteratorResult<unknown>,
+      }),
+    };
+  }
+  function queryInit(init: unknown): QueryPair[] {
+    const pairs: QueryPair[] = [];
+    let inputSize = 0;
+    function addPair(name: string, value: string): void {
+      inputSize += name.length + value.length + 2;
+      if (inputSize > 65_536) throw new Error("URL query input limit exceeded");
+      pairs.push([name, value]);
+    }
+    if ((typeof init === "object" && init !== null) || typeof init === "function") {
+      const method: unknown = Reflect.get(init, Symbol.iterator);
+      if (method !== null && method !== undefined) {
+        const convertedPairs: string[][] = [];
+        let sequenceSize = 0;
+        for (const entry of sequence(init, method)) {
+          const pair: string[] = [];
+          sequenceSize += 2;
+          for (const value of sequence(entry)) {
+            const converted = usvString(value);
+            sequenceSize += converted.length + 1;
+            if (sequenceSize > 65_536) throw new Error("URL query input limit exceeded");
+            pair.push(converted);
+          }
+          if (sequenceSize > 65_536) throw new Error("URL query input limit exceeded");
+          convertedPairs.push(pair);
+        }
+        for (const pair of convertedPairs) {
+          if (pair.length !== 2) throw new TypeError("Query pair requires exactly two items");
+          addPair(pair[0] ?? "", pair[1] ?? "");
+        }
+      } else {
+        const record = new Map<string, string>();
+        for (const key of Reflect.ownKeys(init))
+          if (Object.getOwnPropertyDescriptor(init, key)?.enumerable)
+            record.set(usvString(key), usvString(Reflect.get(init, key)));
+        for (const [name, value] of record) addPair(name, value);
+      }
+    } else {
+      return queryParse(usvString(init).replace(/^\?/, ""));
+    }
+    querySerialize(pairs);
+    return pairs;
+  }
+  const queryIterators = new WeakMap<
+    object,
+    { state: QueryState; kind: "keys" | "values" | "entries"; index: number }
+  >();
+  class QueryIterator {
+    constructor(state: QueryState, kind: "keys" | "values" | "entries") {
+      queryIterators.set(this, { state, kind, index: 0 });
+    }
+    next(): IteratorResult<string | QueryPair> {
+      const iterator = queryIterators.get(this);
+      if (!iterator) throw new TypeError("Illegal invocation");
+      const pair = iterator.state.pairs[iterator.index];
+      if (!pair) {
+        return { value: undefined, done: true };
+      }
+      iterator.index++;
+      return {
+        value:
+          iterator.kind === "entries" ? [pair[0], pair[1]] : pair[iterator.kind === "keys" ? 0 : 1],
+        done: false,
+      };
+    }
+  }
+  const arrayIteratorPrototype: unknown = Object.getPrototypeOf([][Symbol.iterator]());
+  if (typeof arrayIteratorPrototype !== "object" || arrayIteratorPrototype === null)
+    throw new Error("Missing native iterator prototype");
+  const iteratorPrototype: unknown = Object.getPrototypeOf(arrayIteratorPrototype);
+  if (typeof iteratorPrototype !== "object" || iteratorPrototype === null)
+    throw new Error("Missing native iterator prototype");
+  Object.setPrototypeOf(QueryIterator.prototype, iteratorPrototype);
+  const queryNext = Object.getOwnPropertyDescriptor(QueryIterator.prototype, "next");
+  if (queryNext)
+    Object.defineProperty(QueryIterator.prototype, "next", { ...queryNext, enumerable: true });
+  Object.defineProperty(QueryIterator.prototype, Symbol.toStringTag, {
+    value: "URLSearchParams Iterator",
+    configurable: true,
+  });
+  class URLSearchParams {
+    constructor(init: unknown = "") {
+      queryStates.set(this, { pairs: queryInit(init) });
+    }
+    get size(): number {
+      return queryState(this).pairs.length;
+    }
+    append(name: unknown, value: unknown): void {
+      const state = queryState(this);
+      required(2, arguments.length);
+      updateQuery(state, [...state.pairs, [usvString(name), usvString(value)]]);
+    }
+    // Web IDL excludes optional arguments from the exposed function length.
+    // oxlint-disable-next-line typescript/no-useless-default-assignment
+    delete(name: unknown, value: unknown = undefined): void {
+      const state = queryState(this);
+      required(1, arguments.length);
+      const key = usvString(name),
+        match = value === undefined ? undefined : usvString(value);
+      updateQuery(
+        state,
+        state.pairs.filter(
+          ([entryName, entryValue]) =>
+            entryName !== key || (match !== undefined && entryValue !== match),
+        ),
+      );
+    }
+    get(name: unknown): string | null {
+      const state = queryState(this);
+      required(1, arguments.length);
+      const key = usvString(name);
+      return state.pairs.find(([entryName]) => entryName === key)?.[1] ?? null;
+    }
+    getAll(name: unknown): string[] {
+      const state = queryState(this);
+      required(1, arguments.length);
+      const key = usvString(name);
+      return state.pairs.filter(([entryName]) => entryName === key).map(([, value]) => value);
+    }
+    // Web IDL excludes optional arguments from the exposed function length.
+    // oxlint-disable-next-line typescript/no-useless-default-assignment
+    has(name: unknown, value: unknown = undefined): boolean {
+      const state = queryState(this);
+      required(1, arguments.length);
+      const key = usvString(name),
+        match = value === undefined ? undefined : usvString(value);
+      return state.pairs.some(
+        ([entryName, entryValue]) =>
+          entryName === key && (match === undefined || entryValue === match),
+      );
+    }
+    set(name: unknown, value: unknown): void {
+      const state = queryState(this);
+      required(2, arguments.length);
+      const key = usvString(name),
+        converted = usvString(value);
+      let found = false;
+      const pairs: QueryPair[] = [];
+      for (const pair of state.pairs) {
+        if (pair[0] !== key) pairs.push(pair);
+        else if (!found) {
+          pairs.push([key, converted]);
+          found = true;
+        }
+      }
+      if (!found) pairs.push([key, converted]);
+      updateQuery(state, pairs);
+    }
+    sort(): void {
+      const state = queryState(this);
+      updateQuery(
+        state,
+        state.pairs.toSorted(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+      );
+    }
+    toString(): string {
+      return querySerialize(queryState(this).pairs);
+    }
+    keys() {
+      return new QueryIterator(queryState(this), "keys");
+    }
+    values() {
+      return new QueryIterator(queryState(this), "values");
+    }
+    entries() {
+      return new QueryIterator(queryState(this), "entries");
+    }
+    // Web IDL excludes optional arguments from the exposed function length.
+    // oxlint-disable-next-line typescript/no-useless-default-assignment
+    forEach(callback: unknown, thisArg: unknown = undefined): void {
+      const state = queryState(this);
+      required(1, arguments.length);
+      if (typeof callback !== "function") throw new TypeError("Callback must be callable");
+      for (let index = 0; index < state.pairs.length; index++) {
+        const pair = state.pairs[index];
+        if (pair) Reflect.apply(callback, thisArg, [pair[1], pair[0], this]);
+      }
+    }
+  }
+  Object.defineProperty(URLSearchParams.prototype, Symbol.iterator, {
+    value: Object.getOwnPropertyDescriptor(URLSearchParams.prototype, "entries")?.value,
+    writable: true,
+    configurable: true,
+  });
+  Object.defineProperty(URLSearchParams.prototype, Symbol.toStringTag, {
+    value: "URLSearchParams",
+    configurable: true,
+  });
+  function parseURL(input: unknown, base: unknown, actual: number): string | null {
+    required(1, actual);
+    const converted = usvString(input),
+      fallback = base === undefined ? "" : usvString(base);
+    if (base !== undefined && linkValue("parse", "", fallback, "") === null) return null;
+    return linkValue("parse", "", converted, fallback);
+  }
+  class URL {
+    // Web IDL excludes optional arguments from the exposed function length.
+    // oxlint-disable-next-line typescript/no-useless-default-assignment
+    constructor(input: unknown, base: unknown = undefined) {
+      const parsedURL = parseURL(input, base, arguments.length);
+      if (parsedURL === null) throw new TypeError("Invalid URL");
+      const params = new URLSearchParams(linkValue("get", "search", parsedURL, "") ?? "");
+      urlStates.set(this, { href: parsedURL, params });
+      queryState(params).owner = this;
+    }
+    // Web IDL excludes optional arguments from the exposed function length.
+    // oxlint-disable-next-line typescript/no-useless-default-assignment
+    static canParse(input: unknown, base: unknown = undefined): boolean {
+      return parseURL(input, base, arguments.length) !== null;
+    }
+    // Web IDL excludes optional arguments from the exposed function length.
+    // oxlint-disable-next-line typescript/no-useless-default-assignment
+    static parse(input: unknown, base: unknown = undefined): URL | null {
+      const parsedURL = parseURL(input, base, arguments.length);
+      return parsedURL === null ? null : new URL(parsedURL);
+    }
+    get href(): string {
+      return urlState(this).href;
+    }
+    set href(value: unknown) {
+      const state = urlState(this),
+        next = parseURL(value, undefined, 1);
+      if (next === null) throw new TypeError("Invalid URL");
+      const pairs = queryParse(linkValue("get", "search", next, "")?.replace(/^\?/, "") ?? "");
+      state.href = next;
+      queryState(state.params).pairs = pairs;
+    }
+    get origin(): string {
+      return linkValue("get", "origin", urlState(this).href, "") ?? "null";
+    }
+    get searchParams(): URLSearchParams {
+      return urlState(this).params;
+    }
+    toString(): string {
+      return urlState(this).href;
+    }
+    toJSON(): string {
+      return urlState(this).href;
+    }
+  }
+  Object.defineProperty(URL.prototype, Symbol.toStringTag, { value: "URL", configurable: true });
+  for (const property of [
+    "protocol",
+    "username",
+    "password",
+    "host",
+    "hostname",
+    "port",
+    "pathname",
+    "search",
+    "hash",
+  ]) {
+    Object.defineProperty(URL.prototype, property, {
+      get(this: URL): string {
+        return linkValue("get", property, urlState(this).href, "") ?? "";
+      },
+      set(this: URL, value: unknown): void {
+        const state = urlState(this),
+          next = linkValue("set", property, state.href, "", usvString(value));
+        if (next !== null) {
+          const pairs =
+            property === "search"
+              ? queryParse((linkValue("get", "search", next, "") ?? "").replace(/^\?/, ""))
+              : undefined;
+          state.href = next;
+          if (pairs) queryState(state.params).pairs = pairs;
+        }
+      },
+      enumerable: true,
+      configurable: true,
+    });
+  }
+  for (const property of [
+    "protocol",
+    "username",
+    "password",
+    "host",
+    "hostname",
+    "port",
+    "pathname",
+    "search",
+    "hash",
+  ]) {
+    const descriptor = Object.getOwnPropertyDescriptor(URL.prototype, property);
+    if (descriptor) {
+      for (const kind of ["get", "set"]) {
+        const accessor: unknown = Reflect.get(descriptor, kind);
+        if (typeof accessor === "function")
+          Object.defineProperty(accessor, "name", {
+            value: `${kind} ${property}`,
+            configurable: true,
+          });
+      }
+    }
+  }
+  for (const prototype of [URL, URL.prototype, URLSearchParams.prototype]) {
+    for (const property of Object.getOwnPropertyNames(prototype)) {
+      if (
+        property === "constructor" ||
+        property === "length" ||
+        property === "name" ||
+        property === "prototype"
+      )
+        continue;
+      const descriptor = Object.getOwnPropertyDescriptor(prototype, property);
+      if (descriptor)
+        Object.defineProperty(prototype, property, { ...descriptor, enumerable: true });
+    }
+  }
+
   function documentBase(): string {
     return linkValue("base", "", raw<string | null>("baseHref", 0), href) ?? href;
   }
@@ -3056,6 +3450,12 @@
     },
   });
   class Document extends ParentNode {
+    getElementsByTagName(qualifiedName: unknown): HTMLCollection {
+      if (!(this instanceof Document)) throw new TypeError("Illegal invocation");
+      required(1, arguments.length);
+      return tagElements(this, qualifiedName);
+    }
+
     get adoptedStyleSheets(): CSSStyleSheet[] {
       if (this !== document) throw new TypeError("Illegal invocation");
       return adoptedSheets;
@@ -4592,12 +4992,25 @@
     Storage,
     TextEncoder,
     TextDecoder,
+    URL,
+    URLSearchParams,
     MediaQueryList,
     MediaQueryListEvent,
     matchMedia,
     window: globalThis,
     self: globalThis,
-    location: Object.freeze({ href, toString: () => href }),
+    location: Object.freeze({
+      href,
+      origin: linkValue("get", "origin", href, ""),
+      protocol: linkValue("get", "protocol", href, ""),
+      host: linkValue("get", "host", href, ""),
+      hostname: linkValue("get", "hostname", href, ""),
+      port: linkValue("get", "port", href, ""),
+      pathname: linkValue("get", "pathname", href, ""),
+      search: linkValue("get", "search", href, ""),
+      hash: linkValue("get", "hash", href, ""),
+      toString: () => href,
+    }),
     Event,
     CustomEvent,
     ErrorEvent,
@@ -4652,6 +5065,14 @@
   });
 
   Object.defineProperties(globalThis, {
+    URL: { value: URL, writable: true, enumerable: false, configurable: true },
+    URLSearchParams: {
+      value: URLSearchParams,
+      writable: true,
+      enumerable: false,
+      configurable: true,
+    },
+    webkitURL: { value: URL, writable: true, enumerable: false, configurable: true },
     customElements: { get: () => customElements, enumerable: true, configurable: true },
     innerWidth: { get: () => mediaEnvironment.width, enumerable: true, configurable: true },
     innerHeight: { get: () => mediaEnvironment.height, enumerable: true, configurable: true },
