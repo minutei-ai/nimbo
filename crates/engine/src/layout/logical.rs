@@ -56,25 +56,33 @@ pub(crate) fn entries(declarations: &Declarations) -> Vec<(&str, &str, bool)> {
         .collect()
 }
 
-// Box spacing requires units for nonzero numbers. Padding also excludes auto
-// and negative literals. Function ranges are resolved separately.
-pub(crate) fn valid_spacing(name: &str, value: &str) -> bool {
-    if !spacing(name) {
+// Box lengths require units for nonzero numbers. Sizing, padding, gaps and
+// flex components exclude negative literals; function ranges resolve later.
+pub(crate) fn valid_box_literals(name: &str, value: &str) -> bool {
+    let numeric = matches!(name, "flex" | "flex-grow" | "flex-shrink");
+    let sized = matches!(group(name), Some("size" | "min-size" | "max-size"));
+    let flex_gap = matches!(name, "flex-basis" | "gap" | "row-gap" | "column-gap");
+    if !spacing(name) && !sized && !flex_gap && !numeric {
         return true;
     }
     let padding = name == "padding" || name.starts_with("padding-");
+    let nonnegative = padding || sized || flex_gap || numeric;
     let mut input = cssparser::ParserInput::new(value);
     let mut parser = cssparser::Parser::new(&mut input);
     while let Ok(token) = parser.next() {
         match token {
-            cssparser::Token::Number { value, .. } if *value != 0.0 => return false,
+            cssparser::Token::Number { value, .. }
+                if (!numeric && *value != 0.0) || (nonnegative && *value < 0.0) =>
+            {
+                return false;
+            }
             cssparser::Token::Ident(value) if padding && value.eq_ignore_ascii_case("auto") => {
                 return false;
             }
-            cssparser::Token::Dimension { value, .. } if padding && *value < 0.0 => {
+            cssparser::Token::Dimension { value, .. } if nonnegative && *value < 0.0 => {
                 return false;
             }
-            cssparser::Token::Percentage { unit_value, .. } if padding && *unit_value < 0.0 => {
+            cssparser::Token::Percentage { unit_value, .. } if nonnegative && *unit_value < 0.0 => {
                 return false;
             }
             _ => {}

@@ -9,6 +9,7 @@ use crate::{
     styles::{Declarations, Variables},
 };
 
+mod lengths;
 pub(crate) mod logical;
 
 pub(crate) struct Work<'a> {
@@ -180,15 +181,24 @@ pub(crate) fn supports(declarations: &Declarations) -> bool {
 
 fn style(node: NodeRef<'_>, declarations: &Declarations) -> Result<Style> {
     let display = crate::display::Computed::default().compute(node, declarations, false, false)?;
-    style_for(node, declarations, false, &display)
+    let mut operations = 0;
+    let mut work = Work::new(&mut operations, 10_000, 1024);
+    let fonts = crate::fonts::Context::new(&MediaEnvironment::default()).compute(
+        declarations,
+        false,
+        &mut work,
+    )?;
+    style_for(node, declarations, false, &display, &fonts, &mut work)
 }
 
 fn non_layout(name: &str) -> bool {
     crate::transitions::property(name)
         || crate::background_layers::property(name)
+        || name.starts_with("text-decoration-")
         || matches!(
             name,
             "color"
+                | "cursor"
                 | "background-color"
                 | "background-image"
                 | "background-position-x"
@@ -217,6 +227,8 @@ fn style_for(
     declarations: &Declarations,
     generated: bool,
     display: &crate::display::Computed,
+    fonts: &crate::fonts::Context,
+    work: &mut Work<'_>,
 ) -> Result<Style> {
     let mut style = initial_style(node, generated)?;
     style.display = display.layout()?;
@@ -227,6 +239,7 @@ fn style_for(
             } else {
                 $value
             };
+            let value = lengths::value($name, value, fonts, work)?;
             $field = value.parse().map_err(|_error| unsupported($name))?;
         }};
     }
@@ -514,8 +527,15 @@ impl Tree<'_, '_> {
         if display.contents() {
             return Ok(None);
         }
-        let mut style = style_for(node, &declarations, true, &display)?;
         let context = context.compute(&declarations, false, display, self.work)?;
+        let mut style = style_for(
+            node,
+            &declarations,
+            true,
+            &context.display,
+            &context.fonts,
+            self.work,
+        )?;
         style.border = context.borders.geometry()?;
         self.boxes
             .new_leaf(style)
@@ -587,11 +607,15 @@ impl Tree<'_, '_> {
             let context = context.compute(&declarations, false, display, self.work)?;
             return self.children(node, depth, &variables, parent_display, &context, output);
         }
-        let mut style = style_for(node, &declarations, false, &display)?;
-        if style.display == Display::None {
-            return Ok(());
-        }
         let context = context.compute(&declarations, depth == 0, display, self.work)?;
+        let mut style = style_for(
+            node,
+            &declarations,
+            false,
+            &context.display,
+            &context.fonts,
+            self.work,
+        )?;
         style.border = context.borders.geometry()?;
         let fonts = context.fonts;
         let container =
@@ -624,7 +648,7 @@ impl Tree<'_, '_> {
             .boxes
             .new_with_children(style, &children)
             .map_err(|error| layout_error(&error))?;
-        self.record_box(node.id, id, position, &declarations)?;
+        self.record_box(node.id, id, position, &declarations, &fonts)?;
         if out_of_flow {
             self.out_of_flow.push((id, containing));
         }
@@ -640,11 +664,13 @@ impl Tree<'_, '_> {
         id: taffy::NodeId,
         position: &str,
         declarations: &Declarations,
+        fonts: &crate::fonts::Context,
     ) -> Result<()> {
         self.ids.insert(node, id);
         self.box_nodes.insert(id, node);
         if position == "sticky" {
-            self.sticky.insert(id, geometry::insets(declarations)?);
+            self.sticky
+                .insert(id, geometry::insets(declarations, fonts, self.work)?);
         }
         if position == "fixed" {
             self.fixed.insert(node);

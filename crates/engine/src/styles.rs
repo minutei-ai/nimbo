@@ -515,7 +515,7 @@ fn expand(name: &str, value: &str, important: bool) -> Option<Vec<Entry>> {
             position_origin: PositionOrigin::Axis,
         }]);
     }
-    if !crate::layout::logical::valid_spacing(name, value) {
+    if !crate::layout::logical::valid_box_literals(name, value) {
         return None;
     }
     if native_declaration(name, value) {

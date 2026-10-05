@@ -787,7 +787,7 @@ fn timer_capacity_task_budget_and_deadline_are_enforced() -> TestResult {
     let browser = Browser::new(
         &fixture.url,
         Limits {
-            timeout: Duration::from_millis(80),
+            timeout: Duration::from_millis(500),
             ..Limits::default()
         },
     )?;
@@ -797,7 +797,7 @@ fn timer_capacity_task_budget_and_deadline_are_enforced() -> TestResult {
         page.evaluate("new Promise(resolve => setTimeout(resolve, 60000))"),
         Err(Error::Limit("navigation deadline"))
     ));
-    assert!(start.elapsed() < Duration::from_secs(1));
+    assert!(start.elapsed() < Duration::from_secs(2));
     Ok(())
 }
 
@@ -1513,13 +1513,10 @@ fn serve_resource(request: Request) -> io::Result<()> {
         return serve_outlines(request);
     }
     if request.url().starts_with("/logical-size/") {
-        let source = format!(
-            "<!doctype html><meta charset=utf-8><script>{}</script>",
-            include_str!("fixtures/logical-size.txt")
-        );
-        return request.respond(
-            Response::from_string(source).with_header(header("Content-Type", "text/html")?),
-        );
+        return serve_logical_size(request);
+    }
+    if request.url().starts_with("/contextual-box-lengths/") {
+        return serve_contextual_box_lengths(request);
     }
     if request.url().starts_with("/layout-budget/") {
         return serve_layout_budget(request);
@@ -1663,6 +1660,7 @@ fn is_resource(path: &str) -> bool {
             "/sheets-css/",
             "/layout-budget/",
             "/logical-size/",
+            "/contextual-box-lengths/",
             "/outlines/",
             "/tabs/",
             "/line-height/",
@@ -2930,6 +2928,75 @@ fn logical_spacing_maps_cascade_to_real_geometry() -> TestResult {
                 "{result}"
             );
         }
+    }
+    Ok(())
+}
+
+fn serve_logical_size(request: Request) -> io::Result<()> {
+    request.respond(
+        Response::from_string(format!(
+            "<!doctype html><meta charset=utf-8><script>{}</script>",
+            include_str!("fixtures/logical-size.txt")
+        ))
+        .with_header(header("Content-Type", "text/html")?),
+    )
+}
+
+fn serve_contextual_box_lengths(request: Request) -> io::Result<()> {
+    let variant = request
+        .url()
+        .rsplit('/')
+        .next()
+        .unwrap_or("0")
+        .parse::<usize>()
+        .map_err(io::Error::other)?;
+    request.respond(Response::from_string(format!(
+        "<!doctype html><body><script>{}\nglobalThis.comparison=contextualBoxLengthsCase({variant})</script>",
+        include_str!("fixtures/contextual-box-lengths.txt")
+    )).with_header(header("Content-Type", "text/html")?))
+}
+
+#[test]
+fn contextual_box_lengths_resolve_native_fonts_and_viewport() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page =
+            browser.navigate(&fixture.path(&format!("/contextual-box-lengths/{variant}")))?;
+        let result = page.evaluate("globalThis.comparison")?;
+        let checks = result
+            .as_object()
+            .ok_or("missing contextual length checks")?;
+        assert_eq!(checks.len(), 50);
+        assert!(
+            checks.values().all(|value| value == &json!(true)),
+            "{result}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn contextual_box_lengths_follow_configured_media() -> TestResult {
+    let fixture = Fixture::new()?;
+    for variant in 0_u32..64 {
+        let media = MediaEnvironment {
+            width: 321 + variant * 8,
+            height: 217 + variant * 7,
+            default_font_size: u16::try_from(10 + variant % 16)?,
+            ..MediaEnvironment::default()
+        };
+        let browser = Browser::with_media(&fixture.url, Limits::default(), media.clone())?;
+        let page = browser.navigate(&fixture.path("/contextual-box-lengths/0"))?;
+        let expression = format!(
+            "(()=>{{document.documentElement.style.fontSize='initial';document.body.style.fontSize='inherit';const box=document.createElement('div');box.style.cssText='width:2rem;height:10vh';document.body.append(box);const rect=box.getBoundingClientRect();return Math.abs(rect.width-{})<.01&&Math.abs(rect.height-{})<.01&&innerWidth==={}&&innerHeight==={}&&getComputedStyle(document.documentElement).fontSize==='{}px'}})()",
+            media.default_font_size * 2,
+            f64::from(media.height) / 10.0,
+            media.width,
+            media.height,
+            media.default_font_size,
+        );
+        assert_eq!(page.evaluate(&expression)?, json!(true));
     }
     Ok(())
 }

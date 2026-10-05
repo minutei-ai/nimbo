@@ -327,10 +327,19 @@ run; it does not attribute timing differences to the transition implementation.
 The earlier [z-index snapshot](performance-comparison-z-index.json) is retained.
 All-win performance against Obscura remains pending.
 
-The latest [logical spacing build report](performance-comparison-logical-spacing.json)
+The [logical spacing build report](performance-comparison-logical-spacing.json)
 was measured on 2026-10-04 after all functional checks completed. The Worker/Wasm
 hash is recorded in the report. All 648 attempts returned the expected values;
 567 samples were measured after excluding warmups. Nimbo/celld has a lower p50
-than Chromium in 9/9 scenarios and public Obscura in 1/9. The README uses this
+than Chromium in 9/9 scenarios and public Obscura in 1/9. The README previously used this
 snapshot. Differences from earlier snapshots are measurements, not proof that
 logical spacing caused a performance improvement.
+
+The latest [contextual box lengths build report](performance-comparison-contextual-box-lengths.json)
+was measured on 2026-10-05 UTC (2026-10-04 in São Paulo) after the complete
+functional check passed. Its recorded Wasm hash matches the tested bundle. All
+648 attempts returned the expected values; 567 samples were measured. Nimbo/celld
+has a lower p50 than Chromium in 9/9 scenarios and public Obscura in 1/9. The
+README uses this snapshot. Separate-run differences do not establish that the
+contextual length implementation caused a performance change; an alternating
+same-engine comparison is required for attribution.

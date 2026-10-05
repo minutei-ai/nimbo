@@ -278,3 +278,20 @@ passes ten files and fails six; no file is incomplete. Computed spacing and calc
 serialization remain failures. The runner correctly exits unsuccessfully.
 These original results are separate from the supplemental geometry and
 real-clock transition fixture; neither establishes full logical CSS parity.
+
+## Original contextual length WPT contracts
+
+`bun run bench:wpt-contextual-box-lengths` runs eleven original absolute-unit,
+element-font, root-rem, viewport-unit and invalid sizing HTML files with the original harness
+and parsing helper. `tooling/wpt-contextual-box-lengths-sources.json` pins every
+file at WPT revision `03f14d4780c4d981bc84c65679b18e9327a1affe`. Assertions and
+source bytes are unchanged; the adapter only reports the vendor result.
+
+The [dated report](performance-wpt-contextual-box-lengths.json) records
+Nimbo/celld at 64/78 completed subtests, seven passing files, three failed files
+and one incomplete iframe file. Chromium passes 112/112; public Obscura passes
+33/112. All six original invalid width/height/min/max parsing files pass in Nimbo.
+The 34 subtests in Chromium's iframe file are not counted as Nimbo passes or
+completed assertions. The command exits unsuccessfully. Full computed box CSSOM,
+frames and the broader original CSS Values suite remain obligations; these eleven
+files do not stand in for the complete upstream suite.

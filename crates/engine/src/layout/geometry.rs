@@ -13,7 +13,11 @@ pub(super) struct Frame {
     scroll: Point<f64>,
 }
 
-pub(super) fn insets(declarations: &Declarations) -> Result<Rect<LengthPercentageAuto>> {
+pub(super) fn insets(
+    declarations: &Declarations,
+    fonts: &crate::fonts::Context,
+    work: &mut Work<'_>,
+) -> Result<Rect<LengthPercentageAuto>> {
     let mut result = Rect::auto();
     for (name, value, _) in super::logical::entries(declarations) {
         let slot = match name {
@@ -24,7 +28,7 @@ pub(super) fn insets(declarations: &Declarations) -> Result<Rect<LengthPercentag
             _ => continue,
         };
         let value = super::defaulted(name, value);
-        *slot = if value == "0" { "0px" } else { value }
+        *slot = super::lengths::value(name, value, fonts, work)?
             .parse()
             .map_err(|_error| unsupported("sticky inset"))?;
     }

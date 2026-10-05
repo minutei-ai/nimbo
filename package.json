@@ -40,7 +40,9 @@
     "bench:wpt-z-index": "bun run build:worker && bun run tooling/benchmark-wpt-z-index.ts",
     "compare:z-index": "bun run build:worker && bun run tooling/compare-z-index.ts",
     "bench:wpt-sticky": "bun run build:worker && bun run tooling/benchmark-wpt-sticky.ts",
-    "compare:sticky-geometry": "bun run build:worker && bun run tooling/compare-sticky-geometry.ts"
+    "compare:sticky-geometry": "bun run build:worker && bun run tooling/compare-sticky-geometry.ts",
+    "compare:contextual-box-lengths": "bun run build:worker && bun run tooling/compare-contextual-box-lengths.ts",
+    "bench:wpt-contextual-box-lengths": "bun run build:worker && bun run tooling/benchmark-wpt-contextual-box-lengths.ts"
   },
   "devDependencies": {
     "@effect/tsgo": "0.47.2",

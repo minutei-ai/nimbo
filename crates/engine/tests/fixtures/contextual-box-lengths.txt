@@ -1,0 +1,85 @@
+function contextualBoxLengthsCase(variant) {
+  const rootSize=16+variant%8, localSize=rootSize+3, checks={};
+  document.documentElement.style.fontSize=`${rootSize}px`;
+  document.body.style.cssText=`margin:0;position:relative;width:800px;height:600px;font-size:${localSize}px`;
+  const vw=innerWidth/100,vh=innerHeight/100;
+  function create(css,parentCSS='') {
+    const parent=document.createElement('main');parent.style.cssText=`position:absolute;left:20px;top:30px;width:500px;font-size:${localSize}px;${parentCSS}`;
+    const box=document.createElement('div');box.style.cssText='width:20px;height:10px;'+css;
+    parent.append(box);document.body.append(parent);return {parent,box};
+  }
+  function check(name,css,expected,parentCSS='') {
+    const {parent,box}=create(css,parentCSS), rect=box.getBoundingClientRect();
+    // Chromium quantizes these used lengths to 1/64 CSS pixel.
+    checks[name]=[rect.x,rect.y,rect.width,rect.height].every((value,i)=>Math.abs(value-expected[i])<1/64+1e-4);
+    parent.remove();
+  }
+  check('inheritedEm','width:2em;height:1rem',[20,30,2*localSize,rootSize]);
+  check('ownEm','font-size:25px;width:2em',[20,30,50,10]);
+  check('nestedFont','font-size:50%;width:3em',[20,30,3*rootSize,10], 'font-size:2rem');
+  check('rootRem','width:3rem',[20,30,3*rootSize,10]);
+  check('maxWidthRem','width:1000px;max-width:2rem',[20,30,2*rootSize,10]);
+  check('minWidthEm','width:1px;min-width:2em',[20,30,2*localSize,10]);
+  check('maxHeightEm','height:1000px;max-height:2em',[20,30,20,2*localSize]);
+  check('minHeightRem','height:1px;min-height:2rem',[20,30,20,2*rootSize]);
+  check('logicalDimensions','inline-size:2em;block-size:3rem',[20,30,2*localSize,3*rootSize]);
+  check('logicalMax','width:1000px;max-inline-size:3rem',[20,30,3*rootSize,10]);
+  check('marginEm','margin-left:2em;margin-top:1rem',[20+2*localSize,30+rootSize,20,10]);
+  check('negativeMargin','margin-inline-start:-1em',[20-localSize,30,20,10]);
+  check('paddingRelative','padding-inline:1rem;padding-block:1em',[20,30,20+2*rootSize,10+2*localSize]);
+  check('relativeInsets','position:relative;inset-inline-start:1em;inset-block-start:-1rem',[20+localSize,30-rootSize,20,10]);
+  check('absoluteInsets','position:absolute;left:2em;top:1rem',[20+2*localSize,30+rootSize,20,10]);
+  check('viewport','width:10vw;height:10vh',[20,30,10*vw,10*vh]);
+  check('viewportLogical','width:10vi;height:10vb',[20,30,10*vw,10*vh]);
+  check('viewportMinMax','width:10vmin;height:10vmax',[20,30,10*Math.min(vw,vh),10*Math.max(vw,vh)]);
+  check('smallViewport','width:10svw;height:10svh',[20,30,10*vw,10*vh]);
+  check('largeViewport','width:10lvw;height:10lvh',[20,30,10*vw,10*vh]);
+  check('dynamicViewport','width:10dvw;height:10dvh',[20,30,10*vw,10*vh]);
+  check('calcLength','width:calc(2rem + 1em)',[20,30,2*rootSize+localSize,10]);
+  check('calcViewport','max-width:calc(20vw - 1rem);width:1000px',[20,30,20*vw-rootSize,10]);
+  check('minFunction','width:min(5rem, 3em)',[20,30,Math.min(5*rootSize,3*localSize),10]);
+  check('maxFunction','width:max(5rem, 3em)',[20,30,Math.max(5*rootSize,3*localSize),10]);
+  check('clampFunction','width:clamp(2rem, 4em, 5rem)',[20,30,Math.max(2*rootSize,Math.min(4*localSize,5*rootSize)),10]);
+  check('negativeCalcWidth','width:calc(1em - 2rem)',[20,30,0,10]);
+  check('negativeCalcPadding','padding-left:calc(1em - 2rem)',[20,30,20,10]);
+  check('negativeCalcMargin','margin-left:calc(1em - 2rem)',[20+localSize-2*rootSize,30,20,10]);
+  check('absoluteUnits','width:1in;height:72pt',[20,30,96,96]);
+  check('boxSizing','box-sizing:border-box;width:5rem;padding-inline:1em',[20,30,5*rootSize,10]);
+  check('variables','--size:2rem;width:var(--size)',[20,30,2*rootSize,10]);
+  check('percentagePreserved','width:20%',[20,30,100,10]);
+  check('cascade','width:2em;inline-size:3rem',[20,30,3*rootSize,10]);
+  check('cursorDoesNotResize','cursor:pointer;width:2rem',[20,30,2*rootSize,10]);
+  check('decorationDoesNotResize','text-decoration:underline dotted red;width:2rem',[20,30,2*rootSize,10]);
+  check('negativeWidthLiteralPx','width:-1px',[20,30,20,10]);
+  check('negativeWidthLiteralEm','width:-1em',[20,30,20,10]);
+  check('unitlessWidth','width:10',[20,30,20,10]);
+  check('negativeHeightLiteral','height:-1em',[20,30,20,10]);
+  check('invalidWidthVariable','--size:-1em;width:var(--size)',[20,30,500,10]);
+  checks.supportsLiteralRanges=!CSS.supports('width','-1px')&&!CSS.supports('width','-1em')&&!CSS.supports('width','10')&&!CSS.supports('column-gap','-1em')&&CSS.supports('width','calc(1em - 2rem)');
+  const invalidBasis=create('flex:0 0 -2em','display:flex');
+  checks.negativeFlexBasis=Math.abs(invalidBasis.box.getBoundingClientRect().width-20)<.01;
+  invalidBasis.parent.remove();
+  const {parent,box}=create('flex:0 0 2rem','display:flex');
+  checks.flexBasis=Math.abs(box.getBoundingClientRect().width-2*rootSize)<.01;
+  parent.remove();
+  for (const [name,display,gap,expected] of [['flexGap','flex','2em',2*localSize],['gridGap','grid','2rem',2*rootSize]]) {
+    const {parent,box}=create('',`display:${display};gap:${gap}`), next=document.createElement('div');next.style.cssText='width:20px;height:10px';parent.append(next);
+    const first=box.getBoundingClientRect(), second=next.getBoundingClientRect();
+    checks[name]=Math.abs((display==='flex'?second.x-first.x-first.width:second.y-first.y-first.height)-expected)<.01;
+    parent.remove();
+  }
+  const live=create('width:2em');live.parent.style.fontSize='30px';
+  checks.liveFont=Math.abs(live.box.getBoundingClientRect().width-60)<.01;
+  document.documentElement.style.fontSize='30px';live.box.style.width='2rem';
+  checks.liveRoot=Math.abs(live.box.getBoundingClientRect().width-60)<.01;
+  live.parent.remove();
+  const sheet=document.createElement('style');sheet.textContent='main::before{content:"";display:block;width:2em;height:1rem}';document.head.append(sheet);
+  const generated=create('display:none');
+  checks.generated=Math.abs(generated.parent.getBoundingClientRect().height-30)<.01;
+  generated.parent.remove();sheet.remove();
+  const sticky=create('position:sticky;top:1em','position:relative;left:0;top:0;height:100px;overflow:hidden');
+  sticky.box.style.height='10px';sticky.parent.scrollTop=5;
+  checks.stickyInset=Math.abs(sticky.box.getBoundingClientRect().y-localSize)<.01;
+  sticky.parent.remove();
+  return checks;
+}

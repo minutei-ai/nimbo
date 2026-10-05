@@ -1,3 +1,4 @@
+import { contextualBoxLengthsFixture } from "./contextual-box-lengths-fixture";
 import { logicalSpacingFixture } from "./logical-spacing-fixture";
 import { transitionsFixture } from "./transitions-fixture";
 import { zIndexFixture } from "./z-index-fixture";
@@ -445,6 +446,8 @@ const origin = Bun.serve({
     if (encoded) return encoded;
     const namespaced = namespacedElementsFixture(path);
     if (namespaced) return namespaced;
+    const contextual = contextualBoxLengthsFixture(path);
+    if (contextual) return contextual;
     const logicalSpacing = logicalSpacingFixture(path);
     if (logicalSpacing) return logicalSpacing;
     const transitions = transitionsFixture(path);
@@ -2275,7 +2278,7 @@ test.each([
   ["absolute static position", "el.style.position='absolute';"],
   ["display formatting", "const child=document.createElement('span');el.appendChild(child);"],
   ["element formatting", "const child=document.createElement('img');el.appendChild(child);"],
-  ["width", "el.style.width='2em';"],
+  ["relative query length", "el.style.width='2ch';"],
 ])(
   "real HTTP → workerd → Wasm: geometry rejects %s without fictional values",
   async (reason, setup) => {
@@ -4698,7 +4701,7 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
 test.each([
   ["writing-mode:vertical-rl;inline-size:20px", "writing-mode"],
   ["direction:rtl;inline-size:20px", "direction"],
-  ["inline-size:2em", "width"],
+  ["inline-size:2ch", "relative query length"],
   ["inline-size:inherit", "width"],
 ])(
   "real HTTP → workerd → Wasm: unsupported logical geometry %s fails explicitly",
@@ -6034,3 +6037,47 @@ test.each([
   expect(Object.keys(value)).toHaveLength(count);
   expect(Object.values(value).every((check) => check === true)).toBe(true);
 });
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: contextual box lengths variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`contextual-box-lengths/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing result");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing checks");
+    expect(Object.keys(value)).toHaveLength(50);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: contextual box lengths configured media variant %i",
+  async (variant) => {
+    const media = {
+      width: 321 + variant * 8,
+      height: 217 + variant * 7,
+      defaultFontSize: 10 + (variant % 16),
+    };
+    const expression = `(()=>{document.documentElement.style.fontSize='initial';document.body.style.fontSize='inherit';const box=document.createElement('div');box.style.cssText='width:2rem;height:10vh';document.body.append(box);const rect=box.getBoundingClientRect();return Math.abs(rect.width-${media.defaultFontSize * 2})<.01&&Math.abs(rect.height-${media.height / 10})<.01&&innerWidth===${media.width}&&innerHeight===${media.height}&&getComputedStyle(document.documentElement).fontSize==='${media.defaultFontSize}px'})()`;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL("contextual-box-lengths/0", origin.url).href,
+        expression,
+        media,
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ value: true });
+  },
+);

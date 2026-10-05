@@ -1716,13 +1716,13 @@ normal/important cascade layers, percentages, content/border boxes, variables,
 invalid computed values, paused animations and CSSOM mutation/removal/order.
 All 2880 assertions also pass in Chromium; see
 [the aggregate](evidence/logical-size-chromium.json). Four further real Worker
-requests reject unsupported vertical writing, RTL, a relative dimension and
+requests reject unsupported vertical writing, RTL, a glyph-metric relative dimension and
 inherited sizing, then recover through fresh successful requests.
 
 Writing-mode is now syntax-checked natively because the pinned declaration
 parser does not recognize it. Horizontal-tb is admitted; vertical and sideways
 values remain explicit layout failures. Complete writing-mode/direction layout,
-logical borders, inherited sizing, contextual lengths,
+logical borders, inherited sizing, glyph-metric lengths and percentage math,
 intrinsic-size coverage, text shaping/painting and unmodified WPT remain pending.
 These checks do not prove complete CSS logical-property conformance.
 
@@ -2741,9 +2741,54 @@ see the [celld/Chromium results](logical-spacing-chromium.json).
 The [original WPT report](performance-wpt-logical-spacing.json) records
 126/181 passing Nimbo/celld subtests, with ten passing and six failing files.
 
-Full RTL/vertical layout, inherited/contextual values, computed spacing CSSOM,
-calculation range clamping, logical borders and complete browser conformance
+Full RTL/vertical layout, inherited sizing, computed spacing CSSOM,
+percentage math, glyph-metric lengths, logical borders and complete browser conformance
 remain pending. Original WPT assertions remain separate from these supplemental
 fixtures and unsupported values remain visible failures.
 
 Reference: [CSS Logical Properties and Values](https://drafts.csswg.org/css-logical-1/#margin-properties).
+
+## Native contextual box lengths
+
+Box dimensions, minimum/maximum sizes, flex-basis, gaps, margins, padding and
+insets now resolve supported contextual lengths through the existing inherited
+font and viewport context. `em` uses the element's computed font size; `rem`
+uses the computed root size. Absolute units convert to CSS pixels. Viewport
+units use the configured logical viewport, with horizontal-tb, left-to-right
+axes. The same font context is used for generated boxes and sticky insets.
+
+Native calc arithmetic and min/max/clamp resolve length expressions without
+percentages. Nonnegative sizing/padding/gap calculations clamp at zero; margins
+and insets preserve negative results. Plain percentages retain their actual
+containing-block basis in layout instead of using the font-size percentage
+basis. Direct negative sizing literals and nonzero unitless lengths are rejected;
+valid negative calculations retain their computed-value clamping. CSSOM keeps
+specified units. Cursor and text-decoration declarations do
+not prevent box measurement; cursor rendering and decoration painting are not
+implemented by that classification.
+
+The [shared fixture](../crates/engine/tests/fixtures/contextual-box-lengths.txt)
+checks 50 geometry and parsing contracts across 64 fresh pages: 3200/3200 pass in native
+Rust, workerd/Wasm, celld and Chromium. The
+[celld/Chromium report](contextual-box-lengths-chromium.json) preserves all checks.
+The comparison permits Chromium's 1/64 CSS-pixel quantization. Another 64 real
+pages in each native Rust and workerd verify configured viewport dimensions and
+initial font size, including root rem resolution after live style changes.
+Default operation limits remain enabled; no resources or geometry are mocked.
+
+Eleven original WPT files and three helpers at revision
+`03f14d4780c4d981bc84c65679b18e9327a1affe` retain their original bytes and
+assertions. The [original report](performance-wpt-contextual-box-lengths.json)
+records Nimbo/celld at 64/78 completed subtests: seven passing files, three failed
+files and one incomplete iframe file. Chromium is 112/112; public Obscura 0.2.3
+is 33/112. Six original invalid width/height/min/max parsing files all pass.
+Computed width/margin/padding gaps remain failures. The original iframe file
+contains 34 Chromium subtests; its incomplete Nimbo execution is not a pass.
+
+Mixed percentage math, glyph-metric and container lengths, complete computed
+box CSSOM, frames, text shaping and exhaustive intrinsic/inherited sizing remain
+pending. Small, large and dynamic viewport units currently share one configured
+logical viewport; browser chrome and dynamically changing viewport sizes are
+not modeled. This evidence does not establish full CSS unit conformance.
+
+Reference: [CSS Values and Units Level 4](https://drafts.csswg.org/css-values-4/#relative-lengths).
