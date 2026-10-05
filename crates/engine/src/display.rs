@@ -125,21 +125,33 @@ impl Computed {
     pub(crate) fn contents(&self) -> bool {
         matches!(self.value, Display::Keyword(DisplayKeyword::Contents))
     }
+    pub(crate) fn inline_atomic(&self) -> bool {
+        matches!(&self.value, Display::Pair(pair) if pair.outside == DisplayOutside::Inline && !pair.is_list_item && matches!(pair.inside, DisplayInside::Flex(VendorPrefix::None)))
+    }
     pub(crate) fn atomic_container(&self) -> bool {
         matches!(&self.value, Display::Pair(pair) if matches!(pair.inside, DisplayInside::Flex(VendorPrefix::None) | DisplayInside::Grid))
     }
     pub(crate) fn layout(&self) -> Result<taffy::Display> {
         match &self.value {
             Display::Keyword(DisplayKeyword::None) => Ok(taffy::Display::None),
-            Display::Pair(pair) if pair.outside == DisplayOutside::Block && !pair.is_list_item => {
+            Display::Pair(pair)
+                if (pair.outside == DisplayOutside::Block || self.inline_atomic())
+                    && !pair.is_list_item =>
+            {
                 match pair.inside {
                     DisplayInside::Flow => Ok(taffy::Display::Block),
                     DisplayInside::Flex(VendorPrefix::None) => Ok(taffy::Display::Flex),
                     DisplayInside::Grid => Ok(taffy::Display::Grid),
-                    _ => Err(unsupported()),
+                    _ => Err(Error::Dom(format!(
+                        "layout unsupported: display formatting ({})",
+                        self.value()?
+                    ))),
                 }
             }
-            _ => Err(unsupported()),
+            _ => Err(Error::Dom(format!(
+                "layout unsupported: display formatting ({})",
+                self.value()?
+            ))),
         }
     }
 }

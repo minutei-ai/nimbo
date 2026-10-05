@@ -4332,31 +4332,41 @@ test.each([
   { css: "border:1ch solid", reason: "relative query length" },
   { css: "border-image-source:url('/image')", reason: "border-image-source" },
   { css: "border-inline-start-width:2px", reason: "border-inline-start-width" },
-  { css: "border-top-left-radius:2px", reason: "border-top-left-radius" },
-])("real HTTP → workerd → Wasm: unsupported border $css and recovery", async ({ css, reason }) => {
-  const url = new URL("borders/128", origin.url).href;
-  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
-    method: "POST",
-    headers: { authorization: "Bearer test-secret" },
-    body: JSON.stringify({
-      url,
-      expression: `(()=>{const e=document.createElement('div');e.style.cssText=${JSON.stringify(css)};document.body.append(e);return e.getBoundingClientRect()})()`,
-    }),
-  });
-  expect(response.status).toBe(422);
-  expect(await response.text()).toContain(reason);
-  const healthy = await worker.dispatchFetch("https://nimbo.test/scrape", {
-    method: "POST",
-    headers: { authorization: "Bearer test-secret" },
-    body: JSON.stringify({ url, expression: "borderCase(0)" }),
-  });
-  expect(healthy.status).toBe(200);
-  const result: unknown = await healthy.json();
-  if (typeof result !== "object" || result === null) throw new Error("Missing response");
-  const value: unknown = Reflect.get(result, "value");
-  if (typeof value !== "object" || value === null) throw new Error("Missing recovery");
-  expect(Object.values(value).every((check) => check === true)).toBe(true);
-});
+  { css: "border-top-left-radius:2px", reason: "border-top-left-radius", geometryOnly: true },
+])(
+  "real HTTP → workerd → Wasm: border geometry boundary $css and recovery",
+  async ({ css, reason, geometryOnly }) => {
+    const url = new URL("borders/128", origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url,
+        expression: geometryOnly
+          ? `(()=>{const e=document.createElement('div');document.body.append(e);const before=e.getBoundingClientRect();e.style.cssText=${JSON.stringify(css)};const after=e.getBoundingClientRect();return {stable:before.x===after.x&&before.y===after.y&&before.width===after.width&&before.height===after.height};})()`
+          : `(()=>{const e=document.createElement('div');e.style.cssText=${JSON.stringify(css)};document.body.append(e);return e.getBoundingClientRect()})()`,
+      }),
+    });
+    if (geometryOnly) {
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({ value: { stable: true } });
+    } else {
+      expect(response.status).toBe(422);
+      expect(await response.text()).toContain(reason);
+    }
+    const healthy = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "borderCase(0)" }),
+    });
+    expect(healthy.status).toBe(200);
+    const result: unknown = await healthy.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing recovery");
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
 
 test.each(Array.from({ length: 64 }, (_, variant) => variant))(
   "real HTTP → workerd → Wasm: native software canvas pixels variant %i",
@@ -6724,16 +6734,6 @@ const requestAuthoredButton = (expression: string) =>
 
 test.each([
   [
-    "anonymous text baseline",
-    "const e=document.createElement('div');e.style.cssText='display:flex;align-items:baseline';e.textContent='AB';document.body.append(e);return e.getBoundingClientRect()",
-    "text baseline alignment",
-  ],
-  [
-    "descendant text baseline",
-    "const e=document.createElement('div');e.style.display='grid';const child=document.createElement('div');child.style.alignSelf='baseline';const text=document.createElement('div');text.textContent='AB';child.append(text);e.append(child);document.body.append(e);return e.getBoundingClientRect()",
-    "text baseline alignment",
-  ],
-  [
     "button defaults",
     "for(const s of document.querySelectorAll('style'))s.remove();const b=document.createElement('button');b.style.display='flex';document.body.append(b);return b.getBoundingClientRect()",
     "button UA default",
@@ -6804,3 +6804,128 @@ test("native font settings reject negative feature indices without changing real
   expect(response.status).toBe(200);
   expect(await response.json()).toMatchObject({ value: { setting: "normal", stable: true } });
 });
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: text baseline variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`text-baseline/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      value: Object.fromEntries(
+        [
+          "flex",
+          "grid",
+          "anonymous",
+          "synthesis",
+          "edges",
+          "nested",
+          "wrap",
+          "normal",
+          "fractional",
+          "mutation",
+        ].map((key) => [key, true]),
+      ),
+    });
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: atomic inline variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`atomic-inline/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      value: Object.fromEntries(
+        [
+          "text",
+          "box",
+          "intrinsic",
+          "overflow",
+          "contents",
+          "margin",
+          "ignored",
+          "mutation",
+          "button",
+          "shrink",
+        ].map((key) => [key, true]),
+      ),
+    });
+  },
+);
+const requestAtomicInline = (expression: string) =>
+  worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url: new URL("atomic-inline/0", origin.url).href, expression }),
+  });
+test.each([
+  [
+    "mixed inline boxes",
+    "const p=document.createElement('section');for(let i=0;i<2;i++){const e=document.createElement('div');e.style.cssText='display:inline-flex;width:20px;height:20px';p.append(e);}document.body.append(p);return p.getBoundingClientRect()",
+    "mixed atomic inline formatting",
+  ],
+  [
+    "vertical alignment",
+    "const p=document.createElement('section'),e=document.createElement('div');e.style.cssText='display:inline-flex;vertical-align:top;width:20px;height:20px';p.append(e);document.body.append(p);return p.getBoundingClientRect()",
+    "atomic inline vertical alignment",
+  ],
+  [
+    "unimplemented control appearance",
+    "const p=document.createElement('section'),e=document.createElement('button');e.style.cssText='display:inline-flex;appearance:textfield;width:20px;height:20px';p.append(e);document.body.append(p);return p.getBoundingClientRect()",
+    "appearance",
+  ],
+  [
+    "inline grid",
+    "const p=document.createElement('section'),e=document.createElement('div');e.style.cssText='display:inline-grid;width:20px;height:20px';p.append(e);document.body.append(p);return p.getBoundingClientRect()",
+    "display formatting",
+  ],
+])(
+  "native atomic inline flow rejects unsupported %s and recovers",
+  async (_name, setup, message) => {
+    const failed = await requestAtomicInline("(()=>{" + setup + "})()");
+    expect(failed.status).toBe(422);
+    expect(await failed.text()).toContain(message);
+    const healthy = await requestAtomicInline("globalThis.comparison");
+    expect(healthy.status).toBe(200);
+    expect(await healthy.json()).toMatchObject({
+      value: { text: true, box: true, button: true, shrink: true },
+    });
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: rounded box variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`rounded-box/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      value: Object.fromEntries(
+        ["root", "child", "scroll", "mutation", "intersection", "rootBounds"].map((key) => [
+          key,
+          true,
+        ]),
+      ),
+    });
+  },
+);

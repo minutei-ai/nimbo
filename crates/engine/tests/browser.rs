@@ -1553,6 +1553,9 @@ fn serve_remaining_resource(request: Request) -> io::Result<()> {
         || request.url().starts_with("/anonymous-text/")
         || request.url().starts_with("/authored-button/")
         || request.url().starts_with("/font-settings/")
+        || request.url().starts_with("/text-baseline/")
+        || request.url().starts_with("/atomic-inline/")
+        || request.url().starts_with("/rounded-box/")
         || request.url().starts_with("/public-font-assets/")
         || request.url().starts_with("/font-shaping/")
         || request.url().starts_with("/font-shaping-assets/")
@@ -1724,6 +1727,9 @@ fn is_resource(path: &str) -> bool {
             "/anonymous-text/",
             "/authored-button/",
             "/font-settings/",
+            "/text-baseline/",
+            "/atomic-inline/",
+            "/rounded-box/",
             "/public-font-assets/",
             "/font-shaping/",
             "/font-shaping-assets/",
@@ -1749,11 +1755,48 @@ fn serve_public_font(request: Request, name: &str) -> io::Result<()> {
     request.respond(Response::from_data(bytes).with_header(header("Content-Type", "font/ttf")?))
 }
 
+fn serve_rounded_fixture(request: Request, variant: &str) -> io::Result<()> {
+    let variant = variant.parse::<usize>().unwrap_or_default();
+    request.respond(Response::from_data(format!(
+        "<!doctype html><meta charset=utf-8><body><script>globalThis.variant={variant};{}</script>",
+        include_str!("fixtures/rounded-box.txt")
+    )).with_header(header("Content-Type", "text/html")?))
+}
+
+fn serve_atomic_fixture(request: Request, variant: &str) -> io::Result<()> {
+    let variant = variant.parse::<usize>().unwrap_or_default();
+    request.respond(Response::from_data(format!(
+        "<!doctype html><meta charset=utf-8><body><script>globalThis.variant={variant};{}</script>",
+        include_str!("fixtures/atomic-inline.txt")
+    )).with_header(header("Content-Type", "text/html")?))
+}
+
+fn serve_baseline_fixture(request: Request, variant: &str) -> io::Result<()> {
+    let variant = variant.parse::<usize>().unwrap_or_default();
+    request.respond(Response::from_data(format!(
+        "<!doctype html><meta charset=utf-8><body><script>globalThis.variant={variant};{}</script>",
+        include_str!("fixtures/text-baseline.txt")
+    )).with_header(header("Content-Type", "text/html")?))
+}
+
 fn serve_fonts(request: Request) -> io::Result<()> {
     let path = request.url().to_owned();
     if let Some(name) = path.strip_prefix("/public-font-assets/") {
         return serve_public_font(request, name);
     }
+    if let Some(variant) = path.strip_prefix("/text-baseline/") {
+        return serve_baseline_fixture(request, variant);
+    }
+    if let Some(variant) = path.strip_prefix("/atomic-inline/") {
+        return serve_atomic_fixture(request, variant);
+    }
+    if let Some(variant) = path.strip_prefix("/rounded-box/") {
+        return serve_rounded_fixture(request, variant);
+    }
+    serve_font_response(request, &path)
+}
+
+fn serve_font_response(request: Request, path: &str) -> io::Result<()> {
     let mut response = if path.starts_with("/font-loading/font/")
         || path.starts_with("/font-assets/font/")
     {
@@ -3679,6 +3722,55 @@ fn font_settings_cssom_preserves_native_validated_declarations() -> TestResult {
         let result = page.evaluate("globalThis.comparison")?;
         let fields = result.as_object().ok_or("missing font settings result")?;
         assert_eq!(fields.len(), 12, "variant {variant}: {result}");
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn text_baselines_use_actual_native_font_metrics() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/text-baseline/{variant}")))?;
+        let result = page.evaluate("globalThis.comparison")?;
+        let fields = result.as_object().ok_or("missing baseline result")?;
+        assert_eq!(fields.len(), 10, "variant {variant}: {result}");
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+#[test]
+fn atomic_inline_flow_uses_native_line_boxes() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/atomic-inline/{variant}")))?;
+        let result = page.evaluate("globalThis.comparison")?;
+        let fields = result.as_object().ok_or("missing atomic inline result")?;
+        assert_eq!(fields.len(), 10, "variant {variant}: {result}");
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+#[test]
+fn rounded_boxes_keep_native_rectangular_geometry() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/rounded-box/{variant}")))?;
+        let result = page.evaluate("globalThis.comparison")?;
+        let fields = result.as_object().ok_or("missing rounded box result")?;
+        assert_eq!(fields.len(), 6, "variant {variant}: {result}");
         assert!(
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"

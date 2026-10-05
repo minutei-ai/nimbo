@@ -11,6 +11,21 @@ const INLINE: [&str; 6] = ["span", "a", "abbr", "bdi", "data", "time"];
 pub(crate) fn block(node: NodeRef<'_>) -> bool {
     BLOCK.iter().any(|name| node.has_name(name))
 }
+pub(crate) fn appearance(
+    node: NodeRef<'_>,
+    value: &str,
+    display: taffy::Display,
+    generated: bool,
+) -> bool {
+    !generated
+        && node.has_name("button")
+        && matches!(display, taffy::Display::Flex | taffy::Display::Grid)
+        && matches!(
+            value,
+            "auto" | "none" | "button" | "initial" | "unset" | "revert"
+        )
+}
+
 pub(crate) fn validate(
     node: NodeRef<'_>,
     declarations: &Declarations,

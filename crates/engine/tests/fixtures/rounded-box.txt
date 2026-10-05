@@ -1,0 +1,10 @@
+globalThis.comparison=(async()=>{
+ const v=globalThis.variant,radius=['50%',(10+v)+'px','10px / 20px','2em'][v%4];
+ const style=document.createElement('style');style.textContent='html,body{margin:0;padding:0}div{margin:0;padding:0;border:0}';document.head.append(style);
+ const root=document.createElement('div'),child=document.createElement('div');root.style.cssText='position:relative;width:100px;height:100px;overflow:hidden;border-radius:'+radius;child.style.cssText='position:absolute;left:0;top:0;width:20px;height:20px;border-radius:'+radius;root.style.setProperty('user-select',v%2?'none':'all');root.style.setProperty('-webkit-user-select',v%2?'text':'none');root.append(child);document.body.append(root);
+ const checks={},near=(a,b)=>Math.abs(a-b)<=1/64+.000001;
+ let r=root.getBoundingClientRect(),c=child.getBoundingClientRect();checks.root=near(r.width,100)&&near(r.height,100);checks.child=near(c.width,20)&&near(c.height,20)&&near(c.left,r.left)&&near(c.top,r.top);checks.scroll=root.scrollWidth===100&&root.scrollHeight===100;
+ root.style.borderRadius='100% / 20px';r=root.getBoundingClientRect();checks.mutation=near(r.width,100)&&near(r.height,100);
+ const entry=await new Promise(resolve=>{const observer=new IntersectionObserver(entries=>{observer.disconnect();resolve(entries[0]);},{root});observer.observe(child);});checks.intersection=entry.isIntersecting&&near(entry.intersectionRatio,1)&&near(entry.intersectionRect.width,20)&&near(entry.intersectionRect.height,20);checks.rootBounds=near(entry.rootBounds.width,100)&&near(entry.rootBounds.height,100);
+ root.remove();return checks;
+})();

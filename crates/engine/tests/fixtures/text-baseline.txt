@@ -1,0 +1,20 @@
+globalThis.comparison=(()=>{
+ const v=globalThis.variant,size=12+Math.floor(v/3)%16,line=20+(v%4)*.25;
+ const families=['serif','sans-serif','"Liberation Mono"'],metrics=[[1825,443,87],[1854,434,67],[1705,615,0]],family=families[v%3],m=metrics[v%3];
+ const style=document.createElement('style');style.textContent='html,body{margin:0;padding:0;font-family:'+family+';font-size:'+size+'px;line-height:'+line+'px}section{display:flex;align-items:baseline;width:300px}div{display:block;width:60px;flex-shrink:0;margin:0;padding:0;border:0}';document.head.append(style);
+ const near=(a,b)=>Math.abs(a-b)<=1/64+.000001,checks={};
+ const baseline=(s,h)=>{const a=Math.round(m[0]*s/2048),d=Math.round(m[1]*s/2048);return a+Math.floor((h-a-d)/2);};
+ const normal=s=>Math.round(m[0]*s/2048)+Math.round(m[1]*s/2048)+Math.round(m[2]*s/2048);
+ const group=()=>{const p=document.createElement('section');document.body.append(p);return p;};
+ const text=(p,s,h)=>{const e=document.createElement('div');e.style.cssText='font-size:'+s+'px;line-height:'+h;e.textContent='AB';p.append(e);return e;};
+ const aligned=(a,b,ba,bb)=>near(a.getBoundingClientRect().top+ba,b.getBoundingClientRect().top+bb);
+ let p=group(),a=text(p,size,line+'px'),b=text(p,size+8,(line+10)+'px');checks.flex=aligned(a,b,baseline(size,line),baseline(size+8,line+10));p.style.display='grid';p.style.gridAutoFlow='column';checks.grid=aligned(a,b,baseline(size,line),baseline(size+8,line+10));p.remove();
+ p=group();p.append('AB');b=text(p,size+8,(line+10)+'px');checks.anonymous=near(b.getBoundingClientRect().top-p.getBoundingClientRect().top,0)&&near(p.getBoundingClientRect().height,line+10);p.remove();
+ p=group();a=text(p,size,line+'px');b=document.createElement('div');b.style.cssText='width:10px;height:10px';p.append(b);checks.synthesis=aligned(a,b,baseline(size,line),10);p.remove();
+ p=group();a=text(p,size,line+'px');a.style.cssText+=';padding-top:5px;border-top:2px solid black';b=text(p,size+8,(line+10)+'px');checks.edges=aligned(a,b,baseline(size,line)+7,baseline(size+8,line+10));p.remove();
+ p=group();a=document.createElement('div');const inner=text(a,size,line+'px');p.append(a);b=text(p,size+8,(line+10)+'px');checks.nested=aligned(inner,b,baseline(size,line),baseline(size+8,line+10));p.remove();
+ p=group();a=text(p,size,line+'px');a.style.width='1px';a.textContent='AB AB AB';b=text(p,size+8,(line+10)+'px');checks.wrap=aligned(a,b,baseline(size,line),baseline(size+8,line+10))&&near(a.getBoundingClientRect().height,line*3);p.remove();
+ p=group();a=text(p,size,'normal');b=text(p,size+8,'normal');checks.normal=aligned(a,b,baseline(size,normal(size)),baseline(size+8,normal(size+8)));p.remove();
+ p=group();a=text(p,size,'20.5px');b=text(p,size+8,'30.75px');checks.fractional=aligned(a,b,baseline(size,20.5),baseline(size+8,30.75));a.style.fontSize=(size+4)+'px';checks.mutation=aligned(a,b,baseline(size+4,20.5),baseline(size+8,30.75));p.remove();
+ return checks;
+})();

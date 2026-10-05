@@ -104,6 +104,56 @@ pub(super) enum Intrinsic {
     Text(Run),
 }
 impl Intrinsic {
+    pub(super) fn layout(&self, inputs: taffy::LayoutInput, style: &Style) -> taffy::LayoutOutput {
+        use taffy::util::ResolveOrZero;
+        let mut measured = None;
+        let mut output = taffy::compute::compute_leaf_layout(
+            inputs,
+            style,
+            |_, _| 0.0,
+            |known, available| {
+                let size = self.measure(known, available);
+                measured = Some(size);
+                size
+            },
+        );
+        if let Self::Text(run) = self {
+            let padding = style
+                .padding
+                .resolve_or_zero(inputs.parent_size.width, |_, _| 0.0);
+            let border = style
+                .border
+                .resolve_or_zero(inputs.parent_size.width, |_, _| 0.0);
+            let inset = Rect {
+                top: padding.top + border.top,
+                right: padding.right + border.right,
+                bottom: padding.bottom + border.bottom,
+                left: padding.left + border.left,
+            };
+            let size = measured.unwrap_or_else(|| {
+                self.measure(
+                    Size {
+                        width: Some((output.size.width - inset.horizontal_axis_sum()).max(0.0)),
+                        height: None,
+                    },
+                    Size::MAX_CONTENT,
+                )
+            });
+            let first = f64::from(inset.top) + run.baseline;
+            let last = first + f64::from(size.height) - run.height;
+            match (first.to_f32(), last.to_f32()) {
+                (Some(first), Some(last)) if first.is_finite() && last.is_finite() => {
+                    output.baselines = taffy::Baselines {
+                        first: Some(first),
+                        last: Some(last),
+                    };
+                }
+                _ => *run.budget.error.borrow_mut() = Some(unsupported("text baseline range")),
+            }
+        }
+        output
+    }
+
     pub(super) fn measure(
         &self,
         known: Size<Option<f32>>,
@@ -125,11 +175,38 @@ impl Intrinsic {
     }
 }
 
+fn line_metrics(font: &Font, size: f64, height: &str) -> Result<(f64, f64)> {
+    let metrics = font.metrics();
+    let line = if metrics.use_typo_metrics {
+        metrics.typo_line
+    } else {
+        metrics
+            .hhea_line
+            .filter(|line| line.ascender.to_f64() != 0.0 || line.descender.to_f64() != 0.0)
+            .or(metrics.typo_line)
+    }
+    .ok_or_else(|| unsupported("text normal line metrics"))?;
+    let scale = size / f64::from(metrics.units_per_em);
+    let ascent = (line.ascender.to_f64() * scale).round();
+    let descent = (-line.descender.to_f64() * scale).round();
+    let height = if height == "normal" {
+        ascent + descent + (line.line_gap.to_f64() * scale).max(0.0).round()
+    } else {
+        height
+            .strip_suffix("px")
+            .and_then(|value| value.parse::<f64>().ok())
+            .filter(|value| value.is_finite() && *value >= 0.0)
+            .ok_or_else(|| unsupported("text line metrics"))?
+    };
+    Ok((height, ascent + ((height - ascent - descent) / 2.0).floor()))
+}
+
 pub(super) struct Run {
     font: Font,
     source: String,
     size: f64,
     height: f64,
+    baseline: f64,
     spacing: f64,
     nowrap: bool,
     budget: Rc<Budget>,
@@ -141,6 +218,26 @@ impl Run {
         context: &super::BoxContext,
         fonts: &crate::font_data::Arena,
         budget: Rc<Budget>,
+    ) -> Result<Option<Self>> {
+        Self::parse(source, typography, context, fonts, budget, false)
+    }
+    pub(super) fn strut(
+        typography: &Typography,
+        context: &super::BoxContext,
+        fonts: &crate::font_data::Arena,
+        budget: Rc<Budget>,
+    ) -> Result<Self> {
+        Self::parse("", typography, context, fonts, budget, true)?
+            .ok_or_else(|| unsupported("inline font strut"))
+    }
+
+    fn parse(
+        source: &str,
+        typography: &Typography,
+        context: &super::BoxContext,
+        fonts: &crate::font_data::Arena,
+        budget: Rc<Budget>,
+        strut: bool,
     ) -> Result<Option<Self>> {
         if !matches!(typography.whitespace.as_str(), "normal" | "nowrap") {
             return Err(unsupported("text white-space"));
@@ -161,7 +258,7 @@ impl Run {
             }
             normalized.push_str(part);
         }
-        if normalized.is_empty() {
+        if normalized.is_empty() && !strut {
             return Ok(None);
         }
         let size = context.fonts.size();
@@ -174,36 +271,14 @@ impl Run {
             ),
             &normalized,
         )?;
-        let height = context.fonts.line_height()?;
-        let height = if height == "normal" {
-            let metrics = font.metrics();
-            let line = if metrics.use_typo_metrics {
-                metrics.typo_line
-            } else {
-                metrics
-                    .hhea_line
-                    .filter(|line| line.ascender.to_f64() != 0.0 || line.descender.to_f64() != 0.0)
-                    .or(metrics.typo_line)
-            }
-            .ok_or_else(|| unsupported("text normal line metrics"))?;
-            let scale = size / f64::from(metrics.units_per_em);
-            let ascent = line.ascender.to_f64() * scale;
-            let descent = -line.descender.to_f64() * scale;
-            let gap = (line.line_gap.to_f64() * scale).max(0.0);
-            ascent.round() + descent.round() + gap.round()
-        } else {
-            height
-                .strip_suffix("px")
-                .and_then(|value| value.parse::<f64>().ok())
-                .filter(|value| value.is_finite() && *value >= 0.0)
-                .ok_or_else(|| unsupported("text line metrics"))?
-        };
+        let (height, baseline) = line_metrics(&font, size, &context.fonts.line_height()?)?;
         budget.shape(&font, &normalized, size, typography.spacing)?;
         Ok(Some(Self {
             font,
             source: normalized,
             size,
             height,
+            baseline,
             spacing: typography.spacing,
             nowrap: typography.whitespace == "nowrap",
             budget,

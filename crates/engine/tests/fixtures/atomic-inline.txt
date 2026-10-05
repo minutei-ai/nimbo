@@ -1,0 +1,17 @@
+globalThis.comparison=(()=>{
+ const v=globalThis.variant,size=12+(v%16),line=20+Math.floor(v/16),m=[1825,443],height=32+(v%4);
+ const style=document.createElement('style');style.textContent='html,body{margin:0;padding:0;font:16px/24px serif}section{display:block;width:300px;margin:0;padding:0;border:0}div,button{margin:0;padding:0;border:0;box-sizing:border-box}button{font:16px/24px serif;letter-spacing:normal}';document.head.append(style);
+ const near=(a,b)=>Math.abs(a-b)<=1/64+.000001,checks={},parentBaseline=17;
+ const baseline=(s,h)=>{const a=Math.round(m[0]*s/2048),d=Math.round(m[1]*s/2048);return a+Math.floor((h-a-d)/2);};
+ const setup=(tag='div')=>{const p=document.createElement('section'),e=document.createElement(tag);e.style.cssText='display:inline-flex;font:'+size+'px/'+line+'px serif;align-items:center;justify-content:center';if(tag==='button')e.style.appearance=v%2?'none':'button';p.append(e);document.body.append(p);return {p,e};};
+ const verify=(p,e,h,b)=>{const r=p.getBoundingClientRect(),c=e.getBoundingClientRect();return near(r.height,Math.max(parentBaseline,b)+Math.max(24-parentBaseline,h-b))&&near(c.top-r.top,Math.max(parentBaseline,b)-b);};
+ let {p,e}=setup();e.textContent='AB';checks.text=verify(p,e,line,baseline(size,line));p.remove();
+ ({p,e}=setup());e.style.cssText+=';width:32px;height:'+height+'px';const child=v%2?document.createElementNS('http://www.w3.org/2000/svg','svg'):document.createElement('div');child.style.cssText='width:20px;height:20px';e.append(child);checks.box=verify(p,e,height,(height-20)/2+20)&&near(e.getBoundingClientRect().left,p.getBoundingClientRect().left);p.remove();
+ ({p,e}=setup());e.textContent='AB';const reference=document.createElement('div');reference.style.cssText='width:max-content;font:'+size+'px/'+line+'px serif';reference.textContent='AB';document.body.append(reference);const width=reference.getBoundingClientRect().width;reference.remove();checks.intrinsic=near(e.getBoundingClientRect().width,width);p.style.width='1px';checks.overflow=near(e.getBoundingClientRect().width,width)&&verify(p,e,line,baseline(size,line));p.remove();
+ ({p,e}=setup());e.textContent='AB';const wrapper=document.createElement('div');wrapper.style.display='contents';p.append(wrapper);wrapper.append(e);checks.contents=verify(p,e,line,baseline(size,line));p.remove();
+ ({p,e}=setup());e.textContent='AB';const mt=v%2?-3:3,mb=v%2?-5:5;e.style.cssText+=';margin:'+mt+'px 7px '+mb+'px';const r=p.getBoundingClientRect(),c=e.getBoundingClientRect(),b=baseline(size,line)+mt,h=line+mt+mb;checks.margin=near(c.left-r.left,7)&&near(c.top-r.top,Math.max(parentBaseline,b)-b+mt)&&near(r.height,Math.max(parentBaseline,b)+Math.max(24-parentBaseline,h-b));p.remove();
+ ({p,e}=setup());e.textContent='AB';e.style.cssText+=';margin:auto;flex-grow:99;flex-shrink:99;flex-basis:99px;align-self:end';const before=e.getBoundingClientRect();checks.ignored=near(before.width,width)&&verify(p,e,line,baseline(size,line));e.style.fontSize=(size+4)+'px';checks.mutation=verify(p,e,line,baseline(size+4,line));p.remove();
+ ({p,e}=setup('button'));e.textContent='AB';checks.button=verify(p,e,line,baseline(size,line));p.remove();
+ ({p,e}=setup());p.style.width=(width+5)+'px';e.textContent='AB AB AB';checks.shrink=near(e.getBoundingClientRect().width,width+5)&&verify(p,e,line*3,baseline(size,line));p.remove();
+ return checks;
+})();

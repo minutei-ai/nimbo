@@ -1925,42 +1925,36 @@
     }
   ],
   "artifact": {
-    "sha256": "8750ef119836bfdd35f23da5f18d8d9873185a06769604b8a631618afa510828",
-    "wasmBytes": 14799733,
-    "gzip9Bytes": 5493731
+    "sha256": "ff71f84d120f120feb3760e3ae90c29ff4ec99842fc1827a9433f3a8a23bd962",
+    "wasmBytes": 14810411,
+    "gzip9Bytes": 5497681
   },
   "limitations": [
-    "All relevant font, border, padding and box sizing UA defaults must be authored",
-    "Default native controls and inline formatting remain unsupported"
+    "Relevant font, border, padding and box sizing UA defaults must be authored",
+    "Appearance is admitted for geometry only; default controls and native control painting remain pending"
   ],
   "validation": {
-    "fullSuitesBeforeSupplementalVariationExpansion": {
-      "bunTestsPassed": 6650,
-      "bunTestsFailed": 0,
-      "nativeDebug": {
-        "unit": 17,
-        "http": 117,
-        "proxy": 1,
-        "failed": 0
-      },
-      "nativeRelease": {
-        "unit": 17,
-        "http": 117,
-        "proxy": 1,
-        "failed": 0
-      }
-    },
-    "checks": ["TypeScript lint", "Native and Wasm clippy", "Rustdoc", "Formatting"],
-    "finalSupplementalFixtures": "Expanded fixtures were rerun in focused real Worker and native HTTP tests; engine code and Wasm artifact were unchanged",
-    "finalSupplementalWorker": {
-      "passed": 199,
+    "bun": {
+      "passed": 6844,
       "failed": 0
     },
-    "finalSupplementalNativeHttp": {
-      "passed": 4,
-      "failed": 0,
-      "note": "Three expanded fixtures plus the existing order contract; 64 pages per fixture"
-    }
+    "nativeDebug": {
+      "unit": 17,
+      "http": 120,
+      "proxy": 1,
+      "failed": 0
+    },
+    "nativeRelease": {
+      "unit": 17,
+      "http": 120,
+      "proxy": 1,
+      "failed": 0
+    },
+    "checks": ["TypeScript lint", "Native and Wasm clippy", "Rustdoc", "Formatting"],
+    "initialFailures": [
+      "An internal radius boundary test still expected unsupported geometry; the same CSS input now checks unchanged box geometry. Original WPT fixtures were not changed.",
+      "An initial concurrent debug run missed the intermediate transition sample after its deadline; the unchanged real-clock test passed in the complete debug rerun without concurrent compilation."
+    ]
   },
-  "fixtureSha256": "9772d78583c0a5b7e96a04dd9465b9d2cd7d9d7ead683418cf2ad215d9616a1c"
+  "fixtureSha256": "d71636452bbfaaa73e74781a017cb446152ea63ad5063bf4dc6f43c80f8d1b0b"
 }

@@ -10,6 +10,7 @@ use crate::{
     styles::{Declarations, Variables},
 };
 
+mod inline;
 mod lengths;
 pub(crate) mod logical;
 pub(crate) mod order;
@@ -211,6 +212,12 @@ fn non_layout(name: &str) -> bool {
         || matches!(
             name,
             "color"
+                | "border-top-left-radius"
+                | "border-top-right-radius"
+                | "border-bottom-left-radius"
+                | "border-bottom-right-radius"
+                | "user-select"
+                | "-webkit-user-select"
                 | "cursor"
                 | "background-color"
                 | "background-image"
@@ -308,13 +315,14 @@ fn style_properties(
         if alignment(&mut style, name, value)? {
             continue;
         }
-        // All accepted display modes have a block outer box. CSS 2.1
-        // vertical-align applies to inline-level and table-cell boxes, which
-        // display.layout() rejects before this property loop.
+        // Atomic inline boxes validate vertical-align separately. It does not
+        // apply to the block outer boxes of the other supported modes.
         if name == "vertical-align" {
             continue;
         }
         match name {
+            "appearance"
+                if crate::html_boxes::appearance(node, value, style.display, generated) => {}
             "writing-mode"
                 if matches!(value, "horizontal-tb" | "initial" | "unset" | "inherit") => {}
             "direction" if matches!(value, "ltr" | "initial" | "unset" | "inherit") => {}
@@ -351,6 +359,7 @@ fn style_properties(
             "right" => assign!(style.inset.right, value, name),
             "top" => assign!(style.inset.top, value, name),
             "bottom" => assign!(style.inset.bottom, value, name),
+            "grid-auto-flow" => assign!(style.grid_auto_flow, value, name),
             "flex-direction" => assign!(style.flex_direction, value, name),
             "flex-wrap" => assign!(style.flex_wrap, value, name),
             "flex-basis" => assign!(style.flex_basis, value, name),
@@ -531,7 +540,7 @@ struct Tree<'a, 'b> {
     out_of_flow: Vec<(taffy::NodeId, Option<NodeId>)>,
     box_nodes: HashMap<taffy::NodeId, NodeId>,
     orders: HashMap<taffy::NodeId, i32>,
-    text_boxes: HashSet<taffy::NodeId>,
+    inline_atoms: HashSet<taffy::NodeId>,
     sticky: HashMap<taffy::NodeId, Rect<LengthPercentageAuto>>,
     percentage_padding: Vec<(taffy::NodeId, Rect<LengthPercentage>)>,
     scroll: &'a ScrollState,
@@ -692,6 +701,7 @@ impl Tree<'_, '_> {
             self.work,
         )?;
         style.border = context.borders.geometry()?;
+        inline::atomic_style(&mut style, &context.display, &declarations)?;
         let fonts = context.fonts;
         let container =
             crate::containers::Container::apply(&declarations, &mut style, parent_display, fonts)?;
@@ -711,11 +721,9 @@ impl Tree<'_, '_> {
             self.positioned.insert(node.id);
         }
         let id = if let Some(intrinsic) = svg {
-            self.boxes
-                .new_leaf_with_context(style, text::Intrinsic::Svg(intrinsic))
-                .map_err(|error| layout_error(&error))
+            self.leaf(style, text::Intrinsic::Svg(intrinsic))
         } else if let Some(run) = self.text_run(node, depth, &variables, style.display, &context)? {
-            self.text_leaf(style, run, parent_display)
+            self.leaf(style, text::Intrinsic::Text(run))
         } else {
             let mut children = Vec::new();
             self.children(
@@ -726,10 +734,12 @@ impl Tree<'_, '_> {
                 &context,
                 &mut children,
             )?;
-            self.container(style, &children, parent_display)
-        }?;
+            self.inline_flow(&mut style, &mut children, &context)?;
+            self.boxes.new_with_children(style, &children)
+        }
+        .map_err(|error| layout_error(&error))?;
         self.record_box(node.id, id, position, &declarations, &fonts)?;
-        self.orders.insert(id, context.order);
+        self.remember_inline_item(id, &context);
         if out_of_flow {
             self.out_of_flow.push((id, containing));
         }
@@ -867,48 +877,6 @@ impl Tree<'_, '_> {
         }
         Ok(viewport.unwrap_or(root))
     }
-    fn text_leaf(
-        &mut self,
-        style: Style,
-        run: text::Run,
-        parent: Display,
-    ) -> Result<taffy::NodeId> {
-        if matches!(parent, Display::Flex | Display::Grid)
-            && style.align_self == Some(AlignSelf::BASELINE)
-        {
-            return Err(unsupported("text baseline alignment"));
-        }
-        let id = self
-            .boxes
-            .new_leaf_with_context(style, text::Intrinsic::Text(run))
-            .map_err(|error| layout_error(&error))?;
-        self.text_boxes.insert(id);
-        Ok(id)
-    }
-    fn container(
-        &mut self,
-        style: Style,
-        children: &[taffy::NodeId],
-        parent: Display,
-    ) -> Result<taffy::NodeId> {
-        let text = children.iter().any(|id| self.text_boxes.contains(id));
-        if text
-            && ((matches!(style.display, Display::Flex | Display::Grid)
-                && style.align_items == Some(AlignItems::BASELINE))
-                || (matches!(parent, Display::Flex | Display::Grid)
-                    && style.align_self == Some(AlignSelf::BASELINE)))
-        {
-            return Err(unsupported("text baseline alignment"));
-        }
-        let id = self
-            .boxes
-            .new_with_children(style, children)
-            .map_err(|error| layout_error(&error))?;
-        if text {
-            self.text_boxes.insert(id);
-        }
-        Ok(id)
-    }
     fn text_item(
         &mut self,
         source: &mut String,
@@ -937,7 +905,6 @@ impl Tree<'_, '_> {
                     text::Intrinsic::Text(run),
                 )
                 .map_err(|error| layout_error(&error))?;
-            self.text_boxes.insert(id);
             output.push(id);
         }
         Ok(())
@@ -1053,7 +1020,7 @@ fn scene<T>(
             out_of_flow: Vec::new(),
             box_nodes: HashMap::new(),
             orders: HashMap::new(),
-            text_boxes: HashSet::new(),
+            inline_atoms: HashSet::new(),
             sticky: HashMap::new(),
             percentage_padding: Vec::new(),
             scroll: styles.scroll,

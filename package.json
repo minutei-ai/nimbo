@@ -67,7 +67,10 @@
     "compare:order-layout": "bun run build:worker && bun run tooling/compare-order-layout.ts",
     "compare:anonymous-text": "bun run build:worker && bun run tooling/compare-anonymous-text.ts",
     "compare:authored-button": "bun run build:worker && bun run tooling/compare-authored-button.ts",
-    "compare:font-settings": "bun run build:worker && bun run tooling/compare-font-settings.ts"
+    "compare:font-settings": "bun run build:worker && bun run tooling/compare-font-settings.ts",
+    "compare:text-baseline": "bun run build:worker && bun run tooling/compare-text-baseline.ts",
+    "compare:atomic-inline": "bun run build:worker && bun run tooling/compare-atomic-inline.ts",
+    "compare:rounded-box": "bun run build:worker && bun run tooling/compare-rounded-box.ts"
   },
   "devDependencies": {
     "@effect/tsgo": "0.47.2",

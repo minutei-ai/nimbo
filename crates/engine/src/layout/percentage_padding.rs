@@ -30,15 +30,16 @@ impl Tree<'_, '_> {
                         height: AvailableSpace::Definite(height),
                     },
                     |inputs, _, context, style| {
-                        taffy::compute::compute_leaf_layout(
-                            inputs,
-                            style,
-                            |_, _| 0.0,
-                            |known, available| {
-                                context
-                                    .as_ref()
-                                    .map_or(Size::ZERO, |svg| svg.measure(known, available))
+                        context.as_ref().map_or_else(
+                            || {
+                                taffy::compute::compute_leaf_layout(
+                                    inputs,
+                                    style,
+                                    |_, _| 0.0,
+                                    |_, _| Size::ZERO,
+                                )
                             },
+                            |intrinsic| intrinsic.layout(inputs, style),
                         )
                     },
                 )
