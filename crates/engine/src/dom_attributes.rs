@@ -29,7 +29,7 @@ fn qualified(attribute: &Attr, name: &str) -> bool {
         },
     )
 }
-fn normalize(node: NodeRef<'_>, name: &str) -> String {
+pub(crate) fn normalized_name(node: NodeRef<'_>, name: &str) -> String {
     if node
         .qual_name_ref()
         .is_some_and(|name| name.ns.as_ref() == "http://www.w3.org/1999/xhtml")
@@ -46,7 +46,7 @@ pub(crate) fn named_info(
     node: NodeRef<'_>,
     name: &str,
 ) -> Option<(String, Option<String>, String)> {
-    let name = normalize(node, name);
+    let name = normalized_name(node, name);
     node.query_or(None, |node| {
         node.as_element()?
             .attrs
@@ -88,7 +88,7 @@ pub(crate) fn names(node: NodeRef<'_>) -> Vec<String> {
         .collect()
 }
 pub(crate) fn set_named(node: NodeRef<'_>, name: &str, value: &str) -> Result<()> {
-    let name = normalize(node, name);
+    let name = normalized_name(node, name);
     let exists = node
         .attrs()
         .iter()
@@ -122,7 +122,7 @@ pub(crate) fn set_named(node: NodeRef<'_>, name: &str, value: &str) -> Result<()
     Ok(())
 }
 pub(crate) fn remove_named(node: NodeRef<'_>, name: &str) {
-    let name = normalize(node, name);
+    let name = normalized_name(node, name);
     node.update(|node| {
         if let NodeData::Element(element) = &mut node.data
             && let Some(index) = element
@@ -150,12 +150,12 @@ pub(crate) fn validate_local(name: &str) -> Result<()> {
     }
     Ok(())
 }
-pub(crate) fn set_namespaced(
+pub(crate) fn create_namespaced(
     node: NodeRef<'_>,
     namespace: &str,
     qualified: &str,
     value: &str,
-) -> Result<()> {
+) -> Result<Attr> {
     let (prefix, local) = qualified
         .split_once(':')
         .map_or((None, qualified), |(prefix, local)| (Some(prefix), local));
@@ -194,6 +194,34 @@ pub(crate) fn set_namespaced(
     name.local = local.into();
     name.prefix = prefix.map(Into::into);
     name.ns = namespace.into();
+    Ok(Attr {
+        name,
+        value: value.into(),
+    })
+}
+pub(crate) fn create_named(node: NodeRef<'_>, name: &str, value: &str) -> Result<Attr> {
+    let local = normalized_name(node, name);
+    validate_local(&local)?;
+    let mut name = node
+        .qual_name_ref()
+        .map(|name| name.clone())
+        .ok_or_else(|| Error::Dom("attribute template must be an element".into()))?;
+    name.local = local.as_str().into();
+    name.prefix = None;
+    name.ns = "".into();
+    Ok(Attr {
+        name,
+        value: value.into(),
+    })
+}
+pub(crate) fn set_namespaced(
+    node: NodeRef<'_>,
+    namespace: &str,
+    qualified: &str,
+    value: &str,
+) -> Result<()> {
+    let attribute = create_namespaced(node, namespace, qualified, value)?;
+    let name = attribute.name;
     node.update(|node| {
         if let NodeData::Element(element) = &mut node.data {
             if let Some(attribute) = element.attrs.iter_mut().find(|attribute| {

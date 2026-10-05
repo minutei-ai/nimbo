@@ -1,0 +1,43 @@
+{
+  "commit": "03f14d4780c4d981bc84c65679b18e9327a1affe",
+  "test_files": [
+    "dom/nodes/Attr-prefix.html",
+    "dom/nodes/Document-createAttribute.html",
+    "dom/nodes/Element-setAttributeNodeNS.html",
+    "dom/nodes/attributes-namednodemap.html"
+  ],
+  "files": [
+    {
+      "path": "dom/nodes/Attr-prefix.html",
+      "sha256": "57e69d9b5bf883beadaac2d8d98e655af86ec505f288b7a18fe65203c1c5be9c"
+    },
+    {
+      "path": "dom/nodes/Document-createAttribute.html",
+      "sha256": "bcf1e33813119383e76b42ef3e8736e9a68aca40caab72fb36d3c9baf82bb9b5"
+    },
+    {
+      "path": "dom/nodes/Element-setAttributeNodeNS.html",
+      "sha256": "504910d5b18eaa58d3401c1e8cbd3f7da1f76091defc93a8f69e100e2c4663c1"
+    },
+    {
+      "path": "dom/nodes/attributes-namednodemap.html",
+      "sha256": "d67b4348a15e34d9818a00847bd5be86444afd374144b8b5f73e240be9414a37"
+    },
+    {
+      "path": "dom/nodes/attributes.js",
+      "sha256": "9a84bd003ff5e9ef28fc8df7183a4e59cc4227ff1281f90f3d8b7222e314bfdf"
+    },
+    {
+      "path": "dom/nodes/productions.js",
+      "sha256": "f500dd3b80c32680931b640c769597912feb2a8f733090967c1962ada4e686e5"
+    },
+    {
+      "path": "resources/testharness.js",
+      "sha256": "d2399236c2a09c429804ff2299ad6629e17e2b53f17a74dd341e936adb11ae3e"
+    },
+    {
+      "path": "resources/testharnessreport.js",
+      "sha256": "3777176fc736b0a78cf7617b9613b220f635daae7536ec7ebb99c61dbb525aae"
+    }
+  ]
+}

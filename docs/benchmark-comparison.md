@@ -413,14 +413,38 @@ memory use and complete SPA compatibility remain unproven.
 
 ## Native attribute namespace build
 
-The [current report](performance-comparison-attribute-namespaces.json) was
+The [namespace report](performance-comparison-attribute-namespaces.json) was
 measured after the complete functional gate passed, with no build or functional
 test competing with the benchmark. The Wasm hash matches the validated bundle.
 All 648 real HTTP extractions return expected values, with 567 measured samples
 across nine scenarios. Nimbo/celld has lower p50 than both Chromium and public
 Obscura in 9/9 scenarios in this run. Positioned boxes measure 31.03 ms p50,
 versus 32.55 ms for Obscura, but their p95 is still higher (48.37 versus 38.46 ms).
-The README uses this snapshot. Separate runs do not establish causal attribution
+The README used this snapshot at the namespace stage. Separate runs do not establish causal attribution
 of timing changes to namespace handling. The p50 result does not establish
 all-percentile performance parity, complete SPA/browser compatibility,
 production throughput, memory consumption or cost.
+
+## Native Attr and NamedNodeMap build
+
+The [current report](performance-comparison-attribute-nodes.json) was measured
+after the complete functional gate passed, with no build or functional test
+competing with it. The recorded Wasm hash matches the validated bundle. All
+648 real HTTP extractions are correct, with 567 measured samples in nine
+scenarios. Nimbo/celld has lower p50 than Chromium in 9/9 and public Obscura
+in 8/9. Positioned-box p50 is 39.87 ms versus 32.42 ms for Obscura; p95 is
+48.94 versus 34.55 ms. Static 5000-node p95 also exceeds Obscura, 54.69 versus
+45.33 ms. The README uses this snapshot and retains those gaps.
+
+The [separate alternating engine comparison](performance-engine-ab-attribute-nodes.json)
+compares the retained namespace build with the current Attr build through
+the same celld HTTP adapter and rotating runtime order. All 432 extractions
+are correct, with 378 measured samples. Positioned-box p50 is 42.73 ms in
+the baseline and 43.31 ms in the candidate; p95 is 48.23 and 53.04 ms. Candidate
+p50 is lower in 2/9 scenarios in this run. This is not a measured performance
+improvement. The baseline itself is slower here than in its previous
+three-runtime snapshot, so independent historical runs cannot attribute the
+entire timing change to Attr support. Both reports record exact Wasm hashes.
+
+All-win performance, complete SPA/browser compatibility, production
+throughput, memory consumption and cost remain unproven.

@@ -76,3 +76,21 @@ celld --bucket "$CELLD_BUCKET" --listen 127.0.0.1:8080
 ```
 
 Configure public routing and TLS through your own ingress according to celld's documentation. Verify health, authentication and extraction after deployment. Running Nimbo on celld does not add missing engine capabilities such as WebGL, video, TLS fingerprint controls or durable sessions.
+
+## Attribute DOM conformance
+
+`bun run compare:attribute-namespaces` runs the synthetic native attribute
+contracts on 64 fresh HTTP pages in Nimbo/celld and ordinary Chromium. It checks
+namespace isolation, live Attr identity, detached values, NamedNodeMap ordering
+and mutation, native style/selector updates and custom element reactions.
+
+`bun run bench:wpt-attribute-namespaces` and `bun run bench:wpt-attribute-nodes`
+run the separately pinned original upstream HTML files, harness and helper
+scripts. Set `NIMBO_WPT_REFERENCE_ROOT` privately to the exact public WPT
+revision recorded in each manifest, `NIMBO_COMPARE_CHROMIUM_BINARY` to ordinary
+Chromium and, optionally, `NIMBO_COMPARE_OBSCURA_BINARY` to the public comparator.
+The source adapter verifies immutable file hashes and appends reporting only.
+Any failed assertion, failed setup or incomplete page keeps the command
+unsuccessful. A failed document setup does not count its unexecuted subtests
+as passes. See the [reference matrix](benchmark-reference-matrix.md) for
+results and remaining obligations.

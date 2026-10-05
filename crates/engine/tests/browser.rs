@@ -3469,7 +3469,7 @@ fn attribute_namespaces_mass_real_http() -> TestResult {
         let page = browser.navigate(&fixture.path(&format!("/attribute-namespaces/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let checks = result.as_object().ok_or("missing Window checks")?;
-        assert_eq!(checks.len(), 42);
+        assert_eq!(checks.len(), 77);
         assert!(
             checks.values().all(|value| value == &json!(true)),
             "{result}"

@@ -12,7 +12,7 @@
     "dom/nodes/attributes.html",
     "dom/nodes/namespaced-attribute-mutations.html"
   ],
-  "scope": "Eight original attribute WPT HTML files, original harness and helper scripts; immutable source bytes and assertions; reporting-only adapter; real HTTP; default limits; no mocks; native Attr and NamedNodeMap; independent documents and other original failures retained",
+  "scope": "Eight original attribute WPT HTML files, original harness and helper scripts; immutable source bytes and assertions; reporting-only adapter; real HTTP; default limits; no mocks; unsupported Attr, NamedNodeMap, independent documents and other original failures retained",
   "results": [
     {
       "runtime": "Google Chrome for Testing 153.0.8010.12",
@@ -124,13 +124,24 @@
     {
       "runtime": "celld 0.6.1",
       "file": "dom/nodes/Element-removeAttribute.html",
-      "status": "passed",
+      "status": "failed",
       "verdict": {
         "status": 0,
         "message": null,
         "total": 2,
-        "passed": 2,
-        "failed": []
+        "passed": 0,
+        "failed": [
+          {
+            "name": "removeAttribute should remove the first attribute, irrespective of namespace, when the first attribute is not in a namespace",
+            "status": 1,
+            "message": "cannot read property 'length' of undefined"
+          },
+          {
+            "name": "removeAttribute should remove the first attribute, irrespective of namespace, when the first attribute is in a namespace",
+            "status": 1,
+            "message": "cannot read property 'length' of undefined"
+          }
+        ]
       }
     },
     {
@@ -166,13 +177,19 @@
     {
       "runtime": "celld 0.6.1",
       "file": "dom/nodes/Element-removeAttributeNS.html",
-      "status": "passed",
+      "status": "failed",
       "verdict": {
         "status": 0,
         "message": null,
         "total": 1,
-        "passed": 1,
-        "failed": []
+        "passed": 0,
+        "failed": [
+          {
+            "name": "removeAttributeNS should take a local name.",
+            "status": 1,
+            "message": "cannot read property '0' of undefined"
+          }
+        ]
       }
     },
     {
@@ -238,13 +255,19 @@
     {
       "runtime": "celld 0.6.1",
       "file": "dom/nodes/Element-setAttribute.html",
-      "status": "passed",
+      "status": "failed",
       "verdict": {
         "status": 0,
         "message": null,
         "total": 2,
-        "passed": 2,
-        "failed": []
+        "passed": 1,
+        "failed": [
+          {
+            "name": "setAttribute should change the first attribute, irrespective of namespace",
+            "status": 1,
+            "message": "cannot read property 'length' of undefined"
+          }
+        ]
       }
     },
     {
@@ -450,7 +473,7 @@
             "message": "assert_equals: expected null but got object \"[object Object]\""
           },
           {
-            "name": "If attr\u2019s element is neither null nor element, throw an InUseAttributeError.",
+            "name": "If attr’s element is neither null nor element, throw an InUseAttributeError.",
             "status": 1,
             "message": "assert_throws_dom: Attribute already associated with el function \"function() { other.setAttributeNode(attr) }\" did not throw"
           },
@@ -525,8 +548,198 @@
         "status": 0,
         "message": null,
         "total": 67,
-        "passed": 66,
+        "passed": 28,
         "failed": [
+          {
+            "name": "toggleAttribute should not change the order of previously set attributes.",
+            "status": 1,
+            "message": "cannot read property '0' of undefined"
+          },
+          {
+            "name": "toggleAttribute should set the first attribute with the given name",
+            "status": 1,
+            "message": "cannot read property '0' of undefined"
+          },
+          {
+            "name": "toggleAttribute should set the attribute with the given qualified name",
+            "status": 1,
+            "message": "cannot read property '0' of undefined"
+          },
+          {
+            "name": "setAttribute should not change the order of previously set attributes.",
+            "status": 1,
+            "message": "cannot read property '0' of undefined"
+          },
+          {
+            "name": "setAttribute should set the first attribute with the given name",
+            "status": 1,
+            "message": "cannot read property '0' of undefined"
+          },
+          {
+            "name": "setAttribute should set the attribute with the given qualified name",
+            "status": 1,
+            "message": "cannot read property '0' of undefined"
+          },
+          {
+            "name": "null and the empty string should result in a null namespace.",
+            "status": 1,
+            "message": "cannot read property '0' of undefined"
+          },
+          {
+            "name": "XML-namespaced attributes don't need an xml prefix",
+            "status": 1,
+            "message": "cannot read property 'length' of undefined"
+          },
+          {
+            "name": "xmlns should be allowed as local name",
+            "status": 1,
+            "message": "cannot read property 'length' of undefined"
+          },
+          {
+            "name": "xmlns should be allowed as prefix in the XMLNS namespace",
+            "status": 1,
+            "message": "cannot read property 'length' of undefined"
+          },
+          {
+            "name": "xmlns should be allowed as qualified name in the XMLNS namespace",
+            "status": 1,
+            "message": "cannot read property 'length' of undefined"
+          },
+          {
+            "name": "Setting the same attribute with another prefix should not change the prefix",
+            "status": 1,
+            "message": "cannot read property 'length' of undefined"
+          },
+          {
+            "name": "Attributes should work in document fragments.",
+            "status": 1,
+            "message": "cannot read property 'item' of undefined"
+          },
+          {
+            "name": "Attribute values should not be parsed.",
+            "status": 1,
+            "message": "cannot read property '0' of undefined"
+          },
+          {
+            "name": "Specified attributes should be accessible.",
+            "status": 1,
+            "message": "cannot read property '0' of undefined"
+          },
+          {
+            "name": "Entities in attributes should have been expanded while parsing.",
+            "status": 1,
+            "message": "cannot read property '0' of undefined"
+          },
+          {
+            "name": "Attribute with prefix in local name",
+            "status": 1,
+            "message": "cannot read property '0' of undefined"
+          },
+          {
+            "name": "Attribute loses its owner when removed",
+            "status": 1,
+            "message": "cannot read property '0' of undefined"
+          },
+          {
+            "name": "Basic functionality of getAttributeNode/getAttributeNodeNS",
+            "status": 1,
+            "message": "cannot read property '0' of undefined"
+          },
+          {
+            "name": "Basic functionality of setAttributeNode",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "setAttributeNode should distinguish attributes with same local name and different namespaces",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "setAttributeNode doesn't have case-insensitivity even with an HTMLElement 1",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "setAttributeNode doesn't have case-insensitivity even with an HTMLElement 2",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "setAttributeNode doesn't have case-insensitivity even with an HTMLElement 3",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "Basic functionality of setAttributeNodeNS",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "If attr’s element is neither null nor element, throw an InUseAttributeError.",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "Replacing an attr by itself",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "Basic functionality of removeAttributeNode",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "setAttributeNode on bound attribute should throw InUseAttributeError",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "setAttributeNode, if it fires mutation events, should fire one with the new node when resetting an existing attribute (outer shell)",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "setAttributeNode called with an Attr that has the same name as an existing one should not change attribute order",
+            "status": 1,
+            "message": "Cannot convert undefined or null to object"
+          },
+          {
+            "name": "getAttributeNames tests",
+            "status": 1,
+            "message": "cannot read property '0' of undefined"
+          },
+          {
+            "name": "Own property correctness with basic attributes",
+            "status": 1,
+            "message": "assert_array_equals: lengths differ, expected array [\"0\", \"1\"] length 2, got [] length 0"
+          },
+          {
+            "name": "Own property correctness with non-namespaced attribute before same-name namespaced one",
+            "status": 1,
+            "message": "assert_array_equals: lengths differ, expected array [\"0\", \"1\", \"2\"] length 3, got [] length 0"
+          },
+          {
+            "name": "Own property correctness with namespaced attribute before same-name non-namespaced one",
+            "status": 1,
+            "message": "assert_array_equals: lengths differ, expected array [\"0\", \"1\", \"2\"] length 3, got [] length 0"
+          },
+          {
+            "name": "Own property correctness with two namespaced attributes with the same name-with-prefix",
+            "status": 1,
+            "message": "assert_array_equals: lengths differ, expected array [\"0\", \"1\", \"2\"] length 3, got [] length 0"
+          },
+          {
+            "name": "Own property names should only include all-lowercase qualified names for an HTML element in an HTML document",
+            "status": 1,
+            "message": "Cannot convert undefined or null to object"
+          },
+          {
+            "name": "Own property names should include all qualified names for a non-HTML element in an HTML document",
+            "status": 1,
+            "message": "Cannot convert undefined or null to object"
+          },
           {
             "name": "Own property names should include all qualified names for an HTML element in a non-HTML document",
             "status": 1,
@@ -598,7 +811,7 @@
         "status": 0,
         "message": null,
         "total": 24,
-        "passed": 11,
+        "passed": 9,
         "failed": [
           {
             "name": "append a namespaced event handler attribute preserves an HTML event handler",
@@ -616,9 +829,14 @@
             "message": "assert_equals: expected 1 but got 0"
           },
           {
+            "name": "replace a namespaced style attribute preserves HTML inline style",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
             "name": "replace a namespaced event handler attribute preserves an HTML event handler",
             "status": 1,
-            "message": "assert_equals: expected 1 but got 0"
+            "message": "not a function"
           },
           {
             "name": "append a namespaced event handler attribute preserves an SVG event handler",
@@ -636,9 +854,14 @@
             "message": "assert_equals: expected 1 but got 0"
           },
           {
+            "name": "replace a namespaced style attribute preserves SVG inline style",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
             "name": "replace a namespaced event handler attribute preserves an SVG event handler",
             "status": 1,
-            "message": "assert_equals: expected 1 but got 0"
+            "message": "not a function"
           },
           {
             "name": "A namespaced slot attribute does not assign a slot",

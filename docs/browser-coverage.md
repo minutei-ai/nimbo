@@ -3170,20 +3170,24 @@ writes use existing DOM operation/write budgets and invalidate native layout
 and stylesheet state. Custom element reactions carry the real local name,
 namespace and old/new values for both namespace and qualified-name mutation.
 
-The [42-contract fixture](../crates/engine/tests/fixtures/attribute-namespaces.txt)
+The [77-contract fixture](../crates/engine/tests/fixtures/attribute-namespaces.txt)
 uses 64 fresh real HTTP pages with default limits and no mocks. Native Rust and workerd
-pass 2688 assertions per runtime. The [celld/ordinary Chromium comparison](attribute-namespaces-chromium.json)
-passes all 64 pages in each runtime. SVG serialization is tested with an
-explicit block SVG box; unsupported SVG layout modes remain separate gaps.
+pass all 4928 assertions per runtime. The [celld/ordinary Chromium comparison](attribute-namespaces-chromium.json)
+passes 77/77 per page in Nimbo/celld and 76/77 per page in Chromium. Chromium
+exposes an uppercase qualified name as a named property even though its own
+property names correctly omit it; all 64 failed comparator pages are retained
+and the comparison command is unsuccessful. SVG serialization is tested with
+an explicit block SVG box; unsupported SVG layout modes remain separate gaps.
 
 The [original manifest](../tooling/wpt-attribute-namespaces-sources.json) pins
 eight HTML tests, both upstream harness files and both helper scripts.
 Original bytes and assertions are unchanged; only reporting is appended.
 The [report](performance-wpt-attribute-namespaces.json) records Chromium 101/101,
-public Obscura 43/101 and Nimbo/celld 43/101 original subtests. Nimbo passes
-three files and fails five. Missing Attr/NamedNodeMap interfaces, independent
-documents and event handlers remain explicit failures. The runner exits
-unsuccessfully. This cohort is not full DOM conformance.
+public Obscura 43/101 and Nimbo/celld 87/101 original subtests, up from the
+retained [43/101 baseline](performance-wpt-attribute-namespaces-baseline.json).
+Nimbo passes six files and fails two. Independent documents, event handlers,
+shadow slots, dialog/input/option state and frame contexts remain explicit
+failures. The runner exits unsuccessfully. This cohort is not full DOM conformance.
 
 The same implementation closes all five namespaced-ID/name subtests in the
 original Window cohort: Nimbo now passes 57/82, up from the retained
@@ -3204,3 +3208,55 @@ whose hash is recorded. Nimbo/celld has lower p50 than both Chromium and Obscura
 in 9/9 scenarios in this run. Positioned-box p95 still exceeds Obscura (48.37 ms
 versus 38.46 ms). Full browser and all-percentile performance parity remain
 unproven; the original WPT failures remain obligations.
+
+## Native Attr and live NamedNodeMap
+
+Rust owns attribute handles, namespace/local identity, owner associations and
+detached values. JavaScript Attr objects refer to those handles rather than
+storing a separate attribute map. Element.attributes returns the same live
+NamedNodeMap, with indexed access, iteration, named properties and prototype
+method precedence. HTML own-property names omit ASCII uppercase qualified
+names; SVG own-property names preserve case. Native qualified-name and
+namespace/local lookups remain distinct.
+
+Document.createAttribute/createAttributeNS and Element get/set/removeAttributeNode
+APIs create, attach, replace and detach real attributes. Replacing an attribute
+keeps its list position, installs the incoming object's qualified name and
+detaches the previous object while retaining its value. Reusing an attached
+attribute on another element raises InUseAttributeError. Removing a missing
+attribute raises NotFoundError. Attr cannot be inserted into the tree.
+
+Attr value/nodeValue/textContent updates native element data, selector/Window
+access, styles, stylesheet invalidation and custom element reactions. Native
+style setters target the null namespace even when a foreign attribute has the
+qualified name style. Detached Attr writes stay detached; removed handles do
+not become identities for later attributes with the same name. All operations
+retain shared DOM operation/write budgets.
+
+The [additional original manifest](../tooling/wpt-attribute-nodes-sources.json)
+pins four unmodified HTML tests and their original resources. The
+[report](performance-wpt-attribute-nodes.json) records 17/17 executed subtests
+in three passing Nimbo/celld files: Attr.prefix, NamedNodeMap and attribute
+node replacement. Document.createAttribute fails setup because independent
+XML documents are not implemented; its 36 original subtests remain unverified,
+not passed. Across the 53-subtest reference obligation, Chromium passes 50
+and public Obscura passes 9. Chromium fails the three original qualified-name
+lookup tests after replacement; those results remain unchanged. Both original
+WPT commands are unsuccessful. Synthetic contracts do not replace them.
+
+References: [Attr](https://dom.spec.whatwg.org/#interface-attr) and
+[NamedNodeMap](https://dom.spec.whatwg.org/#interface-namednodemap).
+
+The complete Attr build passes formatting, Worker/Wasm compilation,
+TypeScript/native/Wasm lint, 6103 Bun tests and Rust documentation. Debug and
+release each pass 12 unit tests, 110 real HTTP browser tests and the real
+proxy test. No dependency or resource-limit changes are needed.
+
+The [current performance snapshot](performance-comparison-attribute-nodes.json)
+records 648 correct extractions and 567 measured samples with the validated
+Wasm hash. Nimbo p50 is lower than Chromium in 9/9 and Obscura in 8/9
+scenarios. Positioned boxes and two p95 results remain slower than Obscura.
+The [alternating build comparison](performance-engine-ab-attribute-nodes.json)
+records 432 correct extractions and 378 measured samples; it does not establish
+a performance improvement for this capability change. Original WPT failures
+and unverified document setup remain obligations.

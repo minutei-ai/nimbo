@@ -89,3 +89,13 @@ localhost and private network addresses. Local fixtures explicitly allow their
 isolated loopback origins; a deployed proxy must satisfy platform restrictions.
 
 Worker platform limits apply in addition to Nimbo's own [engine limits](../README.md#resource-limits). Consult the current [Cloudflare limits](https://developers.cloudflare.com/workers/platform/limits/) when sizing workloads. Browser capabilities remain those of Nimbo's engine: deployment does not add WebGL, video, screenshots or durable browser sessions.
+
+## Attribute DOM validation
+
+`bun run test:worker` runs the live Attr/NamedNodeMap and attribute namespace
+contracts through real workerd and Nimbo's own Wasm engine. The original WPT
+commands and immutable source setup are documented in the
+[celld guide](celld.md#attribute-dom-conformance); they execute the same prebuilt
+bundle through celld. The [coverage inventory](browser-coverage.md#native-attr-and-live-namednodemap)
+separates passing contracts, original WPT failures and unverified document setup.
+Local conformance results do not establish a deployed Cloudflare measurement.

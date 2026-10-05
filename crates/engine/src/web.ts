@@ -848,7 +848,7 @@
     return id;
   }
   const internal = Symbol("native node");
-  type Collection = NodeList | HTMLCollection;
+  type Collection = NodeList | HTMLCollection | NamedNodeMap;
   type CollectionItems = readonly (Node | number)[];
   type CollectionState = { resolve: () => CollectionItems };
   function collectionNode(value: Node | number | undefined): Node | undefined {
@@ -862,10 +862,20 @@
     if (!state) throw new TypeError("Illegal invocation");
     return state;
   }
-  function namedNodes(items: CollectionItems): Map<string, Element> {
-    const names = new Map<string, Element>();
+  function namedNodes(items: CollectionItems): Map<string, Node> {
+    const names = new Map<string, Node>();
     for (const value of items) {
       const item = collectionNode(value);
+      if (item instanceof Attr) {
+        const name = item.name;
+        if (
+          item.ownerElement?.namespaceURI === "http://www.w3.org/1999/xhtml" &&
+          /[A-Z]/.test(name)
+        )
+          continue;
+        if (!names.has(name)) names.set(name, item);
+        continue;
+      }
       if (!(item instanceof Element)) continue;
       const id = item.getAttributeNS(null, "id");
       const name =
@@ -891,7 +901,7 @@
     named = false,
   ): T {
     const state = { resolve };
-    const visibleName = (key: string | symbol): Element | undefined =>
+    const visibleName = (key: string | symbol): Node | undefined =>
       named && typeof key === "string" && !Reflect.has(target, key)
         ? namedNodes(resolve()).get(key)
         : undefined;
@@ -953,6 +963,59 @@
     collections.set(target, state);
     collections.set(proxy, state);
     return proxy;
+  }
+  const attributeMaps = new WeakMap<Element, NamedNodeMap>();
+  const attributeMapOwners = new WeakMap<NamedNodeMap, Element>();
+  function mapOwner(map: NamedNodeMap): Element {
+    const owner = attributeMapOwners.get(map);
+    if (!owner) throw new TypeError("Illegal invocation");
+    return owner;
+  }
+  class NamedNodeMap {
+    constructor(key: symbol) {
+      if (key !== internal) throw new TypeError("Illegal constructor");
+    }
+    get length(): number {
+      return collectionState(this).resolve().length;
+    }
+    item(index: number): Attr | null {
+      required(1, arguments.length);
+      const value = collectionNode(collectionState(this).resolve()[index >>> 0]);
+      return value instanceof Attr ? value : null;
+    }
+    getNamedItem(name: unknown): Attr | null {
+      required(1, arguments.length);
+      return mapOwner(this).getAttributeNode(name);
+    }
+    getNamedItemNS(namespace: unknown, localName: unknown): Attr | null {
+      required(2, arguments.length);
+      return mapOwner(this).getAttributeNodeNS(namespace, localName);
+    }
+    setNamedItem(attribute: Attr): Attr | null {
+      required(1, arguments.length);
+      return mapOwner(this).setAttributeNode(attribute);
+    }
+    setNamedItemNS(attribute: Attr): Attr | null {
+      required(1, arguments.length);
+      return mapOwner(this).setAttributeNodeNS(attribute);
+    }
+    removeNamedItem(name: unknown): Attr {
+      required(1, arguments.length);
+      const attribute = this.getNamedItem(name);
+      if (!attribute) throw new DOMException("attribute not found", "NotFoundError");
+      return mapOwner(this).removeAttributeNode(attribute);
+    }
+    removeNamedItemNS(namespace: unknown, localName: unknown): Attr {
+      required(2, arguments.length);
+      const attribute = this.getNamedItemNS(namespace, localName);
+      if (!attribute) throw new DOMException("attribute not found", "NotFoundError");
+      return mapOwner(this).removeAttributeNode(attribute);
+    }
+    *[Symbol.iterator](): Generator<Attr> {
+      for (const value of collectionValues(collectionState(this))) {
+        if (value instanceof Attr) yield value;
+      }
+    }
   }
   class NodeList {
     constructor(key: symbol) {
@@ -1018,7 +1081,8 @@
     namedItem(name: unknown): Element | null {
       if (arguments.length === 0) throw new TypeError("namedItem requires a name");
       if (typeof name === "symbol") throw new TypeError("name must be convertible to a DOMString");
-      return namedNodes(collectionState(this).resolve()).get(String(name)) ?? null;
+      const value = namedNodes(collectionState(this).resolve()).get(String(name));
+      return value instanceof Element ? value : null;
     }
     [Symbol.iterator](): Generator<Node> {
       return collectionValues(collectionState(this));
@@ -1034,6 +1098,7 @@
   for (const [prototype, tag] of [
     [NodeList.prototype, "NodeList"],
     [HTMLCollection.prototype, "HTMLCollection"],
+    [NamedNodeMap.prototype, "NamedNodeMap"],
   ] as const) {
     Object.defineProperty(prototype, Symbol.toStringTag, { value: tag, configurable: true });
   }
@@ -1571,7 +1636,146 @@
     }
     Object.defineProperty(prototype, Symbol.toStringTag, { value: tag, configurable: true });
   }
+  class Attr extends Node {
+    get name(): string {
+      return raw("get", attrId(this), "name");
+    }
+    get localName(): string {
+      return raw("get", attrId(this), "localName");
+    }
+    get namespaceURI(): string | null {
+      return raw("get", attrId(this), "namespaceURI");
+    }
+    get prefix(): string | null {
+      return raw("get", attrId(this), "prefix");
+    }
+    get specified(): boolean {
+      attrId(this);
+      return true;
+    }
+    get ownerElement(): Element | null {
+      const id = raw<number | null>("get", attrId(this), "ownerElement");
+      return id === null ? null : element(id);
+    }
+    get value(): string {
+      return raw("get", attrId(this), "value");
+    }
+    set value(value: unknown) {
+      setAttrValue(this, domString(value));
+    }
+    override get nodeValue(): string {
+      return this.value;
+    }
+    override set nodeValue(value: string | number | null) {
+      setAttrValue(this, domString(value ?? ""));
+    }
+    override get textContent(): string {
+      return this.value;
+    }
+    override set textContent(value: string | number | null) {
+      setAttrValue(this, domString(value ?? ""));
+    }
+    cloneNode(): Attr {
+      return attributeNode(raw("attributeNode", attrId(this), "clone"));
+    }
+  }
+  function attrId(attribute: object): number {
+    if (!(attribute instanceof Attr)) throw new TypeError("Expected Attr");
+    return idOf(attribute);
+  }
+  function attributeNode(id: number): Attr {
+    const value = node(id);
+    if (!(value instanceof Attr)) throw new TypeError("Expected native Attr");
+    return value;
+  }
+  function setAttrValue(attribute: Attr, value: string): void {
+    const id = attrId(attribute),
+      owner = attribute.ownerElement,
+      previous = attribute.value;
+    reactions(() => {
+      raw("set", id, "value", value);
+      if (owner && isHTML(owner))
+        customCallback(owner, "attributeChangedCallback", [
+          attribute.localName,
+          previous,
+          value,
+          attribute.namespaceURI,
+        ]);
+    });
+  }
+  function mutateAttributeNode(
+    owner: Element,
+    attribute: Attr,
+    operation: "attach" | "remove",
+  ): Attr | null {
+    const ownerId = attributeElement(owner),
+      id = attrId(attribute);
+    const previous =
+      operation === "remove"
+        ? attribute.value
+        : owner.getAttributeNS(attribute.namespaceURI, attribute.localName);
+    const unchanged = operation === "attach" && attribute.ownerElement === owner;
+    return reactions(() => {
+      const result = raw<number | null>("attributeNode", ownerId, operation, String(id));
+      if (!unchanged && isHTML(owner))
+        customCallback(owner, "attributeChangedCallback", [
+          attribute.localName,
+          previous,
+          operation === "remove" ? null : attribute.value,
+          attribute.namespaceURI,
+        ]);
+      return result === null ? null : attributeNode(result);
+    });
+  }
   class Element extends ParentNode {
+    get attributes(): NamedNodeMap {
+      const id = attributeElement(this);
+      let map = attributeMaps.get(this);
+      if (!map) {
+        map = makeCollection(
+          new NamedNodeMap(internal),
+          () => raw<number[]>("attributeNode", id, "list"),
+          true,
+        );
+        attributeMaps.set(this, map);
+        attributeMapOwners.set(map, this);
+      }
+      return map;
+    }
+    getAttributeNode(name: unknown): Attr | null {
+      required(1, arguments.length);
+      const id = raw<number | null>(
+        "attributeNode",
+        attributeElement(this),
+        "named",
+        domString(name),
+      );
+      return id === null ? null : attributeNode(id);
+    }
+    getAttributeNodeNS(namespace: unknown, localName: unknown): Attr | null {
+      required(2, arguments.length);
+      const id = raw<number | null>(
+        "attributeNode",
+        attributeElement(this),
+        "ns",
+        JSON.stringify([attributeNamespace(namespace), domString(localName)]),
+      );
+      return id === null ? null : attributeNode(id);
+    }
+    setAttributeNode(attribute: Attr): Attr | null {
+      required(1, arguments.length);
+      return mutateAttributeNode(this, attribute, "attach");
+    }
+    setAttributeNodeNS(attribute: Attr): Attr | null {
+      required(1, arguments.length);
+      return mutateAttributeNode(this, attribute, "attach");
+    }
+    removeAttributeNode(attribute: Attr): Attr {
+      required(1, arguments.length);
+      const removed = mutateAttributeNode(this, attribute, "remove");
+      if (!removed) throw new DOMException("attribute not found", "NotFoundError");
+      return removed;
+    }
     getElementsByTagName(qualifiedName: unknown): HTMLCollection {
       if (!(this instanceof Element)) throw new TypeError("Illegal invocation");
       required(1, arguments.length);
@@ -3272,6 +3476,7 @@
     });
   }
   function customTree(root: number, inclusive = true, name = ""): HTMLElement[] {
+    if (raw<number>("get", root, "nodeType") === 2) return [];
     return raw<number[]>("customCandidates", root, name)
       .filter((id) => inclusive || id !== root)
       .map(element)
@@ -3629,6 +3834,8 @@
           ? new SVGElement(internal, id)
           : new Element(internal, id);
       }
+      case 2:
+        return new Attr(internal, id);
       case 3:
         return new Text("", internal, id);
       case 8:
@@ -3750,6 +3957,23 @@
     },
   });
   class Document extends ParentNode {
+    createAttribute(name: unknown): Attr {
+      if (this !== document) throw new TypeError("Illegal invocation");
+      required(1, arguments.length);
+      return attributeNode(raw("attributeNode", 0, "new", domString(name)));
+    }
+    createAttributeNS(namespace: unknown, qualifiedName: unknown): Attr {
+      if (this !== document) throw new TypeError("Illegal invocation");
+      required(2, arguments.length);
+      return attributeNode(
+        raw(
+          "attributeNode",
+          0,
+          "newNS",
+          JSON.stringify([attributeNamespace(namespace), domString(qualifiedName)]),
+        ),
+      );
+    }
     get cookie(): string {
       if (this !== document) throw new TypeError("Illegal invocation");
       return nativeCookie(false, "");
@@ -5405,6 +5629,8 @@
     AbortSignal,
     AbortController,
     Node,
+    Attr,
+    NamedNodeMap,
     Element,
     HTMLElement,
     HTMLAnchorElement,

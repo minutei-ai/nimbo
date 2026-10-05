@@ -358,10 +358,28 @@ and assertions remain unchanged; only reporting is appended. Run
 `bun run bench:wpt-attribute-namespaces` with the pinned source root.
 
 The [report](performance-wpt-attribute-namespaces.json) records Chromium
-101/101, public Obscura 43/101 and Nimbo/celld 43/101 original subtests. Nimbo
-passes three files and fails five. Attr, NamedNodeMap, independent documents
-and event-handler behavior remain obligations. The command is unsuccessful;
-passing the [42 supplemental contracts](attribute-namespaces-chromium.json)
-in 64 fresh pages per comparator does not replace the original failures.
-The namespace implementation also closes five original Window access
-assertions, yielding 57/82 rather than the retained 52/82 baseline.
+101/101, public Obscura 43/101 and Nimbo/celld 87/101 original subtests, up
+from the [43/101 baseline](performance-wpt-attribute-namespaces-baseline.json).
+Nimbo passes six files and fails two. Independent documents, event handlers,
+shadow slots, dialog/input/option state and independent frames remain
+obligations. The command is unsuccessful. In the
+[77 supplemental contracts](attribute-namespaces-chromium.json), Nimbo passes
+77/77 and Chromium 76/77 on each of 64 fresh pages: Chromium still exposes an
+uppercase named property omitted from its own property names. Its 64 failed
+pages are retained, and the comparison command is unsuccessful. The namespace
+implementation also closes five original Window access assertions, yielding
+57/82 rather than the retained 52/82 baseline.
+
+## Original Attr and NamedNodeMap WPT
+
+The [manifest](../tooling/wpt-attribute-nodes-sources.json) adds four original
+HTML tests, immutable hashes and original resources at the same public WPT
+revision. Run `bun run bench:wpt-attribute-nodes` with the pinned source root.
+The [report](performance-wpt-attribute-nodes.json) records three passing
+Nimbo/celld files with 17/17 executed original subtests. Document.createAttribute
+fails setup because independent XML documents are unavailable: 36 reference
+subtests are unverified and count as no passes. Chromium passes 50/53 and
+public Obscura 9/53. Chromium fails all three original qualified-name lookup
+assertions after attribute node replacement; no assertion is changed to match
+that behavior. The WPT command remains unsuccessful. These files do not
+establish complete Attr, NamedNodeMap or cross-document conformance.

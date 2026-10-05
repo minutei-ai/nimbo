@@ -6333,7 +6333,7 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     if (typeof result !== "object" || result === null) throw new Error("Missing result");
     const value: unknown = Reflect.get(result, "value");
     if (typeof value !== "object" || value === null) throw new Error("Missing checks");
-    expect(Object.keys(value)).toHaveLength(42);
+    expect(Object.keys(value)).toHaveLength(77);
     expect(Object.values(value).every((check) => check === true)).toBe(true);
   },
 );

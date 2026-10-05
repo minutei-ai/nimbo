@@ -7,6 +7,15 @@ use serde_json::{Value, json};
 
 use crate::{Error, Limits, Result};
 
+#[path = "dom_attribute_nodes.rs"]
+mod attribute_nodes;
+
+#[derive(Clone, Copy)]
+enum Handle {
+    Node(NodeId),
+    Attribute,
+}
+
 struct NamedProperties {
     version: usize,
     nodes: HashMap<String, Vec<NodeId>>,
@@ -14,11 +23,12 @@ struct NamedProperties {
 
 pub(crate) struct Dom {
     pub document: Document,
-    handles: Vec<NodeId>,
+    handles: Vec<Handle>,
     ids: HashMap<NodeId, usize>,
     // Cache compiled selectors only; DOM results must always reflect mutations.
     matchers: HashMap<String, Matcher>,
     named: Option<NamedProperties>,
+    attribute_nodes: attribute_nodes::Arena,
     styles: HashMap<NodeId, crate::styles::Declarations>,
     computed_styles: HashMap<NodeId, crate::computed_style::Computed>,
     transitions: std::cell::RefCell<crate::transitions::State>,
@@ -49,10 +59,11 @@ impl Dom {
         let root = document.root().id;
         Self {
             document,
-            handles: vec![root],
+            handles: vec![Handle::Node(root)],
             ids: HashMap::from([(root, 0)]),
             matchers: HashMap::new(),
             named: None,
+            attribute_nodes: attribute_nodes::Arena::default(),
             styles: HashMap::new(),
             computed_styles: HashMap::new(),
             transitions: std::cell::RefCell::default(),
@@ -84,10 +95,16 @@ impl Dom {
         register_handle(&mut self.handles, &mut self.ids, id)
     }
 
+    fn node_id(&self, handle: usize) -> Result<NodeId> {
+        match self.handles.get(handle) {
+            Some(Handle::Node(id)) => Ok(*id),
+            _ => Err(Error::Dom("invalid tree node handle".into())),
+        }
+    }
     fn node(&self, handle: usize) -> Result<NodeRef<'_>> {
-        self.handles
-            .get(handle)
-            .and_then(|id| self.document.tree.get(id))
+        self.document
+            .tree
+            .get(&self.node_id(handle)?)
             .ok_or_else(|| Error::Dom("invalid node handle".into()))
     }
 
@@ -125,7 +142,13 @@ impl Dom {
     ) -> Result<String> {
         let version = self.layout_version;
         self.begin(operation, arg)?;
+        if matches!(self.handles.get(handle), Some(Handle::Attribute)) {
+            let result = self.attribute_node_call(operation, handle, arg, value)?;
+            return self.finish(&result, version);
+        }
+        let owner = self.sync_attribute_owner(operation, handle)?;
         let result = match operation {
+            "attributeNode" => self.attribute_node_bridge(handle, arg, value)?,
             "cssom" => self.cssom_call(handle, arg, value)?,
             "styleSheet" => self.style_sheet(handle)?,
             "styleSheets" => self.style_sheets(handle)?,
@@ -168,6 +191,9 @@ impl Dom {
                 let descendant = arg
                     .parse::<usize>()
                     .map_err(|error| Error::Dom(error.to_string()))?;
+                if matches!(self.handles.get(descendant), Some(Handle::Attribute)) {
+                    return self.finish(&json!(false), version);
+                }
                 let parent = self.node(handle)?;
                 let descendant = self.node(descendant)?;
                 json!(
@@ -181,21 +207,7 @@ impl Dom {
             "createNS" => self.create_ns(arg, value)?,
             "get" if matches!(arg, "innerHTML" | "outerHTML") => self.serialize(handle, arg)?,
             "get" => self.get(handle, arg)?,
-            "attributes" => json!(
-                self.node(handle)?
-                    .attrs()
-                    .into_iter()
-                    .map(|attribute| (
-                        attribute.name.local.to_string(),
-                        attribute.value.to_string(),
-                        if attribute.name.ns.is_empty() {
-                            None
-                        } else {
-                            Some(attribute.name.ns.to_string())
-                        }
-                    ))
-                    .collect::<Vec<_>>()
-            ),
+            "attributes" => self.attribute_metadata(handle)?,
             "attr" | "attrInfo" | "attrNS" | "setAttrNS" | "removeAttrNS" | "attributeNames" => {
                 self.attribute_call(operation, handle, arg, value)?
             }
@@ -216,14 +228,32 @@ impl Dom {
                 )));
             }
         };
+        if let Some(owner) = owner {
+            self.sync_attributes(owner);
+        }
         self.finish(&result, version)
     }
 
+    fn attribute_metadata(&self, handle: usize) -> Result<Value> {
+        Ok(json!(
+            self.node(handle)?
+                .attrs()
+                .into_iter()
+                .map(|attribute| (
+                    attribute.name.local.to_string(),
+                    attribute.value.to_string(),
+                    if attribute.name.ns.is_empty() {
+                        None
+                    } else {
+                        Some(attribute.name.ns.to_string())
+                    }
+                ))
+                .collect::<Vec<_>>()
+        ))
+    }
+
     fn serialize(&mut self, handle: usize, property: &str) -> Result<Value> {
-        let id = *self
-            .handles
-            .get(handle)
-            .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
+        let id = self.node_id(handle)?;
         let node = self
             .document
             .tree
@@ -369,10 +399,11 @@ impl Dom {
     fn computed_style(&mut self, handle: usize, operation: &str, name: &str) -> Result<Value> {
         let property_name = crate::styles::property_name(name);
         let name = property_name.as_str();
+        let node_id = self.node_id(handle)?;
         let node = self
-            .handles
-            .get(handle)
-            .and_then(|id| self.document.tree.get(id))
+            .document
+            .tree
+            .get(&node_id)
             .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
         if !node.is_element() {
             return Err(Error::Dom("computed style requires an element".into()));
@@ -475,19 +506,23 @@ impl Dom {
             margin: crate::layout::Margins,
         }
         let request: Request = serde_json::from_str(request)?;
-        let target = self
-            .handles
-            .get(handle)
-            .and_then(|id| self.document.tree.get(id))
-            .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
-        let root = request
+        let target_id = self.node_id(handle)?;
+        let root_id = request
             .root
             .filter(|handle| *handle != 0)
-            .map(|handle| {
-                self.handles
-                    .get(handle)
-                    .and_then(|id| self.document.tree.get(id))
-                    .ok_or_else(|| Error::Dom("invalid node handle".into()))
+            .map(|handle| self.node_id(handle))
+            .transpose()?;
+        let target = self
+            .document
+            .tree
+            .get(&target_id)
+            .ok_or_else(|| Error::Dom("invalid target node".into()))?;
+        let root = root_id
+            .map(|id| {
+                self.document
+                    .tree
+                    .get(&id)
+                    .ok_or_else(|| Error::Dom("invalid root node".into()))
             })
             .transpose()?;
         let base = self.base_href();
@@ -961,7 +996,12 @@ impl Dom {
         }
         if operation == "text" || output.changed {
             self.charge_write("style".len().saturating_add(output.css_text.len()))?;
-            self.set("setAttr", handle, "style", &output.css_text)?;
+            crate::dom_attributes::set_namespaced(
+                self.node(handle)?,
+                "",
+                "style",
+                &output.css_text,
+            )?;
         }
         self.styles.insert(id, state);
         self.style_bytes = bytes;
@@ -996,11 +1036,13 @@ impl Dom {
     }
 
     fn insert(&self, operation: &str, handle: usize, arg: &str, value: &str) -> Result<Value> {
-        let child = self.node(
-            value
-                .parse()
-                .map_err(|error: std::num::ParseIntError| Error::Dom(error.to_string()))?,
-        )?;
+        let child_handle = value
+            .parse::<usize>()
+            .map_err(|error| Error::Dom(error.to_string()))?;
+        if matches!(self.handles.get(child_handle), Some(Handle::Attribute)) {
+            return Err(hierarchy_error());
+        }
+        let child = self.node(child_handle)?;
         let parent = self.node(handle)?;
         if !(parent.is_element() || parent.is_fragment() || parent.is_document())
             || !(child.is_element()
@@ -1124,14 +1166,11 @@ impl Dom {
 
     fn query(&mut self, handle: usize, selector: &str) -> Result<Value> {
         let matcher = self.matcher(selector)?;
-        let id = self
-            .handles
-            .get(handle)
-            .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
+        let id = self.node_id(handle)?;
         let node = self
             .document
             .tree
-            .get(id)
+            .get(&id)
             .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
         let handles = &mut self.handles;
         let ids = &mut self.ids;
@@ -1146,11 +1185,7 @@ impl Dom {
         if !matches!(kind, "nodes" | "elements") {
             return Err(Error::Dom("invalid child collection".into()));
         }
-        let id = self
-            .handles
-            .get(handle)
-            .copied()
-            .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
+        let id = self.node_id(handle)?;
         let node = self
             .document
             .tree
@@ -1382,13 +1417,13 @@ fn character_value(node: NodeRef<'_>) -> Value {
 }
 
 fn register_handle(
-    handles: &mut Vec<NodeId>,
+    handles: &mut Vec<Handle>,
     ids: &mut HashMap<NodeId, usize>,
     id: NodeId,
 ) -> usize {
     *ids.entry(id).or_insert_with(|| {
         let handle = handles.len();
-        handles.push(id);
+        handles.push(Handle::Node(id));
         handle
     })
 }
