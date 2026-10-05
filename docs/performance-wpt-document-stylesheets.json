@@ -72,19 +72,13 @@
     {
       "runtime": "celld 0.6.1",
       "file": "css/cssom/StyleSheetList-constructable.html",
-      "status": "failed",
+      "status": "passed",
       "verdict": {
         "status": 0,
         "message": null,
         "total": 1,
-        "passed": 0,
-        "failed": [
-          {
-            "name": "document.styleSheets does not include adopted style sheets",
-            "status": 1,
-            "message": "sheet1 is not defined"
-          }
-        ]
+        "passed": 1,
+        "failed": []
       }
     },
     {
@@ -114,19 +108,13 @@
     {
       "runtime": "celld 0.6.1",
       "file": "css/cssom/StyleSheetList-constructable-with-style-recalc.html",
-      "status": "failed",
+      "status": "passed",
       "verdict": {
         "status": 0,
         "message": null,
         "total": 1,
-        "passed": 0,
-        "failed": [
-          {
-            "name": "document.styleSheets does not include adopted style sheets",
-            "status": 1,
-            "message": "sheet1 is not defined"
-          }
-        ]
+        "passed": 1,
+        "failed": []
       }
     }
   ]

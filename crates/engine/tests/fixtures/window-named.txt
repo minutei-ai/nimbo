@@ -1,0 +1,50 @@
+function windowNamedCase(variant) {
+  const checks = {};
+  document.body.innerHTML = '';
+  const element = document.createElement('div'); element.id = 'windowNamedBare'; document.body.append(element);
+  checks.bare = windowNamedBare === element;
+  checks.aliases = window.windowNamedBare === element && self.windowNamedBare === element && globalThis.windowNamedBare === element;
+  checks.membership = 'windowNamedBare' in window;
+  checks.inherited = !Object.hasOwn(window, 'windowNamedBare');
+  checks.brand = window instanceof Window && window instanceof EventTarget && Object.prototype.toString.call(window) === '[object Window]';
+  const properties = Object.getPrototypeOf(Window.prototype);
+  const descriptor = Object.getOwnPropertyDescriptor(properties, 'windowNamedBare');
+  checks.descriptor = descriptor.value === element && descriptor.writable && !descriptor.enumerable && descriptor.configurable;
+  checks.prototype = Window.prototype.windowNamedBare === element && properties.windowNamedBare === element && EventTarget.prototype.windowNamedBare === undefined;
+  element.id = 'windowNamedRenamed';
+  checks.rename = typeof windowNamedBare === 'undefined' && windowNamedRenamed === element;
+  element.remove(); checks.removal = typeof windowNamedRenamed === 'undefined';
+  const detached = document.createElement('div'); detached.id = 'detachedWindowName'; checks.detached = window.detachedWindowName === undefined;
+  for (const tag of ['embed', 'form', 'img', 'object']) {
+    const target = document.createElement(tag); const key = 'windowName' + tag + variant; target.setAttribute('name', key); document.body.append(target);
+    checks['name' + tag] = window[key] === target; target.remove();
+  }
+  const span = document.createElement('span'); span.setAttribute('name', 'notSupportedWindowName'); document.body.append(span);
+  checks.excludedName = window.notSupportedWindowName === undefined; span.remove();
+  for (const namespace of ['http://www.w3.org/2000/svg', 'urn:example:namespace']) {
+    const target = document.createElementNS(namespace, 'form'); target.setAttribute('id', 'foreignWindowId'); target.setAttribute('name', 'foreignWindowName'); document.body.append(target);
+    checks[namespace === 'urn:example:namespace' ? 'foreignId' : 'svgId'] = window.foreignWindowId === target && window.foreignWindowName === undefined; target.remove();
+  }
+  const first = document.createElement('div'); first.id = 'multipleWindowName'; document.body.append(first);
+  const second = document.createElement('form'); second.id = 'multipleWindowName'; second.setAttribute('name', 'multipleWindowName'); document.body.append(second);
+  const collection = window.multipleWindowName;
+  checks.collection = collection instanceof HTMLCollection && collection.length === 2 && collection[0] === first && collection[1] === second;
+  checks.dedup = collection.item(2) === null;
+  document.body.insertBefore(second, first); checks.order = collection[0] === second && collection[1] === first;
+  second.remove(); checks.live = collection.length === 1 && collection[0] === first && window.multipleWindowName === first;
+  first.remove(); checks.empty = collection.length === 0 && window.multipleWindowName === undefined;
+  const shadow = document.createElement('div'); shadow.id = 'shadowWindowName'; document.body.append(shadow);
+  window.shadowWindowName = variant; checks.ownShadow = window.shadowWindowName === variant && properties.shadowWindowName === shadow;
+  delete window.shadowWindowName; checks.deleteShadow = window.shadowWindowName === shadow;
+  window.shadowWindowName = undefined; checks.undefinedShadow = window.shadowWindowName === undefined && 'shadowWindowName' in window; delete window.shadowWindowName;
+  Window.prototype.shadowWindowName = 'prototype'; checks.prototypeShadow = window.shadowWindowName === 'prototype' && properties.shadowWindowName === shadow; delete Window.prototype.shadowWindowName;
+  EventTarget.prototype.shadowWindowName = 'event'; checks.inheritedShadow = window.shadowWindowName === 'event' && Object.getOwnPropertyDescriptor(properties, 'shadowWindowName') === undefined; delete EventTarget.prototype.shadowWindowName;
+  const builtin = document.createElement('div'); builtin.id = 'document'; document.body.append(builtin); checks.builtin = window.document === document;
+  const unusual = document.createElement('div'); unusual.id = 'reserved name-' + variant; document.body.append(unusual); checks.unusual = window['reserved name-' + variant] === unusual;
+  const keys = Object.getOwnPropertyNames(properties); checks.keys = !keys.includes('shadowWindowName') && !keys.includes(unusual.id);
+  checks.defineRejected = !Reflect.defineProperty(properties, 'newNamedProperty', {value: variant});
+  checks.deleteRejected = !Reflect.deleteProperty(properties, 'shadowWindowName');
+  checks.extensible = Object.isExtensible(properties) && !Reflect.preventExtensions(properties);
+  checks.immutablePrototype = !Reflect.setPrototypeOf(properties, {}) && Reflect.setPrototypeOf(properties, EventTarget.prototype);
+  return checks;
+}

@@ -388,13 +388,25 @@ separate measurement, not a causal A/B attribution of the animation changes.
 
 ## Document stylesheet build
 
-The [current three-runtime report](performance-comparison-document-stylesheets.json)
+The [three-runtime report](performance-comparison-document-stylesheets.json)
 was measured after the complete functional check passed, with no build or
 functional test competing with the benchmark. The recorded Wasm hash matches
 the validated bundle. All 648 attempts are correct, with 567 measured samples
 across nine scenarios. Nimbo/celld has a lower p50 than Chromium in 9/9 and public
 Obscura in 8/9. Positioned boxes remain slower than Obscura (37.85 ms versus
-32.70 ms p50). The README uses this snapshot. These are separate-run measurements,
+32.70 ms p50). The README used this snapshot at that stage. These are separate-run measurements,
 not causal attribution of performance changes to the stylesheet implementation.
 All-win performance, production throughput, memory and complete SPA compatibility
 remain unproven.
+
+## Window named-access build
+
+The [current report](performance-comparison-window-named.json) was measured after
+`bun run check` passed, with no build or functional test competing with the
+benchmark. The recorded Wasm hash matches the validated bundle. All 648 real
+HTTP extractions are correct, with 567 measured samples across nine scenarios.
+Nimbo/celld has lower p50 than Chromium in 9/9 and public Obscura in 8/9.
+Positioned boxes remain slower than Obscura (34.34 ms versus 31.78 ms p50).
+The README uses this snapshot. These are separate runs, not causal attribution
+of timing changes to named access. All-win performance, production throughput,
+memory use and complete SPA compatibility remain unproven.

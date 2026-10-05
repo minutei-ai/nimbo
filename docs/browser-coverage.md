@@ -3089,16 +3089,63 @@ rule reads preserve metadata, identity and native cascade behavior.
 The [original WPT manifest](../tooling/wpt-document-stylesheets-sources.json)
 pins three HTML files and both harness resources, with unchanged source bytes
 and assertions and a reporting-only adapter. The
-[report](performance-wpt-document-stylesheets.json) records Nimbo **1/3**, ordinary
-Chromium **3/3**, and Obscura **3/3**. The two adoption files fail with
-`sheet1 is not defined`: Window named access to elements is missing. The same
-adoption exclusion is covered through explicit DOM access in the supplemental
-fixture; that does not turn either original WPT into a pass. The runner exits
-unsuccessfully while original failures remain.
+[report](performance-wpt-document-stylesheets.json) now records Nimbo **3/3**,
+ordinary Chromium **3/3**, and Obscura **3/3**. The original adoption files now
+resolve their element IDs through the native Window named-access implementation;
+no aliases were inserted and no assertions were changed.
 
 Imports, grouped CSSOM wrappers, SVG style owners, complete association lifecycle,
-stylesheet sets, full MIME/CORS behavior and Window named properties remain
-pending. This delivery does not establish full CSSOM or browser parity.
+stylesheet sets and full MIME/CORS behavior remain pending. This delivery does
+not establish full CSSOM or browser parity.
 
 References: [CSSOM stylesheet collections](https://drafts.csswg.org/cssom/#css-style-sheet-collections)
 and [StyleSheetList](https://drafts.csswg.org/cssom/#the-stylesheetlist-interface).
+
+## Window named access through the native DOM
+
+Window, self and bare global identifiers resolve document element IDs across
+namespaces, and HTML embed/form/img/object names. Rust indexes the connected
+native document in tree order and invalidates the index after mutations. A
+single match returns the actual element; multiple matches return a live
+HTMLCollection, deduplicating an element with the same ID and name. Renaming,
+removal and reordering affect both subsequent lookups and retained collections.
+
+The Window prototype chain contains a named-properties object above
+EventTarget.prototype. Global own properties and inherited prototype members
+shadow names. Named descriptors are writable, configurable and nonenumerable;
+virtual names stay outside ordinary own-key enumeration. Definition, deletion,
+extension prevention and prototype mutation follow the Web IDL restrictions.
+Window/EventTarget instance identity and the Window class string are tested.
+Full WindowProxy behavior and the named-properties object's class string remain
+incomplete.
+
+The [fixture](../crates/engine/tests/fixtures/window-named.txt) has 34 contracts
+across 64 fresh pages (2176 assertions per runtime). Native Rust, workerd and celld pass.
+The [ordinary Chromium comparison](window-named-chromium.json) retains 64 failed
+pages: Chromium passes 33/34 contracts on each page but returns true from
+Reflect.defineProperty on the named-properties object. The engine returns false
+as required by [Web IDL](https://webidl.spec.whatwg.org/#named-properties-object-defineownproperty).
+The comparison exits unsuccessfully rather than hiding this divergence.
+
+The [original WPT manifest](../tooling/wpt-window-named-sources.json) pins all
+17 standalone HTML tests in the named-access folder, the original harness and
+helper resources. Original bytes and assertions are unchanged; the adapter
+only collects reports. The [report](performance-wpt-window-named.json) records
+Chromium 82/82 original subtests, Obscura 64/82 and Nimbo 52/82. Nimbo completes
+68 subtests: 52 pass and 16 fail. Three incomplete files leave another 14
+obligations unverified, and do not count as passes. Seven files pass, seven fail
+and three are incomplete. Namespaced attribute APIs, frame contexts, independent documents, location and
+full WindowProxy behavior remain gaps. The multi-origin sub-template and the
+generated window-JS test are pinned separately and unverified; they are not part
+of the 82-subtest denominator. The WPT command remains unsuccessful.
+
+References: [HTML named access](https://html.spec.whatwg.org/multipage/nav-history-apis.html#named-access-on-the-window-object)
+and [Web IDL named properties](https://webidl.spec.whatwg.org/#named-properties-object).
+
+The complete validation passes formatting, Worker/Wasm build, TypeScript/native/
+Wasm lint, 6039 Bun tests, Rust documentation and debug/release tests. Each Rust
+configuration passes 12 unit tests, 109 browser tests and the real proxy test.
+The [current performance report](performance-comparison-window-named.json)
+records 648 correct extractions and 567 measured samples with the validated
+Wasm hash: lower Nimbo p50 than Chromium in 9/9 scenarios and Obscura in 8/9.
+This does not establish full browser parity or a production performance result.

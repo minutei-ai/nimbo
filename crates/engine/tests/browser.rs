@@ -3085,6 +3085,7 @@ fn is_script_resource(path: &str) -> bool {
         "/layout-snapshot/",
         "/background-color/",
         "/document-stylesheets/",
+        "/window-named/",
         "/document-stylesheets-assets/",
     ]
     .iter()
@@ -3092,6 +3093,17 @@ fn is_script_resource(path: &str) -> bool {
 }
 
 fn serve_scripts(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/window-named/") {
+        let variant = request
+            .url()
+            .rsplit('/')
+            .next()
+            .unwrap_or("0")
+            .parse::<usize>()
+            .map_err(io::Error::other)?;
+        let source = include_str!("fixtures/window-named.txt");
+        return request.respond(Response::from_string(format!("<!doctype html><body><script>{source};globalThis.comparison=windowNamedCase({variant})</script>")).with_header(header("Content-Type", "text/html")?));
+    }
     if request.url() == "/document-stylesheets-assets/missing.css" {
         return request.respond(
             Response::from_string("Missing")
@@ -3377,5 +3389,51 @@ fn grouped_sheet_metadata_does_not_parse_unsupported_cssom_rules() -> TestResult
           identity:owner.sheet===sheet&&document.styleSheets[0]===sheet,
           cascade:getComputedStyle(document.body.lastElementChild).width==='9px'};
     })()")?,json!({"first":true,"second":true,"metadata":true,"identity":true,"cascade":true}));
+    Ok(())
+}
+
+#[test]
+fn window_named_properties_follow_real_dom() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    assert_eq!(
+        page.evaluate(
+            r"(() => {
+        document.body.innerHTML='<div id=windowNamedProbe></div>';
+        const element=document.body.firstElementChild;
+        const bare=windowNamedProbe===element, property=window.windowNamedProbe===element;
+        element.id='renamedProbe';
+        const renamed=typeof windowNamedProbe==='undefined'&&renamedProbe===element;
+        element.remove();
+        return {bare,property,renamed,removed:typeof renamedProbe==='undefined'};
+    })()"
+        )?,
+        json!({"bare":true,"property":true,"renamed":true,"removed":true})
+    );
+    Ok(())
+}
+
+#[test]
+fn window_named_properties_mass_real_http() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/window-named/{variant}")))?;
+        let result = page.evaluate("globalThis.comparison")?;
+        let checks = result.as_object().ok_or("missing Window checks")?;
+        assert_eq!(checks.len(), 34);
+        assert!(
+            checks.values().all(|value| value == &json!(true)),
+            "{result}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn window_interface_brand_and_prototype_identity() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    assert_eq!(page.evaluate("({window:window instanceof Window,eventTarget:window instanceof EventTarget,tag:Object.prototype.toString.call(window),ownTag:Object.getOwnPropertyDescriptor(window,Symbol.toStringTag)?.value??null})")?,json!({"window":true,"eventTarget":true,"tag":"[object Window]","ownTag":null}));
     Ok(())
 }

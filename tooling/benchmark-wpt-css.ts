@@ -4,7 +4,7 @@ import { startCdpBrowser } from "./benchmark-cdp";
 import { createWptCssFixture } from "./wpt-css-fixture";
 
 export async function benchmarkWptCss(
-  sources: { commit: string; files: { path: string; sha256: string }[] },
+  sources: { commit: string; files: { path: string; sha256: string }[]; test_files?: string[] },
   scope: string,
 ) {
   const root = process.env.NIMBO_WPT_REFERENCE_ROOT;
@@ -25,7 +25,15 @@ export async function benchmarkWptCss(
     ),
   });
   const decode = Schema.decodeUnknownSync(Verdict);
-  const files = sources.files.filter(({ path }) => path.endsWith(".html")).map(({ path }) => path);
+  const files =
+    sources.test_files ??
+    sources.files.filter(({ path }) => path.endsWith(".html")).map(({ path }) => path);
+  if (
+    files.some(
+      (path) => !path.endsWith(".html") || !sources.files.some((file) => file.path === path),
+    )
+  )
+    throw new Error("Original WPT test path must be an HTML file in the pinned manifest");
   const expression =
     "new Promise(resolve=>{function poll(){if(globalThis.wptResult!==null&&globalThis.wptResult!==undefined)resolve(globalThis.wptResult);else setTimeout(poll,10)}poll()})";
   type Row = {

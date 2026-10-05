@@ -5406,5 +5406,65 @@
   });
   Object.defineProperty(CSS, Symbol.toStringTag, { value: "CSS", configurable: true });
   Object.defineProperty(globalThis, "CSS", { value: CSS, writable: true, configurable: true });
+  const namedWindowCollections = new Map<string, HTMLCollection>();
+  function namedWindowValue(key: string | symbol): Node | HTMLCollection | undefined {
+    if (typeof key !== "string") return undefined;
+    const matches = call<number[]>("windowNamed", 0, key);
+    if (matches.length === 0) return undefined;
+    const first = matches[0];
+    if (matches.length === 1 && first !== undefined) return node(first);
+    let collection = namedWindowCollections.get(key);
+    if (!collection) {
+      collection = makeCollection(
+        new HTMLCollection(internal),
+        () => call<number[]>("windowNamed", 0, key),
+        true,
+      );
+      namedWindowCollections.set(key, collection);
+    }
+    return collection;
+  }
+  // The global prototype resolves live DOM names without rewriting page scripts.
+  class Window extends EventTarget {
+    constructor() {
+      super();
+      throw new TypeError("Illegal constructor");
+    }
+  }
+  Object.defineProperty(globalThis, "Window", {
+    value: Window,
+    writable: true,
+    configurable: true,
+  });
+  Object.defineProperty(Window.prototype, Symbol.toStringTag, {
+    value: "Window",
+    configurable: true,
+  });
+  const namedWindowTarget: unknown = Object.create(EventTarget.prototype);
+  if (namedWindowTarget === null || typeof namedWindowTarget !== "object")
+    throw new TypeError("invalid named window target");
+  const namedWindowProperties = new Proxy(namedWindowTarget, {
+    get(target, key, receiver): unknown {
+      return Reflect.has(target, key) ? Reflect.get(target, key, receiver) : namedWindowValue(key);
+    },
+    has(target, key): boolean {
+      return Reflect.has(target, key) || namedWindowValue(key) !== undefined;
+    },
+    defineProperty: () => false,
+    deleteProperty: () => false,
+    preventExtensions: () => false,
+    setPrototypeOf: (target, prototype) => Reflect.getPrototypeOf(target) === prototype,
+    getOwnPropertyDescriptor(target, key): PropertyDescriptor | undefined {
+      const existing = Reflect.getOwnPropertyDescriptor(target, key);
+      if (Reflect.has(target, key)) return existing;
+      const value = namedWindowValue(key);
+      return value === undefined
+        ? undefined
+        : { value, writable: true, enumerable: false, configurable: true };
+    },
+  });
+  Object.setPrototypeOf(Window.prototype, namedWindowProperties);
+  Reflect.deleteProperty(globalThis, Symbol.toStringTag);
+  Object.setPrototypeOf(globalThis, Window.prototype);
   return { ready, timer, intersections, resource };
 })();

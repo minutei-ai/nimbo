@@ -1,0 +1,124 @@
+{
+  "commit": "03f14d4780c4d981bc84c65679b18e9327a1affe",
+  "test_files": [
+    "html/browsers/the-window-object/named-access-on-the-window-object/basics.html",
+    "html/browsers/the-window-object/named-access-on-the-window-object/changing.html",
+    "html/browsers/the-window-object/named-access-on-the-window-object/cross-global-npo.html",
+    "html/browsers/the-window-object/named-access-on-the-window-object/doc-no-window.html",
+    "html/browsers/the-window-object/named-access-on-the-window-object/existing-prop.html",
+    "html/browsers/the-window-object/named-access-on-the-window-object/id-non-html-elements.html",
+    "html/browsers/the-window-object/named-access-on-the-window-object/live-collection.html",
+    "html/browsers/the-window-object/named-access-on-the-window-object/multi-match.html",
+    "html/browsers/the-window-object/named-access-on-the-window-object/name-attribute-elements.html",
+    "html/browsers/the-window-object/named-access-on-the-window-object/named-objects.html",
+    "html/browsers/the-window-object/named-access-on-the-window-object/nested-context.html",
+    "html/browsers/the-window-object/named-access-on-the-window-object/prototype.html",
+    "html/browsers/the-window-object/named-access-on-the-window-object/removing.html",
+    "html/browsers/the-window-object/named-access-on-the-window-object/scoped-to-associated-document.html",
+    "html/browsers/the-window-object/named-access-on-the-window-object/strict-mode-redefine-readonly-property.html",
+    "html/browsers/the-window-object/named-access-on-the-window-object/window-named-properties.html",
+    "html/browsers/the-window-object/named-access-on-the-window-object/window-null-names.html"
+  ],
+  "files": [
+    {
+      "path": "html/browsers/the-window-object/named-access-on-the-window-object/basics.html",
+      "sha256": "0a15000490697ed74af567832ac72cdd2ce472fd53ed46342750e9e585e19a84"
+    },
+    {
+      "path": "html/browsers/the-window-object/named-access-on-the-window-object/changing.html",
+      "sha256": "e599537f978a691676c6c9e3bcc86ae34223309a3d7d6bbf26c5cb85a6973161"
+    },
+    {
+      "path": "html/browsers/the-window-object/named-access-on-the-window-object/cross-global-npo.html",
+      "sha256": "ef794dad3aff06d949a5ad2851865c686952d48d1ac2a66d84d088d11648de69"
+    },
+    {
+      "path": "html/browsers/the-window-object/named-access-on-the-window-object/cross-global-support.html",
+      "sha256": "a1073257c48d5ada38e86b299c9434769e3fd900a61de53b6b05cb59c6098312"
+    },
+    {
+      "path": "html/browsers/the-window-object/named-access-on-the-window-object/doc-no-window.html",
+      "sha256": "a2b2f3144ab22a82353a04977ecd6f37e64154af5c6515a1b209bd03fe4c73c3"
+    },
+    {
+      "path": "html/browsers/the-window-object/named-access-on-the-window-object/existing-prop.html",
+      "sha256": "8e6eb5df20b45134fac0895a94306f10e37796dc74b3e4d082953b9699a7426a"
+    },
+    {
+      "path": "html/browsers/the-window-object/named-access-on-the-window-object/id-non-html-elements.html",
+      "sha256": "9a898b29bb6450732c671929c745de71f2ee7e59f6b4b44cf423595af1bdde11"
+    },
+    {
+      "path": "html/browsers/the-window-object/named-access-on-the-window-object/live-collection.html",
+      "sha256": "70489e126bf4c96ed6fecfe2773b3e0492ae694f0dabf9a636f67924201cc4ff"
+    },
+    {
+      "path": "html/browsers/the-window-object/named-access-on-the-window-object/multi-match.html",
+      "sha256": "7450c6ff9e00e501afb8e672fa53cbb0fc26f0a88652ec76cacd7da8f2242b66"
+    },
+    {
+      "path": "html/browsers/the-window-object/named-access-on-the-window-object/name-attribute-elements.html",
+      "sha256": "e57bffe6d26fd3a01aec3bb0af364099508213feccead87dc08fbd129477b1c7"
+    },
+    {
+      "path": "html/browsers/the-window-object/named-access-on-the-window-object/named-objects.html",
+      "sha256": "6dd9ef3a68c6ec8f92a3492aa0a65f4fc030686a50867bf847a9478d3e450983"
+    },
+    {
+      "path": "html/browsers/the-window-object/named-access-on-the-window-object/nested-context.html",
+      "sha256": "7e049480a335a80bf7b517e7d594b409a31ac70c0bc5bb4bed6b3b2a5669107e"
+    },
+    {
+      "path": "html/browsers/the-window-object/named-access-on-the-window-object/prototype.html",
+      "sha256": "e78d21669d15d9d6349b81341adeb56fdddf84e8427f705a5b14462c2f39048c"
+    },
+    {
+      "path": "html/browsers/the-window-object/named-access-on-the-window-object/removing.html",
+      "sha256": "c69258779f3e8f284d8bea474d8b8bf9c986b92d470f9328d960b15c820bd265"
+    },
+    {
+      "path": "html/browsers/the-window-object/named-access-on-the-window-object/resources/cross-origin-named-access-child.html",
+      "sha256": "f51b9ad5eb84b071daf9329089bdb753fd8729e471f86662da8d9441157490ea"
+    },
+    {
+      "path": "html/browsers/the-window-object/named-access-on-the-window-object/scoped-to-associated-document.html",
+      "sha256": "fd30f5a715fd2013234d6a32832c6f255ae77e4621716f286f9cd5dcbb6e9c90"
+    },
+    {
+      "path": "html/browsers/the-window-object/named-access-on-the-window-object/strict-mode-redefine-readonly-property.html",
+      "sha256": "ea7d5dd47488dfadde4313ffc36ba839a5182731a331f2072b7c82ced1d9f143"
+    },
+    {
+      "path": "html/browsers/the-window-object/named-access-on-the-window-object/test.html",
+      "sha256": "2a0a4ea2328ad4652db52dc58a7430289a094217ac2f50f4b4f914920dfe2480"
+    },
+    {
+      "path": "html/browsers/the-window-object/named-access-on-the-window-object/window-named-properties.html",
+      "sha256": "ece285c0b8611c36caaab82b7857bba9e2c0d3325e1b1a1d049293ef8cbd053e"
+    },
+    {
+      "path": "html/browsers/the-window-object/named-access-on-the-window-object/window-null-names.html",
+      "sha256": "02700e6d0d0254be7552425efb45d392356332b54e27321b2a37f27f98672c4f"
+    },
+    {
+      "path": "resources/testharness.js",
+      "sha256": "d2399236c2a09c429804ff2299ad6629e17e2b53f17a74dd341e936adb11ae3e"
+    },
+    {
+      "path": "resources/testharnessreport.js",
+      "sha256": "3777176fc736b0a78cf7617b9613b220f635daae7536ec7ebb99c61dbb525aae"
+    }
+  ],
+  "unverified_files": [
+    {
+      "path": "html/browsers/the-window-object/named-access-on-the-window-object/cross-origin-named-access.sub.html",
+      "sha256": "d17778dada210da1570877dc9590fc53ccc4bc7bf32d1fe2f62f75f045367456",
+      "reason": "Requires WPT multi-origin substitution server or generated window-JS wrapper; not automated by this HTML runner"
+    },
+    {
+      "path": "html/browsers/the-window-object/named-access-on-the-window-object/navigated-named-objects.window.js",
+      "sha256": "ea6a67eac07f5077172e1a7397273dc87cbe7c80e3c7fb2c745aefe55ebaac68",
+      "reason": "Requires WPT multi-origin substitution server or generated window-JS wrapper; not automated by this HTML runner"
+    }
+  ]
+}

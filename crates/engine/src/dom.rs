@@ -5,12 +5,18 @@ use serde_json::{Value, json};
 
 use crate::{Error, Limits, Result};
 
+struct NamedProperties {
+    version: usize,
+    nodes: HashMap<String, Vec<NodeId>>,
+}
+
 pub(crate) struct Dom {
     pub document: Document,
     handles: Vec<NodeId>,
     ids: HashMap<NodeId, usize>,
     // Cache compiled selectors only; DOM results must always reflect mutations.
     matchers: HashMap<String, Matcher>,
+    named: Option<NamedProperties>,
     styles: HashMap<NodeId, crate::styles::Declarations>,
     computed_styles: HashMap<NodeId, crate::computed_style::Computed>,
     transitions: std::cell::RefCell<crate::transitions::State>,
@@ -44,6 +50,7 @@ impl Dom {
             handles: vec![root],
             ids: HashMap::from([(root, 0)]),
             matchers: HashMap::new(),
+            named: None,
             styles: HashMap::new(),
             computed_styles: HashMap::new(),
             transitions: std::cell::RefCell::default(),
@@ -118,6 +125,7 @@ impl Dom {
             "cssom" => self.cssom_call(handle, arg, value)?,
             "styleSheet" => self.style_sheet(handle)?,
             "styleSheets" => self.style_sheets(handle)?,
+            "windowNamed" => self.window_named(arg)?,
             "baseHref" => json!(self.base_href()),
             "fontFaces" => self.font_faces()?,
             "cssSupports" => json!(crate::supports::query(arg)?),
@@ -136,15 +144,7 @@ impl Dom {
                 let matcher = self.matcher(arg)?;
                 json!(self.node(handle)?.is_match(&matcher))
             }
-            "closest" => {
-                let matcher = self.matcher(arg)?;
-                let node = self.node(handle)?;
-                let id = std::iter::once(node)
-                    .chain(node.ancestors_it(None))
-                    .find(|candidate| candidate.is_element() && candidate.is_match(&matcher))
-                    .map(|candidate| candidate.id);
-                json!(id.map(|id| self.handle(id)))
-            }
+            "closest" => self.closest(handle, arg)?,
             "parentElement" => {
                 let id = self
                     .node(handle)?
@@ -717,6 +717,82 @@ impl Dom {
             self.cssom
                 .owner_sheet(id, handle, source, href, accessible)?
         ))
+    }
+
+    fn closest(&mut self, handle: usize, arg: &str) -> Result<Value> {
+        let matcher = self.matcher(arg)?;
+        let node = self.node(handle)?;
+        let id = std::iter::once(node)
+            .chain(node.ancestors_it(None))
+            .find(|candidate| candidate.is_element() && candidate.is_match(&matcher))
+            .map(|candidate| candidate.id);
+        Ok(json!(id.map(|id| self.handle(id))))
+    }
+
+    fn ensure_window_names(&mut self) -> Result<()> {
+        if self
+            .named
+            .as_ref()
+            .is_some_and(|cache| cache.version == self.layout_version)
+        {
+            return Ok(());
+        }
+        let mut names: HashMap<String, Vec<NodeId>> = HashMap::new();
+        let mut work = crate::layout::Work::new(
+            &mut self.operations,
+            self.limits.max_dom_operations,
+            self.limits.max_layout_nodes,
+        );
+        for node in self.document.root().descendants_it() {
+            work.charge()?;
+            if !node.is_element() {
+                continue;
+            }
+            let id = node.attr("id").filter(|id| !id.is_empty());
+            if let Some(id) = &id {
+                names.entry(id.to_string()).or_default().push(node.id);
+            }
+            let html = node
+                .qual_name_ref()
+                .as_ref()
+                .is_some_and(|name| name.ns.as_ref() == "http://www.w3.org/1999/xhtml");
+            if html
+                && ["embed", "form", "img", "object", "iframe"]
+                    .iter()
+                    .any(|tag| node.has_name(tag))
+                && let Some(name) = node.attr("name").filter(|name| !name.is_empty())
+                && id.as_deref() != Some(name.as_ref())
+            {
+                names.entry(name.to_string()).or_default().push(node.id);
+            }
+        }
+        self.named = Some(NamedProperties {
+            version: self.layout_version,
+            nodes: names,
+        });
+        Ok(())
+    }
+    fn window_named(&mut self, name: &str) -> Result<Value> {
+        self.ensure_window_names()?;
+        let cache = self
+            .named
+            .as_ref()
+            .ok_or_else(|| Error::Dom("invalid Window named state".into()))?;
+        let ids = cache.nodes.get(name).cloned().unwrap_or_default();
+        let mut handles = Vec::with_capacity(ids.len());
+        for id in ids {
+            if self.document.tree.get(&id).is_some_and(|node| {
+                node.has_name("iframe")
+                    && node
+                        .qual_name_ref()
+                        .as_ref()
+                        .is_some_and(|name| name.ns.as_ref() == "http://www.w3.org/1999/xhtml")
+            }) {
+                return Err(Error::Unsupported("Window named frame access".into()));
+            }
+            handles.push(self.handle(id));
+        }
+        Ok(json!(handles))
     }
 
     fn style_sheets(&mut self, handle: usize) -> Result<Value> {

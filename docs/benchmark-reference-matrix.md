@@ -318,9 +318,32 @@ resources, to the shared upstream revision. Original bytes and assertions are
 unchanged; only vendor result reporting is appended. Run
 `bun run bench:wpt-document-stylesheets` with the original pinned source root.
 
-The [report](performance-wpt-document-stylesheets.json) records Nimbo/celld 1/3,
-Chromium 3/3 and public Obscura 3/3. Both Nimbo adoption files fail on missing
-Window named element access (`sheet1 is not defined`). Supplemental explicit
-DOM-access fixtures verify adoption exclusion, but do not replace the original
-assertions. The command remains unsuccessful; Window named properties, imports,
-grouped CSSOM and full owner-association lifecycle remain obligations.
+The [report](performance-wpt-document-stylesheets.json) now records Nimbo/celld
+3/3, Chromium 3/3 and public Obscura 3/3. Native Window named element lookup
+resolves the original adoption files' global identifiers. Original assertions
+remain unchanged. Imports, grouped CSSOM and full owner-association lifecycle
+remain obligations.
+
+## Original Window named-access WPT
+
+The [manifest](../tooling/wpt-window-named-sources.json) pins all 17 standalone
+HTML tests in the upstream folder, the harness and helper documents. Explicit
+test paths keep helper HTML resources out of the test denominator. The same
+hash-verified source files run in all three runtimes; only result reporting is
+appended. Run `bun run bench:wpt-window-named` with the pinned source root.
+
+The [report](performance-wpt-window-named.json) records Chromium 82/82, public
+Obscura 64/82 and Nimbo/celld 52/82 original subtests. Nimbo completes 68:
+52 pass and 16 fail. Three incomplete files leave 14 additional obligations
+unverified. The file totals are seven passes, seven failures and three incomplete
+runs. Frame realms, independent documents, location and full WindowProxy behavior
+remain gaps; no missing assertion is treated as a pass. Two additional upstream
+sources requiring multi-origin template substitution or the generated window-JS
+wrapper are pinned separately and remain unverified.
+
+The supplemental [34-contract fixture](../crates/engine/tests/fixtures/window-named.txt)
+passes 64 pages in Nimbo/celld. Ordinary Chromium passes 33/34 assertions per page:
+its Reflect.defineProperty return value differs from the Web IDL requirement.
+The [comparison report](window-named-chromium.json) retains all 64 failed pages
+and the driver exits unsuccessfully. Supplemental contracts do not replace the
+original WPT obligations.
