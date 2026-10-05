@@ -457,8 +457,23 @@ concurrent build or functional test. All 648 real HTTP extractions are correct;
 567 measured samples cover nine scenarios. Nimbo/celld has lower p50 than
 Chromium in 9/9 and public Obscura in 8/9. Positioned-box p50 is 40.88 ms
 versus 33.29 ms for Obscura, and p95 is 44.67 versus 35.66 ms. The 200-node
-selector p95 also exceeds Obscura: 21.60 versus 20.45 ms. The README uses this
-snapshot. The retained alternating Attr comparison above predates this change;
+selector p95 also exceeds Obscura: 21.60 versus 20.45 ms. The README used this
+snapshot before the observer/CSS update. The retained alternating Attr comparison above predates this change;
 no alternating comparison with the immediately previous Attr build was run.
 These independent snapshots do not establish a causal performance change.
 Original WPT failures and full browser/SPA conformance remain obligations.
+
+## Native observer snapshot and lazy CSS defaults
+
+The [layout work report](performance-comparison-layout-work.json) uses the
+validated Worker/Wasm bundle after native observer snapshot reuse and lazy
+registered CSS defaults. No build or functional tests ran concurrently with
+the benchmark. All 648 extractions returned expected values; 567 measured
+samples remain after warmups. The default operation and other resource budgets
+are unchanged in these workloads.
+
+Nimbo's p50 is lower than Chromium in 9/9 scenarios and public Obscura in 8/9.
+Positioned-box p50 is 38.06 ms versus 33.71 ms for Obscura; p95 is 51.60 versus
+35.28 ms. Static HTML and JS module p95 also exceed Obscura. This run does not
+establish complete performance parity, compatibility with arbitrary SPAs or a
+causal improvement over the earlier independent snapshots.

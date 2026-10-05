@@ -83,6 +83,7 @@ Successful responses contain `url`, `value` and `engine: "rust-wasm-quickjs"`. F
 | `scripts`            | `execute` by default; `skip` parses received HTML without loading or running page scripts |
 | `maxStylesheetBytes` | CSS budget: 1 byte–2 MiB; default 256 KiB                                                 |
 | `maxLayoutNodes`     | Visits per CSS collection/layout pass: 1–4096; default 1024                               |
+| `maxDomOperations`   | Shared DOM/CSS work budget: 1–1,000,000 operations; default 10,000                        |
 
 The extraction expression still runs in `skip` mode. That mode does not hydrate JavaScript applications. Other request, DOM and execution limits still apply.
 
@@ -217,23 +218,23 @@ Latency in milliseconds, **p50 / p95**:
 
 | Scenario                | Nimbo / celld |        Obscura |        Chromium |
 | ----------------------- | ------------: | -------------: | --------------: |
-| Static HTML             | 12.13 / 18.35 |  18.77 / 21.96 |   60.06 / 69.03 |
-| Selectors, 200 nodes    | 15.84 / 21.60 |  19.45 / 20.45 |   60.31 / 72.94 |
-| Dynamic fetch           | 12.96 / 16.02 |  21.31 / 23.52 |   65.12 / 72.06 |
-| JS, DOM and events      | 21.81 / 27.61 |  30.18 / 32.54 |   68.25 / 87.62 |
-| JS modules              | 26.46 / 32.12 |  30.26 / 35.56 |   67.23 / 88.48 |
-| JS selectors, 200 nodes | 24.03 / 27.89 |  30.92 / 31.96 |   62.75 / 86.83 |
-| Static HTML, 5000 nodes | 41.37 / 47.70 |  42.98 / 47.84 | 269.71 / 297.60 |
-| Selectors, 5000 nodes   | 40.05 / 49.56 | 98.06 / 104.22 | 272.42 / 307.80 |
-| JS positioned boxes     | 40.88 / 44.67 |  33.29 / 35.66 |   68.51 / 96.60 |
+| Static HTML             | 12.16 / 19.72 |  17.83 / 19.11 |   54.94 / 64.42 |
+| Selectors, 200 nodes    | 13.05 / 17.72 |  18.90 / 21.43 |   59.21 / 70.69 |
+| Dynamic fetch           | 10.48 / 19.41 |  19.71 / 53.95 |  58.19 / 120.66 |
+| JS, DOM and events      | 21.64 / 25.26 |  29.10 / 30.25 |   66.40 / 79.80 |
+| JS modules              | 28.00 / 34.00 |  29.89 / 31.52 |   73.46 / 92.33 |
+| JS selectors, 200 nodes | 24.77 / 33.31 |  31.27 / 34.02 |   67.99 / 86.70 |
+| Static HTML, 5000 nodes | 34.69 / 44.01 |  42.24 / 49.12 | 277.59 / 290.52 |
+| Selectors, 5000 nodes   | 46.27 / 64.81 | 99.01 / 105.71 | 269.11 / 287.98 |
+| JS positioned boxes     | 38.06 / 51.60 |  33.71 / 35.28 |   63.89 / 85.14 |
 
 Nimbo has lower p50 than Chromium in **9/9** scenarios and Obscura in **8/9**
-in this run. Positioned-box p50 remains higher than Obscura (40.88 ms versus
-33.29 ms), as does p95 (44.67 versus 35.66 ms). The 200-node selector p95 also
-exceeds Obscura (21.60 versus 20.45 ms). Complete performance parity remains
-pending. These local fixtures do not establish general SPA compatibility,
+in this run. Positioned-box p50 remains higher than Obscura (38.06 ms versus
+33.71 ms), as does p95 (51.60 versus 35.28 ms). Static HTML and JS module p95
+also exceed Obscura (19.72 versus 19.11 ms and 34.00 versus 31.52 ms). Complete
+performance parity remains pending. These local fixtures do not establish general SPA compatibility,
 production throughput, memory consumption or cost. See the
-[raw results](docs/performance-comparison-documents.json) and
+[raw results](docs/performance-comparison-layout-work.json) and
 [reproduction guide](docs/benchmark-comparison.md).
 
 The retained [alternating Attr build comparison](docs/performance-engine-ab-attribute-nodes.json)

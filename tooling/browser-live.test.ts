@@ -559,6 +559,13 @@ const origin = Bun.serve({
         headers: { "content-type": "text/html" },
       });
     }
+    if (path.startsWith("/dom-budget/")) {
+      const variant = Number(path.split("/").at(-1));
+      return new Response(
+        `<title>DOM budget</title><div id="example" data-index="${variant}"></div><script>globalThis.scriptExecuted=true;</script>`,
+        { headers: { "content-type": "text/html" } },
+      );
+    }
     if (path.startsWith("/registrations/")) {
       const variant = Number(path.split("/").at(-1));
       const source = await Bun.file(
@@ -2661,6 +2668,8 @@ test("real HTTP → workerd → Wasm: exponential variable substitution becomes 
 
 const intersectionExpected = Object.fromEntries(
   [
+    "sharedScene",
+    "sharedSceneInvalidation",
     "initial",
     "geometry",
     "entryBrands",
@@ -3861,7 +3870,7 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     if (typeof result !== "object" || result === null) throw new Error("Missing response");
     const value: unknown = Reflect.get(result, "value");
     if (typeof value !== "object" || value === null) throw new Error("Missing comparison");
-    expect(Object.keys(value)).toHaveLength(74);
+    expect(Object.keys(value)).toHaveLength(77);
     expect(Object.values(value).every((check) => check === true)).toBe(true);
   },
 );
@@ -6335,5 +6344,49 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     if (typeof value !== "object" || value === null) throw new Error("Missing checks");
     expect(Object.keys(value)).toHaveLength(101);
     expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: DOM operation budget variant %i",
+  async (variant) => {
+    const url = new URL(`dom-budget/${variant}`, origin.url).href;
+    const expression = `(() => { const target=document.getElementById('example'); let valid=true; for(let i=0;i<12000+${variant};i++)valid=valid && target.getAttribute('data-index')===String(${variant}); return {valid,scriptExecuted}; })()`;
+    const send = (maxDomOperations?: number) =>
+      worker.dispatchFetch("https://nimbo.test/scrape", {
+        method: "POST",
+        headers: { authorization: "Bearer test-secret" },
+        body: JSON.stringify({ url, expression, maxDomOperations }),
+      });
+    const configured = await send(20_000);
+    expect(configured.status).toBe(200);
+    expect(await configured.json()).toEqual({
+      url,
+      engine: "rust-wasm-quickjs",
+      value: { valid: true, scriptExecuted: true },
+    });
+    const reject = async (budget?: number) => {
+      const rejected = await send(budget);
+      expect(rejected.status).toBe(422);
+      expect(await rejected.text()).toContain("DOM operations");
+    };
+    // The shared isolate admits one scrape at a time.
+    await reject();
+    await reject(100);
+  },
+);
+
+test.each([0, -1, 1.5, 1_000_001, "20000", true, null, {}])(
+  "real HTTP → workerd → Wasm: invalid DOM operation budget %j fails before navigation",
+  async (maxDomOperations) => {
+    const url = new URL("dom-budget/0", origin.url).href,
+      count = requests.length;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "true", maxDomOperations }),
+    });
+    expect(response.status).toBe(400);
+    expect(requests.length).toBe(count);
   },
 );

@@ -26,6 +26,9 @@ export const Input = Schema.Struct({
   maxLayoutNodes: Schema.optional(
     Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 4096 })),
   ),
+  maxDomOperations: Schema.optional(
+    Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 1_000_000 })),
+  ),
   scripts: Schema.optional(Schema.Literals(["execute", "skip"])),
 });
 export const Action = Schema.Union([

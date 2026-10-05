@@ -3,7 +3,7 @@ use dom_query::{Document, NodeId, NodeRef};
 use serde_json::{Value, json};
 use taffy::{Overflow, Point, prelude::*, style::ExpandedLengthPercentageAuto};
 
-use super::{Bounds, Sources, Tree, Work, layout_error, scene, unsupported};
+use super::{Bounds, Sources, Work, layout_error, scene, unsupported};
 use crate::{MediaEnvironment, Result, styles::Declarations};
 use std::collections::{HashMap, HashSet};
 
@@ -23,8 +23,8 @@ pub(crate) struct Snapshot {
 }
 
 pub(super) struct View<'a> {
-    boxes: &'a TaffyTree<super::svg_viewport::Intrinsic>,
-    ids: &'a HashMap<NodeId, taffy::NodeId>,
+    pub(super) boxes: &'a TaffyTree<super::svg_viewport::Intrinsic>,
+    pub(super) ids: &'a HashMap<NodeId, taffy::NodeId>,
     positioned: &'a HashSet<NodeId>,
     fixed: &'a HashSet<NodeId>,
     box_nodes: &'a HashMap<taffy::NodeId, NodeId>,
@@ -33,22 +33,21 @@ pub(super) struct View<'a> {
     viewport: Size<f64>,
 }
 
-impl Tree<'_, '_> {
-    pub(super) fn view(&self) -> View<'_> {
-        View {
-            boxes: &self.boxes,
-            ids: &self.ids,
-            positioned: &self.positioned,
-            fixed: &self.fixed,
-            box_nodes: &self.box_nodes,
-            sticky: &self.sticky,
-            scroll: self.scroll,
-            viewport: self.viewport,
-        }
-    }
-}
-
 impl Snapshot {
+    pub(crate) fn observation(
+        &self,
+        target: NodeRef<'_>,
+        root: Option<NodeRef<'_>>,
+        margins: &super::Margins,
+        media: &MediaEnvironment,
+        work: &mut Work<'_>,
+    ) -> Result<super::intersection::Observation> {
+        super::svg_viewport::geometry(target)?;
+        if let Some(root) = root {
+            super::svg_viewport::geometry(root)?;
+        }
+        super::intersection::observe(&self.view(), target, root, margins, media, work)
+    }
     fn view(&self) -> View<'_> {
         View {
             boxes: &self.boxes,

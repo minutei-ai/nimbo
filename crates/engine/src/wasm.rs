@@ -27,10 +27,15 @@ impl WasmPage {
     /// `execute_scripts` omitido executa scripts; false extrai somente o HTML recebido.
     /// `max_stylesheet_bytes` configura o orçamento CSS, até o teto de resposta padrão.
     /// `max_layout_nodes` configura visitas por coleta CSS/layout, de 1 até 4096.
+    /// `max_dom_operations` configures shared DOM/CSS work, from 1 through 1,000,000.
     ///
     /// # Errors
     /// Retorna falha de URL, HTML, scripts, alocação ou inicialização do motor.
     #[wasm_bindgen(constructor)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Preserve the positional Wasm constructor ABI when adding optional budgets"
+    )]
     pub fn new(
         html: &str,
         url: &str,
@@ -39,6 +44,7 @@ impl WasmPage {
         max_stylesheet_bytes: Option<usize>,
         max_layout_nodes: Option<usize>,
         cookies: Option<WasmCookies>,
+        max_dom_operations: Option<usize>,
     ) -> Result<Self, String> {
         let media: MediaEnvironment = media
             .map_or_else(
@@ -59,6 +65,12 @@ impl WasmPage {
                 return Err("resource limit: invalid layout node configuration".into());
             }
             limits.max_layout_nodes = nodes;
+        }
+        if let Some(operations) = max_dom_operations {
+            if operations == 0 || operations > 1_000_000 {
+                return Err("resource limit: invalid DOM operation configuration".into());
+            }
+            limits.max_dom_operations = operations;
         }
         Machine::new(
             html,

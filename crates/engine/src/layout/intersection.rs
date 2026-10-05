@@ -3,7 +3,7 @@ use dom_query::NodeRef;
 use serde::{Deserialize, Serialize};
 use taffy::Overflow;
 
-use super::{Bounds, Tree, unsupported};
+use super::{Bounds, Work, geometry::View, unsupported};
 use crate::{Error, MediaEnvironment, Result};
 
 #[derive(Clone, Copy, Deserialize, Serialize)]
@@ -149,11 +149,12 @@ fn clip(mut rect: Bounds, limit: &Bounds, x: bool, y: bool) -> Option<Bounds> {
 }
 
 pub(super) fn observe(
-    tree: &mut Tree<'_, '_>,
+    tree: &View<'_>,
     target: NodeRef<'_>,
     root: Option<NodeRef<'_>>,
     margins: &Margins,
     media: &MediaEnvironment,
+    work: &mut Work<'_>,
 ) -> Result<Observation> {
     if !target.is_element() {
         return Err(unsupported("intersection target"));
@@ -184,7 +185,7 @@ pub(super) fn observe(
     };
     let mut intersection = present.then(|| bounding_client_rect.clone());
     for ancestor in target.ancestors_it(None) {
-        tree.work.charge()?;
+        work.charge()?;
         if root.is_some_and(|root| ancestor.id == root.id) {
             break;
         }

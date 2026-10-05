@@ -124,6 +124,7 @@ impl Definitions {
         &self,
         declarations: &Declarations,
         variables: &Variables,
+        registrations: &crate::registrations::Definitions,
         work: &mut Work<'_>,
     ) -> Result<Declarations> {
         let mut result = declarations.clone();
@@ -180,7 +181,10 @@ impl Definitions {
                 {
                     return Err(unsupported("custom property interpolation"));
                 }
-                let (computed, _) = frame.declarations.compute_variables(variables, work)?;
+                let (computed, _) =
+                    frame
+                        .declarations
+                        .compute_keyframe(variables, registrations, work)?;
                 for (property, _, _) in computed.layout_entries() {
                     if !property.starts_with("animation-") {
                         properties.insert(property.to_owned());
@@ -455,6 +459,33 @@ pub(crate) fn interpolate(property: &str, from: &str, to: &str, progress: f64) -
 mod tests {
     use super::*;
     #[test]
+    fn keyframes_resolve_lazy_registered_initial_values() -> Result<()> {
+        let source = Declarations::parse("animation:demo 1s linear -.5s paused both")
+            .map_err(|message| Error::Dom(message.into()))?;
+        let mut registrations = crate::registrations::Definitions::default();
+        registrations.register(
+            "--example-size",
+            "syntax:'<length>';inherits:false;initial-value:40px",
+            &[],
+        )?;
+        let mut operations = 0;
+        let mut work = Work::new(&mut operations, 1000, 1024);
+        let (source, variables) =
+            source.compute_registered(&Variables::default(), &registrations, &mut work)?;
+        let mut animations = Definitions::default();
+        animations.register("demo", "from{width:var(--example-size)}to{width:80px}", &[])?;
+        let sampled = animations.sample(&source, &variables, &registrations, &mut work)?;
+        assert_eq!(sampled.value("width").0, "60px");
+        let source =
+            Declarations::parse("--example-size:50px;animation:demo 1s linear -.5s paused both")
+                .map_err(|message| Error::Dom(message.into()))?;
+        let (source, variables) =
+            source.compute_registered(&Variables::default(), &registrations, &mut work)?;
+        let sampled = animations.sample(&source, &variables, &registrations, &mut work)?;
+        assert_eq!(sampled.value("width").0, "65px");
+        Ok(())
+    }
+    #[test]
     fn paused_animation_declarations_feed_the_native_sampler() -> Result<()> {
         let declarations =
             Declarations::parse("width:11px;animation:demo 1s linear -.5s paused both")
@@ -464,7 +495,12 @@ mod tests {
         definitions.register("demo", "from{width:10px}to{width:90px}", &[])?;
         let mut operations = 0;
         let mut work = Work::new(&mut operations, 10000, 1024);
-        let sampled = definitions.sample(&declarations, &Variables::default(), &mut work)?;
+        let sampled = definitions.sample(
+            &declarations,
+            &Variables::default(),
+            &crate::registrations::Definitions::default(),
+            &mut work,
+        )?;
         assert_eq!(sampled.value("width").0, "50px");
         Ok(())
     }

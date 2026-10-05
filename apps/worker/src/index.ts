@@ -68,6 +68,7 @@ const scrape = (request: Request, environment: Environment) =>
               input.maxStylesheetBytes,
               input.maxLayoutNodes,
               transport.cookies.share(),
+              input.maxDomOperations,
             ),
           catch: (cause) => failure(cause),
         }),

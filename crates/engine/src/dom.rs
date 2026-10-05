@@ -536,6 +536,7 @@ impl Dom {
             .filter(|handle| *handle != 0)
             .map(|handle| self.node_id(handle))
             .transpose()?;
+        self.ensure_layout()?;
         let target = self
             .document
             .tree
@@ -549,29 +550,17 @@ impl Dom {
                     .ok_or_else(|| Error::Dom("invalid root node".into()))
             })
             .transpose()?;
-        let base = self.base_href();
         let mut work = crate::layout::Work::new(
             &mut self.operations,
             self.limits.max_dom_operations,
             self.limits.max_layout_nodes,
         );
-        let observation = crate::layout::observe(
-            &self.document,
-            target,
-            root,
-            &request.margin,
-            &crate::layout::Sources {
-                scroll: &self.scroll,
-                transitions: &self.transitions,
-                now: self.now,
-                inline: &self.styles,
-                external: &self.sheets,
-                constructed: &self.cssom,
-                base: base.as_deref(),
-            },
-            &self.media,
-            &mut work,
-        )?;
+        let (_, layout) = self
+            .layout
+            .as_ref()
+            .ok_or_else(|| Error::Dom("missing native layout snapshot".into()))?;
+        let observation =
+            layout.observation(target, root, &request.margin, &self.media, &mut work)?;
         Ok(serde_json::to_value(observation)?)
     }
 

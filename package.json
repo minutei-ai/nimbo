@@ -58,6 +58,7 @@
     "compare:window-named": "bun run build:worker && bun run tooling/compare-window-named.ts",
     "bench:wpt-window-named": "bun run build:worker && bun run tooling/benchmark-wpt-window-named.ts",
     "compare:attribute-namespaces": "bun run build:worker && bun run tooling/compare-attribute-namespaces.ts",
+    "compare:registrations": "bun run build:worker && bun run tooling/compare-registrations.ts",
     "bench:wpt-attribute-nodes": "bun run build:worker && bun run tooling/benchmark-wpt-attribute-nodes.ts",
     "bench:wpt-attribute-namespaces": "bun run build:worker && bun run tooling/benchmark-wpt-attribute-namespaces.ts"
   },

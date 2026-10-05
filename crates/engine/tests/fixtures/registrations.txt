@@ -80,6 +80,11 @@ globalThis.comparison = (() => {
   run('commaListValid',rule('<length>#',false,px),'','--p:31px,41px',200);
   run('commaListTrailing',rule('<length>#',false,px),'','--p:31px,',n);
   run('commaListInvalid',rule('<length>#',false,px),'','--p:31px,blue',n);
+  const animation='width:11px;animation:example-size 1s linear -.5s paused both';
+  const keyframes='@keyframes example-size{from{width:var(--p)}to{width:80px}}';
+  run('animationInitial',base,'',animation,(n+80)/2,keyframes);
+  run('animationSpecified',base,'','--p:31px;'+animation,55.5,keyframes);
+  run('animationInherited',inheriting,'--p:41px',animation,60.5,keyframes);
   sheet.textContent=base+'.parent{width:200px}.target{width:var(--p,19px)}';
   results.registrationAdded=Math.abs(target.getBoundingClientRect().width-n)<.001;
   sheet.textContent='.parent{width:200px}.target{width:var(--p,19px)}';

@@ -32,6 +32,7 @@ pub(crate) struct Registration {
 pub(crate) struct Definitions {
     pub(crate) entries: BTreeMap<String, Registration>,
     count: usize,
+    pub(crate) initial_bytes: usize,
 }
 
 #[derive(Default)]
@@ -156,6 +157,15 @@ impl Definitions {
         {
             return Ok(());
         }
+        self.initial_bytes = self
+            .initial_bytes
+            .saturating_sub(
+                self.entries
+                    .get(name)
+                    .and_then(|entry| entry.initial.as_ref())
+                    .map_or(0, |value| value.len()),
+            )
+            .saturating_add(initial.as_ref().map_or(0, |value| value.len()));
         self.entries.insert(
             name.to_owned(),
             Registration {

@@ -90,6 +90,15 @@ isolated loopback origins; a deployed proxy must satisfy platform restrictions.
 
 Worker platform limits apply in addition to Nimbo's own [engine limits](../README.md#resource-limits). Consult the current [Cloudflare limits](https://developers.cloudflare.com/workers/platform/limits/) when sizing workloads. Browser capabilities remain those of Nimbo's engine: deployment does not add WebGL, video, screenshots or durable browser sessions.
 
+The `/scrape` input accepts `maxDomOperations`, an integer from 1 through
+1,000,000. The default remains 10,000 shared DOM/CSS operations per page.
+This budget also covers native selector and layout work. Larger values do not
+change heap, response, request, node or execution deadlines, and do not enable
+unsupported browser features. Invalid values return HTTP 400 before navigation;
+exhausting a valid budget returns HTTP 422. The live suite repeats configured,
+default and exhausted-budget requests at 64 real HTTP URLs, plus eight invalid
+inputs.
+
 ## Attribute DOM validation
 
 `bun run test:worker` runs the live Attr/NamedNodeMap and attribute namespace

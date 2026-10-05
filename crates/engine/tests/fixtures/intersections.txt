@@ -1,6 +1,8 @@
 globalThis.comparison = (async () => {
   const variant=globalThis.variant ?? 0;
   document.body.innerHTML='';document.body.style.cssText='margin:0;width:800px;height:600px;';
+  const registrationSheet=document.createElement('style');
+  registrationSheet.textContent=Array.from({length:180},(_,i)=>'@property --example-unused-'+i+'{syntax:"<length>";inherits:false;initial-value:0px;}').join('');document.head.append(registrationSheet);
   const root=document.createElement('div'), target=document.createElement('div');
   root.style.cssText='width:100px;height:100px;';target.style.cssText='width:40px;height:40px;position:relative;';
   root.appendChild(target);document.body.appendChild(root);
@@ -13,6 +15,18 @@ globalThis.comparison = (async () => {
     const first=next();observer.observe(element);
     return {observer,state,first,next};
   }
+  const batchTargets=[];
+  for(let i=0;i<48;i++){const item=document.createElement('div');item.style.cssText='width:40px;height:1px;position:relative;vertical-align:middle;font-weight:bold;letter-spacing:0.1em;';root.append(item);batchTargets.push(item);}
+  let batchResolve;
+  const batchObserver=new IntersectionObserver(entries=>{if(batchResolve){const resolve=batchResolve;batchResolve=null;resolve(entries);}}, {root,threshold:[.5]});
+  const batchFirst=new Promise(resolve=>{batchResolve=resolve;});
+  for(const item of batchTargets)batchObserver.observe(item);
+  const batchEntries=await batchFirst;
+  const sharedScene=batchEntries.length===48 && batchEntries.every(e=>e.isIntersecting && e.intersectionRatio===1 && e.boundingClientRect.width===40);
+  const batchNext=new Promise(resolve=>{batchResolve=resolve;});batchTargets[0].style.left='90px';
+  const batchChanged=await batchNext;
+  const sharedSceneInvalidation=batchChanged.length===1 && batchChanged[0].target===batchTargets[0] && batchChanged[0].intersectionRatio===.25;
+  batchObserver.disconnect();for(const item of batchTargets)item.remove();
   const w=watch(target,{root,threshold:[.75,.25,.5]});
   const entries=await w.first,e=entries[0];
   const initial=entries.length===1 && e.target===target && e.isIntersecting && e.intersectionRatio===1;
@@ -64,5 +78,5 @@ globalThis.comparison = (async () => {
   const constructedEntry=(()=>{try{const ownEntry=new IntersectionObserverEntry({time:1,target,boundingClientRect:{width:4},intersectionRect:{width:2},intersectionRatio:.5,isIntersecting:true});return ownEntry.target===target && ownEntry.time===1 && ownEntry.rootBounds===null && ownEntry.boundingClientRect.width===4 && ownEntry.intersectionRect.width===2;}catch{return false;}})();
   const records=defaults.takeRecords().length===0 && stable.observer.takeRecords().length===0;
   for(const observer of watchers)observer.disconnect();
-  return {initial,geometry,entryBrands,time,sorted,rootIdentity,half,exactThreshold,edge,excluded,snapshots,positiveMargin,percentages,negativeMargin,clipping,ancestorExclusion,hidden,zeroArea,detached,detachedRootBounds,unrelated,documentRoot,noRepeat,unobserved,reobserve,disconnected,emptyThreshold,guards,invalidMargins,ranges,finiteThreshold,marginShorthand,absoluteMargin,constructedEntry,records,contexts:w.state.contexts};
+  return {sharedScene,sharedSceneInvalidation,initial,geometry,entryBrands,time,sorted,rootIdentity,half,exactThreshold,edge,excluded,snapshots,positiveMargin,percentages,negativeMargin,clipping,ancestorExclusion,hidden,zeroArea,detached,detachedRootBounds,unrelated,documentRoot,noRepeat,unobserved,reobserve,disconnected,emptyThreshold,guards,invalidMargins,ranges,finiteThreshold,marginShorthand,absoluteMargin,constructedEntry,records,contexts:w.state.contexts};
 })();

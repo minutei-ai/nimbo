@@ -231,9 +231,13 @@ impl Resolver<'_, '_> {
                     lightningcss::values::syntax::SyntaxString::Universal
                 )
             })
-            .and_then(|_registration| self.defaults.0.get(name))
-            .cloned()
-            .flatten()
+            .and_then(|registration| {
+                self.defaults
+                    .0
+                    .get(name)
+                    .cloned()
+                    .unwrap_or_else(|| registration.initial.clone())
+            })
     }
     fn settle(&mut self) -> Result<()> {
         let inherited = self.values.clone();
@@ -281,7 +285,11 @@ impl Resolver<'_, '_> {
             return Ok(value.clone());
         }
         let Some(items) = self.local.remove(name) else {
-            return Ok(None);
+            return Ok(self
+                .registrations
+                .entries
+                .get(name)
+                .and_then(|registration| registration.initial.clone()));
         };
         self.active.push(name.to_owned());
         let rendered = self.render(&items, depth.saturating_add(1));
@@ -348,26 +356,77 @@ impl Resolver<'_, '_> {
     }
 }
 
-impl Declarations {
-    pub(crate) fn compute_variables(
-        &self,
-        parent: &Variables,
-        work: &mut Work<'_>,
-    ) -> Result<(Self, Variables)> {
-        self.compute_registered(parent, &crate::registrations::Definitions::default(), work)
+fn variable_bytes(
+    values: &Variables,
+    local: &BTreeMap<String, Rc<[Component]>>,
+    registrations: &crate::registrations::Definitions,
+) -> usize {
+    let mut bytes = registrations.initial_bytes;
+    for (name, value) in &values.0 {
+        bytes = bytes.saturating_sub(
+            registrations
+                .entries
+                .get(name)
+                .and_then(|entry| entry.initial.as_ref())
+                .map_or(0, |initial| initial.len()),
+        );
+        bytes = bytes.saturating_add(value.as_ref().map_or(0, |value| value.len()));
     }
+    for name in local.keys() {
+        bytes = bytes.saturating_sub(
+            registrations
+                .entries
+                .get(name)
+                .and_then(|entry| entry.initial.as_ref())
+                .map_or(0, |initial| initial.len()),
+        );
+    }
+    bytes
+}
+
+impl Declarations {
     pub(crate) fn compute_registered(
         &self,
         parent: &Variables,
         registrations: &crate::registrations::Definitions,
         work: &mut Work<'_>,
     ) -> Result<(Self, Variables)> {
+        self.compute_scope(parent, registrations, work, true)
+    }
+
+    pub(crate) fn compute_keyframe(
+        &self,
+        element: &Variables,
+        registrations: &crate::registrations::Definitions,
+        work: &mut Work<'_>,
+    ) -> Result<(Self, Variables)> {
+        self.compute_scope(element, registrations, work, false)
+    }
+
+    fn compute_scope(
+        &self,
+        parent: &Variables,
+        registrations: &crate::registrations::Definitions,
+        work: &mut Work<'_>,
+        inherit: bool,
+    ) -> Result<(Self, Variables)> {
         let mut values = parent.clone();
-        for (name, registration) in &registrations.entries {
+        // Initial registered values stay in the immutable registration table.
+        // Only explicit inherited overrides need resetting on this element.
+        let mut reset = Vec::new();
+        for name in values.0.keys() {
             work.charge()?;
-            if !registration.inherits || !values.0.contains_key(name) {
-                values.0.insert(name.clone(), registration.initial.clone());
+            if inherit
+                && registrations
+                    .entries
+                    .get(name)
+                    .is_some_and(|registration| !registration.inherits)
+            {
+                reset.push(name.clone());
             }
+        }
+        for name in reset {
+            values.0.remove(&name);
         }
         let defaults = values.clone();
         let mut local = BTreeMap::new();
@@ -421,7 +480,13 @@ impl Declarations {
                 }
             }
         }
-        if values.0.len().saturating_add(local.len()) > VARIABLE_LIMIT {
+        let extras = values
+            .0
+            .keys()
+            .chain(local.keys())
+            .filter(|name| !registrations.entries.contains_key(*name))
+            .count();
+        if registrations.entries.len().saturating_add(extras) > VARIABLE_LIMIT {
             return Err(Error::Limit("CSS computed variables"));
         }
         let graph = local
@@ -432,7 +497,7 @@ impl Declarations {
                 (name.clone(), edges)
             })
             .collect::<BTreeMap<_, _>>();
-        let bytes = values.0.values().flatten().map(|value| value.len()).sum();
+        let bytes = variable_bytes(&values, &local, registrations);
         let mut resolver = Resolver {
             values,
             local,
@@ -509,5 +574,68 @@ fn engine_error(error: Failure) -> Error {
     match error {
         Failure::Engine(error) => error,
         Failure::Invalid => Error::Dom("CSS substitution syntax".into()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Declarations, Variables};
+    use crate::{Error, layout::Work, registrations::Definitions};
+
+    #[test]
+    fn unused_registrations_do_not_exhaust_substitution_work() -> crate::Result<()> {
+        let mut definitions = Definitions::default();
+        for index in 0..180 {
+            definitions.register(
+                &format!("--example-{index}"),
+                "syntax:'<length>';inherits:false;initial-value:7px",
+                &[],
+            )?;
+        }
+        let mut operations = 0;
+        let mut work = Work::new(&mut operations, 64, 1024);
+        let source = Declarations::parse("width:var(--example-42)")
+            .map_err(|message| Error::Dom(message.into()))?;
+        let (computed, _) =
+            source.compute_registered(&Variables::default(), &definitions, &mut work)?;
+        assert_eq!(computed.value("width").0, "7px");
+        Ok(())
+    }
+
+    #[test]
+    fn lazy_registration_defaults_retain_quantity_and_byte_limits() -> crate::Result<()> {
+        let mut definitions = Definitions::default();
+        for index in 0..1024 {
+            definitions.register(
+                &format!("--example-{index}"),
+                "syntax:'<length>';inherits:false;initial-value:7px",
+                &[],
+            )?;
+        }
+        let mut operations = 0;
+        let mut work = Work::new(&mut operations, 10_000, 1024);
+        let source =
+            Declarations::parse("--extra:1px").map_err(|message| Error::Dom(message.into()))?;
+        assert!(matches!(
+            source.compute_registered(&Variables::default(), &definitions, &mut work),
+            Err(Error::Limit("CSS computed variables"))
+        ));
+        let mut definitions = Definitions::default();
+        let body = format!(
+            "syntax:'*';inherits:false;initial-value:{}",
+            "x".repeat(50_000)
+        );
+        for index in 0..6 {
+            definitions.register(&format!("--example-{index}"), &body, &[])?;
+        }
+        assert!(matches!(
+            Declarations::default().compute_registered(
+                &Variables::default(),
+                &definitions,
+                &mut work
+            ),
+            Err(Error::Limit("CSS computed variable bytes"))
+        ));
+        Ok(())
     }
 }

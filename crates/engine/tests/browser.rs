@@ -1131,7 +1131,7 @@ fn intersection_observers_measure_real_boxes_and_deliver_threshold_changes() -> 
         .navigate(&fixture.path("/intersections"))?;
     let result = page.evaluate("comparison")?;
     let fields = result.as_object().ok_or("missing intersection result")?;
-    assert_eq!(fields.len(), 36);
+    assert_eq!(fields.len(), 38);
     assert!(
         fields.values().all(|value| *value == json!(true)),
         "{result}"
@@ -1406,7 +1406,7 @@ fn registered_custom_properties_validate_before_substitution() -> TestResult {
         .navigate(&fixture.path("/registrations"))?;
     let result = page.evaluate("comparison")?;
     let fields = result.as_object().ok_or("missing registration result")?;
-    assert_eq!(fields.len(), 74);
+    assert_eq!(fields.len(), 77);
     assert!(
         fields.values().all(|value| *value == json!(true)),
         "{result}"

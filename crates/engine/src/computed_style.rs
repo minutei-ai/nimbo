@@ -173,7 +173,10 @@ pub(crate) fn resolve(
         let (declarations, next_variables) =
             declarations.compute_registered(&variables, &cascade.registrations, work)?;
         variables = next_variables;
-        let declarations = cascade.animations.sample(&declarations, &variables, work)?;
+        let declarations =
+            cascade
+                .animations
+                .sample(&declarations, &variables, &cascade.registrations, work)?;
         transitions = transitions.compute(&declarations)?;
         let declarations =
             sources

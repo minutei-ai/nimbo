@@ -1,0 +1,26 @@
+{
+  "date": "2026-10-05",
+  "fixture": "crates/engine/tests/fixtures/registrations.txt",
+  "fixtureSha256": "b4498ce80c43845ebf82f86f57b6dfffbceed1c7844a736442b68d73b3f885f2",
+  "wasmSha256": "de1984434fb98901db6b2edfcfd4ba02dbf289c42b2985fb8332c376d7662e7e",
+  "command": "bun run compare:registrations",
+  "scope": "64 fresh pages over real HTTP; registered CSS defaults, inheritance, typed substitution and paused keyframe interpolation; actual native Wasm in celld and ordinary Chromium; no mocks; supplemental contracts, not original WPT",
+  "runtimes": [
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "pages": 64,
+      "passedPages": 64,
+      "checksPerPage": 77,
+      "passedChecks": 4928,
+      "failedChecks": []
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "pages": 64,
+      "passedPages": 64,
+      "checksPerPage": 77,
+      "passedChecks": 4928,
+      "failedChecks": []
+    }
+  ]
+}

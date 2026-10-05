@@ -675,7 +675,7 @@ measurements. Mutations invalidate observations; stable observations do not
 repeatedly enqueue entries. Disconnect, unobserve, reobserve, takeRecords,
 receiver guards, sorted frozen thresholds and immutable entry snapshots are covered.
 
-The real HTTP/workerd/Wasm suite repeats 36 assertions at 64 synthetic URLs.
+The real HTTP/workerd/Wasm suite repeats 38 assertions at 64 synthetic URLs.
 It exercises element and document roots, positive/negative/percentage margins,
 ancestor overflow clipping, hidden/detached/zero-area targets and native scheduling.
 Ten additional real Worker cases cover explicit unsupported-feature errors,
@@ -683,7 +683,13 @@ registration/threshold/margin caps, fresh-request recovery and callback errors.
 The native HTTP suite executes the same fixture. These tests use actual engine
 execution, not observer stubs. Legacy adapter-boundary tests remain separate.
 
-A focused Chromium comparison returned 31 of the 36 assertions true. Known
+Observers reuse the native layout snapshot across targets until a mutation
+invalidates it. The fixture also observes 48 real elements under 180 unused
+registered CSS properties and checks delivery after a geometry mutation.
+Unused registered initial values resolve lazily while retaining variable-count
+and byte limits. This reduces work without changing the default operation budget.
+
+A historical focused Chromium comparison returned 31 of the earlier 36 assertions true. The two new assertions have not yet been compared with Chromium. Known
 comparison gaps include edge adjacency with a nonzero minimum threshold,
 detached root bounds, unrelated-target delivery within the harness timeout,
 absolute-unit margin parsing and direct entry construction. Ratios are compared
@@ -1121,9 +1127,10 @@ syntax/inherits and missing typed initial values also invalidate it. Required
 syntax/inherits follow the published Level 1 contract and the actual Chromium
 comparison, not the later editor draft's optional-descriptor behavior.
 
-The public `registrations.txt` fixture runs 74 geometry/validation checks at each
-of 64 real HTTP URLs through workerd and the compiled Wasm engine. The same 74
-checks passed in all 64 isolated Chromium 152 documents. This covers initial and
+The public `registrations.txt` fixture now runs 77 geometry/validation checks at each
+of 64 real HTTP URLs through workerd and the compiled Wasm engine. All 77
+checks also passed in 64 fresh celld and Chromium 153 documents. The earlier 74-check
+Chromium 152 comparison remains available as historical evidence. This covers initial and
 specified widths, inheritance/defaulting, substituted/canonical absolute lengths,
 number calculation, percentage widths, list padding, case-sensitive alternatives,
 important winners, cycles, unknown/invalid descriptor recovery, layer priority,
@@ -1131,6 +1138,13 @@ media activation, dynamic registration removal and a healthy final geometry read
 Some declared types are tested only for invalid-value rejection, not their entire
 computed-value behavior. The aggregate browser record is
 [registered-properties-chromium.json](evidence/registered-properties-chromium.json).
+The current aggregate is
+[registered-properties-lazy-defaults.json](evidence/registered-properties-lazy-defaults.json).
+Run `bun run compare:registrations` with celld and ordinary Chromium configured
+as described in the comparison guide to produce all per-page checks.
+The three added contracts verify registered initial values, explicit overrides
+and inherited values inside paused keyframes. Keyframes use the animated
+element's own computed variables rather than resetting non-inherited overrides.
 
 Nine separate real Worker cases verify explicit diagnostics for relative/contextual
 lengths, currentColor, advanced colors, URLs, images, transforms and mixed
@@ -1145,7 +1159,7 @@ memory guarantee.
 Remaining scope includes CSS.registerProperty and CSSPropertyRule/Typed OM,
 relative-length/font/line-height dependencies, viewport/container lengths in
 registered values, complete numeric and color computation, URL bases and resource
-loading, image/transform computation, registration-aware animation interpolation,
+loading, image/transform computation, registered custom-property animation interpolation,
 full grammar/error recovery, shadow-tree registration and pinned WPT coverage.
 The new comparison proves the listed subset only, not full registered-property
 or browser conformance.

@@ -215,6 +215,10 @@ fn non_layout(name: &str) -> bool {
                 | "container-type"
                 | "font-size"
                 | "font-family"
+                // Supported box scenes contain no shaped text. Weight affects
+                // glyphs, not the geometry of these empty/block-only boxes.
+                | "font-weight"
+                | "letter-spacing"
                 | "text-size-adjust"
                 | "tab-size"
                 | "line-height"
@@ -287,6 +291,12 @@ fn style_properties(
             continue;
         }
         if alignment(&mut style, name, value)? {
+            continue;
+        }
+        // All accepted display modes have a block outer box. CSS 2.1
+        // vertical-align applies to inline-level and table-cell boxes, which
+        // display.layout() rejects before this property loop.
+        if name == "vertical-align" {
             continue;
         }
         match name {
@@ -516,6 +526,18 @@ struct Tree<'a, 'b> {
 }
 
 impl Tree<'_, '_> {
+    fn animate(
+        &mut self,
+        declarations: &Declarations,
+        variables: &Variables,
+    ) -> Result<Declarations> {
+        self.cascade.animations.sample(
+            declarations,
+            variables,
+            &self.cascade.registrations,
+            self.work,
+        )
+    }
     fn visit(&mut self, depth: usize) -> Result<()> {
         self.work.charge()?;
         self.visited = self.visited.saturating_add(1);
@@ -545,10 +567,7 @@ impl Tree<'_, '_> {
         )?;
         let (declarations, variables) =
             declarations.compute_registered(parent, &self.cascade.registrations, self.work)?;
-        let declarations = self
-            .cascade
-            .animations
-            .sample(&declarations, &variables, self.work)?;
+        let declarations = self.animate(&declarations, &variables)?;
         if declarations
             .layout_entries()
             .any(|(name, value, _)| name == "display" && value == "none")
@@ -586,9 +605,6 @@ impl Tree<'_, '_> {
             .map_err(|error| layout_error(&error))?;
         self.remember_padding(id)?;
         Ok(Some(id))
-    }
-    fn rect(&self, target: NodeRef<'_>) -> Result<Bounds> {
-        self.view().rect(target)
     }
     fn build(
         &mut self,
@@ -630,10 +646,7 @@ impl Tree<'_, '_> {
                 .resolve(node, &declarations, None, self.containers, self.work)?;
         let (declarations, variables) =
             declarations.compute_registered(parent, &self.cascade.registrations, self.work)?;
-        let declarations = self
-            .cascade
-            .animations
-            .sample(&declarations, &variables, self.work)?;
+        let declarations = self.animate(&declarations, &variables)?;
         let declarations = self
             .transitions
             .borrow_mut()
@@ -918,25 +931,7 @@ fn scene<T>(
 }
 
 mod intersection;
-pub(crate) use intersection::{Margins, Observation};
-
-pub(crate) fn observe(
-    document: &Document,
-    target: NodeRef<'_>,
-    root: Option<NodeRef<'_>>,
-    margins: &Margins,
-    styles: &Sources<'_>,
-    media: &MediaEnvironment,
-    work: &mut Work<'_>,
-) -> Result<Observation> {
-    svg_viewport::geometry(target)?;
-    if let Some(root) = root {
-        svg_viewport::geometry(root)?;
-    }
-    scene(document, styles, media, work, |tree| {
-        intersection::observe(tree, target, root, margins, media)
-    })
-}
+pub(crate) use intersection::Margins;
 
 mod geometry;
 pub(crate) use geometry::{ScrollState, Snapshot, snapshot};
