@@ -6,7 +6,7 @@ use crate::{
     styles::{Declarations, Variables},
 };
 
-pub(crate) const PROPERTIES: [&str; 24] = [
+pub(crate) const PROPERTIES: [&str; 44] = [
     "background-attachment",
     "background-clip",
     "background-image",
@@ -14,15 +14,34 @@ pub(crate) const PROPERTIES: [&str; 24] = [
     "background-position",
     "background-repeat",
     "background-size",
+    "block-size",
     "color",
     "display",
     "font-family",
     "font-size",
+    "height",
+    "inline-size",
     "line-height",
+    "margin-block-end",
+    "margin-block-start",
+    "margin-bottom",
+    "margin-inline-end",
+    "margin-inline-start",
+    "margin-left",
+    "margin-right",
+    "margin-top",
     "outline-color",
     "outline-offset",
     "outline-style",
     "outline-width",
+    "padding-block-end",
+    "padding-block-start",
+    "padding-bottom",
+    "padding-inline-end",
+    "padding-inline-start",
+    "padding-left",
+    "padding-right",
+    "padding-top",
     "position",
     "tab-size",
     "text-size-adjust",
@@ -30,10 +49,12 @@ pub(crate) const PROPERTIES: [&str; 24] = [
     "transition-duration",
     "transition-property",
     "transition-timing-function",
+    "width",
     "z-index",
 ];
 
 pub(crate) struct Computed {
+    pub(crate) used_box: Option<crate::layout::resolved::BoxValues>,
     fonts: crate::fonts::Context,
     outlines: crate::outlines::Outlines,
     images: crate::backgrounds::Images,
@@ -49,11 +70,19 @@ pub(crate) struct Computed {
 }
 
 pub(crate) fn property(name: &str) -> bool {
-    PROPERTIES.contains(&name) || name == "transition" || crate::background_position::property(name)
+    PROPERTIES.contains(&name)
+        || name == "transition"
+        || crate::background_position::property(name)
+        || crate::layout::resolved::property(name)
 }
 impl Computed {
     pub(crate) fn value(&self, name: &str) -> Result<String> {
-        if crate::transitions::property(name) || name == "transition" {
+        if crate::layout::resolved::property(name) {
+            self.used_box
+                .as_ref()
+                .ok_or_else(|| Error::Dom("missing resolved box".into()))?
+                .value(name)
+        } else if crate::transitions::property(name) || name == "transition" {
             self.transitions.value(name)
         } else if name == "background-image" {
             self.images.value(self.outlines.color())
@@ -167,6 +196,7 @@ pub(crate) fn resolve(
         display = display.compute(node, &declarations, depth == 0, false)?;
     }
     Ok(Computed {
+        used_box: None,
         fonts,
         outlines,
         images,

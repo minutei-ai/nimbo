@@ -2792,3 +2792,40 @@ logical viewport; browser chrome and dynamically changing viewport sizes are
 not modeled. This evidence does not establish full CSS unit conformance.
 
 Reference: [CSS Values and Units Level 4](https://drafts.csswg.org/css-values-4/#relative-lengths).
+
+## Native resolved box CSSOM values
+
+Visible supported boxes expose resolved width/height, margins and padding,
+including their horizontal-tb, left-to-right logical aliases. Values come from
+native layout, with content/border box sizing, min/max constraints, automatic
+margins and containing-block percentages. A per-element snapshot shares one
+layout result across these queries; DOM/CSSOM mutations and active transitions
+invalidate it through the existing computed-style cache.
+
+Percentage padding is resolved against containing-block width on all four
+sides before the final layout. The native engine retains the original percentages
+and repeats layout while the containing-block widths change, charging the real
+operation budget and failing explicitly after the bounded convergence limit.
+This also corrects box height and client geometry, rather than only changing the
+CSSOM response.
+
+The [shared real HTTP fixture](../crates/engine/tests/fixtures/resolved-box-values.txt)
+passes 37 checks across 64 fresh pages in native Rust, workerd/Wasm, celld and
+Chromium: 2368/2368 per runtime. The [comparison report](resolved-box-values-chromium.json)
+records sizing, percentage bases, nested padding, live inherited/root font changes,
+physical/logical cascade, variables, automatic margins and detachment. Default
+limits stay enabled; no geometry or resources are mocked.
+
+The same eleven original WPT contextual-unit and invalid-sizing files now yield
+78/78 completed Nimbo subtests and ten passing files; the iframe file remains
+incomplete. Chromium passes 112/112 and public Obscura passes 33/112. The
+[original report](performance-wpt-resolved-box-values.json) retains every vendor
+verdict. The earlier report remains a dated baseline. Incomplete execution is
+not a pass, and the command reports unsuccessful suite execution.
+
+Computed box values without a box (`display:none`/`contents`), inherited sizing,
+inline/text layout, complete computed box shorthands, mixed percentage math,
+vertical/RTL mappings and frames remain pending. This bounded coverage does not
+establish complete CSSOM or upstream browser parity.
+
+Reference: [CSSOM resolved values](https://drafts.csswg.org/cssom/#resolved-values).

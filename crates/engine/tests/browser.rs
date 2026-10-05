@@ -1515,6 +1515,9 @@ fn serve_resource(request: Request) -> io::Result<()> {
     if request.url().starts_with("/logical-size/") {
         return serve_logical_size(request);
     }
+    if request.url().starts_with("/resolved-box-values/") {
+        return serve_resolved_box_values(request);
+    }
     if request.url().starts_with("/contextual-box-lengths/") {
         return serve_contextual_box_lengths(request);
     }
@@ -1661,6 +1664,7 @@ fn is_resource(path: &str) -> bool {
             "/layout-budget/",
             "/logical-size/",
             "/contextual-box-lengths/",
+            "/resolved-box-values/",
             "/outlines/",
             "/tabs/",
             "/line-height/",
@@ -2997,6 +3001,37 @@ fn contextual_box_lengths_follow_configured_media() -> TestResult {
             media.default_font_size,
         );
         assert_eq!(page.evaluate(&expression)?, json!(true));
+    }
+    Ok(())
+}
+
+fn serve_resolved_box_values(request: Request) -> io::Result<()> {
+    let variant = request
+        .url()
+        .rsplit('/')
+        .next()
+        .unwrap_or("0")
+        .parse::<usize>()
+        .map_err(io::Error::other)?;
+    request.respond(Response::from_string(format!(
+        "<!doctype html><body><script>{}\nglobalThis.comparison=resolvedBoxValuesCase({variant})</script>",
+        include_str!("fixtures/resolved-box-values.txt")
+    )).with_header(header("Content-Type", "text/html")?))
+}
+
+#[test]
+fn resolved_box_values_follow_native_used_layout() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/resolved-box-values/{variant}")))?;
+        let result = page.evaluate("globalThis.comparison")?;
+        let checks = result.as_object().ok_or("missing resolved box checks")?;
+        assert_eq!(checks.len(), 37);
+        assert!(
+            checks.values().all(|value| value == &json!(true)),
+            "{result}"
+        );
     }
     Ok(())
 }

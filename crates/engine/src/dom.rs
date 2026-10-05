@@ -413,6 +413,38 @@ impl Dom {
                     )?;
                     self.computed_styles.insert(id, values);
                 }
+                if crate::layout::resolved::property(name)
+                    && self
+                        .computed_styles
+                        .get(&id)
+                        .is_some_and(|style| style.used_box.is_none())
+                {
+                    let base = self.base_href();
+                    let mut work = crate::layout::Work::new(
+                        &mut self.operations,
+                        self.limits.max_dom_operations,
+                        self.limits.max_layout_nodes,
+                    );
+                    let values = crate::layout::resolved::resolve(
+                        &self.document,
+                        node,
+                        &crate::layout::Sources {
+                            scroll: &self.scroll,
+                            transitions: &self.transitions,
+                            now: self.now,
+                            inline: &self.styles,
+                            external: &self.sheets,
+                            constructed: &self.cssom,
+                            base: base.as_deref(),
+                        },
+                        &self.media,
+                        &mut work,
+                    )?;
+                    self.computed_styles
+                        .get_mut(&id)
+                        .ok_or_else(|| Error::Dom("missing computed style".into()))?
+                        .used_box = Some(values);
+                }
                 value = self
                     .computed_styles
                     .get(&id)

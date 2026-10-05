@@ -11,6 +11,8 @@ use crate::{
 
 mod lengths;
 pub(crate) mod logical;
+mod percentage_padding;
+pub(crate) mod resolved;
 
 pub(crate) struct Work<'a> {
     operations: &'a mut usize,
@@ -460,6 +462,7 @@ struct Tree<'a, 'b> {
     out_of_flow: Vec<(taffy::NodeId, Option<NodeId>)>,
     box_nodes: HashMap<taffy::NodeId, NodeId>,
     sticky: HashMap<taffy::NodeId, Rect<LengthPercentageAuto>>,
+    percentage_padding: Vec<(taffy::NodeId, Rect<LengthPercentage>)>,
     scroll: &'a ScrollState,
     transitions: &'a std::cell::RefCell<crate::transitions::State>,
     now: f64,
@@ -537,10 +540,12 @@ impl Tree<'_, '_> {
             self.work,
         )?;
         style.border = context.borders.geometry()?;
-        self.boxes
+        let id = self
+            .boxes
             .new_leaf(style)
-            .map(Some)
-            .map_err(|error| layout_error(&error))
+            .map_err(|error| layout_error(&error))?;
+        self.remember_padding(id)?;
+        Ok(Some(id))
     }
     fn rect(&self, target: NodeRef<'_>) -> Result<Bounds> {
         let Some(id) = self.ids.get(&target.id) else {
@@ -666,6 +671,7 @@ impl Tree<'_, '_> {
         declarations: &Declarations,
         fonts: &crate::fonts::Context,
     ) -> Result<()> {
+        self.remember_padding(id)?;
         self.ids.insert(node, id);
         self.box_nodes.insert(id, node);
         if position == "sticky" {
@@ -832,6 +838,7 @@ fn scene<T>(
             out_of_flow: Vec::new(),
             box_nodes: HashMap::new(),
             sticky: HashMap::new(),
+            percentage_padding: Vec::new(),
             scroll: styles.scroll,
             transitions: styles.transitions,
             now: styles.now,
@@ -869,15 +876,7 @@ fn scene<T>(
         )?;
         if let Some(root_id) = root_ids.first().copied() {
             let root_id = tree.position_boxes(root_id, width, height)?;
-            tree.boxes
-                .compute_layout(
-                    root_id,
-                    Size {
-                        width: AvailableSpace::Definite(width),
-                        height: AvailableSpace::Definite(height),
-                    },
-                )
-                .map_err(|error| layout_error(&error))?;
+            tree.compute_layout(root_id, width, height)?;
         }
         for (node, container) in &mut tree.next_containers {
             let id = tree

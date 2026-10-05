@@ -295,3 +295,16 @@ The 34 subtests in Chromium's iframe file are not counted as Nimbo passes or
 completed assertions. The command exits unsuccessfully. Full computed box CSSOM,
 frames and the broader original CSS Values suite remain obligations; these eleven
 files do not stand in for the complete upstream suite.
+
+The subsequent [native resolved-box report](performance-wpt-resolved-box-values.json)
+runs the identical eleven source files and assertions. Nimbo/celld now passes
+78/78 completed subtests across ten files; one iframe file remains incomplete.
+Chromium is 112/112 and public Obscura is 33/112. Its missing 34 iframe assertions
+are still unexecuted obligations, not successes.
+
+The [logical-spacing rerun with resolved-box CSSOM](performance-wpt-resolved-logical-spacing.json)
+retains the original sixteen files: Nimbo/celld remains at 126/181, Chromium
+181/181 and public Obscura 53/181. Margin/padding computed tests now reach native
+layout but fail on absolute static positioning in the original document. Insets,
+shorthand CSSOM and canonical calc serialization remain gaps. No original
+assertions or markup were changed to remove those failures.

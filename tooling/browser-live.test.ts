@@ -1,3 +1,4 @@
+import { resolvedBoxValuesFixture } from "./resolved-box-values-fixture";
 import { contextualBoxLengthsFixture } from "./contextual-box-lengths-fixture";
 import { logicalSpacingFixture } from "./logical-spacing-fixture";
 import { transitionsFixture } from "./transitions-fixture";
@@ -446,6 +447,8 @@ const origin = Bun.serve({
     if (encoded) return encoded;
     const namespaced = namespacedElementsFixture(path);
     if (namespaced) return namespaced;
+    const resolved = resolvedBoxValuesFixture(path);
+    if (resolved) return resolved;
     const contextual = contextualBoxLengthsFixture(path);
     if (contextual) return contextual;
     const logicalSpacing = logicalSpacingFixture(path);
@@ -4744,7 +4747,7 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
 );
 
 test.each([
-  ["getComputedStyle(document.body).width", "computed style width"],
+  ["getComputedStyle(document.body).left", "computed style left"],
   ["getComputedStyle(document.body).getPropertyValue('--custom')", "computed style --custom"],
   [
     "(()=>{document.body.style.color='color(display-p3 1 0 0)';return getComputedStyle(document.body).color})()",
@@ -4789,7 +4792,7 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
   expect(await response.json()).toMatchObject({
     value: {
       font: "18px",
-      count: 24,
+      count: 44,
       names: [
         "background-attachment",
         "background-clip",
@@ -4798,15 +4801,34 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
         "background-position",
         "background-repeat",
         "background-size",
+        "block-size",
         "color",
         "display",
         "font-family",
         "font-size",
+        "height",
+        "inline-size",
         "line-height",
+        "margin-block-end",
+        "margin-block-start",
+        "margin-bottom",
+        "margin-inline-end",
+        "margin-inline-start",
+        "margin-left",
+        "margin-right",
+        "margin-top",
         "outline-color",
         "outline-offset",
         "outline-style",
         "outline-width",
+        "padding-block-end",
+        "padding-block-start",
+        "padding-bottom",
+        "padding-inline-end",
+        "padding-inline-start",
+        "padding-left",
+        "padding-right",
+        "padding-top",
         "position",
         "tab-size",
         "text-size-adjust",
@@ -4814,6 +4836,7 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
         "transition-duration",
         "transition-property",
         "transition-timing-function",
+        "width",
         "z-index",
       ],
     },
@@ -6079,5 +6102,26 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     });
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ value: true });
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: resolved box values variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`resolved-box-values/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing result");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing checks");
+    expect(Object.keys(value)).toHaveLength(37);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
   },
 );

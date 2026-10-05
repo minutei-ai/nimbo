@@ -171,6 +171,7 @@ bun run compare:transitions # real-clock transition contracts in celld and Chrom
 bun run bench:wpt-logical-spacing # original logical spacing WPT files
 bun run compare:logical-spacing # real geometry and logical transitions in celld/Chromium
 bun run compare:contextual-box-lengths # font/viewport lengths and real geometry
+bun run compare:resolved-box-values # native used box CSSOM values and live updates
 bun run bench:wpt-contextual-box-lengths # original unit WPT files
 ```
 
@@ -192,21 +193,21 @@ Latency in milliseconds, **p50 / p95**:
 
 | Scenario                | Nimbo / celld |        Obscura |        Chromium |
 | ----------------------- | ------------: | -------------: | --------------: |
-| Static HTML             | 40.60 / 53.64 |  18.16 / 19.99 |   63.13 / 86.56 |
-| Selectors, 200 nodes    | 49.00 / 58.03 |  20.00 / 21.39 |   64.38 / 87.09 |
-| Dynamic fetch           | 41.35 / 55.83 |  21.57 / 22.84 |   66.70 / 88.81 |
-| JS, DOM and events      | 60.49 / 65.24 |  30.58 / 32.31 |   68.57 / 90.08 |
-| JS modules              | 59.65 / 67.62 |  30.43 / 33.23 |   70.70 / 92.11 |
-| JS selectors, 200 nodes | 57.00 / 68.27 |  31.98 / 33.88 |   69.11 / 90.18 |
-| Static HTML, 5000 nodes | 70.10 / 79.32 |  42.86 / 48.27 | 268.99 / 289.50 |
-| Selectors, 5000 nodes   | 69.48 / 80.71 | 98.17 / 101.53 | 282.94 / 289.57 |
-| JS positioned boxes     | 65.44 / 79.29 |  33.80 / 34.94 |   74.76 / 89.54 |
+| Static HTML             | 46.27 / 57.78 |  18.95 / 20.43 |   65.42 / 91.06 |
+| Selectors, 200 nodes    | 44.17 / 58.07 |  20.77 / 25.45 |   65.53 / 87.08 |
+| Dynamic fetch           | 40.23 / 57.70 |  21.91 / 23.24 |   67.33 / 89.43 |
+| JS, DOM and events      | 62.39 / 66.33 |  30.39 / 32.73 |   69.04 / 94.07 |
+| JS modules              | 56.26 / 70.69 |  31.14 / 33.87 |   80.09 / 96.19 |
+| JS selectors, 200 nodes | 56.72 / 69.31 |  31.07 / 32.68 |   71.54 / 87.65 |
+| Static HTML, 5000 nodes | 67.67 / 84.42 |  42.03 / 46.53 | 259.49 / 290.95 |
+| Selectors, 5000 nodes   | 64.27 / 79.82 | 97.11 / 101.06 | 265.35 / 283.43 |
+| JS positioned boxes     | 72.82 / 81.35 |  33.36 / 36.14 |   76.12 / 92.76 |
 
 Nimbo has a lower p50 than Chromium in **9/9** scenarios and Obscura in
 **1/9**. Matching or beating Obscura across the remaining scenarios is still
 pending. These local fixtures do not establish general SPA compatibility,
 production throughput, memory consumption or cost. See the
-[raw results](docs/performance-comparison-contextual-box-lengths.json) and
+[raw results](docs/performance-comparison-resolved-box-values.json) and
 [reproduction guide](docs/benchmark-comparison.md).
 
 ## Runtime guides
