@@ -3007,3 +3007,50 @@ Document stylesheet lists, imports and CSSImportRule, linked-sheet wrappers,
 complete association/reset lifecycle, sheet metadata, grouping, ShadowRoot
 adoption and painting remain pending. The separately pinned ShadowRoot reftest
 remains unverified and is excluded from automated passing counts.
+
+## Computed background color
+
+Native background colors now participate in computed style resolution. Initial
+and unset values are transparent, inheritance is explicit, and currentColor
+uses the element's computed foreground color. The engine uses its existing
+color parser and sRGB serializer. Inline declarations and shorthand expansion
+use CSSOM serialization rather than the transformer's minified color output.
+CSS.supports accepts valid background-color declarations and rejects invalid
+values through the native grammar. Stylesheet, CSSOM, variable and DOM changes
+invalidate the existing computed-style cache.
+
+The [real HTTP fixture](../crates/engine/tests/fixtures/background-color.txt)
+checks 24 contracts over 64 fresh pages in native Rust, workerd, celld and
+ordinary Chromium: 1536/1536 per runtime. The
+[celld and Chromium report](background-color-chromium.json) preserves all
+individual checks, including transparency, non-inheritance, currentColor,
+RGBA/hex/HSL, invalid declarations, shorthand reset, cascade priorities,
+variables, constructed adoption, owned-sheet mutation, reparenting and live
+computed wrappers.
+
+The [original manifest](../tooling/wpt-background-color-sources.json) pins
+three automated WPT files and four original harness/helper resources. All
+source bytes and assertions remain unchanged, with a reporting-only adapter.
+The [initial report](performance-wpt-background-color-initial.json) exposed
+CSS.supports and declaration serialization failures: Nimbo 5/19. After those
+engine fixes, the [final report](performance-wpt-background-color.json) records
+Nimbo and Chromium 19/19 and Obscura 12/19. This is a pass for those three
+original files, not full CSS Color or background painting conformance.
+
+The [CSSOM rerun](performance-wpt-cssom-background-color.json) remains
+Nimbo 12/17. Regular-sheet replacement tests advance past the previously
+missing background-color API and now fail on unsupported stylesheet at-rules
+in their import precondition. Grouping, imports and complete sheet association
+remain pending. Advanced color spaces, system/context colors, color
+interpolation and painting are not validated by this delivery.
+
+References: [CSS background color](https://drafts.csswg.org/css-backgrounds/#background-color)
+and [CSS color resolution](https://drafts.csswg.org/css-color/#resolving-color-values).
+
+Default transparent colors require no extra color parsing work in the ancestor
+walk. Explicit background color values still consume the shared operation
+budget. Adding the property initially exposed an overcharge in the existing
+background layer fixture; the corrected engine preserves its 143 contracts over
+64 native pages (9152/9152) and passes 132 focused workerd cases including old
+layer contexts, limit recovery, property enumeration and new colors. Resource
+limits remain unchanged.

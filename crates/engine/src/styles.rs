@@ -55,7 +55,9 @@ struct Entry {
 
 impl Entry {
     fn new(name: &str, value: String, important: bool) -> Self {
-        let value = if value == "0" && crate::layout::logical::spacing(name) {
+        let value = if name == "background-color" {
+            crate::backgrounds::specified_color(&value).unwrap_or(value)
+        } else if value == "0" && crate::layout::logical::spacing(name) {
             "0px".into()
         } else {
             value
@@ -417,6 +419,7 @@ fn native_property(name: &str, value: &str, important: bool) -> Option<Vec<Entry
         "z-index" => crate::z_index::specified(value)?,
         "line-height" => crate::line_height::specified(value)?,
         "background-image" => crate::backgrounds::specified(value)?,
+        "background-color" => crate::backgrounds::specified_color(value)?,
         "background-size" => crate::background_size::specified(value)?,
         "background-position-x" | "background-position-y" => {
             crate::background_position::specified_axis(name, value)?
@@ -444,6 +447,7 @@ fn native_declaration(name: &str, value: &str) -> bool {
                 | "font-family"
                 | "display"
                 | "background-image"
+                | "background-color"
                 | "background-size"
                 | "background-position"
                 | "background-position-x"

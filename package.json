@@ -50,7 +50,9 @@
     "bench:wpt-cssom-owner": "bun run build:worker && bun run tooling/benchmark-wpt-cssom-owner.ts",
     "bench:wpt-animation-frames": "bun run build:worker && bun run tooling/benchmark-wpt-animation-frames.ts",
     "compare:svg-viewport": "bun run build:worker && bun run tooling/compare-svg-viewport.ts",
-    "compare:resolved-box-values": "bun run build:worker && bun run tooling/compare-resolved-box-values.ts"
+    "compare:resolved-box-values": "bun run build:worker && bun run tooling/compare-resolved-box-values.ts",
+    "compare:background-color": "bun run build:worker && bun run tooling/compare-background-color.ts",
+    "bench:wpt-background-color": "bun run build:worker && bun run tooling/benchmark-wpt-background-color.ts"
   },
   "devDependencies": {
     "@effect/tsgo": "0.47.2",

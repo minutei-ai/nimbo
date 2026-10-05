@@ -3085,12 +3085,24 @@ fn is_script_resource(path: &str) -> bool {
         "/script-modes-assets/",
         "/animation-frames/",
         "/layout-snapshot/",
+        "/background-color/",
     ]
     .iter()
     .any(|prefix| path.starts_with(prefix))
 }
 
 fn serve_scripts(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/background-color/") {
+        let variant = request
+            .url()
+            .rsplit('/')
+            .next()
+            .unwrap_or("0")
+            .parse::<usize>()
+            .map_err(io::Error::other)?;
+        let source = include_str!("fixtures/background-color.txt");
+        return request.respond(Response::from_string(format!("<!doctype html><body><script>{source};globalThis.comparison=backgroundColorCase({variant})</script>")).with_header(header("Content-Type", "text/html")?));
+    }
     if request.url().starts_with("/layout-snapshot/") {
         return serve_layout_snapshot(request);
     }
@@ -3271,5 +3283,24 @@ fn layout_snapshot_reuse_retains_operation_limits_and_unsupported_errors() -> Te
     assert!(error.to_string().contains("DOM operations"), "{error}");
     let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
     assert_eq!(page.evaluate(r#"(() => {document.body.innerHTML='<div style="width:80px;height:20px"></div>';const box=document.body.firstElementChild;const before=box.getBoundingClientRect().width;box.style.transform='rotate(10deg)';let rejected=false;try{box.getBoundingClientRect()}catch(error){rejected=String(error).includes('transform')}box.style.transform='';return {before,rejected,after:box.getBoundingClientRect().width}})()"#)?,json!({"before":80,"rejected":true,"after":80}));
+    Ok(())
+}
+
+#[test]
+fn background_colors_compute_native_cascade_and_live_mutations() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/background-color/{variant}")))?;
+        let result = page.evaluate("globalThis.comparison")?;
+        let checks = result
+            .as_object()
+            .ok_or("missing background color checks")?;
+        assert_eq!(checks.len(), 24);
+        assert!(
+            checks.values().all(|value| value == &json!(true)),
+            "{result}"
+        );
+    }
     Ok(())
 }

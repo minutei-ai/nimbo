@@ -1,3 +1,4 @@
+import { backgroundColorFixture } from "./background-color-fixture";
 import { scriptModesFixture, scriptModesExpression } from "./script-modes-fixture";
 import { animationFramesFixture } from "./animation-frames-fixture";
 import { layoutSnapshotFixture } from "./layout-snapshot-fixture";
@@ -455,6 +456,8 @@ const origin = Bun.serve({
     if (scriptModes) return scriptModes;
     const animationFrames = animationFramesFixture(path);
     if (animationFrames) return animationFrames;
+    const backgroundColor = backgroundColorFixture(path);
+    if (backgroundColor) return backgroundColor;
     const layoutSnapshot = layoutSnapshotFixture(path);
     if (layoutSnapshot) return layoutSnapshot;
     const svg = svgViewportFixture(path);
@@ -4804,10 +4807,11 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
   expect(await response.json()).toMatchObject({
     value: {
       font: "18px",
-      count: 44,
+      count: 45,
       names: [
         "background-attachment",
         "background-clip",
+        "background-color",
         "background-image",
         "background-origin",
         "background-position",
@@ -6238,6 +6242,27 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     const value: unknown = Reflect.get(result, "value");
     if (typeof value !== "object" || value === null) throw new Error("Missing checks");
     expect(Object.keys(value)).toHaveLength(30);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: background colors variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`background-color/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing result");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing checks");
+    expect(Object.keys(value)).toHaveLength(24);
     expect(Object.values(value).every((check) => check === true)).toBe(true);
   },
 );

@@ -139,7 +139,6 @@ pub(crate) fn supports(declarations: &Declarations) -> bool {
         matches!(
             name,
             "color"
-                | "background-color"
                 | "background-image"
                 | "background-repeat"
                 | "background-size"

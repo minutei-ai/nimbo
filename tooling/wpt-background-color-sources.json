@@ -1,0 +1,33 @@
+{
+  "commit": "03f14d4780c4d981bc84c65679b18e9327a1affe",
+  "files": [
+    {
+      "path": "css/css-backgrounds/parsing/background-color-computed.html",
+      "sha256": "55ac393e27a76a9de08bffac4645ad49951bf4687903486743e7c93e9ec7c78a"
+    },
+    {
+      "path": "css/css-backgrounds/parsing/background-color-valid.html",
+      "sha256": "4806f7b4ab2f4904c28cf2d88f20f2dd296a18275bc18be9244b7a1d4f7e9de6"
+    },
+    {
+      "path": "css/css-backgrounds/parsing/background-color-invalid.html",
+      "sha256": "eb570978172b371fef53184da145db028cf9cd1d75452c83d246e9ba8c12ed02"
+    },
+    {
+      "path": "resources/testharness.js",
+      "sha256": "d2399236c2a09c429804ff2299ad6629e17e2b53f17a74dd341e936adb11ae3e"
+    },
+    {
+      "path": "resources/testharnessreport.js",
+      "sha256": "3777176fc736b0a78cf7617b9613b220f635daae7536ec7ebb99c61dbb525aae"
+    },
+    {
+      "path": "css/support/computed-testcommon.js",
+      "sha256": "20bd767e8a8bd9e4857a29aecfd52cad305ed4af1cf73a5064916a8a1d38ab01"
+    },
+    {
+      "path": "css/support/parsing-testcommon.js",
+      "sha256": "ac482e1e1908e9b98f8f1c4b2c457ec77ae5ad2baa074205c4b0f7812f4024b5"
+    }
+  ]
+}

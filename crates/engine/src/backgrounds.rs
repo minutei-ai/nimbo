@@ -2,9 +2,9 @@
 use lightningcss::{
     properties::{Property, PropertyId},
     stylesheet::{ParserOptions, PrinterOptions},
-    traits::ToCss,
+    traits::{Parse, ToCss},
     values::{
-        color::CssColor,
+        color::{CssColor, RGBA},
         gradient::{Gradient, GradientItem, LineDirection},
         image::Image,
         length::LengthPercentage,
@@ -12,6 +12,60 @@ use lightningcss::{
 };
 
 use crate::{Error, Result, fonts::Context, layout::Work, styles::Declarations};
+
+pub(crate) fn specified_color(value: &str) -> Option<String> {
+    let color = CssColor::parse_string(value).ok()?;
+    let mut input = cssparser::ParserInput::new(value);
+    let mut parser = cssparser::Parser::new(&mut input);
+    if let Ok(name) = parser.expect_ident_cloned()
+        && parser.expect_exhausted().is_ok()
+    {
+        return Some(name.to_ascii_lowercase());
+    }
+    match &color {
+        CssColor::RGBA(_) => crate::outlines::serialize_color(&color).ok(),
+        _ => color.to_css_string(PrinterOptions::default()).ok(),
+    }
+}
+
+pub(crate) struct Color(CssColor);
+
+impl Default for Color {
+    fn default() -> Self {
+        Self(CssColor::RGBA(RGBA {
+            red: 0,
+            green: 0,
+            blue: 0,
+            alpha: 0,
+        }))
+    }
+}
+
+impl Color {
+    pub(crate) fn compute(
+        &self,
+        declarations: &Declarations,
+        current: &CssColor,
+        work: &mut Work<'_>,
+    ) -> Result<Self> {
+        let (value, _) = declarations.value("background-color");
+        if !value.is_empty() {
+            work.charge()?;
+        }
+        match value.as_str() {
+            "inherit" => Ok(Self(self.0.clone())),
+            "" | "initial" | "unset" | "revert" => Ok(Self::default()),
+            _ => match CssColor::parse_string(&value).map_err(|_error| unsupported("color"))? {
+                CssColor::CurrentColor => Ok(Self(current.clone())),
+                value => Ok(Self(value)),
+            },
+        }
+    }
+
+    pub(crate) fn value(&self) -> Result<String> {
+        crate::outlines::serialize_color(&self.0)
+    }
+}
 
 fn unsupported(detail: &str) -> Error {
     Error::Dom(format!("layout unsupported: background image {detail}"))

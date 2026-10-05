@@ -6,9 +6,10 @@ use crate::{
     styles::{Declarations, Variables},
 };
 
-pub(crate) const PROPERTIES: [&str; 44] = [
+pub(crate) const PROPERTIES: [&str; 45] = [
     "background-attachment",
     "background-clip",
+    "background-color",
     "background-image",
     "background-origin",
     "background-position",
@@ -57,6 +58,7 @@ pub(crate) struct Computed {
     pub(crate) used_box: Option<crate::layout::resolved::BoxValues>,
     fonts: crate::fonts::Context,
     outlines: crate::outlines::Outlines,
+    background: crate::backgrounds::Color,
     images: crate::backgrounds::Images,
     positions: crate::background_position::Positions,
     repeats: crate::background_repeat::Repeats,
@@ -84,6 +86,8 @@ impl Computed {
                 .value(name)
         } else if crate::transitions::property(name) || name == "transition" {
             self.transitions.value(name)
+        } else if name == "background-color" {
+            self.background.value()
         } else if name == "background-image" {
             self.images.value(self.outlines.color())
         } else if crate::background_layers::property(name) {
@@ -138,6 +142,7 @@ pub(crate) fn resolve(
     let mut variables = Variables::default();
     let mut fonts = crate::fonts::Context::new(media);
     let mut outlines = crate::outlines::Outlines::default();
+    let mut background = crate::backgrounds::Color::default();
     let mut images = crate::backgrounds::Images::default();
     let mut positions = crate::background_position::Positions::default();
     let mut repeats = crate::background_repeat::Repeats::default();
@@ -176,6 +181,7 @@ pub(crate) fn resolve(
                 .sample(node, declarations, sources.now)?;
         fonts = fonts.compute(&declarations, depth == 0, work)?;
         outlines = outlines.compute(&declarations, &fonts, work)?;
+        background = background.compute(&declarations, outlines.color(), work)?;
         images = images.compute(&declarations, &fonts, work)?;
         positions = positions.compute(&declarations, &fonts, work)?;
         repeats = repeats.compute(&declarations, images.count(), work)?;
@@ -199,6 +205,7 @@ pub(crate) fn resolve(
         used_box: None,
         fonts,
         outlines,
+        background,
         images,
         positions,
         repeats,

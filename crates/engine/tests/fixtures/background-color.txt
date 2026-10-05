@@ -1,0 +1,33 @@
+function backgroundColorCase(v) {
+ document.body.innerHTML='<style id="colors">.paint{background-color:lime}</style>';
+ const parent=document.createElement('main'),box=document.createElement('div'),other=document.createElement('main');
+ parent.append(box);document.body.append(parent,other);
+ const checks={},color=element=>getComputedStyle(element).backgroundColor;
+ const rgb='rgb('+(v+1)+', '+(v+2)+', '+(v+3)+')';
+ checks.initial=color(box)==='rgba(0, 0, 0, 0)';
+ parent.style.backgroundColor=rgb;checks.parent=color(parent)===rgb;
+ checks.nonInherited=color(box)==='rgba(0, 0, 0, 0)';
+ box.style.backgroundColor='inherit';checks.inherit=color(box)===rgb;
+ box.style.color='red';box.style.backgroundColor='currentColor';checks.current=color(box)==='rgb(255, 0, 0)';
+ box.style.color='blue';checks.currentMutation=color(box)==='rgb(0, 0, 255)';
+ box.style.backgroundColor='transparent';checks.transparent=color(box)==='rgba(0, 0, 0, 0)';
+ box.style.backgroundColor='initial';checks.explicitInitial=color(box)==='rgba(0, 0, 0, 0)';
+ box.style.backgroundColor='unset';checks.unset=color(box)==='rgba(0, 0, 0, 0)';
+ box.style.backgroundColor='rgba(255,0,0,0.5)';checks.alpha=color(box)==='rgba(255, 0, 0, 0.5)';
+ box.style.backgroundColor='#00ff00';checks.hex=color(box)==='rgb(0, 255, 0)';
+ box.style.backgroundColor='hsl(240,100%,50%)';checks.hsl=color(box)==='rgb(0, 0, 255)';
+ box.style.background='red';checks.shorthand=color(box)==='rgb(255, 0, 0)';
+ box.style.background='none';checks.shorthandReset=color(box)==='rgba(0, 0, 0, 0)';
+ box.style.setProperty('--paint',rgb);box.style.backgroundColor='var(--paint)';checks.variable=color(box)===rgb;
+ box.style.backgroundColor='var(--absent)';checks.invalidVariable=color(box)==='rgba(0, 0, 0, 0)';
+ box.style.backgroundColor='red';box.style.backgroundColor='invalid';checks.invalidDeclaration=color(box)==='rgb(255, 0, 0)';
+ box.style.setProperty('background-color','blue','important');box.className='paint';checks.important=color(box)==='rgb(0, 0, 255)';
+ box.style.removeProperty('background-color');const sheet=document.getElementById('colors').sheet;
+ checks.cascade=color(box)==='rgb(0, 255, 0)';
+ sheet.cssRules[0].style.backgroundColor='red';checks.ruleMutation=color(box)==='rgb(255, 0, 0)';
+ const adopted=new CSSStyleSheet();adopted.replaceSync('.paint{background-color:blue}');document.adoptedStyleSheets=[adopted];
+ checks.adopted=color(box)==='rgb(0, 0, 255)';document.adoptedStyleSheets=[];checks.restored=color(box)==='rgb(255, 0, 0)';
+ box.style.backgroundColor='inherit';other.style.backgroundColor='blue';other.append(box);checks.reparent=color(box)==='rgb(0, 0, 255)';
+ const live=getComputedStyle(box);other.style.backgroundColor='red';checks.live=live.backgroundColor==='rgb(255, 0, 0)';
+ return checks;
+}

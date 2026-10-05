@@ -95,3 +95,18 @@ is lower in four of nine scenarios. Positioned-box p50 changes from 49.55 to
 46.92 ms and p95 from 61.48 to 57.08 ms. Static p95 increases from 22.85
 to 31.43 ms. Both rounds remain published; neither establishes an all-scenario
 win. The final three-runtime report is linked from the README.
+
+## Background color delivery
+
+The [accumulated delivery comparison](performance-engine-ab-background-color.json)
+uses the retained animation-frame engine (before layout snapshot reuse and
+stylesheet replacement) as baseline. The candidate includes both prior changes
+and the background-color computation, declaration serialization and support
+fixes. This does not isolate the color change or compare only against the
+immediately preceding commit. Both bundle hashes are recorded.
+
+All 432 attempts pass, with zero failures and 378 measured samples. Candidate
+p50 is lower in three of nine scenarios. Positioned-box p50 changes from
+43.89 to 42.22 ms and p95 from 53.43 to 47.63 ms; selectors with 200 nodes
+increase from 16.46 to 17.02 ms p50. These are local synthetic measurements,
+not an all-scenario improvement or general browser parity.
