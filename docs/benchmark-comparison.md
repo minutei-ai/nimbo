@@ -352,3 +352,14 @@ samples. Nimbo/celld has a lower p50 than Chromium in 9/9 scenarios and public
 Obscura in 1/9; the README uses this snapshot. Latency differences from previous
 runs remain measurements, without causal attribution. All-win performance is
 still pending.
+
+## Outer SVG viewport build
+
+The [current report](performance-comparison-svg-viewport.json) measures the native
+SVG viewport build in celld against separate public Obscura and ordinary Chromium
+processes. All 648 attempts return the expected values; 567 samples remain after
+warmup exclusion. Nimbo has lower p50 in nine of nine scenarios against Chromium
+and one of nine against Obscura. The report records the Wasm hash and runtime
+versions. This is a separate measurement, not an A/B attribution of changes from
+the preceding build. Supplemental viewport geometry and original SVG WPT results
+are tracked independently in the [coverage inventory](browser-coverage.md#outer-svg-viewport-sizing).

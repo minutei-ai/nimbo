@@ -132,6 +132,7 @@ The engine implements bounded browser subsets. See the [coverage inventory](docs
 | CSS                              | Native declarations, selector matching, cascade, computed-style subsets and bounded numeric CSS transitions                                        |
 | Layout                           | Native block/flex/grid geometry, explicitly inset absolute/fixed boxes, selected sticky/scroll metrics and HTML categories; incomplete text layout |
 | CSSOM                            | Constructed sheets, ordered live rule lists, declarations and Document adoption; grouped rules and document-owned wrappers pending                 |
+| SVG                              | Native outer viewport intrinsic sizing and CSSOM style; internal graphics geometry and painting remain pending                                     |
 | Canvas                           | Rust software OffscreenCanvas bitmap and selected 2D pixel operations                                                                              |
 | Compatibility work still pending | Full HTML/CSSOM/WPT behavior, text shaping, painting, screenshots/PDF, WebGL, video, controllable TLS, durable browser sessions and CDP automation |
 
@@ -173,6 +174,8 @@ bun run compare:logical-spacing # real geometry and logical transitions in celld
 bun run compare:contextual-box-lengths # font/viewport lengths and real geometry
 bun run compare:resolved-box-values # native used box CSSOM values and live updates
 bun run bench:wpt-contextual-box-lengths # original unit WPT files
+bun run compare:svg-viewport # outer SVG sizing in celld and Chromium
+bun run bench:wpt-svg-viewport # original SVG API and image WPT files
 ```
 
 Native CLI timings, local celld HTTP timings and deployed Cloudflare measurements are different measurements. The remote driver requires a fixture origin reachable from the Worker; the [Cloudflare guide](docs/cloudflare.md) explains that setup. Local measurements do not establish production throughput, memory use or cost.
@@ -191,23 +194,23 @@ the expected values over real HTTP, without mocks.
 
 Latency in milliseconds, **p50 / p95**:
 
-| Scenario                | Nimbo / celld |        Obscura |        Chromium |
-| ----------------------- | ------------: | -------------: | --------------: |
-| Static HTML             | 46.27 / 57.78 |  18.95 / 20.43 |   65.42 / 91.06 |
-| Selectors, 200 nodes    | 44.17 / 58.07 |  20.77 / 25.45 |   65.53 / 87.08 |
-| Dynamic fetch           | 40.23 / 57.70 |  21.91 / 23.24 |   67.33 / 89.43 |
-| JS, DOM and events      | 62.39 / 66.33 |  30.39 / 32.73 |   69.04 / 94.07 |
-| JS modules              | 56.26 / 70.69 |  31.14 / 33.87 |   80.09 / 96.19 |
-| JS selectors, 200 nodes | 56.72 / 69.31 |  31.07 / 32.68 |   71.54 / 87.65 |
-| Static HTML, 5000 nodes | 67.67 / 84.42 |  42.03 / 46.53 | 259.49 / 290.95 |
-| Selectors, 5000 nodes   | 64.27 / 79.82 | 97.11 / 101.06 | 265.35 / 283.43 |
-| JS positioned boxes     | 72.82 / 81.35 |  33.36 / 36.14 |   76.12 / 92.76 |
+| Scenario                | Nimbo / celld |         Obscura |        Chromium |
+| ----------------------- | ------------: | --------------: | --------------: |
+| Static HTML             | 34.32 / 56.93 |   18.32 / 21.23 |   58.56 / 70.10 |
+| Selectors, 200 nodes    | 34.09 / 53.48 |   19.55 / 22.04 |   63.03 / 81.53 |
+| Dynamic fetch           | 39.65 / 56.82 |   21.69 / 26.93 |   63.31 / 80.01 |
+| JS, DOM and events      | 44.12 / 62.78 |   29.50 / 33.06 |   64.71 / 87.21 |
+| JS modules              | 57.08 / 71.31 |   31.26 / 38.46 |   69.12 / 88.48 |
+| JS selectors, 200 nodes | 49.49 / 66.39 |   31.16 / 34.24 |   65.41 / 85.24 |
+| Static HTML, 5000 nodes | 59.76 / 76.60 |   41.90 / 45.65 | 250.15 / 283.42 |
+| Selectors, 5000 nodes   | 57.27 / 78.72 | 100.03 / 142.20 | 258.07 / 299.42 |
+| JS positioned boxes     | 59.36 / 90.28 |   32.96 / 38.24 |   65.86 / 90.97 |
 
 Nimbo has a lower p50 than Chromium in **9/9** scenarios and Obscura in
 **1/9**. Matching or beating Obscura across the remaining scenarios is still
 pending. These local fixtures do not establish general SPA compatibility,
 production throughput, memory consumption or cost. See the
-[raw results](docs/performance-comparison-resolved-box-values.json) and
+[raw results](docs/performance-comparison-svg-viewport.json) and
 [reproduction guide](docs/benchmark-comparison.md).
 
 ## Runtime guides

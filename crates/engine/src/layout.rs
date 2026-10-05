@@ -13,6 +13,7 @@ mod lengths;
 pub(crate) mod logical;
 mod percentage_padding;
 pub(crate) mod resolved;
+pub(crate) mod svg_viewport;
 
 pub(crate) struct Work<'a> {
     operations: &'a mut usize,
@@ -190,7 +191,7 @@ fn style(node: NodeRef<'_>, declarations: &Declarations) -> Result<Style> {
         false,
         &mut work,
     )?;
-    style_for(node, declarations, false, &display, &fonts, &mut work)
+    style_for(node, declarations, false, &display, &fonts, &mut work).map(|(style, _)| style)
 }
 
 fn non_layout(name: &str) -> bool {
@@ -231,9 +232,27 @@ fn style_for(
     display: &crate::display::Computed,
     fonts: &crate::fonts::Context,
     work: &mut Work<'_>,
-) -> Result<Style> {
+) -> Result<(Style, Option<svg_viewport::Intrinsic>)> {
     let mut style = initial_style(node, generated)?;
+    let svg = if generated {
+        None
+    } else {
+        svg_viewport::Intrinsic::apply(node, &mut style, fonts, work)?
+    };
     style.display = display.layout()?;
+    let style = style_properties(node, declarations, generated, fonts, work, style)?;
+    Ok((style, svg))
+}
+
+fn style_properties(
+    node: NodeRef<'_>,
+    declarations: &Declarations,
+    generated: bool,
+    fonts: &crate::fonts::Context,
+    work: &mut Work<'_>,
+    mut style: Style,
+) -> Result<Style> {
+    let svg = svg_viewport::root(node);
     macro_rules! assign {
         ($field:expr, $value:expr, $name:expr) => {{
             let value = if $value == "0" && !matches!($name, "flex-grow" | "flex-shrink") {
@@ -256,7 +275,8 @@ fn style_for(
         if name == "visibility" && (deferred || value == "collapse") {
             return Err(unsupported("visibility"));
         }
-        if name.starts_with("--") || non_layout(name) {
+        if name.starts_with("--") || non_layout(name) || (svg && svg_viewport::paint_property(name))
+        {
             continue;
         }
 
@@ -264,6 +284,9 @@ fn style_for(
             return Err(unsupported("variable substitution"));
         }
         if crate::borders::property(name) || crate::outlines::property(name) {
+            continue;
+        }
+        if alignment(&mut style, name, value)? {
             continue;
         }
         match name {
@@ -310,29 +333,46 @@ fn style_for(
             "flex-shrink" => assign!(style.flex_shrink, value, name),
             "row-gap" => assign!(style.gap.height, value, name),
             "column-gap" => assign!(style.gap.width, value, name),
-            "align-items" => {
-                style.align_items = Some(value.parse().map_err(|_error| unsupported(name))?);
-            }
-            "align-self" => {
-                style.align_self = if value == "auto" {
-                    None
-                } else {
-                    Some(value.parse().map_err(|_error| unsupported(name))?)
-                }
-            }
-            "align-content" => {
-                style.align_content = Some(value.parse().map_err(|_error| unsupported(name))?);
-            }
-            "justify-content" => {
-                style.justify_content = Some(value.parse().map_err(|_error| unsupported(name))?);
-            }
             _ => return Err(unsupported_property(name, value)),
         }
+    }
+    if svg && !style.size.width.is_auto() && !style.size.height.is_auto() {
+        style.aspect_ratio = None;
     }
     if !generated {
         validate_overflow(node, &style)?;
     }
     position_insets(style, declarations)
+}
+
+fn alignment(style: &mut Style, name: &str, value: &str) -> Result<bool> {
+    match name {
+        "align-items" => {
+            style.align_items = Some(value.parse().map_err(|_error| unsupported(name))?);
+        }
+        "justify-items" => {
+            style.justify_items = if matches!(value, "normal" | "initial" | "unset") {
+                None
+            } else {
+                Some(value.parse().map_err(|_error| unsupported(name))?)
+            }
+        }
+        "align-self" => {
+            style.align_self = if value == "auto" {
+                None
+            } else {
+                Some(value.parse().map_err(|_error| unsupported(name))?)
+            }
+        }
+        "align-content" => {
+            style.align_content = Some(value.parse().map_err(|_error| unsupported(name))?);
+        }
+        "justify-content" => {
+            style.justify_content = Some(value.parse().map_err(|_error| unsupported(name))?);
+        }
+        _ => return Ok(false),
+    }
+    Ok(true)
 }
 
 fn absolute_position(style: &mut Style, generated: bool) -> Result<()> {
@@ -455,7 +495,7 @@ impl BoxContext {
 }
 
 struct Tree<'a, 'b> {
-    boxes: TaffyTree<()>,
+    boxes: TaffyTree<svg_viewport::Intrinsic>,
     ids: HashMap<NodeId, taffy::NodeId>,
     positioned: HashSet<NodeId>,
     fixed: HashSet<NodeId>,
@@ -531,7 +571,7 @@ impl Tree<'_, '_> {
             return Ok(None);
         }
         let context = context.compute(&declarations, false, display, self.work)?;
-        let mut style = style_for(
+        let (mut style, _) = style_for(
             node,
             &declarations,
             true,
@@ -548,6 +588,7 @@ impl Tree<'_, '_> {
         Ok(Some(id))
     }
     fn rect(&self, target: NodeRef<'_>) -> Result<Bounds> {
+        svg_viewport::geometry(target)?;
         let Some(id) = self.ids.get(&target.id) else {
             return Ok(Bounds::default());
         };
@@ -613,7 +654,7 @@ impl Tree<'_, '_> {
             return self.children(node, depth, &variables, parent_display, &context, output);
         }
         let context = context.compute(&declarations, depth == 0, display, self.work)?;
-        let mut style = style_for(
+        let (mut style, svg) = style_for(
             node,
             &declarations,
             false,
@@ -640,19 +681,21 @@ impl Tree<'_, '_> {
         if matches!(position, "relative" | "absolute" | "fixed" | "sticky") {
             self.positioned.insert(node.id);
         }
-        let mut children = Vec::new();
-        self.children(
-            node,
-            depth,
-            &variables,
-            style.display,
-            &context,
-            &mut children,
-        )?;
-        let id = self
-            .boxes
-            .new_with_children(style, &children)
-            .map_err(|error| layout_error(&error))?;
+        let id = if let Some(intrinsic) = svg {
+            self.boxes.new_leaf_with_context(style, intrinsic)
+        } else {
+            let mut children = Vec::new();
+            self.children(
+                node,
+                depth,
+                &variables,
+                style.display,
+                &context,
+                &mut children,
+            )?;
+            self.boxes.new_with_children(style, &children)
+        }
+        .map_err(|error| layout_error(&error))?;
         self.record_box(node.id, id, position, &declarations, &fonts)?;
         if out_of_flow {
             self.out_of_flow.push((id, containing));
@@ -909,6 +952,10 @@ pub(crate) fn observe(
     media: &MediaEnvironment,
     work: &mut Work<'_>,
 ) -> Result<Observation> {
+    svg_viewport::geometry(target)?;
+    if let Some(root) = root {
+        svg_viewport::geometry(root)?;
+    }
     scene(document, styles, media, work, |tree| {
         intersection::observe(tree, target, root, margins, media)
     })

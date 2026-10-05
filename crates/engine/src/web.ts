@@ -1852,7 +1852,9 @@
     return key.includes("-") ? key : key.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
   }
   function inlineStyle(owner: object, computed = false, rule?: CSSStyleRule): CSSStyleProperties {
-    const id = rule ? cssRuleId(rule) : computed ? idOf(owner) : htmlId(owner);
+    if (!rule && !computed && !htmlElements.has(owner) && !svgElements.has(owner))
+      throw new TypeError("Illegal invocation");
+    const id = rule ? cssRuleId(rule) : idOf(owner);
     const cached = computed ? undefined : inlineStyles.get(owner);
     if (cached) return cached;
     const prototype =
@@ -2272,6 +2274,14 @@
       super(internal, id);
       svgElements.add(this);
     }
+    get style(): CSSStyleProperties {
+      if (!svgElements.has(this)) throw new TypeError("Illegal invocation");
+      return inlineStyle(this);
+    }
+    set style(value: unknown) {
+      if (!svgElements.has(this)) throw new TypeError("Illegal invocation");
+      styleOperation(inlineStyle(this), "text", "", domString(value));
+    }
     get dataset(): DOMStringMap {
       if (!svgElements.has(this)) throw new TypeError("Illegal invocation");
       return dataset(this);
@@ -2309,9 +2319,11 @@
       return dataset(this);
     }
     get style(): CSSStyleProperties {
+      htmlId(this);
       return inlineStyle(this);
     }
     set style(value: unknown) {
+      htmlId(this);
       styleOperation(inlineStyle(this), "text", "", domString(value));
     }
     get title(): string {

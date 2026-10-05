@@ -2829,3 +2829,45 @@ vertical/RTL mappings and frames remain pending. This bounded coverage does not
 establish complete CSSOM or upstream browser parity.
 
 Reference: [CSSOM resolved values](https://drafts.csswg.org/cssom/#resolved-values).
+
+## Outer SVG viewport sizing
+
+The native Rust layout engine now treats an outermost SVG element as a replaced
+box. Width and height presentation attributes, CSS overrides, absolute/font and
+percentage lengths, intrinsic dimensions, `viewBox` aspect ratio, min/max width,
+borders, padding, block/flex/grid placement and live mutations share the existing
+layout and CSSOM implementation. SVGElement.style uses native declaration storage.
+Internal SVG graphics are preserved in the DOM but do not become HTML layout boxes;
+requesting their geometry returns an explicit unsupported error.
+
+The [real HTTP fixture](../crates/engine/tests/fixtures/svg-viewport.txt) exercises
+39 conditions across 64 fresh pages: 2496/2496 passed in the native engine, workerd,
+celld and ordinary Chromium. The [comparison report](svg-viewport-chromium.json)
+retains both runtimes. Chromium exposed incorrect invalid/negative width handling
+in the initial implementation; the corrected engine and fixture were rerun.
+These supplemental checks are separate from original WPT assertions.
+
+This implements outer viewport sizing, not SVG painting or general graphics
+geometry. Inline SVG layout, nested viewports, transforms, getBBox, animated length
+interfaces, image decoding and full SVG grammar/constraint behavior remain pending.
+The original SVG runner includes upstream tests for these broader surfaces and
+retains failures and incomplete executions.
+
+Four unmodified SVG WPT HTML files at
+`03f14d4780c4d981bc84c65679b18e9327a1affe` now run with the original harness,
+Ahem font and PNG served over real HTTP with appropriate resource MIME types.
+[Hashes](../tooling/wpt-svg-viewport-sources.json) are verified before execution;
+only the reporting adapter is appended. In the [original report](performance-wpt-svg-viewport.json),
+Chromium passes 72/72 subtests across four files. Nimbo passes zero of those 72
+obligations: two files fail and two remain incomplete. The isolated Obscura
+comparator passes 27 of the same 72 obligations, with all four files failing and
+one harness failing before registering image subtests. Neither incomplete nor
+unregistered subtests count as passes. This is an initial SVG WPT subset; the
+remaining original SVG suites and rendering reftests are still required.
+
+The [current three-runtime benchmark](performance-comparison-svg-viewport.json)
+records 648 correct extractions, 567 measured samples and the exact Wasm hash.
+Nimbo has lower p50 than Chromium in nine of nine scenarios and Obscura in one
+of nine. These are local fixture measurements, not production or universal SPA
+proof. This run and the preceding run were measured separately; their difference
+is not a causal measurement of the SVG changes.

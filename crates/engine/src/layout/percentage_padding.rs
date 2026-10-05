@@ -23,11 +23,23 @@ impl Tree<'_, '_> {
     pub(super) fn compute_layout(&mut self, root: NodeId, width: f32, height: f32) -> Result<()> {
         for _round in 0..=32 {
             self.boxes
-                .compute_layout(
+                .compute_layout_with_measure(
                     root,
                     Size {
                         width: AvailableSpace::Definite(width),
                         height: AvailableSpace::Definite(height),
+                    },
+                    |inputs, _, context, style| {
+                        taffy::compute::compute_leaf_layout(
+                            inputs,
+                            style,
+                            |_, _| 0.0,
+                            |known, available| {
+                                context
+                                    .as_ref()
+                                    .map_or(Size::ZERO, |svg| svg.measure(known, available))
+                            },
+                        )
                     },
                 )
                 .map_err(|error| layout_error(&error))?;

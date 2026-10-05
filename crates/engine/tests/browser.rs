@@ -1515,6 +1515,9 @@ fn serve_resource(request: Request) -> io::Result<()> {
     if request.url().starts_with("/logical-size/") {
         return serve_logical_size(request);
     }
+    if request.url().starts_with("/svg-viewport/") {
+        return serve_svg_viewport(request);
+    }
     if request.url().starts_with("/resolved-box-values/") {
         return serve_resolved_box_values(request);
     }
@@ -1534,6 +1537,10 @@ fn serve_resource(request: Request) -> io::Result<()> {
     {
         return serve_css_budget(request);
     }
+    serve_remaining_resource(request)
+}
+
+fn serve_remaining_resource(request: Request) -> io::Result<()> {
     if request.url().starts_with("/font-assets/")
         || request.url().starts_with("/font-loading/")
         || request.url().starts_with("/font-matching/")
@@ -1665,6 +1672,7 @@ fn is_resource(path: &str) -> bool {
             "/logical-size/",
             "/contextual-box-lengths/",
             "/resolved-box-values/",
+            "/svg-viewport/",
             "/outlines/",
             "/tabs/",
             "/line-height/",
@@ -3028,6 +3036,37 @@ fn resolved_box_values_follow_native_used_layout() -> TestResult {
         let result = page.evaluate("globalThis.comparison")?;
         let checks = result.as_object().ok_or("missing resolved box checks")?;
         assert_eq!(checks.len(), 37);
+        assert!(
+            checks.values().all(|value| value == &json!(true)),
+            "{result}"
+        );
+    }
+    Ok(())
+}
+
+fn serve_svg_viewport(request: Request) -> io::Result<()> {
+    let variant = request
+        .url()
+        .rsplit('/')
+        .next()
+        .unwrap_or("0")
+        .parse::<usize>()
+        .map_err(io::Error::other)?;
+    request.respond(Response::from_string(format!(
+        "<!doctype html><body><script>{}\nglobalThis.comparison=svgViewportCase({variant})</script>",
+        include_str!("fixtures/svg-viewport.txt")
+    )).with_header(header("Content-Type", "text/html")?))
+}
+
+#[test]
+fn svg_viewports_use_native_intrinsic_sizing() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/svg-viewport/{variant}")))?;
+        let result = page.evaluate("globalThis.comparison")?;
+        let checks = result.as_object().ok_or("missing SVG viewport checks")?;
+        assert_eq!(checks.len(), 39);
         assert!(
             checks.values().all(|value| value == &json!(true)),
             "{result}"

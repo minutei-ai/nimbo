@@ -12,6 +12,9 @@ pub(crate) fn block(node: NodeRef<'_>) -> bool {
     BLOCK.iter().any(|name| node.has_name(name))
 }
 pub(crate) fn validate(node: NodeRef<'_>) -> Result<()> {
+    if crate::layout::svg_viewport::root(node) {
+        return Ok(());
+    }
     let name = node.qual_name_ref();
     let namespace = name.as_ref().map(|name| name.ns.as_ref());
     let detail = if namespace == Some("http://www.w3.org/2000/svg") {

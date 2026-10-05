@@ -33,10 +33,30 @@ export async function createWptCssFixture(
           : original;
       return new Response(body, {
         headers: {
-          "content-type": path.endsWith(".html") ? "text/html" : "text/javascript",
+          "content-type": contentType(path),
           "cache-control": "no-store",
         },
       });
     },
   });
+}
+
+function contentType(path: string): string {
+  const extension = path.split(".").at(-1);
+  switch (extension) {
+    case "html":
+      return "text/html";
+    case "js":
+      return "text/javascript";
+    case "css":
+      return "text/css";
+    case "ttf":
+      return "font/ttf";
+    case "png":
+      return "image/png";
+    case "svg":
+      return "image/svg+xml";
+    default:
+      return "application/octet-stream";
+  }
 }

@@ -236,6 +236,7 @@ pub(crate) fn measurement(
     media: &MediaEnvironment,
     work: &mut Work<'_>,
 ) -> Result<Measurement> {
+    super::svg_viewport::geometry(target)?;
     scene(document, styles, media, work, |tree| measure(tree, target))
 }
 

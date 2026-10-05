@@ -1,3 +1,4 @@
+import { svgViewportFixture } from "./svg-viewport-fixture";
 import { resolvedBoxValuesFixture } from "./resolved-box-values-fixture";
 import { contextualBoxLengthsFixture } from "./contextual-box-lengths-fixture";
 import { logicalSpacingFixture } from "./logical-spacing-fixture";
@@ -447,6 +448,8 @@ const origin = Bun.serve({
     if (encoded) return encoded;
     const namespaced = namespacedElementsFixture(path);
     if (namespaced) return namespaced;
+    const svg = svgViewportFixture(path);
+    if (svg) return svg;
     const resolved = resolvedBoxValuesFixture(path);
     if (resolved) return resolved;
     const contextual = contextualBoxLengthsFixture(path);
@@ -5496,22 +5499,42 @@ test.each(Array.from({ length: 256 }, (_, index) => [Math.floor(index / 4), inde
 );
 
 test.each([
-  ["SVG", "(()=>{document.body.innerHTML='<svg></svg>';return document.body.firstElementChild})()"],
-  ["replaced element or native control", "document.createElement('button')"],
-  ["unsupported HTML tag", "document.createElement('table')"],
-])("real HTTP → workerd → Wasm: HTML box classification rejects %s", async (category, creation) => {
-  const url = new URL("geometry-empty", origin.url).href;
-  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
-    method: "POST",
-    headers: { authorization: "Bearer test-secret" },
-    body: JSON.stringify({
-      url,
-      expression: `(()=>{const e=${creation};e.setAttribute('style','display:block');document.body.appendChild(e);return e.getBoundingClientRect().width})()`,
-    }),
-  });
-  expect(response.status).toBe(422);
-  expect(await response.text()).toContain(`element formatting: ${category}`);
-});
+  [
+    "SVG graphics",
+    "document.createElementNS('http://www.w3.org/2000/svg','rect')",
+    "element formatting: SVG",
+  ],
+  [
+    "SVG viewport transform",
+    "(()=>{const e=document.createElementNS('http://www.w3.org/2000/svg','svg');e.setAttribute('transform','translate(5)');return e})()",
+    "SVG viewport transform",
+  ],
+  [
+    "replaced element or native control",
+    "document.createElement('button')",
+    "element formatting: replaced element or native control",
+  ],
+  [
+    "unsupported HTML tag",
+    "document.createElement('table')",
+    "element formatting: unsupported HTML tag",
+  ],
+])(
+  "real HTTP → workerd → Wasm: unsupported box geometry rejects %s",
+  async (_category, creation, diagnostic) => {
+    const url = new URL("geometry-empty", origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url,
+        expression: `(()=>{const e=${creation};e.setAttribute('style','display:block');document.body.appendChild(e);return e.getBoundingClientRect().width})()`,
+      }),
+    });
+    expect(response.status).toBe(422);
+    expect(await response.text()).toContain(diagnostic);
+  },
+);
 
 test.each(Array.from({ length: 64 }, (_, variant) => variant))(
   "real HTTP → workerd → Wasm: native constructed stylesheets variant %i",
@@ -6122,6 +6145,27 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     const value: unknown = Reflect.get(result, "value");
     if (typeof value !== "object" || value === null) throw new Error("Missing checks");
     expect(Object.keys(value)).toHaveLength(37);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: SVG viewport variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`svg-viewport/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing result");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing checks");
+    expect(Object.keys(value)).toHaveLength(39);
     expect(Object.values(value).every((check) => check === true)).toBe(true);
   },
 );

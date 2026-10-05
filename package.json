@@ -43,6 +43,8 @@
     "compare:sticky-geometry": "bun run build:worker && bun run tooling/compare-sticky-geometry.ts",
     "compare:contextual-box-lengths": "bun run build:worker && bun run tooling/compare-contextual-box-lengths.ts",
     "bench:wpt-contextual-box-lengths": "bun run build:worker && bun run tooling/benchmark-wpt-contextual-box-lengths.ts",
+    "bench:wpt-svg-viewport": "bun run build:worker && bun run tooling/benchmark-wpt-svg-viewport.ts",
+    "compare:svg-viewport": "bun run build:worker && bun run tooling/compare-svg-viewport.ts",
     "compare:resolved-box-values": "bun run build:worker && bun run tooling/compare-resolved-box-values.ts"
   },
   "devDependencies": {

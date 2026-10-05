@@ -1,0 +1,41 @@
+{
+  "commit": "03f14d4780c4d981bc84c65679b18e9327a1affe",
+  "files": [
+    {
+      "path": "svg/geometry/svg-baseval-in-display-none.html",
+      "sha256": "e46d9feb97e9347181013de6124f040cc8c7996216d810693cfdd83ad01c2c6e"
+    },
+    {
+      "path": "svg/geometry/svg-geometry-apis-in-non-rendered-elements.html",
+      "sha256": "970f1c405f1395021d1b1064655bb818c9f2a7ade72217a072070538c84b2f43"
+    },
+    {
+      "path": "svg/geometry/svg-get-bounding-client-rect-in-non-rendered-elements.html",
+      "sha256": "9584ae5c9cc81b252a4010ef4ffd2471a91e4e38eecd22dc4b327fc071341873"
+    },
+    {
+      "path": "svg/geometry/svg-image-intrinsic-size-with-cssstyle-auto.html",
+      "sha256": "ae01716918e79efa2eac1f824f5065a564a7ec038a796e527e558ff1f72284d2"
+    },
+    {
+      "path": "resources/testharness.js",
+      "sha256": "d2399236c2a09c429804ff2299ad6629e17e2b53f17a74dd341e936adb11ae3e"
+    },
+    {
+      "path": "resources/testharnessreport.js",
+      "sha256": "3777176fc736b0a78cf7617b9613b220f635daae7536ec7ebb99c61dbb525aae"
+    },
+    {
+      "path": "fonts/ahem.css",
+      "sha256": "5d8b9526d7be573871022125d5ec44f4893e4d851c26ab3fb6df44219422111c"
+    },
+    {
+      "path": "fonts/Ahem.ttf",
+      "sha256": "b719ecb31c5b21fc573c03f6421c74ac63c271a5a3ff841e34f9705fb94b8448"
+    },
+    {
+      "path": "images/green-256x256.png",
+      "sha256": "eecab77770d57a583096613a720379c5b4e6cadc85a2ab67d68db233732ef20e"
+    }
+  ]
+}

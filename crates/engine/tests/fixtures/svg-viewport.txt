@@ -1,0 +1,63 @@
+function svgViewportCase(variant) {
+  const checks={}, width=80+variant, root=16+variant%8;
+  document.documentElement.style.fontSize=`${root}px`;
+  document.body.style.cssText='margin:0;width:800px;height:600px';
+  function make(attributes=[],css='',parentCSS='') {
+    const parent=document.createElement('main');parent.style.cssText=`position:relative;width:500px;height:400px;${parentCSS}`;
+    const box=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    box.style.cssText='display:block;'+css;
+    for(const [name,value] of attributes)box.setAttribute(name,value);
+    const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');rect.setAttribute('width','500');rect.setAttribute('height','500');box.append(rect);
+    parent.append(box);document.body.append(parent);return {parent,box};
+  }
+  function check(name,attributes,css,expected,parentCSS='') {
+    const {parent,box}=make(attributes,css,parentCSS), rect=box.getBoundingClientRect();
+    checks[name]=Math.abs(rect.width-expected[0])<1/64+1e-4&&Math.abs(rect.height-expected[1])<1/64+1e-4;
+    parent.remove();
+  }
+  const attrs=[['width',String(width)],['height','40']], ratio=[['viewBox','0 0 20 10']];
+  check('default',[],'',[300,150]);
+  check('attributes',attrs,'',[width,40]);
+  check('absoluteUnits',[['width','1in'],['height','2.54cm']],'',[96,96]);
+  check('fontUnits',[['width','2em'],['height','1rem']],'',[2*root,root]);
+  check('percentageAttributes',[['width','50%'],['height','50%']],'',[250,200]);
+  check('CSSOverride',attrs,'width:100px;height:50px',[100,50]);
+  check('CSSAuto',attrs,`width:${2*width}px;height:auto`,[2*width,80]);
+  check('attributeAuto',attrs,'width:auto;height:auto',[width,40]);
+  check('viewBox',ratio,'',[500,250]);
+  check('viewBoxWidth',ratio,`width:${width}px`,[width,width/2]);
+  check('viewBoxHeight',ratio,'height:40px',[80,40]);
+  check('viewBoxNone',[...ratio,['preserveAspectRatio','none']],`width:${width}px`,[width,width/2]);
+  check('viewBoxComma',[['viewBox','0,0,20,10']],'width:100px',[100,50]);
+  check('viewBoxOffset',[['viewBox','50 50 20 10']],'width:100px',[100,50]);
+  check('invalidViewBox',[['viewBox','0 0 0 10']],'',[300,150]);
+  check('missingViewBoxNumber',[['viewBox','0 0 20']],'',[300,150]);
+  check('extraViewBoxNumber',[['viewBox','0 0 20 10 30']],'',[300,150]);
+  check('invalidWidth',[['width','nonsense']],'',[500,150]);
+  check('negativeWidth',[['width','-5']],'',[0,150]);
+  check('widthOnly',[['width',String(width)]],'',[width,150]);
+  check('heightOnly',[['height','40']],'',[300,40]);
+  check('CSSWidthOnly',[],`width:${width}px`,[width,150]);
+  check('CSSHeightOnly',[],'height:40px',[300,40]);
+  check('maxWidth',attrs,'max-width:40px',[40,40]);
+  check('minWidth',attrs,'min-width:200px',[200,40]);
+  check('border',attrs,'border:2px solid red',[width+4,44]);
+  check('padding',attrs,'padding:5px',[width+10,50]);
+  check('borderBox',attrs,'box-sizing:border-box;border:2px solid red;padding:5px',[width,40]);
+  const flex=make(attrs,'display:block','display:flex');checks.flex=flex.box.getBoundingClientRect().width===width&&flex.box.getBoundingClientRect().height===40;flex.parent.remove();
+  const grid=make(attrs,'display:block','display:grid;align-items:start;justify-items:start');checks.grid=grid.box.getBoundingClientRect().width===width&&grid.box.getBoundingClientRect().height===40;grid.parent.remove();
+  for(const [name,align,expected] of [['gridCenter','center',(500-width)/2],['gridEnd','end',500-width]]) {
+    const grid=make(attrs,'','display:grid;align-items:start;justify-items:'+align);
+    checks[name]=Math.abs(grid.box.getBoundingClientRect().x-expected)<1/64+1e-4;
+    grid.parent.remove();
+  }
+  const live=make(attrs), style=getComputedStyle(live.box);
+  checks.computed=style.width===`${width}px`&&style.height==='40px';
+  live.box.setAttribute('width','120');checks.liveAttribute=live.box.getBoundingClientRect().width===120&&style.width==='120px';
+  live.box.style.width='2rem';checks.liveCSS=live.box.getBoundingClientRect().width===2*root;
+  live.box.style.height='auto';live.box.setAttribute('viewBox','0 0 20 10');checks.liveRatio=Math.abs(live.box.getBoundingClientRect().height-(2*root*40/120))<1/64+1e-4;
+  checks.namespace=live.box.namespaceURI==='http://www.w3.org/2000/svg'&&live.box.querySelector('rect').getAttribute('width')==='500';
+  live.parent.remove();checks.detached=live.box.getBoundingClientRect().width===0;
+  check('hidden',attrs,'display:none',[0,0]);
+  return checks;
+}
