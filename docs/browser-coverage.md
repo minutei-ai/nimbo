@@ -3170,10 +3170,10 @@ writes use existing DOM operation/write budgets and invalidate native layout
 and stylesheet state. Custom element reactions carry the real local name,
 namespace and old/new values for both namespace and qualified-name mutation.
 
-The [77-contract fixture](../crates/engine/tests/fixtures/attribute-namespaces.txt)
+The [101-contract fixture](../crates/engine/tests/fixtures/attribute-namespaces.txt)
 uses 64 fresh real HTTP pages with default limits and no mocks. Native Rust and workerd
-pass all 4928 assertions per runtime. The [celld/ordinary Chromium comparison](attribute-namespaces-chromium.json)
-passes 77/77 per page in Nimbo/celld and 76/77 per page in Chromium. Chromium
+pass all 6464 assertions per runtime. The [celld/ordinary Chromium comparison](attribute-namespaces-chromium.json)
+passes 101/101 per page in Nimbo/celld and 100/101 per page in Chromium. Chromium
 exposes an uppercase qualified name as a named property even though its own
 property names correctly omit it; all 64 failed comparator pages are retained
 and the comparison command is unsuccessful. SVG serialization is tested with
@@ -3183,9 +3183,9 @@ The [original manifest](../tooling/wpt-attribute-namespaces-sources.json) pins
 eight HTML tests, both upstream harness files and both helper scripts.
 Original bytes and assertions are unchanged; only reporting is appended.
 The [report](performance-wpt-attribute-namespaces.json) records Chromium 101/101,
-public Obscura 43/101 and Nimbo/celld 87/101 original subtests, up from the
+public Obscura 43/101 and Nimbo/celld 88/101 original subtests, up from the
 retained [43/101 baseline](performance-wpt-attribute-namespaces-baseline.json).
-Nimbo passes six files and fails two. Independent documents, event handlers,
+Nimbo passes seven files and fails one. Event handlers,
 shadow slots, dialog/input/option state and frame contexts remain explicit
 failures. The runner exits unsuccessfully. This cohort is not full DOM conformance.
 
@@ -3235,12 +3235,11 @@ retain shared DOM operation/write budgets.
 
 The [additional original manifest](../tooling/wpt-attribute-nodes-sources.json)
 pins four unmodified HTML tests and their original resources. The
-[report](performance-wpt-attribute-nodes.json) records 17/17 executed subtests
-in three passing Nimbo/celld files: Attr.prefix, NamedNodeMap and attribute
-node replacement. Document.createAttribute fails setup because independent
-XML documents are not implemented; its 36 original subtests remain unverified,
-not passed. Across the 53-subtest reference obligation, Chromium passes 50
-and public Obscura passes 9. Chromium fails the three original qualified-name
+[report](performance-wpt-attribute-nodes.json) records 53/53 original subtests
+in four passing Nimbo/celld files: Attr.prefix, NamedNodeMap, attribute node
+replacement and Document.createAttribute. Native independent XML documents
+allow all 36 Document.createAttribute assertions to execute and pass. Chromium
+passes 50/53 and public Obscura passes 9/53. Chromium fails the three original qualified-name
 lookup tests after replacement; those results remain unchanged. Both original
 WPT commands are unsuccessful. Synthetic contracts do not replace them.
 
@@ -3252,11 +3251,52 @@ TypeScript/native/Wasm lint, 6103 Bun tests and Rust documentation. Debug and
 release each pass 12 unit tests, 110 real HTTP browser tests and the real
 proxy test. No dependency or resource-limit changes are needed.
 
-The [current performance snapshot](performance-comparison-attribute-nodes.json)
+The [Attr build performance snapshot](performance-comparison-attribute-nodes.json)
 records 648 correct extractions and 567 measured samples with the validated
 Wasm hash. Nimbo p50 is lower than Chromium in 9/9 and Obscura in 8/9
 scenarios. Positioned boxes and two p95 results remain slower than Obscura.
 The [alternating build comparison](performance-engine-ab-attribute-nodes.json)
 records 432 correct extractions and 378 measured samples; it does not establish
 a performance improvement for this capability change. Original WPT failures
-and unverified document setup remain obligations.
+remain obligations. This snapshot predates independent-document support.
+
+## Native independent XML documents
+
+DOMImplementation.createDocument creates a real native Document root in the
+existing Rust tree arena. XMLDocument wrappers refer to that root; queries and
+collections operate on its actual subtree. Document.implementation is stable,
+independent documents have no browsing context, and contentType distinguishes
+XML, XHTML and SVG documents. The active HTML document retains text/html.
+
+Element, attribute, text, comment and fragment factories retain their creating
+document. XML factories preserve qualified-name case and null namespaces.
+HTML-namespace elements in XML documents preserve XML tag and attribute case.
+Insertion transfers the actual subtree and its attributes to the receiving
+document without copying nodes or changing wrapper identities. Detached nodes
+and attributes retain their last owning document. The common single-document
+path avoids additional document-owner lookups and adoption traversals.
+
+The shared 101-contract fixture includes 24 document contracts and passes
+6464 assertions per Nimbo runtime over 64 fresh real HTTP pages. Chromium
+passes the same 24 document contracts; its existing uppercase NamedNodeMap
+property difference remains in the retained comparison. The two original WPT
+cohorts now record 53/53 and 88/101 for Nimbo/celld. Assertions, upstream bytes
+and default engine budgets remain unchanged.
+
+This is partial document support. XML parsing/serialization conformance,
+DOMParser, createHTMLDocument, public Document construction, non-null doctype
+transfer, XML-specific selector case behavior and independent frame realms
+remain pending. Supplying a doctype currently raises NotSupportedError.
+Independent roots do not add a new JS realm, active stylesheet context or
+persistent browser session. Obscura remains a separate comparator.
+
+The complete document build passes formatting, Worker/Wasm compilation,
+TypeScript/native/Wasm lint, 6103 Bun tests and Rust documentation. Debug and
+release each pass 12 unit tests, 110 real HTTP browser tests and the real proxy
+test. No dependencies or resource limits change.
+
+The [document performance snapshot](performance-comparison-documents.json)
+records 648 correct extractions and 567 measured samples with the validated
+Wasm hash. Nimbo p50 is lower than Chromium in 9/9 scenarios and Obscura in
+8/9. Positioned-box p50/p95 and 200-node selector p95 remain higher than
+Obscura. This does not establish complete scraping or performance parity.

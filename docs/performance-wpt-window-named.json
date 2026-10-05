@@ -174,7 +174,7 @@
           {
             "name": "A document without a Window must not cause errors",
             "status": 1,
-            "message": "cannot read property 'createHTMLDocument' of undefined"
+            "message": "not a function"
           }
         ]
       }
@@ -606,7 +606,7 @@
           {
             "name": "Elements of a document created by createHTMLDocument() are not exposed",
             "status": 1,
-            "message": "cannot read property 'createHTMLDocument' of undefined"
+            "message": "not a function"
           },
           {
             "name": "Elements of a document created by DOMParser are not exposed",
@@ -616,17 +616,17 @@
           {
             "name": "Ids set after insertion into another document are not exposed",
             "status": 1,
-            "message": "cannot read property 'createHTMLDocument' of undefined"
+            "message": "not a function"
           },
           {
             "name": "Elements adopted into the associated document become exposed",
             "status": 1,
-            "message": "cannot read property 'createHTMLDocument' of undefined"
+            "message": "not a function"
           },
           {
             "name": "Elements adopted out of the associated document stop being exposed",
             "status": 1,
-            "message": "cannot read property 'createHTMLDocument' of undefined"
+            "message": "not a function"
           }
         ]
       }

@@ -83,6 +83,8 @@ Configure public routing and TLS through your own ingress according to celld's d
 contracts on 64 fresh HTTP pages in Nimbo/celld and ordinary Chromium. It checks
 namespace isolation, live Attr identity, detached values, NamedNodeMap ordering
 and mutation, native style/selector updates and custom element reactions.
+It also checks independent native XML document roots, document-owned factories,
+case rules, content types and real subtree/attribute transfer between documents.
 
 `bun run bench:wpt-attribute-namespaces` and `bun run bench:wpt-attribute-nodes`
 run the separately pinned original upstream HTML files, harness and helper

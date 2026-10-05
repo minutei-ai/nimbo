@@ -427,14 +427,14 @@ production throughput, memory consumption or cost.
 
 ## Native Attr and NamedNodeMap build
 
-The [current report](performance-comparison-attribute-nodes.json) was measured
+The [Attr build report](performance-comparison-attribute-nodes.json) was measured
 after the complete functional gate passed, with no build or functional test
 competing with it. The recorded Wasm hash matches the validated bundle. All
 648 real HTTP extractions are correct, with 567 measured samples in nine
 scenarios. Nimbo/celld has lower p50 than Chromium in 9/9 and public Obscura
 in 8/9. Positioned-box p50 is 39.87 ms versus 32.42 ms for Obscura; p95 is
 48.94 versus 34.55 ms. Static 5000-node p95 also exceeds Obscura, 54.69 versus
-45.33 ms. The README uses this snapshot and retains those gaps.
+45.33 ms. The README used this snapshot at the Attr stage and retained those gaps.
 
 The [separate alternating engine comparison](performance-engine-ab-attribute-nodes.json)
 compares the retained namespace build with the current Attr build through
@@ -448,3 +448,17 @@ entire timing change to Attr support. Both reports record exact Wasm hashes.
 
 All-win performance, complete SPA/browser compatibility, production
 throughput, memory consumption and cost remain unproven.
+
+## Native independent-document build
+
+The [document build report](performance-comparison-documents.json) records the
+validated Wasm hash after the complete functional gate passed, without a
+concurrent build or functional test. All 648 real HTTP extractions are correct;
+567 measured samples cover nine scenarios. Nimbo/celld has lower p50 than
+Chromium in 9/9 and public Obscura in 8/9. Positioned-box p50 is 40.88 ms
+versus 33.29 ms for Obscura, and p95 is 44.67 versus 35.66 ms. The 200-node
+selector p95 also exceeds Obscura: 21.60 versus 20.45 ms. The README uses this
+snapshot. The retained alternating Attr comparison above predates this change;
+no alternating comparison with the immediately previous Attr build was run.
+These independent snapshots do not establish a causal performance change.
+Original WPT failures and full browser/SPA conformance remain obligations.

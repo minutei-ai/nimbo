@@ -9,6 +9,8 @@ use crate::{Error, Limits, Result};
 
 #[path = "dom_attribute_nodes.rs"]
 mod attribute_nodes;
+#[path = "dom_documents.rs"]
+mod documents;
 
 #[derive(Clone, Copy)]
 enum Handle {
@@ -29,6 +31,7 @@ pub(crate) struct Dom {
     matchers: HashMap<String, Matcher>,
     named: Option<NamedProperties>,
     attribute_nodes: attribute_nodes::Arena,
+    documents: documents::Arena,
     styles: HashMap<NodeId, crate::styles::Declarations>,
     computed_styles: HashMap<NodeId, crate::computed_style::Computed>,
     transitions: std::cell::RefCell<crate::transitions::State>,
@@ -64,6 +67,7 @@ impl Dom {
             matchers: HashMap::new(),
             named: None,
             attribute_nodes: attribute_nodes::Arena::default(),
+            documents: documents::Arena::default(),
             styles: HashMap::new(),
             computed_styles: HashMap::new(),
             transitions: std::cell::RefCell::default(),
@@ -148,6 +152,7 @@ impl Dom {
         }
         let owner = self.sync_attribute_owner(operation, handle)?;
         let result = match operation {
+            "newDocument" => self.new_document(handle, value)?,
             "attributeNode" => self.attribute_node_bridge(handle, arg, value)?,
             "cssom" => self.cssom_call(handle, arg, value)?,
             "styleSheet" => self.style_sheet(handle)?,
@@ -182,9 +187,10 @@ impl Dom {
             }
             "relativeElement" => self.relative_element(handle, arg)?,
             "relativeNode" => self.relative_node(handle, arg)?,
-            "createText" | "createComment" => self.create_character(operation, value)?,
+            "createText" | "createComment" => self.create_character(handle, operation, value)?,
             "createFragment" => {
                 let id = self.document.tree.create_node(NodeData::Fragment);
+                self.own_node(handle, id)?;
                 json!(self.handle(id))
             }
             "contains" => {
@@ -203,8 +209,8 @@ impl Dom {
                             .any(|ancestor| ancestor.id == parent.id)
                 )
             }
-            "create" => self.create(arg)?,
-            "createNS" => self.create_ns(arg, value)?,
+            "create" => self.create(handle, arg)?,
+            "createNS" => self.create_ns(handle, arg, value)?,
             "get" if matches!(arg, "innerHTML" | "outerHTML") => self.serialize(handle, arg)?,
             "get" => self.get(handle, arg)?,
             "attributes" => self.attribute_metadata(handle)?,
@@ -268,7 +274,7 @@ impl Dom {
         )?))
     }
 
-    fn create(&mut self, name: &str) -> Result<Value> {
+    fn create(&mut self, owner: usize, name: &str) -> Result<Value> {
         if !valid_element_name(name) {
             return Err(Error::DomException {
                 name: "InvalidCharacterError",
@@ -277,15 +283,31 @@ impl Dom {
         }
         self.charge_write(name.len())?;
         self.may_have_links |= name.eq_ignore_ascii_case("link");
-        let id = self
-            .document
-            .tree
-            .new_element(&name.to_ascii_lowercase())
-            .id;
+        let document = self.document_id(owner)?;
+        let html = self
+            .documents
+            .kinds
+            .get(&document)
+            .is_none_or(|kind| kind.html);
+        let name = if html {
+            name.to_ascii_lowercase()
+        } else {
+            name.to_owned()
+        };
+        let node = self.document.tree.new_element(&name);
+        if !html {
+            node.update(|node| {
+                if let NodeData::Element(element) = &mut node.data {
+                    element.name.ns = "".into();
+                }
+            });
+        }
+        let id = node.id;
+        self.own_node(owner, id)?;
         Ok(json!(self.handle(id)))
     }
 
-    fn create_ns(&mut self, name: &str, namespace: &str) -> Result<Value> {
+    fn create_ns(&mut self, owner: usize, name: &str, namespace: &str) -> Result<Value> {
         let (prefix, local) = name
             .split_once(':')
             .map_or((None, name), |(prefix, local)| (Some(prefix), local));
@@ -327,7 +349,9 @@ impl Dom {
                 element.name.prefix = prefix.map(Into::into);
             }
         });
-        Ok(json!(self.handle(node.id)))
+        let id = node.id;
+        self.own_node(owner, id)?;
+        Ok(json!(self.handle(id)))
     }
 
     fn finish(&mut self, result: &Value, version: usize) -> Result<String> {
@@ -771,12 +795,17 @@ impl Dom {
             return Err(Error::Dom("attribute target must be an element".into()));
         }
         if operation == "attr" {
-            return Ok(json!(crate::dom_attributes::named(self.node(handle)?, arg)));
+            return Ok(json!(crate::dom_attributes::named(
+                self.node(handle)?,
+                arg,
+                self.html_document(self.node_id(handle)?)
+            )));
         }
         if operation == "attrInfo" {
             return Ok(json!(crate::dom_attributes::named_info(
                 self.node(handle)?,
-                arg
+                arg,
+                self.html_document(self.node_id(handle)?)
             )));
         }
         if operation == "attributeNames" {
@@ -1092,7 +1121,13 @@ impl Dom {
             vec![child]
         };
         validate_insertion(parent, &inserted, reference, removed)?;
+        let document = if parent.is_document() {
+            parent.id
+        } else {
+            self.node_document(parent.id)
+        };
         for node in inserted {
+            self.adopt_tree(node.id, document)?;
             if let Some(reference) = reference {
                 reference.insert_before(&node.id);
             } else {
@@ -1105,7 +1140,7 @@ impl Dom {
         Ok(Value::Null)
     }
 
-    fn create_character(&mut self, operation: &str, value: &str) -> Result<Value> {
+    fn create_character(&mut self, owner: usize, operation: &str, value: &str) -> Result<Value> {
         self.charge_write(value.len())?;
         let id = if operation == "createText" {
             self.document.tree.new_text(value).id
@@ -1114,6 +1149,7 @@ impl Dom {
                 contents: value.into(),
             })
         };
+        self.own_node(owner, id)?;
         Ok(json!(self.handle(id)))
     }
 
@@ -1238,6 +1274,27 @@ impl Dom {
     fn get(&self, handle: usize, property: &str) -> Result<Value> {
         let node = self.node(handle)?;
         Ok(match property {
+            "ownerDocument" => {
+                if node.is_document() {
+                    Value::Null
+                } else {
+                    self.owner_document_value(node.id)
+                }
+            }
+            "contentType" if node.is_document() => json!(
+                self.documents
+                    .kinds
+                    .get(&node.id)
+                    .map_or("text/html", |kind| kind.content_type)
+            ),
+            "htmlDocument" => json!(if node.is_document() {
+                self.documents
+                    .kinds
+                    .get(&node.id)
+                    .is_none_or(|kind| kind.html)
+            } else {
+                self.html_document(node.id)
+            }),
             "textContent" => {
                 if node.is_document() || node.is_doctype() {
                     Value::Null
@@ -1260,6 +1317,7 @@ impl Dom {
             "nodeName" => node.query_or(Value::Null, |node| match &node.data {
                 NodeData::Element(element) => json!(if element.name.ns.as_ref()
                     == "http://www.w3.org/1999/xhtml"
+                    && self.html_document(node.id)
                 {
                     qualified_name(element).to_ascii_uppercase()
                 } else {
@@ -1275,6 +1333,7 @@ impl Dom {
             "tagName" => node.query_or(Value::Null, |node| match &node.data {
                 NodeData::Element(element) => json!(if element.name.ns.as_ref()
                     == "http://www.w3.org/1999/xhtml"
+                    && self.html_document(node.id)
                 {
                     qualified_name(element).to_ascii_uppercase()
                 } else {
@@ -1340,8 +1399,15 @@ impl Dom {
         }
         match (operation, property) {
             ("set", "innerHTML") => node.set_html(value),
-            ("setAttr", _) => crate::dom_attributes::set_named(node, property, value)?,
-            ("removeAttr", _) => crate::dom_attributes::remove_named(node, property),
+            ("setAttr", _) => crate::dom_attributes::set_named(
+                node,
+                property,
+                value,
+                self.html_document(node.id),
+            )?,
+            ("removeAttr", _) => {
+                crate::dom_attributes::remove_named(node, property, self.html_document(node.id));
+            }
             _ => return Err(Error::Dom(format!("unsupported write: {property}"))),
         }
         Ok(())

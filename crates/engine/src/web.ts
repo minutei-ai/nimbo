@@ -870,6 +870,7 @@
         const name = item.name;
         if (
           item.ownerElement?.namespaceURI === "http://www.w3.org/1999/xhtml" &&
+          raw<boolean>("get", idOf(item.ownerElement), "htmlDocument") &&
           /[A-Z]/.test(name)
         )
           continue;
@@ -1149,7 +1150,8 @@
       return documentBase();
     }
     get ownerDocument(): Document | null {
-      return this.nodeType === 9 ? null : document;
+      const id = raw<number | null>("get", idOf(this), "ownerDocument");
+      return id === null ? null : documentNode(id);
     }
     get nodeValue(): string | null {
       return call("get", idOf(this), "nodeValue");
@@ -1301,7 +1303,13 @@
           const local = call<string>("get", candidate, "localName");
           const prefix = call<string | null>("get", candidate, "prefix");
           const qualified = prefix === null ? local : `${prefix}:${local}`;
-          return qualified === (namespace === "http://www.w3.org/1999/xhtml" ? lower : name);
+          return (
+            qualified ===
+            (namespace === "http://www.w3.org/1999/xhtml" &&
+            raw<boolean>("get", candidate, "htmlDocument")
+              ? lower
+              : name)
+          );
         }),
       true,
     );
@@ -3840,6 +3848,8 @@
         return new Text("", internal, id);
       case 8:
         return new Comment("", internal, id);
+      case 9:
+        return new XMLDocument(internal, id);
       case 10:
         return new DocumentType(internal, id);
       case 11:
@@ -3956,19 +3966,74 @@
       return false;
     },
   });
+  const implementations = new WeakMap<Document, DOMImplementation>();
+  const implementationDocuments = new WeakMap<DOMImplementation, Document>();
+  class DOMImplementation {
+    constructor(key: symbol, owner: Document) {
+      if (key !== internal) throw new TypeError("Illegal constructor");
+      implementationDocuments.set(this, owner);
+    }
+    createDocument(
+      namespace: unknown,
+      qualifiedName: unknown,
+      doctype: DocumentType | null = null,
+    ): XMLDocument {
+      const owner = implementationDocuments.get(this);
+      if (!owner) throw new TypeError("Illegal invocation");
+      required(2, arguments.length);
+      if (doctype !== null && !(doctype instanceof DocumentType))
+        throw new TypeError("Expected DocumentType");
+      if (doctype !== null)
+        throw new DOMException("DocumentType transfer is not implemented", "NotSupportedError");
+      const id = raw<number>(
+        "newDocument",
+        idOf(owner),
+        "",
+        JSON.stringify([
+          attributeNamespace(namespace),
+          domString(qualifiedName === null ? "" : qualifiedName),
+        ]),
+      );
+      const result = node(id);
+      if (!(result instanceof XMLDocument)) throw new TypeError("Expected native XMLDocument");
+      return result;
+    }
+  }
+  function documentNode(id: number): Document {
+    const result = node(id);
+    if (!(result instanceof Document)) throw new TypeError("Expected native Document");
+    return result;
+  }
   class Document extends ParentNode {
+    get implementation(): DOMImplementation {
+      if (!(this instanceof Document)) throw new TypeError("Illegal invocation");
+      let result = implementations.get(this);
+      if (!result) {
+        result = new DOMImplementation(internal, this);
+        implementations.set(this, result);
+      }
+      return result;
+    }
+    get contentType(): string {
+      if (!(this instanceof Document)) throw new TypeError("Illegal invocation");
+      return raw("get", idOf(this), "contentType");
+    }
+    get defaultView(): typeof globalThis | null {
+      idOf(this);
+      return this === document ? globalThis : null;
+    }
     createAttribute(name: unknown): Attr {
-      if (this !== document) throw new TypeError("Illegal invocation");
+      if (!(this instanceof Document)) throw new TypeError("Illegal invocation");
       required(1, arguments.length);
-      return attributeNode(raw("attributeNode", 0, "new", domString(name)));
+      return attributeNode(raw("attributeNode", idOf(this), "new", domString(name)));
     }
     createAttributeNS(namespace: unknown, qualifiedName: unknown): Attr {
-      if (this !== document) throw new TypeError("Illegal invocation");
+      if (!(this instanceof Document)) throw new TypeError("Illegal invocation");
       required(2, arguments.length);
       return attributeNode(
         raw(
           "attributeNode",
-          0,
+          idOf(this),
           "newNS",
           JSON.stringify([attributeNamespace(namespace), domString(qualifiedName)]),
         ),
@@ -4026,8 +4091,8 @@
     get head() {
       return this.querySelector("head");
     }
-    get documentElement() {
-      return this.querySelector("html");
+    get documentElement(): Element | null {
+      return this.children.item(0);
     }
     get readyState() {
       return readyState;
@@ -4063,27 +4128,34 @@
       return this.querySelector(`[id=${JSON.stringify(id)}]`);
     }
     createTextNode(data: string) {
-      return new Text(data);
+      if (!(this instanceof Document)) throw new TypeError("Illegal invocation");
+      required(1, arguments.length);
+      return node(raw("createText", idOf(this), "", domString(data)));
     }
     createComment(data: string) {
-      return new Comment(data);
+      if (!(this instanceof Document)) throw new TypeError("Illegal invocation");
+      required(1, arguments.length);
+      return node(raw("createComment", idOf(this), "", domString(data)));
     }
     createDocumentFragment() {
-      return new DocumentFragment();
+      if (!(this instanceof Document)) throw new TypeError("Illegal invocation");
+      return node(raw("createFragment", idOf(this)));
     }
     createElementNS(namespace: unknown, qualifiedName: unknown) {
-      if (this !== document) throw new TypeError("Illegal invocation");
+      if (!(this instanceof Document)) throw new TypeError("Illegal invocation");
       if (arguments.length < 2) throw new TypeError("createElementNS requires namespace and name");
       const uri = namespace === null || namespace === undefined ? "" : domString(namespace);
       const name = domString(qualifiedName);
-      return createdElement(() => call<number>("createNS", 0, name, uri));
+      return createdElement(() => call<number>("createNS", idOf(this), name, uri));
     }
     createElement(tag: string) {
+      if (!(this instanceof Document)) throw new TypeError("Illegal invocation");
       if (arguments.length === 0) throw new TypeError("createElement requires a name");
       const localName = domString(tag);
-      return createdElement(() => call<number>("create", 0, localName));
+      return createdElement(() => call<number>("create", idOf(this), localName));
     }
   }
+  class XMLDocument extends Document {}
   function createdElement(create: () => number): Element {
     const target = element(create());
     if (isHTML(target) && definitions.size > 0) {
@@ -5650,6 +5722,8 @@
     getComputedStyle,
     CustomElementRegistry,
     Document,
+    XMLDocument,
+    DOMImplementation,
     DocumentFragment,
     DocumentType,
     NodeList,

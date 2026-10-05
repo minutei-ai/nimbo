@@ -8,7 +8,7 @@
     "dom/nodes/Element-setAttributeNodeNS.html",
     "dom/nodes/attributes-namednodemap.html"
   ],
-  "scope": "Four original Attr/NamedNodeMap WPT HTML files with original harness and helpers; immutable source bytes and assertions; reporting-only adapter; real HTTP; default limits; no mocks; independent XML documents and other original failures retained",
+  "scope": "Four original Attr/NamedNodeMap WPT HTML files with original harness and helpers; immutable source bytes and assertions; reporting-only adapter; real HTTP; default limits; no mocks; native independent XML documents and document-owned attributes; original comparator failures retained",
   "results": [
     {
       "runtime": "Google Chrome for Testing 153.0.8010.12",
@@ -280,12 +280,12 @@
     {
       "runtime": "celld 0.6.1",
       "file": "dom/nodes/Document-createAttribute.html",
-      "status": "failed",
+      "status": "passed",
       "verdict": {
-        "status": 1,
-        "message": "TypeError: cannot read property 'createDocument' of undefined",
-        "total": 0,
-        "passed": 0,
+        "status": 0,
+        "message": null,
+        "total": 36,
+        "passed": 36,
         "failed": []
       }
     },

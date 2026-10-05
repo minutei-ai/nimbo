@@ -7,6 +7,7 @@ use std::collections::HashMap;
 struct Record {
     attribute: Attr,
     owner: Option<NodeId>,
+    document: NodeId,
 }
 #[derive(Default)]
 pub(super) struct Arena {
@@ -28,16 +29,24 @@ impl Arena {
         handles: &mut Vec<Handle>,
         attribute: Attr,
         owner: Option<NodeId>,
+        document: NodeId,
     ) -> usize {
         let handle = handles.len();
         handles.push(Handle::Attribute);
-        self.records.insert(handle, Record { attribute, owner });
+        self.records.insert(
+            handle,
+            Record {
+                attribute,
+                owner,
+                document,
+            },
+        );
         if let Some(owner) = owner {
             self.owners.entry(owner).or_default().push(handle);
         }
         handle
     }
-    fn sync(&mut self, owner: NodeId, attributes: &[Attr]) {
+    fn sync(&mut self, owner: NodeId, attributes: &[Attr], document: NodeId) {
         if let Some(handles) = self.owners.get_mut(&owner) {
             handles.retain(|handle| {
                 let Some(record) = self.records.get_mut(handle) else {
@@ -48,6 +57,7 @@ impl Arena {
                     .find(|attribute| same(attribute, &record.attribute))
                 {
                     record.attribute = attribute.clone();
+                    record.document = document;
                     true
                 } else {
                     record.owner = None;
@@ -61,8 +71,9 @@ impl Arena {
         handles: &mut Vec<Handle>,
         owner: NodeId,
         attributes: &[Attr],
+        document: NodeId,
     ) -> Vec<usize> {
-        self.sync(owner, attributes);
+        self.sync(owner, attributes, document);
         attributes
             .iter()
             .map(|attribute| {
@@ -76,7 +87,9 @@ impl Arena {
                         })
                         .copied()
                 });
-                existing.unwrap_or_else(|| self.allocate(handles, attribute.clone(), Some(owner)))
+                existing.unwrap_or_else(|| {
+                    self.allocate(handles, attribute.clone(), Some(owner), document)
+                })
             })
             .collect()
     }
@@ -104,7 +117,8 @@ impl Dom {
             return;
         }
         if let Some(node) = self.document.tree.get(&owner) {
-            self.attribute_nodes.sync(owner, &node.attrs());
+            self.attribute_nodes
+                .sync(owner, &node.attrs(), self.node_document(owner));
         }
     }
     pub(super) fn sync_attribute_owner(
@@ -129,14 +143,25 @@ impl Dom {
         value: &str,
     ) -> Result<Value> {
         match operation {
-            "new" | "newNS" => self.create_attribute_node(operation, value),
+            "new" | "newNS" => self.create_attribute_node(handle, operation, value),
             "list" | "named" | "ns" => self.attribute_node_lookup(handle, operation, value),
             "attach" => self.attach_attribute_node(handle, value),
             "remove" => self.remove_attribute_node(handle, value),
             _ => Err(Error::Dom("unsupported attribute node operation".into())),
         }
     }
-    fn create_attribute_node(&mut self, operation: &str, value: &str) -> Result<Value> {
+    fn create_attribute_node(
+        &mut self,
+        owner: usize,
+        operation: &str,
+        value: &str,
+    ) -> Result<Value> {
+        let document = self.document_id(owner)?;
+        let html = self
+            .documents
+            .kinds
+            .get(&document)
+            .is_none_or(|kind| kind.html);
         self.charge_write(value.len())?;
         let template = self
             .document
@@ -148,12 +173,13 @@ impl Dom {
             let (namespace, name): (String, String) = serde_json::from_str(value)?;
             crate::dom_attributes::create_namespaced(template, &namespace, &name, "")?
         } else {
-            crate::dom_attributes::create_named(template, value, "")?
+            crate::dom_attributes::create_named(template, value, "", html)?
         };
         Ok(json!(self.attribute_nodes.allocate(
             &mut self.handles,
             attribute,
-            None
+            None,
+            document
         )))
     }
     fn attribute_node_lookup(
@@ -168,9 +194,10 @@ impl Dom {
         }
         let owner = node.id;
         let attributes = node.attrs();
+        let document = self.node_document(owner);
         let handles = self
             .attribute_nodes
-            .list(&mut self.handles, owner, &attributes);
+            .list(&mut self.handles, owner, &attributes, document);
         if operation == "list" {
             return Ok(json!(handles));
         }
@@ -180,7 +207,11 @@ impl Dom {
                 attribute.name.ns.as_ref() == namespace && attribute.name.local.as_ref() == local
             })
         } else {
-            let name = crate::dom_attributes::normalized_name(self.node(handle)?, value);
+            let name = crate::dom_attributes::normalized_name(
+                self.node(handle)?,
+                value,
+                self.html_document(owner),
+            );
             attributes
                 .iter()
                 .position(|attribute| qualified(attribute) == name)
@@ -211,6 +242,7 @@ impl Dom {
                     Some(record.attribute.name.ns.as_ref())
                 }),
                 "prefix" => json!(record.attribute.name.prefix.as_ref().map(AsRef::as_ref)),
+                "ownerDocument" => self.owner_document_value(record.document),
                 "specified" => json!(true),
                 "isConnected" => json!(false),
                 "ownerElement" => {
@@ -229,11 +261,13 @@ impl Dom {
             "removeChild" => Err(super::not_found()),
             "attributeNode" if arg == "clone" => {
                 let attribute = record.attribute.clone();
+                let document = record.document;
                 self.charge_write(attribute.value.len())?;
                 Ok(json!(self.attribute_nodes.allocate(
                     &mut self.handles,
                     attribute,
-                    None
+                    None,
+                    document
                 )))
             }
             _ => Err(Error::Dom("unsupported attribute node operation".into())),
@@ -300,9 +334,10 @@ impl Dom {
         let attribute = record.attribute.clone();
         self.charge_write(attribute.value.len())?;
         let attributes = self.node(owner_handle)?.attrs();
+        let document = self.node_document(owner);
         let handles = self
             .attribute_nodes
-            .list(&mut self.handles, owner, &attributes);
+            .list(&mut self.handles, owner, &attributes, document);
         let position = attributes
             .iter()
             .position(|current| same(current, &attribute));

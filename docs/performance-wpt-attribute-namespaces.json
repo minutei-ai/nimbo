@@ -12,7 +12,7 @@
     "dom/nodes/attributes.html",
     "dom/nodes/namespaced-attribute-mutations.html"
   ],
-  "scope": "Eight original attribute WPT HTML files, original harness and helper scripts; immutable source bytes and assertions; reporting-only adapter; real HTTP; default limits; no mocks; native Attr and NamedNodeMap; independent documents and other original failures retained",
+  "scope": "Eight original attribute WPT HTML files, original harness and helper scripts; immutable source bytes and assertions; reporting-only adapter; real HTTP; default limits; no mocks; native Attr, NamedNodeMap and independent XML documents; original event, element-state and frame failures retained",
   "results": [
     {
       "runtime": "Google Chrome for Testing 153.0.8010.12",
@@ -520,19 +520,13 @@
     {
       "runtime": "celld 0.6.1",
       "file": "dom/nodes/attributes.html",
-      "status": "failed",
+      "status": "passed",
       "verdict": {
         "status": 0,
         "message": null,
         "total": 67,
-        "passed": 66,
-        "failed": [
-          {
-            "name": "Own property names should include all qualified names for an HTML element in a non-HTML document",
-            "status": 1,
-            "message": "cannot read property 'createDocument' of undefined"
-          }
-        ]
+        "passed": 67,
+        "failed": []
       }
     },
     {

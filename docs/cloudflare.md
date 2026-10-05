@@ -97,5 +97,6 @@ contracts through real workerd and Nimbo's own Wasm engine. The original WPT
 commands and immutable source setup are documented in the
 [celld guide](celld.md#attribute-dom-conformance); they execute the same prebuilt
 bundle through celld. The [coverage inventory](browser-coverage.md#native-attr-and-live-namednodemap)
-separates passing contracts, original WPT failures and unverified document setup.
+separates passing contracts, original WPT failures and remaining XML parsing,
+frame and document-type obligations.
 Local conformance results do not establish a deployed Cloudflare measurement.

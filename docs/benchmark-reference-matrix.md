@@ -358,13 +358,13 @@ and assertions remain unchanged; only reporting is appended. Run
 `bun run bench:wpt-attribute-namespaces` with the pinned source root.
 
 The [report](performance-wpt-attribute-namespaces.json) records Chromium
-101/101, public Obscura 43/101 and Nimbo/celld 87/101 original subtests, up
+101/101, public Obscura 43/101 and Nimbo/celld 88/101 original subtests, up
 from the [43/101 baseline](performance-wpt-attribute-namespaces-baseline.json).
-Nimbo passes six files and fails two. Independent documents, event handlers,
+Nimbo passes seven files and fails one. Event handlers,
 shadow slots, dialog/input/option state and independent frames remain
 obligations. The command is unsuccessful. In the
-[77 supplemental contracts](attribute-namespaces-chromium.json), Nimbo passes
-77/77 and Chromium 76/77 on each of 64 fresh pages: Chromium still exposes an
+[101 supplemental contracts](attribute-namespaces-chromium.json), Nimbo passes
+101/101 and Chromium 100/101 on each of 64 fresh pages: Chromium still exposes an
 uppercase named property omitted from its own property names. Its 64 failed
 pages are retained, and the comparison command is unsuccessful. The namespace
 implementation also closes five original Window access assertions, yielding
@@ -375,10 +375,10 @@ implementation also closes five original Window access assertions, yielding
 The [manifest](../tooling/wpt-attribute-nodes-sources.json) adds four original
 HTML tests, immutable hashes and original resources at the same public WPT
 revision. Run `bun run bench:wpt-attribute-nodes` with the pinned source root.
-The [report](performance-wpt-attribute-nodes.json) records three passing
-Nimbo/celld files with 17/17 executed original subtests. Document.createAttribute
-fails setup because independent XML documents are unavailable: 36 reference
-subtests are unverified and count as no passes. Chromium passes 50/53 and
+The [report](performance-wpt-attribute-nodes.json) records four passing
+Nimbo/celld files with 53/53 original subtests. Native independent XML documents
+close the previous setup failure and pass all 36 Document.createAttribute
+assertions. Chromium passes 50/53 and
 public Obscura 9/53. Chromium fails all three original qualified-name lookup
 assertions after attribute node replacement; no assertion is changed to match
 that behavior. The WPT command remains unsuccessful. These files do not

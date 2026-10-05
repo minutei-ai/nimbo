@@ -29,24 +29,26 @@ fn qualified(attribute: &Attr, name: &str) -> bool {
         },
     )
 }
-pub(crate) fn normalized_name(node: NodeRef<'_>, name: &str) -> String {
-    if node
-        .qual_name_ref()
-        .is_some_and(|name| name.ns.as_ref() == "http://www.w3.org/1999/xhtml")
+pub(crate) fn normalized_name(node: NodeRef<'_>, name: &str, html: bool) -> String {
+    if html
+        && node
+            .qual_name_ref()
+            .is_some_and(|name| name.ns.as_ref() == "http://www.w3.org/1999/xhtml")
     {
         name.to_ascii_lowercase()
     } else {
         name.to_owned()
     }
 }
-pub(crate) fn named(node: NodeRef<'_>, name: &str) -> Option<String> {
-    named_info(node, name).map(|(_, _, value)| value)
+pub(crate) fn named(node: NodeRef<'_>, name: &str, html: bool) -> Option<String> {
+    named_info(node, name, html).map(|(_, _, value)| value)
 }
 pub(crate) fn named_info(
     node: NodeRef<'_>,
     name: &str,
+    html: bool,
 ) -> Option<(String, Option<String>, String)> {
-    let name = normalized_name(node, name);
+    let name = normalized_name(node, name, html);
     node.query_or(None, |node| {
         node.as_element()?
             .attrs
@@ -87,8 +89,8 @@ pub(crate) fn names(node: NodeRef<'_>) -> Vec<String> {
         })
         .collect()
 }
-pub(crate) fn set_named(node: NodeRef<'_>, name: &str, value: &str) -> Result<()> {
-    let name = normalized_name(node, name);
+pub(crate) fn set_named(node: NodeRef<'_>, name: &str, value: &str, html: bool) -> Result<()> {
+    let name = normalized_name(node, name, html);
     let exists = node
         .attrs()
         .iter()
@@ -121,8 +123,8 @@ pub(crate) fn set_named(node: NodeRef<'_>, name: &str, value: &str) -> Result<()
     });
     Ok(())
 }
-pub(crate) fn remove_named(node: NodeRef<'_>, name: &str) {
-    let name = normalized_name(node, name);
+pub(crate) fn remove_named(node: NodeRef<'_>, name: &str, html: bool) {
+    let name = normalized_name(node, name, html);
     node.update(|node| {
         if let NodeData::Element(element) = &mut node.data
             && let Some(index) = element
@@ -199,8 +201,8 @@ pub(crate) fn create_namespaced(
         value: value.into(),
     })
 }
-pub(crate) fn create_named(node: NodeRef<'_>, name: &str, value: &str) -> Result<Attr> {
-    let local = normalized_name(node, name);
+pub(crate) fn create_named(node: NodeRef<'_>, name: &str, value: &str, html: bool) -> Result<Attr> {
+    let local = normalized_name(node, name, html);
     validate_local(&local)?;
     let mut name = node
         .qual_name_ref()

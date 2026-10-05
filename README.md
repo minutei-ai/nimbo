@@ -6,6 +6,13 @@ Rust owns the browser implementation; QuickJS executes page JavaScript. Browser 
 
 Nimbo's target is to provide Obscura's browser capabilities inside Cloudflare Workers through its own engine. Obscura is an optional, separate test comparator; it is never a runtime backend, dependency or fallback.
 
+Native independent XML document roots now support document-owned element,
+attribute, text and fragment factories and real cross-document insertion.
+The original Attr/NamedNodeMap WPT cohort passes 53/53; the attribute namespace
+cohort passes 88/101. XML parsing, frames and complete DOM conformance remain
+pending. See the [document coverage](docs/browser-coverage.md#native-independent-xml-documents)
+for validated behavior and remaining gaps.
+
 The target includes Kitesurf's public browser contracts and the capabilities it
 explicitly excludes. JavaScript and SPA scraping, with optional proxies, remain
 the core workflow. Browser features serve that workflow; unrelated product
@@ -210,30 +217,30 @@ Latency in milliseconds, **p50 / p95**:
 
 | Scenario                | Nimbo / celld |        Obscura |        Chromium |
 | ----------------------- | ------------: | -------------: | --------------: |
-| Static HTML             | 10.46 / 17.82 |  18.23 / 19.16 |   57.95 / 63.85 |
-| Selectors, 200 nodes    | 14.67 / 18.86 |  18.78 / 20.49 |   55.35 / 76.84 |
-| Dynamic fetch           | 11.14 / 15.57 |  20.30 / 22.19 |   62.61 / 71.98 |
-| JS, DOM and events      | 21.33 / 23.63 |  28.45 / 29.89 |   61.94 / 77.03 |
-| JS modules              | 24.92 / 29.78 |  28.71 / 30.78 |   64.45 / 85.89 |
-| JS selectors, 200 nodes | 24.37 / 29.32 |  30.22 / 31.58 |   63.61 / 84.73 |
-| Static HTML, 5000 nodes | 35.83 / 54.69 |  39.91 / 45.33 | 253.79 / 283.99 |
-| Selectors, 5000 nodes   | 44.20 / 52.97 | 96.83 / 117.74 | 248.42 / 282.23 |
-| JS positioned boxes     | 39.87 / 48.94 |  32.42 / 34.55 |   66.65 / 86.70 |
+| Static HTML             | 12.13 / 18.35 |  18.77 / 21.96 |   60.06 / 69.03 |
+| Selectors, 200 nodes    | 15.84 / 21.60 |  19.45 / 20.45 |   60.31 / 72.94 |
+| Dynamic fetch           | 12.96 / 16.02 |  21.31 / 23.52 |   65.12 / 72.06 |
+| JS, DOM and events      | 21.81 / 27.61 |  30.18 / 32.54 |   68.25 / 87.62 |
+| JS modules              | 26.46 / 32.12 |  30.26 / 35.56 |   67.23 / 88.48 |
+| JS selectors, 200 nodes | 24.03 / 27.89 |  30.92 / 31.96 |   62.75 / 86.83 |
+| Static HTML, 5000 nodes | 41.37 / 47.70 |  42.98 / 47.84 | 269.71 / 297.60 |
+| Selectors, 5000 nodes   | 40.05 / 49.56 | 98.06 / 104.22 | 272.42 / 307.80 |
+| JS positioned boxes     | 40.88 / 44.67 |  33.29 / 35.66 |   68.51 / 96.60 |
 
 Nimbo has lower p50 than Chromium in **9/9** scenarios and Obscura in **8/9**
-in this run. Positioned-box p50 remains higher than Obscura (39.87 ms versus
-32.42 ms), as does p95 (48.94 versus 34.55 ms). Static 5000-node p95 also
-exceeds Obscura (54.69 versus 45.33 ms). Complete performance parity remains
+in this run. Positioned-box p50 remains higher than Obscura (40.88 ms versus
+33.29 ms), as does p95 (44.67 versus 35.66 ms). The 200-node selector p95 also
+exceeds Obscura (21.60 versus 20.45 ms). Complete performance parity remains
 pending. These local fixtures do not establish general SPA compatibility,
 production throughput, memory consumption or cost. See the
-[raw results](docs/performance-comparison-attribute-nodes.json) and
+[raw results](docs/performance-comparison-documents.json) and
 [reproduction guide](docs/benchmark-comparison.md).
 
-An [alternating engine comparison](docs/performance-engine-ab-attribute-nodes.json)
-retains the previous and current Wasm hashes, 432 correct extractions and
-378 measured samples. Positioned-box p50 is 42.73 ms in the previous build
-and 43.31 ms in this build in that separate run. Independent snapshots do not
-establish that attribute support caused the larger historical timing change.
+The retained [alternating Attr build comparison](docs/performance-engine-ab-attribute-nodes.json)
+compares the earlier namespace and Attr builds, with 432 correct extractions
+and 378 measured samples. It predates independent-document support and does
+not measure this change. Independent snapshots do not establish a causal
+performance improvement or regression.
 
 ## Runtime guides
 
