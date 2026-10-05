@@ -141,10 +141,12 @@ The engine implements bounded browser subsets. See the [coverage inventory](docs
 | Layout                           | Native block/flex/grid geometry, explicitly inset absolute/fixed boxes, selected sticky/scroll metrics and HTML categories; incomplete text layout                      |
 | CSSOM                            | Constructed sheet replacement, ordered live rules, declarations, Document adoption, document stylesheet list and HTML style/link-owned sheets; grouping/imports pending |
 | SVG                              | Native outer viewport intrinsic sizing and CSSOM style; internal graphics geometry and painting remain pending                                                          |
-| Canvas                           | Rust software OffscreenCanvas bitmap and selected 2D pixel operations                                                                                                   |
-| Compatibility work still pending | Full HTML/CSSOM/WPT behavior, text shaping, painting, screenshots/PDF, WebGL, video, controllable TLS, durable browser sessions and CDP automation                      |
+| Canvas                           | Rust software OffscreenCanvas bitmap, selected 2D pixel operations and bounded native `TextMetrics.width`                                                               |
+| Compatibility work still pending | Full HTML/CSSOM/WPT behavior, font fallback and text layout, painting, screenshots/PDF, WebGL, video, controllable TLS, durable browser sessions and CDP automation     |
 
-Scripts run after parsing; this is a simplified lifecycle. Frames are explicitly rejected. Images are not loaded. Import maps, JSON modules, IndexedDB and full CORS/networking contracts remain incomplete. Supported CSS metadata does not imply font rendering or painting.
+Scripts run after parsing; this is a simplified lifecycle. Frames are explicitly rejected. Images are not loaded. Import maps, JSON modules, IndexedDB and full CORS/networking contracts remain incomplete. Supported CSS metadata does not imply font rendering or painting. Loaded uncompressed TrueType fonts now provide native OpenType widths for one LTR Latin run through `OffscreenCanvasRenderingContext2D.measureText`; DOM text layout still rejects text requiring shaping. Font fallback, bidi/script itemization, wrapping, glyph bounding boxes and text painting remain pending. Measurements require a loaded matching normal face and a normal canvas font with an explicit pixel size; unsupported inputs fail explicitly.
+
+The shaper uses the public [HarfRust library](https://github.com/harfbuzz/harfrust), without an alternate browser backend. Font bytes remain private per page, with the existing 1 MiB per-source, 4 MiB cumulative and 128-attempt limits. A shaping call accepts at most 1,024 UTF-8 bytes; cumulative native shaping input is capped at 65,536 bytes per page, and font size at 4,096 CSS pixels.
 
 Constructed CSSOM currently differs from Chromium for a non-configurable indexed rule-list definition. Document adoption is implemented, with two recorded cascade-order differences from Chromium. HTML style/link-owned flat rules support live mutation, and Document.styleSheets exposes a live list. Imports, association lifecycle and grouped rule wrappers remain pending. These divergences remain visible in the real fixtures and evidence.
 
@@ -184,6 +186,7 @@ bun run compare:resolved-box-values # native used box CSSOM values and live upda
 bun run bench:wpt-contextual-box-lengths # original unit WPT files
 bun run compare:svg-viewport # outer SVG sizing in celld and Chromium
 bun run compare:script-modes # classic/strict/module semantics in celld and Chromium
+bun run compare:font-shaping # native OpenType widths with real loaded fonts
 bun run compare:background-color # live background-color computation in celld and Chromium
 bun run bench:wpt-background-color # original declaration and computed color WPT
 bun run compare:layout-snapshot # geometry invalidation after DOM, CSSOM and scroll changes
@@ -218,24 +221,35 @@ Latency in milliseconds, **p50 / p95**:
 
 | Scenario                | Nimbo / celld |        Obscura |        Chromium |
 | ----------------------- | ------------: | -------------: | --------------: |
-| Static HTML             | 12.16 / 19.72 |  17.83 / 19.11 |   54.94 / 64.42 |
-| Selectors, 200 nodes    | 13.05 / 17.72 |  18.90 / 21.43 |   59.21 / 70.69 |
-| Dynamic fetch           | 10.48 / 19.41 |  19.71 / 53.95 |  58.19 / 120.66 |
-| JS, DOM and events      | 21.64 / 25.26 |  29.10 / 30.25 |   66.40 / 79.80 |
-| JS modules              | 28.00 / 34.00 |  29.89 / 31.52 |   73.46 / 92.33 |
-| JS selectors, 200 nodes | 24.77 / 33.31 |  31.27 / 34.02 |   67.99 / 86.70 |
-| Static HTML, 5000 nodes | 34.69 / 44.01 |  42.24 / 49.12 | 277.59 / 290.52 |
-| Selectors, 5000 nodes   | 46.27 / 64.81 | 99.01 / 105.71 | 269.11 / 287.98 |
-| JS positioned boxes     | 38.06 / 51.60 |  33.71 / 35.28 |   63.89 / 85.14 |
+| Static HTML             | 10.13 / 19.51 |  19.32 / 20.54 |   61.41 / 75.41 |
+| Selectors, 200 nodes    | 15.21 / 18.72 |  19.50 / 21.16 |   62.46 / 76.85 |
+| Dynamic fetch           | 13.76 / 15.67 |  21.31 / 23.00 |   63.75 / 77.65 |
+| JS, DOM and events      | 21.75 / 25.32 |  30.18 / 31.78 |   65.25 / 85.85 |
+| JS modules              | 25.17 / 31.21 |  30.08 / 33.33 |   73.08 / 92.74 |
+| JS selectors, 200 nodes | 24.28 / 28.73 |  31.11 / 38.62 |   67.39 / 85.71 |
+| Static HTML, 5000 nodes | 36.69 / 46.39 |  42.83 / 45.33 | 260.21 / 289.75 |
+| Selectors, 5000 nodes   | 47.16 / 64.61 | 97.94 / 110.47 | 251.41 / 291.12 |
+| JS positioned boxes     | 42.42 / 52.09 |  32.75 / 34.75 |   68.06 / 89.88 |
 
 Nimbo has lower p50 than Chromium in **9/9** scenarios and Obscura in **8/9**
-in this run. Positioned-box p50 remains higher than Obscura (38.06 ms versus
-33.71 ms), as does p95 (51.60 versus 35.28 ms). Static HTML and JS module p95
-also exceed Obscura (19.72 versus 19.11 ms and 34.00 versus 31.52 ms). Complete
-performance parity remains pending. These local fixtures do not establish general SPA compatibility,
-production throughput, memory consumption or cost. See the
-[raw results](docs/performance-comparison-layout-work.json) and
+in this run. Positioned-box p50 remains higher than Obscura (42.42 ms versus
+32.75 ms), as does p95 (52.09 versus 34.75 ms). Static HTML with 5,000 nodes
+also has higher p95 (46.39 versus 45.33 ms). Complete performance parity remains
+pending. These local fixtures do not establish general SPA compatibility,
+production throughput, memory consumption or cost. The font-width contracts
+are measured separately from these extraction scenarios. See the
+[raw results](docs/performance-comparison-font-widths.json) and
 [reproduction guide](docs/benchmark-comparison.md).
+
+The [previous layout snapshot](docs/performance-comparison-layout-work.json)
+is retained with its original artifact hash and results. Independent snapshots
+do not establish a causal performance improvement or regression.
+
+The loaded-font width foundation increases the uncompressed Wasm from
+9,294,708 to 10,356,700 bytes. Gzip level 9 increases from 2,709,074 to
+3,088,035 bytes. These are artifact sizes, not process memory or deployment
+measurements. The [font-shaping evidence](docs/evidence/font-shaping-widths.json)
+records both artifact hashes and the real font comparisons.
 
 The retained [alternating Attr build comparison](docs/performance-engine-ab-attribute-nodes.json)
 compares the earlier namespace and Attr builds, with 432 correct extractions

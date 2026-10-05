@@ -2,14 +2,17 @@ use std::collections::BTreeMap;
 
 use cssparser::{Parser, ParserInput};
 use lightningcss::{
-    properties::font::{FontFamily, FontStretch, FontWeight},
+    properties::font::{Font, FontFamily, FontSize, FontStretch, FontWeight},
     rules::{
         CssRule,
         font_face::{FontFaceProperty, FontStyle, Source, UnicodeRange},
     },
     stylesheet::{ParserOptions, PrinterOptions, StyleSheet},
     traits::{Parse, ToCss},
-    values::size::Size2D,
+    values::{
+        length::{LengthPercentage, LengthValue},
+        size::Size2D,
+    },
 };
 use rquickjs::{Ctx, Exception, Function};
 use serde::Serialize;
@@ -213,6 +216,41 @@ impl Definitions {
     }
 }
 
+fn canvas_font(source: &str) -> Result<Option<serde_json::Value>> {
+    if !guarded(source) {
+        return Ok(None);
+    }
+    let Ok(mut font) = Font::parse_string(source) else {
+        return Ok(None);
+    };
+    let FontSize::Length(LengthPercentage::Dimension(LengthValue::Px(size))) = font.size else {
+        return Err(Error::Dom(
+            "unsupported: canvas contextual font size".into(),
+        ));
+    };
+    if !size.is_finite() || !(0.0..=4096.0).contains(&size) {
+        return Err(Error::Limit("font size"));
+    }
+    for value in [
+        font.style.to_css_string(PrinterOptions::default()),
+        font.weight.to_css_string(PrinterOptions::default()),
+        font.stretch.to_css_string(PrinterOptions::default()),
+        font.variant_caps.to_css_string(PrinterOptions::default()),
+    ] {
+        if value.map_err(|error| Error::Dom(error.to_string()))? != "normal" {
+            return Err(Error::Dom(
+                "unsupported: canvas font synthesis or variants".into(),
+            ));
+        }
+    }
+    font.line_height = lightningcss::properties::font::LineHeight::Normal;
+    // Canvas ignores line-height; matching and shaping only consume this subset.
+    let value = font
+        .to_css_string(PrinterOptions::default())
+        .map_err(|error| Error::Dom(error.to_string()))?;
+    Ok(Some(serde_json::json!({"font":value,"size":size})))
+}
+
 pub(crate) fn install(ctx: &Ctx<'_>) -> rquickjs::Result<()> {
     ctx.globals().set(
         "nimboFontMeta",
@@ -222,7 +260,12 @@ pub(crate) fn install(ctx: &Ctx<'_>) -> rquickjs::Result<()> {
                 if source.len() > 4096 {
                     return Err(Exception::throw_message(&ctx, "font metadata limit"));
                 }
-                let value = if field == "source" {
+                let value = if field == "canvasFont" {
+                    serde_json::to_string(
+                        &canvas_font(&source)
+                            .map_err(|error| Exception::throw_message(&ctx, &error.to_string()))?,
+                    )
+                } else if field == "source" {
                     serde_json::to_string(
                         &resources(&source)
                             .map_err(|message| Exception::throw_message(&ctx, message))?,

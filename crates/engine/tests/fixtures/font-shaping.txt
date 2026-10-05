@@ -1,0 +1,50 @@
+globalThis.comparison = (async () => {
+  const face = new FontFace('NimboShape', 'url(/font-shaping-assets/' + variant + ')');
+  document.fonts.add(face);
+  await face.load();
+  const canvas = new OffscreenCanvas(8, 8);
+  const context = canvas.getContext('2d');
+  const size = 10 + variant;
+  context.font = size + 'px NimboShape';
+  const near = (actual, expected) => Math.abs(actual - expected) < 0.001;
+  const checks = {};
+  for (const [name, text, units] of [['a','A',600],['b','B',700],['pair','AB',900],['kerning','BA',1250],['space','A B',1550],['euro','€',800],['accent','é',550],['decomposed','e\u0301',550],['empty','',0],['repeat','ABAB',1800],['white','A\tB',1550],['newLine','A\nB',1550]])
+    checks[name] = near(context.measureText(text).width, units * size / 1000);
+  checks.sameFont = context.font === size + 'px NimboShape';
+  context.font = 'invalid';
+  checks.invalidIgnored = context.font === size + 'px NimboShape';
+  const metrics = context.measureText('AB');
+  checks.metricsBrand = metrics instanceof TextMetrics && Object.prototype.toString.call(metrics) === '[object TextMetrics]';
+  const descriptor = Object.getOwnPropertyDescriptor(TextMetrics.prototype, 'width');
+  checks.metricsReadonly = !!descriptor && typeof descriptor.get === 'function' && descriptor.set === undefined;
+  let missing = false;
+  try { context.measureText(); } catch (error) { missing = error instanceof TypeError; }
+  checks.requiredArgument = missing;
+  context.save();
+  context.font = '20px NimboShape';
+  context.restore();
+  checks.restoreFont = near(context.measureText('AB').width, 900 * size / 1000);
+  const bytes = await (await fetch('/font-shaping-assets/' + variant)).arrayBuffer();
+  const binary = new FontFace('NimboBinary', bytes);
+  document.fonts.add(binary);
+  context.font = '16px NimboBinary';
+  checks.binaryFont = near(context.measureText('AB').width,14.4);
+  checks.binaryLoaded = binary.status === 'loaded';
+  new Uint8Array(bytes).fill(0);
+  checks.fontOwnsBytes = near(context.measureText('AB').width,14.4);
+  checks.hiddenNativeBridge = typeof globalThis.nimboFontMeasure === 'undefined' && typeof globalThis.nimboFontData === 'undefined';
+  context.reset();
+  checks.resetFont = context.font === '10px sans-serif';
+  context.font = '16px NimboBinary';
+  canvas.width = 8;
+  checks.resizeFont = context.font === '10px sans-serif';
+  context.font = '16px/2 NimboBinary';
+  checks.ignoredLineHeight = context.font === '16px NimboBinary';
+  let branded = false;
+  try { descriptor.get.call({}); } catch (error) { branded = error instanceof TypeError; }
+  checks.metricsReceiver = branded;
+  Object.defineProperty(face,'status',{get(){throw new Error('spoofed font status');}});
+  context.font = '16px NimboShape';
+  checks.privateFontState = near(context.measureText('AB').width,14.4);
+  return checks;
+})();

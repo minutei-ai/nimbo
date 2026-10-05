@@ -1,6 +1,11 @@
 import { join } from "node:path";
 
 export async function fontFixture(path: string): Promise<Response | undefined> {
+  if (path.startsWith("/font-shaping-assets/"))
+    return new Response(
+      Bun.file(join(import.meta.dir, "../crates/engine/tests/fixtures/synthetic-shaping-font.ttf")),
+      { headers: { "content-type": "font/ttf" } },
+    );
   if (path.startsWith("/font-loading/font/") || path.startsWith("/font-assets/font/"))
     return new Response(
       Bun.file(join(import.meta.dir, "../crates/engine/tests/fixtures/synthetic-font.ttf")),
@@ -20,6 +25,15 @@ export async function fontFixture(path: string): Promise<Response | undefined> {
   }
   if (path.startsWith("/font-assets/invalid/")) return new Response(new Uint8Array([1, 2, 3]));
   if (path.startsWith("/font-assets/missing/")) return new Response("missing", { status: 404 });
+  if (path.startsWith("/font-shaping/")) {
+    const script = await Bun.file(
+      join(import.meta.dir, "../crates/engine/tests/fixtures/font-shaping.txt"),
+    ).text();
+    return new Response(
+      `<!doctype html><meta charset="utf-8"><script>globalThis.variant=${Number(path.split("/").at(-1))};${script}</script>`,
+      { headers: { "content-type": "text/html" } },
+    );
+  }
   if (path.startsWith("/font-matching/")) {
     const script = await Bun.file(
       join(import.meta.dir, "../crates/engine/tests/fixtures/font-matching.txt"),

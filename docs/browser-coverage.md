@@ -569,7 +569,7 @@ evidence cannot establish it.
 | Inline CSS declarations                              | Subset     | Native property grammar and live HTML style mutations tested; full CSSOM missing                                                             |
 | CSS cascade, typed styles, layout and geometry       | Subset     | Author styles and native boxes tested; full cascade, text, computed styles and paint missing                                                 |
 | Binary FontFace parsing                              | Partial    | Native TrueType and lazy URL/CSS loads tested; rendering, compressed formats and full WPT missing                                            |
-| Font shaping, images and SVG                         | Missing    | Glyph shaping, image decoding and SVG paint                                                                                                  |
+| Font shaping, images and SVG                         | Partial    | Loaded-font native canvas widths; DOM text layout, font fallback, image decoding and SVG paint remain missing                                |
 | OffscreenCanvas and Canvas 2D                        | Partial    | Native RGBA8 rectangle pixels/readback tested below; full Canvas 2D and HTML canvas missing                                                  |
 | Screenshots, PDF and screencasts                     | Missing    | Real paint output, pagination, frame changes and backpressure                                                                                |
 | Accessibility tree and snapshots                     | Missing    | Roles, names, hidden nodes, state changes and stable references                                                                              |
@@ -3314,3 +3314,45 @@ records 648 correct extractions and 567 measured samples with the validated
 Wasm hash. Nimbo p50 is lower than Chromium in 9/9 scenarios and Obscura in
 8/9. Positioned-box p50/p95 and 200-node selector p95 remain higher than
 Obscura. This does not establish complete scraping or performance parity.
+
+## Native loaded-font width foundation
+
+Loaded TrueType resources are now retained by the Rust engine with private,
+page-local resource handles. FontFace binary inputs are copied into native
+ownership; changing the original ArrayBuffer or replacing a public FontFace
+status getter cannot change the resource used for measurement. The private
+font bridges are removed from the page global object after installation.
+
+`OffscreenCanvasRenderingContext2D.measureText` uses HarfRust 0.14.0 OpenType
+shaping for `TextMetrics.width`, including GSUB ligatures, GPOS kerning and
+canonical Latin composition. Font selection reuses the existing native CSS
+matcher and private FontFaceSet state. Canvas font state participates in
+save/restore, reset and bitmap resize; line-height is ignored. Invalid font
+syntax preserves the previous value. Width results have branded, read-only
+getters; unimplemented glyph bounding box and baseline metrics throw.
+
+The supported measurement subset is one LTR Latin/Common run, a single loaded
+matching normal TrueType face, normal font descriptors and explicit pixel
+size. Other scripts, missing glyph coverage, fallback, synthesis/variants,
+contextual font sizes and non-default face descriptors fail explicitly.
+The native input bounds are 1,024 UTF-8 bytes per run, 65,536 cumulative bytes
+per page and 4,096 CSS pixels per font size. Existing admission bounds remain
+1 MiB per font, 4 MiB cumulative font bytes and 128 parse attempts. The engine
+checks shaping buffer allocation/work success before returning a width.
+
+The original synthetic shaping fixture is generated with pinned FontTools
+4.60.1 by `tooling/generate-shaping-font.py`. It has actual TrueType tables,
+a GSUB AB ligature, GPOS BA kerning and accented glyphs. It is a test fixture;
+it is never selected as an engine fallback. The same unchanged 27 assertions
+run over 64 real HTTP pages in native Rust, Wasm/workerd and the celld versus
+ordinary Chromium comparator (`bun run compare:font-shaping`). Canvas widths
+use a 0.001 CSS pixel tolerance for Chromium's subpixel quantization. These are
+supplemental engine contracts, not original WPT and not full browser parity.
+Nine additional Worker cases exercise explicit failure and fresh-page recovery
+for shaping limits and unsupported typography.
+
+This is the loaded-font/shaping component needed by future native text layout.
+The DOM layout engine does not consume these advances yet: inline formatting,
+line boxes, wrapping, font fallback/readiness and text painting remain pending.
+The existing geometry text rejection remains active; extraction with JavaScript
+must not be reported as validated by skipping scripts or hiding that error.

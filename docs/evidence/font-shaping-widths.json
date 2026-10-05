@@ -1,0 +1,51 @@
+{
+  "date": "2026-10-05",
+  "fixture": "crates/engine/tests/fixtures/font-shaping.txt",
+  "fixtureSha256": "7f93032365b5107d68d526996d351b7f57ff3efbac38cbf409e770a6c919bb81",
+  "fontFixture": "crates/engine/tests/fixtures/synthetic-shaping-font.ttf",
+  "fontSha256": "758c93d4b2b0b8a0660f0f89ec51ffb209a7317dd36c085b1195219843aca109",
+  "wasmSha256": "897fa292dadf2e80d0e25f76a37f22a30b98b3f43aa835ac04f6731b62cc6c9e",
+  "command": "bun run compare:font-shaping",
+  "scope": "64 fresh pages over real HTTP; loaded synthetic TrueType fonts with actual OpenType GSUB ligatures and GPOS kerning, canvas width, binary sources, branding and font state; native Wasm in celld versus ordinary Chromium, width tolerance 0.001 CSS px; supplemental contracts, not original WPT",
+  "runtimes": [
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "pages": 64,
+      "passedPages": 64,
+      "checksPerPage": 27,
+      "passedChecks": 1728,
+      "failedChecks": []
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "pages": 64,
+      "passedPages": 64,
+      "checksPerPage": 27,
+      "passedChecks": 1728,
+      "failedChecks": []
+    }
+  ],
+  "nativeRust": {
+    "pages": 64,
+    "checksPerPage": 27,
+    "passedChecks": 1728,
+    "command": "cargo test -p nimbo-engine --test browser native_shaping_uses_real_http_font_resources --locked"
+  },
+  "workerBoundaries": {
+    "cases": 9,
+    "passed": 9,
+    "freshPageRecovery": true
+  },
+  "limitations": [
+    "Supplemental contracts, not original WPT",
+    "Widths only: no DOM text layout, wrapping, bidi, fallback, glyph bounding boxes or text paint",
+    "One loaded normal TrueType face, LTR Latin run and explicit pixel font size"
+  ],
+  "wasmBytes": 10356700,
+  "previousWasm": {
+    "sha256": "de1984434fb98901db6b2edfcfd4ba02dbf289c42b2985fb8332c376d7662e7e",
+    "bytes": 9294708,
+    "gzip9Bytes": 2709074
+  },
+  "wasmGzip9Bytes": 3088035
+}

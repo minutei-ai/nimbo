@@ -37,7 +37,7 @@ declare function nimboLink(
 ): string;
 
 // Bounded uncompressed TrueType parsing; other font formats fail explicitly.
-declare function nimboFontData(source: Uint8Array): boolean;
+declare function nimboFontData(source: Uint8Array): number;
 
 declare function nimboFontMeta(field: string, source: string): string;
 
@@ -48,3 +48,5 @@ declare function nimboCanvas(input: string): string | Uint8Array;
 
 // Separate physical pixel input; no JSON pixel arrays.
 declare function nimboCanvasPut(input: string, bytes: Uint8Array): void;
+
+declare function nimboFontMeasure(id: number, text: string, size: number): number;

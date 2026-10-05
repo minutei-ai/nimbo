@@ -1547,6 +1547,8 @@ fn serve_remaining_resource(request: Request) -> io::Result<()> {
     if request.url().starts_with("/font-assets/")
         || request.url().starts_with("/font-loading/")
         || request.url().starts_with("/font-matching/")
+        || request.url().starts_with("/font-shaping/")
+        || request.url().starts_with("/font-shaping-assets/")
     {
         return serve_fonts(request);
     }
@@ -1709,6 +1711,8 @@ fn is_resource(path: &str) -> bool {
             "/font-assets/",
             "/font-loading/",
             "/font-matching/",
+            "/font-shaping/",
+            "/font-shaping-assets/",
         ]
         .iter()
         .any(|prefix| path.starts_with(prefix))
@@ -1736,6 +1740,16 @@ fn serve_fonts(request: Request) -> io::Result<()> {
             .with_header(header("Content-Type", "text/css")?)
     } else if path.starts_with("/font-assets/invalid/") {
         Response::from_data(vec![1, 2, 3])
+    } else if path.starts_with("/font-shaping-assets/") {
+        Response::from_data(include_bytes!("fixtures/synthetic-shaping-font.ttf").to_vec())
+            .with_header(header("Content-Type", "font/ttf")?)
+    } else if let Some(variant) = path.strip_prefix("/font-shaping/") {
+        let variant = variant.parse::<usize>().unwrap_or_default();
+        Response::from_data(format!(
+            "<!doctype html><meta charset=utf-8><script>globalThis.variant={variant};{}</script>",
+            include_str!("fixtures/font-shaping.txt")
+        ))
+        .with_header(header("Content-Type", "text/html")?)
     } else if path.starts_with("/font-matching/") {
         Response::from_data(format!(
             "<!doctype html><meta charset=\"utf-8\"><script>{}</script>",
@@ -3473,6 +3487,23 @@ fn attribute_namespaces_mass_real_http() -> TestResult {
         assert!(
             checks.values().all(|value| value == &json!(true)),
             "{result}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn native_shaping_uses_real_http_font_resources() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/font-shaping/{variant}")))?;
+        let result = page.evaluate("globalThis.comparison")?;
+        let fields = result.as_object().ok_or("missing font shaping result")?;
+        assert_eq!(fields.len(), 27);
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
         );
     }
     Ok(())

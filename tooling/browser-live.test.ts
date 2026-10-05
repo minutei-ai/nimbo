@@ -4419,7 +4419,7 @@ test.each([
   {
     name: "text",
     expression: "new OffscreenCanvas(1,1).getContext('2d').measureText('A')",
-    reason: "unsupported: canvas measureText",
+    reason: "unsupported: font glyph fallback",
   },
   {
     name: "transform",
@@ -6390,3 +6390,85 @@ test.each([0, -1, 1.5, 1_000_001, "20000", true, null, {}])(
     expect(requests.length).toBe(count);
   },
 );
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native font shaping variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`font-shaping/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      value: Object.fromEntries(
+        [
+          "a",
+          "b",
+          "pair",
+          "kerning",
+          "space",
+          "euro",
+          "accent",
+          "decomposed",
+          "empty",
+          "repeat",
+          "white",
+          "newLine",
+          "sameFont",
+          "invalidIgnored",
+          "metricsBrand",
+          "metricsReadonly",
+          "requiredArgument",
+          "restoreFont",
+          "binaryFont",
+          "binaryLoaded",
+          "fontOwnsBytes",
+          "hiddenNativeBridge",
+          "privateFontState",
+          "resetFont",
+          "resizeFont",
+          "ignoredLineHeight",
+          "metricsReceiver",
+        ].map((name) => [name, true]),
+      ),
+    });
+  },
+);
+
+test.each([
+  ["context.measureText('C').width", "font glyph fallback"],
+  ["context.measureText('שלום').width", "text script itemization or bidi"],
+  ["context.measureText('A'.repeat(1025)).width", "font shaping limit"],
+  [
+    "context.measureText('A'.repeat(1024)); for(let i=0;i<64;i++)context.measureText('A'.repeat(1024));",
+    "font shaping limit",
+  ],
+  ["context.font='bold 16px NimboShape'", "canvas font synthesis or variants"],
+  ["context.font='1em NimboShape'", "canvas contextual font size"],
+  ["context.font='4097px NimboShape'", "font size"],
+  ["context.measureText('A').actualBoundingBoxLeft", "text bounding box metrics"],
+  ["document.fonts.clear(); context.measureText('A').width", "font glyph fallback"],
+] as const)("real HTTP → workerd → Wasm: font shaping boundary %s", async (expression, reason) => {
+  const url = new URL("font-shaping/0", origin.url).href;
+  const run = (source: string) =>
+    worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: source }),
+    });
+  const response = await run(
+    `(async()=>{await globalThis.comparison; const canvas = new OffscreenCanvas(8,8); const context=canvas.getContext('2d'); context.font='16px NimboShape'; ${expression}; return true;})()`,
+  );
+  expect(response.status).toBe(422);
+  const error: unknown = expect.stringContaining(reason);
+  expect(await response.json()).toMatchObject({ error });
+  const healthy = await run("globalThis.comparison");
+  expect(healthy.status).toBe(200);
+  expect(await healthy.json()).toMatchObject({
+    value: { pair: true, kerning: true, accent: true, decomposed: true },
+  });
+});

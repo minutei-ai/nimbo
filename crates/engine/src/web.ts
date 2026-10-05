@@ -11,6 +11,7 @@
   const nativeCanvas = nimboCanvas;
   const nativeCanvasPut = nimboCanvasPut;
   const nativeFontData = nimboFontData;
+  const nativeFontMeasure = nimboFontMeasure;
   const nativeFontMeta = nimboFontMeta;
   const nativeFontMatch = nimboFontMatch;
   // Values are validated by Rust before installing the page bindings.
@@ -31,6 +32,7 @@
   Reflect.deleteProperty(globalThis, "nimboCanvas");
   Reflect.deleteProperty(globalThis, "nimboCanvasPut");
   Reflect.deleteProperty(globalThis, "nimboFontData");
+  Reflect.deleteProperty(globalThis, "nimboFontMeasure");
   Reflect.deleteProperty(globalThis, "nimboFontMeta");
   Reflect.deleteProperty(globalThis, "nimboFontMatch");
   Reflect.deleteProperty(globalThis, "nimboMediaEnvironment");
@@ -4758,6 +4760,7 @@
     resolve: (value: FontFace) => void;
     reject: (reason: unknown) => void;
     data: Uint8Array | null;
+    resource: number;
     resources: FontResource[] | null;
     descriptors: Record<string, string>;
     base: string;
@@ -4834,7 +4837,9 @@
         const response = await nativeRequest(url, "GET", "");
         if (response.status < 200 || response.status >= 300 || response.body === null) continue;
         const data = fontBytes(response.body);
-        if (!nativeFontData(data)) continue;
+        const fontId = nativeFontData(data);
+        if (!fontId) continue;
+        state.resource = fontId;
         state.data = data;
         state.status = "loaded";
         state.resolve(owner);
@@ -4855,7 +4860,13 @@
   >();
   const drawingOwners = new WeakMap<
     object,
-    { canvas: OffscreenCanvas; attributes: Record<string, unknown> }
+    {
+      canvas: OffscreenCanvas;
+      attributes: Record<string, unknown>;
+      font: string;
+      size: number;
+      fonts: { font: string; size: number }[];
+    }
   >();
   const imageOwners = new WeakMap<
     object,
@@ -4998,12 +5009,105 @@
     if (!rect.every(Number.isFinite)) return;
     canvasCall(operation, canvasOwner(drawing.canvas).id, { rect });
   }
+  function resetCanvasFont(canvas: OffscreenCanvas): void {
+    const context = canvasOwner(canvas).context;
+    if (!context) return;
+    const drawing = drawingOwner(context);
+    drawing.font = "10px sans-serif";
+    drawing.size = 10;
+    drawing.fonts.length = 0;
+  }
+  const textWidths = new WeakMap<object, number>();
+  class TextMetrics {
+    constructor() {
+      throw new TypeError("Illegal constructor");
+    }
+    get width(): number {
+      const width = textWidths.get(this);
+      if (width === undefined) throw new TypeError("Illegal TextMetrics invocation");
+      return width;
+    }
+  }
+  Object.defineProperty(TextMetrics.prototype, Symbol.toStringTag, {
+    value: "TextMetrics",
+    configurable: true,
+  });
+  for (const name of [
+    "actualBoundingBoxLeft",
+    "actualBoundingBoxRight",
+    "actualBoundingBoxAscent",
+    "actualBoundingBoxDescent",
+    "fontBoundingBoxAscent",
+    "fontBoundingBoxDescent",
+    "emHeightAscent",
+    "emHeightDescent",
+    "hangingBaseline",
+    "alphabeticBaseline",
+    "ideographicBaseline",
+  ])
+    Object.defineProperty(TextMetrics.prototype, name, {
+      get(this: object) {
+        if (!textWidths.has(this)) throw new TypeError("Illegal TextMetrics invocation");
+        throw new Error("unsupported: text bounding box metrics");
+      },
+      configurable: true,
+    });
   class OffscreenCanvasRenderingContext2D {
     constructor() {
       throw new TypeError("Illegal constructor");
     }
     get canvas(): OffscreenCanvas {
       return drawingOwner(this).canvas;
+    }
+    get font(): string {
+      return drawingOwner(this).font;
+    }
+    set font(value: unknown) {
+      const drawing = drawingOwner(this);
+      const parsed: unknown = JSON.parse(nativeFontMeta("canvasFont", domString(value)));
+      if (parsed === null) return;
+      if (typeof parsed !== "object") throw new Error("Invalid native canvas font");
+      const font: unknown = Reflect.get(parsed, "font"),
+        size: unknown = Reflect.get(parsed, "size");
+      if (typeof font !== "string" || typeof size !== "number")
+        throw new Error("Invalid native canvas font");
+      drawing.font = font;
+      drawing.size = size;
+    }
+    measureText(text: unknown): TextMetrics {
+      const drawing = drawingOwner(this);
+      if (arguments.length < 1) throw new TypeError("measureText requires text");
+      const source = usvString(text).replace(/[\t\n\r\f]/g, " ");
+      let width = 0;
+      if (source.length > 0) {
+        const faces = matchingFonts(documentFonts, drawing.font, source);
+        if (faces.length !== 1) throw new Error("unsupported: font glyph fallback");
+        const selected = faces[0];
+        if (!selected) throw new Error("Invalid native font match");
+        const face = fontState(selected);
+        if (!face.resource || face.status !== "loaded")
+          throw new Error("unsupported: unloaded font shaping");
+        for (const name of [
+          "style",
+          "weight",
+          "stretch",
+          "variant",
+          "featureSettings",
+          "variationSettings",
+          "sizeAdjust",
+          "ascentOverride",
+          "descentOverride",
+          "lineGapOverride",
+        ] as const)
+          if (face.descriptors[name] !== fontDefaults[name])
+            throw new Error("unsupported: font shaping descriptor " + name);
+        // Width is native OpenType shaping, never a JavaScript glyph estimate.
+        width = nativeFontMeasure(face.resource, source, drawing.size);
+      }
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+      const metrics = Object.create(TextMetrics.prototype) as TextMetrics;
+      textWidths.set(metrics, width);
+      return metrics;
     }
     get fillStyle(): string {
       return drawingState(this).fillStyle;
@@ -5075,13 +5179,23 @@
       rectangle(this, "clear", args);
     }
     save(): void {
-      canvasCall("save", canvasOwner(drawingOwner(this).canvas).id);
+      const drawing = drawingOwner(this);
+      canvasCall("save", canvasOwner(drawing.canvas).id);
+      drawing.fonts.push({ font: drawing.font, size: drawing.size });
     }
     restore(): void {
-      canvasCall("restore", canvasOwner(drawingOwner(this).canvas).id);
+      const drawing = drawingOwner(this);
+      canvasCall("restore", canvasOwner(drawing.canvas).id);
+      const state = drawing.fonts.pop();
+      if (state) {
+        drawing.font = state.font;
+        drawing.size = state.size;
+      }
     }
     reset(): void {
-      canvasCall("reset", canvasOwner(drawingOwner(this).canvas).id);
+      const drawing = drawingOwner(this);
+      canvasCall("reset", canvasOwner(drawing.canvas).id);
+      resetCanvasFont(drawing.canvas);
     }
     getImageData(
       x: unknown,
@@ -5160,6 +5274,7 @@
     set width(value: unknown) {
       const id = canvasOwner(this).id;
       canvasCall("resize", id, { width: canvasDimension(value), height: this.height });
+      resetCanvasFont(this);
     }
     get height(): number {
       return canvasCall<number[]>("size", canvasOwner(this).id)[1] ?? 0;
@@ -5167,6 +5282,7 @@
     set height(value: unknown) {
       const id = canvasOwner(this).id;
       canvasCall("resize", id, { width: this.width, height: canvasDimension(value) });
+      resetCanvasFont(this);
     }
     getContext(kind: unknown, options?: unknown): OffscreenCanvasRenderingContext2D | null {
       const owner = canvasOwner(this);
@@ -5198,13 +5314,19 @@
       // Only this bitmap owner can construct a branded context from the private prototype.
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion
       const target = contextObject as OffscreenCanvasRenderingContext2D;
-      drawingOwners.set(target, { canvas: this, attributes });
+      const drawing = {
+        canvas: this,
+        attributes,
+        font: "10px sans-serif",
+        size: 10,
+        fonts: [] as { font: string; size: number }[],
+      };
+      drawingOwners.set(target, drawing);
       const proxy = new Proxy(target, {
         set(object, key, value, receiver) {
           if (
             [
               "strokeStyle",
-              "font",
               "filter",
               "shadowBlur",
               "shadowColor",
@@ -5232,7 +5354,7 @@
           return Reflect.set(object, key, value, receiver);
         },
       });
-      drawingOwners.set(proxy, { canvas: this, attributes });
+      drawingOwners.set(proxy, drawing);
       owner.context = proxy;
       return proxy;
     }
@@ -5268,7 +5390,6 @@
     Object.defineProperty(prototype, Symbol.toStringTag, { value: name, configurable: true });
   for (const name of [
     "drawImage",
-    "measureText",
     "fillText",
     "strokeText",
     "strokeRect",
@@ -5329,6 +5450,7 @@
         resolve,
         reject,
         data: null,
+        resource: 0,
         resources: null,
         descriptors: {},
         base: documentBase(),
@@ -5353,7 +5475,9 @@
           failFont(state, new DOMException("Invalid font source", "SyntaxError"));
       } else {
         const data = fontBytes(source);
-        if (nativeFontData(data)) {
+        const resource = nativeFontData(data);
+        if (resource) {
+          state.resource = resource;
           state.data = data;
           state.status = "loaded";
           state.resolve(this);
@@ -5741,6 +5865,7 @@
     OffscreenCanvas,
     OffscreenCanvasRenderingContext2D,
     ImageData,
+    TextMetrics,
     FontFace,
     FontFaceSet,
     FontFaceSetLoadEvent,
