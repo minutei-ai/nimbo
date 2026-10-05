@@ -45,6 +45,8 @@
     "bench:wpt-contextual-box-lengths": "bun run build:worker && bun run tooling/benchmark-wpt-contextual-box-lengths.ts",
     "bench:wpt-svg-viewport": "bun run build:worker && bun run tooling/benchmark-wpt-svg-viewport.ts",
     "compare:script-modes": "bun run build:worker && bun run tooling/compare-script-modes.ts",
+    "compare:animation-frames": "bun run build:worker && bun run tooling/compare-animation-frames.ts",
+    "bench:wpt-animation-frames": "bun run build:worker && bun run tooling/benchmark-wpt-animation-frames.ts",
     "compare:svg-viewport": "bun run build:worker && bun run tooling/compare-svg-viewport.ts",
     "compare:resolved-box-values": "bun run build:worker && bun run tooling/compare-resolved-box-values.ts"
   },

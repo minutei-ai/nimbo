@@ -1515,10 +1515,9 @@ fn serve_resource(request: Request) -> io::Result<()> {
     if request.url().starts_with("/logical-size/") {
         return serve_logical_size(request);
     }
-    if request.url().starts_with("/script-modes/")
-        || request.url().starts_with("/script-modes-assets/")
+    if request.url().starts_with("/script-modes") || request.url().starts_with("/animation-frames/")
     {
-        return serve_script_modes(request);
+        return serve_scripts(request);
     }
     if request.url().starts_with("/svg-viewport/") {
         return serve_svg_viewport(request);
@@ -1679,6 +1678,7 @@ fn is_resource(path: &str) -> bool {
             "/resolved-box-values/",
             "/svg-viewport/",
             "/script-modes/",
+            "/animation-frames/",
             "/script-modes-assets/",
             "/outlines/",
             "/tabs/",
@@ -3082,7 +3082,10 @@ fn svg_viewports_use_native_intrinsic_sizing() -> TestResult {
     Ok(())
 }
 
-fn serve_script_modes(request: Request) -> io::Result<()> {
+fn serve_scripts(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/animation-frames/") {
+        return serve_animation_frames(request);
+    }
     let path = request.url();
     let (body, mime) = if path == "/script-modes-assets/classic.js" {
         ("externalCreated=modeVariant+1;globalThis.externalReceiver=(function(){return this})();".to_owned(), "text/javascript")
@@ -3122,5 +3125,66 @@ fn classic_scripts_and_expressions_preserve_ecmascript_modes() -> TestResult {
             "{result}"
         );
     }
+    Ok(())
+}
+
+fn serve_animation_frames(request: Request) -> io::Result<()> {
+    let variant = request
+        .url()
+        .rsplit('/')
+        .next()
+        .unwrap_or("0")
+        .parse::<usize>()
+        .map_err(io::Error::other)?;
+    let source = include_str!("fixtures/animation-frames.txt");
+    request.respond(Response::from_string(format!(
+        "<!doctype html><div id=\"value\">initial</div><script>const variant={variant};{source}</script>"
+    )).with_header(header("Content-Type", "text/html")?))
+}
+
+#[test]
+fn animation_frames_snapshot_callbacks_and_interleave_microtasks() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let start = Instant::now();
+        let page = browser.navigate(&fixture.path(&format!("/animation-frames/{variant}")))?;
+        let result = page.evaluate("globalThis.comparison")?;
+        let checks = result.as_object().ok_or("missing animation frame checks")?;
+        assert_eq!(checks.len(), 32);
+        assert!(
+            checks.values().all(|value| value == &json!(true)),
+            "{result}"
+        );
+        assert!(start.elapsed() >= Duration::from_millis(30));
+    }
+    Ok(())
+}
+
+#[test]
+fn animation_frames_share_capacity_and_execution_budgets_with_timers() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = Browser::new(
+        &fixture.url,
+        Limits {
+            max_timers: 2,
+            ..Limits::default()
+        },
+    )?;
+    let page = browser.navigate(&fixture.path("/static"))?;
+    assert!(
+        matches!(page.evaluate("(() => {setTimeout(() => {}, 1000);requestAnimationFrame(() => {});requestAnimationFrame(() => {});})()"), Err(Error::JavaScript(message)) if message.contains("animation frame capacity limit"))
+    );
+    let browser = Browser::new(
+        &fixture.url,
+        Limits {
+            max_timer_tasks: 2,
+            ..Limits::default()
+        },
+    )?;
+    let page = browser.navigate(&fixture.path("/static"))?;
+    assert!(
+        matches!(page.evaluate("new Promise(() => {function tick(){requestAnimationFrame(tick)}requestAnimationFrame(tick)})"), Err(Error::JavaScript(message)) if message.contains("timer task limit"))
+    );
     Ok(())
 }

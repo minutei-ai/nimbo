@@ -549,7 +549,7 @@ evidence cannot establish it.
 | Event dispatch and lifecycle                         | Subset     | Capture/bubble, cancellation, once/passive, native input ordering                                                                            |
 | Classic scripts and Promise jobs                     | Subset     | Source ordering, exception propagation, resource exhaustion                                                                                  |
 | Modules, import maps, JSON modules, dynamic import   | Subset     | Native graphs tested; import maps, JSON and new dynamic fetching missing                                                                     |
-| Timers, animation frames and scheduling              | Subset     | Real-clock timers/cancellation tested; frames, idle and full event loop missing                                                              |
+| Timers, animation frames and scheduling              | Subset     | Real-clock timers and animation callback batches tested; multi-realm frames, idle and full event loop pending                                |
 | Custom elements autônomos                            | Subset     | Native upgrades, lifecycle and failed construction; scoped/built-in/form gaps                                                                |
 | Shadow DOM                                           | Missing    | Slots, composed paths, shadow boundaries and isolation                                                                                       |
 | Frames and independent execution worlds              | Missing    | Same/cross-origin frames, navigation, world isolation                                                                                        |
@@ -2915,3 +2915,55 @@ prevents an async SVG file from completing. Failures and incomplete executions
 are retained; original assertions and helper bytes remain unchanged.
 
 Reference: [ECMAScript strict mode code](https://tc39.es/ecma262/multipage/ecmascript-language-source-code.html#sec-strict-mode-code).
+
+## Animation frame callback scheduling
+
+The owned engine schedules `requestAnimationFrame` and `cancelAnimationFrame`
+using the real host monotonic clock. Animation handles start at one independently
+of timer handles. A rendering opportunity captures the pending handle list and
+one timestamp; each still-present callback is removed before invocation. The
+machine drains microtasks between callbacks, so a preceding callback or its
+microtask can cancel a pending callback. Callbacks registered inside the batch
+wait for a subsequent opportunity. Exceptions use the page's existing error
+reporting path.
+
+Headless opportunities have a nominal 60 Hz cadence. The host waits for actual
+elapsed time; timestamps are not fabricated. This implements callback scheduling,
+not a screen compositor, SVG painting or video playback. The active headless
+context reports visible through readonly `Document.visibilityState` and
+`Document.hidden` getters. Background, freezing and lifecycle transitions remain
+pending. Pending frame callbacks and timer callbacks share the existing capacity,
+execution and navigation deadline budgets.
+
+As with timers, host turns drive the scheduler during navigation and while an
+extraction Promise is pending. A completed synchronous extraction does not wait
+for future animation callbacks. A continuously running page between host calls,
+background scheduling and a complete rendering event loop remain pending.
+
+The [supplemental real HTTP fixture](../crates/engine/tests/fixtures/animation-frames.txt)
+checks 32 contracts over 64 fresh pages: 2048/2048 in native Rust, workerd, celld
+and ordinary Chromium. The [celld and Chromium report](animation-frames-chromium.json)
+retains all individual checks. These include argument and receiver validation,
+handle independence, duplicate callbacks, same-batch timestamps, nested frame
+ordering, cancellation from microtasks, exceptions, DOM mutation and visibility
+getters. Separate native tests enforce shared capacity and execution budgets.
+
+The [original WPT manifest](../tooling/wpt-animation-frame-sources.json) pins
+12 automated HTML files and two harness resources to the same upstream revision
+as the other WPT suites. Source bytes and assertions are unchanged; the existing
+vendor adapter appends reporting only. The [original report](performance-wpt-animation-frames.json)
+records Chromium 16/16, Obscura 13/16 and Nimbo 15/16 original subtests. Nimbo
+passes eleven files; the cross-realm exception file remains incomplete because
+frames are unsupported. Its original obligation remains in the denominator.
+The separately pinned manual cancellation test remains unverified and is not
+counted as an automated pass.
+
+The [original SVG rerun](performance-wpt-svg-animation-frames.json) now completes
+all four files and registers all 72 original Nimbo subtests. Nimbo passes zero;
+all four files fail. The async animated-length file can finally execute its
+assertions, which fail on the missing SVG length APIs. Chromium remains 72/72;
+Obscura passes 27/72 original obligations. Completing execution does not make
+unsupported geometry or animated lengths pass.
+
+References: [HTML animation frame callbacks](https://html.spec.whatwg.org/multipage/imagebitmap-and-animations.html#animation-frames)
+and [page visibility](https://html.spec.whatwg.org/multipage/interaction.html#page-visibility).

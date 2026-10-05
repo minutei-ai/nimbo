@@ -3568,6 +3568,16 @@
     get readyState() {
       return readyState;
     }
+    get visibilityState(): "visible" | "hidden" {
+      if (!(this instanceof Document)) throw new TypeError("Illegal invocation");
+      // The active headless browsing context is foreground. Detached documents
+      // retain the initial hidden state; background lifecycle is not exposed yet.
+      return this === document ? "visible" : "hidden";
+    }
+    get hidden(): boolean {
+      if (!(this instanceof Document)) throw new TypeError("Illegal invocation");
+      return this !== document;
+    }
     get URL() {
       return href;
     }
@@ -3640,7 +3650,7 @@
     }
     return target;
   }
-  for (const key of ["append", "prepend", "cookie"]) {
+  for (const key of ["append", "prepend", "cookie", "hidden", "visibilityState"]) {
     const descriptor = Object.getOwnPropertyDescriptor(Document.prototype, key);
     if (descriptor)
       Object.defineProperty(Document.prototype, key, { ...descriptor, enumerable: true });
@@ -3658,6 +3668,57 @@
     repeat: boolean;
   };
   const timers = new Map<number, Timer>();
+  const animationFrames = new Map<number, (time: number) => unknown>();
+  // Headless rendering opportunities use the host's real monotonic clock.
+  // Frames have their own handle namespace and snapshot, never timer aliases.
+  const frameInterval = 1000 / 60;
+  let nextFrame = 1;
+  let frameDue = 0;
+  let frameBatch: { handles: number[]; index: number; time: number } | undefined;
+  function animationProvider(receiver: unknown) {
+    if (receiver !== undefined && receiver !== null && receiver !== globalThis)
+      throw new TypeError("Illegal invocation");
+  }
+  function requestAnimationFrame(this: unknown, callback: (time: number) => unknown) {
+    animationProvider(this);
+    if (typeof callback !== "function")
+      throw new TypeError("requestAnimationFrame requires a function");
+    if (timers.size + animationFrames.size >= timerLimit)
+      throw new Error("animation frame capacity limit");
+    if (!animationFrames.size && !frameBatch) frameDue = now() + frameInterval;
+    const handle = nextFrame++;
+    animationFrames.set(handle, callback);
+    return handle;
+  }
+  function cancelAnimationFrame(this: unknown, handle: unknown) {
+    animationProvider(this);
+    if (arguments.length === 0) throw new TypeError("cancelAnimationFrame requires a handle");
+    if (typeof handle === "bigint") throw new TypeError("BigInt is not an animation frame handle");
+    animationFrames.delete(Number(handle) >>> 0);
+  }
+  function frameStep(): number {
+    const batch = frameBatch;
+    if (!batch) throw new Error("missing animation frame batch");
+    while (batch.index < batch.handles.length) {
+      const handle = batch.handles[batch.index++];
+      if (handle === undefined) continue;
+      const callback = animationFrames.get(handle);
+      if (!callback) continue;
+      if (timerTasks >= timerTaskLimit) throw new Error("timer task limit");
+      timerTasks++;
+      animationFrames.delete(handle);
+      try {
+        callback(batch.time);
+      } catch (error) {
+        reportListenerError(error);
+      }
+      // The machine drains microtasks between callbacks, preserving this snapshot.
+      if (batch.index === batch.handles.length) frameBatch = undefined;
+      return 0;
+    }
+    frameBatch = undefined;
+    return 0;
+  }
   // Timer strings execute as global scripts in this page's own QuickJS context.
   // oxlint-disable-next-line eslint/no-eval
   const executeScript = eval;
@@ -3671,7 +3732,7 @@
   function schedule(handler: unknown, timeout: unknown, args: unknown[], repeat: boolean) {
     const callback = typeof handler === "function" ? handler : domString(handler);
     const delay = Math.max(0, long(timeout));
-    if (timers.size >= timerLimit) throw new Error("timer capacity limit");
+    if (timers.size + animationFrames.size >= timerLimit) throw new Error("timer capacity limit");
     const id = nextTimer++;
     timers.set(id, {
       // Callable values are validated above; arguments remain page-owned values.
@@ -3712,9 +3773,17 @@
       timerLevel = 0;
       return null;
     }
+    if (frameBatch) return frameStep();
     let selected: [number, Timer] | undefined;
     for (const entry of timers) {
       if (!selected || entry[1].due < selected[1].due) selected = entry;
+    }
+    if (animationFrames.size && (!selected || frameDue <= selected[1].due)) {
+      const time = now();
+      if (frameDue > time) return frameDue - time;
+      frameBatch = { handles: Array.from(animationFrames.keys()), index: 0, time };
+      frameDue = time + frameInterval;
+      return frameStep();
     }
     if (!selected) return null;
     const [id, task] = selected;
@@ -5133,6 +5202,8 @@
     FontFaceSet,
     FontFaceSetLoadEvent,
     setTimeout,
+    requestAnimationFrame,
+    cancelAnimationFrame,
     setInterval,
     clearTimeout,
     clearInterval: clearTimeout,

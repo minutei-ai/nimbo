@@ -66,9 +66,9 @@ pub struct Limits {
     pub max_javascript_ticks: usize,
     /// Microtasks máximas por página, cobrindo também cadeias de Promises.
     pub max_microtasks: usize,
-    /// Timers simultâneos máximos por página.
+    /// Maximum pending timers and animation frame callbacks per page.
     pub max_timers: usize,
-    /// Callbacks de timers máximos por página.
+    /// Maximum timer and animation frame callback executions per page.
     pub max_timer_tasks: usize,
     /// Bytes máximos da expressão de extração.
     pub max_expression_bytes: usize,

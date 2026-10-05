@@ -373,5 +373,15 @@ scenarios; both runtime hashes and all measured samples are retained.
 The [current three-runtime report](performance-comparison-bytecode.json) has
 648 correct attempts. Nimbo wins p50 against Chromium in nine of nine scenarios
 and Obscura in eight of nine; positioned boxes remain slower than Obscura.
-The README uses this snapshot. These local measurements do not prove production
+This snapshot preceded the animation callback changes. These local measurements do not prove production
 latency or complete browser compatibility.
+
+## Animation callback snapshot
+
+The [current three-runtime report](performance-comparison-animation-frames.json)
+records 648 correct extractions and 567 measured samples with the animation
+scheduler enabled. Nimbo wins p50 against Chromium in nine of nine scenarios
+and Obscura in seven of nine. Static HTML with 5000 nodes and positioned boxes
+remain slower than Obscura. The README uses this snapshot; runtime versions,
+Wasm hash, all measured samples and request counts are retained. This is a
+separate measurement, not a causal A/B attribution of the animation changes.

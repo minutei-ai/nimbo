@@ -1,0 +1,67 @@
+{
+  "commit": "03f14d4780c4d981bc84c65679b18e9327a1affe",
+  "files": [
+    {
+      "path": "html/webappapis/animation-frames/callback-cross-realm-report-exception.html",
+      "sha256": "d46a69996539c4a7aa1bb5dc6028ede987f800fa7050c3c3d6ef67e555683771"
+    },
+    {
+      "path": "html/webappapis/animation-frames/callback-exception.html",
+      "sha256": "769fec47dad9244bca2c11bec77895e68b0ebfec9e71e3470d51e48b18121dfa"
+    },
+    {
+      "path": "html/webappapis/animation-frames/callback-handle.html",
+      "sha256": "2c607974886b6bf5f17fc8af90bcf014e2040ea1c8d5defb8e239df4086ed7ba"
+    },
+    {
+      "path": "html/webappapis/animation-frames/callback-invoked.html",
+      "sha256": "d361ecd270ea8e44fa40469c9554b41d46b0092a23cf21572df7cb709ee76916"
+    },
+    {
+      "path": "html/webappapis/animation-frames/callback-multicalls.html",
+      "sha256": "6b5a9619059e8a07d5cf5892d209cc1c663808067070c03000e35e9766ecee4e"
+    },
+    {
+      "path": "html/webappapis/animation-frames/callback-timestamp.html",
+      "sha256": "d5e1e3869ceb493d451b5db026b2f7e3ed8526111fe32cf292413180a848764a"
+    },
+    {
+      "path": "html/webappapis/animation-frames/cancel-invoked.html",
+      "sha256": "681efdeea85c65a0e21ac6e0d77b727eac4fea1b7e212f89132cdf97622e1d85"
+    },
+    {
+      "path": "html/webappapis/animation-frames/cancel-pending.html",
+      "sha256": "0516b5e74c7e1712b3c984949a4dc9a0deaf3e727bd4b8918cf6eef9c209935a"
+    },
+    {
+      "path": "html/webappapis/animation-frames/nested-raf-not-sync.html",
+      "sha256": "e9f32e45a7e70db6a0216b70c88bb7b89209ced904a1307a819a616b22e8fd20"
+    },
+    {
+      "path": "html/webappapis/animation-frames/no-interference-timers.html",
+      "sha256": "52a17d8f9717c03b7a3f4398896134f229ed5c890e948eedc61438c1670104aa"
+    },
+    {
+      "path": "html/webappapis/animation-frames/same-dispatch-time.html",
+      "sha256": "c98710a3535d716c9b3b133a3c70c13ef9e75f3d0641e01a0a618820303fae77"
+    },
+    {
+      "path": "html/webappapis/animation-frames/spurious-frame-callbacks-optimization.html",
+      "sha256": "ae32f33ad9cb06c4bb3871fa18b8142895352be6731b4156f18efbee0ca1c05e"
+    },
+    {
+      "path": "resources/testharness.js",
+      "sha256": "d2399236c2a09c429804ff2299ad6629e17e2b53f17a74dd341e936adb11ae3e"
+    },
+    {
+      "path": "resources/testharnessreport.js",
+      "sha256": "3777176fc736b0a78cf7617b9613b220f635daae7536ec7ebb99c61dbb525aae"
+    }
+  ],
+  "manual_files": [
+    {
+      "path": "html/webappapis/animation-frames/cancel-handle-manual.html",
+      "sha256": "4fd998ef35774c5792f63f5446102434b9b92a9529edbf2d12fb414b9656eb6d"
+    }
+  ]
+}

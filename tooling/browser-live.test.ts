@@ -1,4 +1,5 @@
 import { scriptModesFixture, scriptModesExpression } from "./script-modes-fixture";
+import { animationFramesFixture } from "./animation-frames-fixture";
 import { svgViewportFixture } from "./svg-viewport-fixture";
 import { resolvedBoxValuesFixture } from "./resolved-box-values-fixture";
 import { contextualBoxLengthsFixture } from "./contextual-box-lengths-fixture";
@@ -451,6 +452,8 @@ const origin = Bun.serve({
     if (namespaced) return namespaced;
     const scriptModes = scriptModesFixture(path);
     if (scriptModes) return scriptModes;
+    const animationFrames = animationFramesFixture(path);
+    if (animationFrames) return animationFrames;
     const svg = svgViewportFixture(path);
     if (svg) return svg;
     const resolved = resolvedBoxValuesFixture(path);
@@ -6190,6 +6193,27 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     const value: unknown = Reflect.get(result, "value");
     if (typeof value !== "object" || value === null) throw new Error("Missing checks");
     expect(Object.keys(value)).toHaveLength(37);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: animation frame callbacks variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`animation-frames/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing result");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing checks");
+    expect(Object.keys(value)).toHaveLength(32);
     expect(Object.values(value).every((check) => check === true)).toBe(true);
   },
 );

@@ -125,7 +125,7 @@ The engine implements bounded browser subsets. See the [coverage inventory](docs
 | Surface                          | Current scope                                                                                                                                      |
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | HTML and DOM                     | Parsing, selectors, attributes, text, mutations and selected element interfaces                                                                    |
-| JavaScript                       | Classic scripts, supported modules, live bindings, top-level await, Promises and bounded timers                                                    |
+| JavaScript                       | Classic scripts, supported modules, live bindings, top-level await, Promises, bounded timers and animation callbacks                               |
 | HTTP                             | Redirects, shared HTTP/document cookies, page fetch and per-page isolation; simplified browser networking                                          |
 | URL                              | Native parsing and form encoding, live URLSearchParams and bounded Web IDL bindings; original WPT failures remain                                  |
 | Storage                          | Bounded local/session storage; Worker requests start fresh                                                                                         |
@@ -144,7 +144,7 @@ Constructed CSSOM currently differs from Chromium for a non-configurable indexed
 
 Each extraction owns its page and cookie jar. One active page per isolate is allowed; overlapping requests receive HTTP 429. Effect releases the page and permit on failures.
 
-Defaults include a 10-second deadline, 2 MiB of accumulated HTTP responses, 32 physical requests including redirects, 10,000 DOM operations, 4 MiB of DOM writes, a 32 MiB QuickJS heap, a 64 KiB extraction expression and 10,000 microtasks. Timers have separate limits of 1024 pending timers and 10,000 callbacks.
+Defaults include a 10-second deadline, 2 MiB of accumulated HTTP responses, 32 physical requests including redirects, 10,000 DOM operations, 4 MiB of DOM writes, a 32 MiB QuickJS heap, a 64 KiB extraction expression and 10,000 microtasks. Timers and animation frames share limits of 1024 pending callbacks and 10,000 executions.
 
 QuickJS interrupt budgets bound JavaScript work; they are not elapsed milliseconds. Native callbacks have size/operation limits. The QuickJS heap limit does not describe total isolate memory. Same-origin restrictions do not provide complete SSRF or DNS-rebinding protection; operational destination policies need separate enforcement.
 
@@ -176,6 +176,8 @@ bun run compare:resolved-box-values # native used box CSSOM values and live upda
 bun run bench:wpt-contextual-box-lengths # original unit WPT files
 bun run compare:svg-viewport # outer SVG sizing in celld and Chromium
 bun run compare:script-modes # classic/strict/module semantics in celld and Chromium
+bun run compare:animation-frames # real-clock callback batches and cancellation
+bun run bench:wpt-animation-frames # original animation callback WPT files
 bun run bench:wpt-svg-viewport # original SVG API and image WPT files
 ```
 
@@ -197,21 +199,21 @@ Latency in milliseconds, **p50 / p95**:
 
 | Scenario                | Nimbo / celld |        Obscura |        Chromium |
 | ----------------------- | ------------: | -------------: | --------------: |
-| Static HTML             | 10.81 / 30.30 |  18.45 / 19.98 |   60.27 / 75.11 |
-| Selectors, 200 nodes    |  9.90 / 16.51 |  18.86 / 23.69 |   58.97 / 85.55 |
-| Dynamic fetch           | 10.62 / 15.12 |  20.71 / 26.62 |   64.15 / 72.06 |
-| JS, DOM and events      | 21.78 / 23.82 |  29.80 / 31.23 |   59.51 / 84.54 |
-| JS modules              | 26.24 / 28.88 |  29.53 / 30.50 |   67.60 / 93.40 |
-| JS selectors, 200 nodes | 22.70 / 26.63 |  30.00 / 32.65 |   66.67 / 82.32 |
-| Static HTML, 5000 nodes | 27.88 / 42.20 |  43.16 / 55.81 | 253.30 / 284.76 |
-| Selectors, 5000 nodes   | 36.89 / 48.95 | 98.07 / 108.82 | 254.41 / 301.20 |
-| JS positioned boxes     | 41.86 / 54.83 |  32.11 / 34.22 |   63.59 / 84.88 |
+| Static HTML             | 12.76 / 30.80 |  18.99 / 20.51 |   60.83 / 71.82 |
+| Selectors, 200 nodes    | 16.03 / 18.66 |  19.20 / 21.39 |   59.06 / 67.18 |
+| Dynamic fetch           | 12.81 / 15.82 |  20.81 / 21.93 |   63.22 / 73.84 |
+| JS, DOM and events      | 21.53 / 24.04 |  29.71 / 31.37 |   66.96 / 83.03 |
+| JS modules              | 26.73 / 28.19 |  30.48 / 32.22 |   68.34 / 92.60 |
+| JS selectors, 200 nodes | 25.32 / 27.38 |  31.19 / 33.41 |   67.00 / 87.97 |
+| Static HTML, 5000 nodes | 43.30 / 47.01 |  42.36 / 44.22 | 254.96 / 282.84 |
+| Selectors, 5000 nodes   | 40.73 / 51.71 | 99.01 / 101.57 | 273.16 / 287.78 |
+| JS positioned boxes     | 48.18 / 52.52 |  33.49 / 35.24 |   69.43 / 91.84 |
 
 Nimbo has a lower p50 than Chromium in **9/9** scenarios and Obscura in
-**8/9**. Matching or beating Obscura across the remaining scenarios is still
+**7/9**. Matching or beating Obscura across the remaining scenarios is still
 pending. These local fixtures do not establish general SPA compatibility,
 production throughput, memory consumption or cost. See the
-[raw results](docs/performance-comparison-bytecode.json) and
+[raw results](docs/performance-comparison-animation-frames.json) and
 [reproduction guide](docs/benchmark-comparison.md).
 
 ## Runtime guides
