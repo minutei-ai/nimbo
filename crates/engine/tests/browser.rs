@@ -1515,6 +1515,11 @@ fn serve_resource(request: Request) -> io::Result<()> {
     if request.url().starts_with("/logical-size/") {
         return serve_logical_size(request);
     }
+    if request.url().starts_with("/script-modes/")
+        || request.url().starts_with("/script-modes-assets/")
+    {
+        return serve_script_modes(request);
+    }
     if request.url().starts_with("/svg-viewport/") {
         return serve_svg_viewport(request);
     }
@@ -1673,6 +1678,8 @@ fn is_resource(path: &str) -> bool {
             "/contextual-box-lengths/",
             "/resolved-box-values/",
             "/svg-viewport/",
+            "/script-modes/",
+            "/script-modes-assets/",
             "/outlines/",
             "/tabs/",
             "/line-height/",
@@ -3067,6 +3074,49 @@ fn svg_viewports_use_native_intrinsic_sizing() -> TestResult {
         let result = page.evaluate("globalThis.comparison")?;
         let checks = result.as_object().ok_or("missing SVG viewport checks")?;
         assert_eq!(checks.len(), 39);
+        assert!(
+            checks.values().all(|value| value == &json!(true)),
+            "{result}"
+        );
+    }
+    Ok(())
+}
+
+fn serve_script_modes(request: Request) -> io::Result<()> {
+    let path = request.url();
+    let (body, mime) = if path == "/script-modes-assets/classic.js" {
+        ("externalCreated=modeVariant+1;globalThis.externalReceiver=(function(){return this})();".to_owned(), "text/javascript")
+    } else if path == "/script-modes-assets/module.mjs" {
+        (
+            include_str!("fixtures/script-modes-module.txt").to_owned(),
+            "text/javascript",
+        )
+    } else {
+        let variant = path
+            .rsplit('/')
+            .next()
+            .unwrap_or("0")
+            .parse::<usize>()
+            .map_err(io::Error::other)?;
+        (
+            include_str!("fixtures/script-modes-html.txt")
+                .replace("__VARIANT__", &variant.to_string())
+                .replace("__CASE_SOURCE__", include_str!("fixtures/script-modes.txt")),
+            "text/html",
+        )
+    };
+    request.respond(Response::from_string(body).with_header(header("Content-Type", mime)?))
+}
+
+#[test]
+fn classic_scripts_and_expressions_preserve_ecmascript_modes() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/script-modes/{variant}")))?;
+        let result = page.evaluate(include_str!("fixtures/script-modes-expression.txt"))?;
+        let checks = result.as_object().ok_or("missing script mode checks")?;
+        assert_eq!(checks.len(), 37);
         assert!(
             checks.values().all(|value| value == &json!(true)),
             "{result}"

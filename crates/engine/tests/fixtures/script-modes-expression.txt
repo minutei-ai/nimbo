@@ -1,0 +1,12 @@
+(()=>{
+  const checks=scriptModesCase(modeVariant);
+  checks.pageSource=scriptModesCase.toString().includes('checks.inlineGlobal')&&modeModule.importedSource;
+  expressionCreated=modeVariant;
+  checks.expressionGlobal=expressionCreated===modeVariant&&globalThis.expressionCreated===modeVariant;
+  checks.expressionThis=(function(){return this})()===globalThis;
+  checks.expressionStrict=(function(){'use strict';try{strictExpressionCreated=1;return false}catch(e){return e instanceof ReferenceError}})();
+  return import('nimbo:bindings').then(
+    ()=>{checks.bootstrapNamespace=false;return checks},
+    ()=>{checks.bootstrapNamespace=true;return checks}
+  );
+})()

@@ -9,6 +9,7 @@ export async function compareCssContracts(
   expectedCount: number,
   scope: string,
   scenarios: ReadonlyArray<{ route: string; expectedCount: number }> = [{ route, expectedCount }],
+  expression = "globalThis.comparison",
 ) {
   const binary = process.env.NIMBO_COMPARE_CHROMIUM_BINARY;
   if (!binary) throw new Error("Set NIMBO_COMPARE_CHROMIUM_BINARY to ordinary Chromium");
@@ -43,7 +44,7 @@ export async function compareCssContracts(
             let value: unknown;
             if (runtime === browser.version) {
               // oxlint-disable-next-line eslint/no-await-in-loop
-              value = await browser.extract(url, "globalThis.comparison");
+              value = await browser.extract(url, expression);
             } else {
               // oxlint-disable-next-line eslint/no-await-in-loop
               const response = await fetch(new URL("/scrape", celld.endpoint), {
@@ -52,7 +53,7 @@ export async function compareCssContracts(
                   authorization: `Bearer ${celld.token}`,
                   "content-type": "application/json",
                 },
-                body: JSON.stringify({ url, expression: "globalThis.comparison" }),
+                body: JSON.stringify({ url, expression }),
               });
               // oxlint-disable-next-line eslint/no-await-in-loop
               const body: unknown = await response.json();

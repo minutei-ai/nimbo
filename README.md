@@ -2,7 +2,7 @@
 
 A headless browser engine for scraping JavaScript-driven pages and SPAs. It loads a page, runs its JavaScript and extracts data from the resulting DOM.
 
-Rust owns the browser implementation; QuickJS executes page JavaScript. The same engine runs as WebAssembly in Workers and celld, or through the native CLI.
+Rust owns the browser implementation; QuickJS executes page JavaScript. Browser bindings are compiled to version-matched bytecode during the build; each page creates fresh runtime and DOM state. The same engine runs as WebAssembly in Workers and celld, or through the native CLI.
 
 Nimbo's target is to provide Obscura's browser capabilities inside Cloudflare Workers through its own engine. Obscura is an optional, separate test comparator; it is never a runtime backend, dependency or fallback.
 
@@ -175,6 +175,7 @@ bun run compare:contextual-box-lengths # font/viewport lengths and real geometry
 bun run compare:resolved-box-values # native used box CSSOM values and live updates
 bun run bench:wpt-contextual-box-lengths # original unit WPT files
 bun run compare:svg-viewport # outer SVG sizing in celld and Chromium
+bun run compare:script-modes # classic/strict/module semantics in celld and Chromium
 bun run bench:wpt-svg-viewport # original SVG API and image WPT files
 ```
 
@@ -194,23 +195,23 @@ the expected values over real HTTP, without mocks.
 
 Latency in milliseconds, **p50 / p95**:
 
-| Scenario                | Nimbo / celld |         Obscura |        Chromium |
-| ----------------------- | ------------: | --------------: | --------------: |
-| Static HTML             | 34.32 / 56.93 |   18.32 / 21.23 |   58.56 / 70.10 |
-| Selectors, 200 nodes    | 34.09 / 53.48 |   19.55 / 22.04 |   63.03 / 81.53 |
-| Dynamic fetch           | 39.65 / 56.82 |   21.69 / 26.93 |   63.31 / 80.01 |
-| JS, DOM and events      | 44.12 / 62.78 |   29.50 / 33.06 |   64.71 / 87.21 |
-| JS modules              | 57.08 / 71.31 |   31.26 / 38.46 |   69.12 / 88.48 |
-| JS selectors, 200 nodes | 49.49 / 66.39 |   31.16 / 34.24 |   65.41 / 85.24 |
-| Static HTML, 5000 nodes | 59.76 / 76.60 |   41.90 / 45.65 | 250.15 / 283.42 |
-| Selectors, 5000 nodes   | 57.27 / 78.72 | 100.03 / 142.20 | 258.07 / 299.42 |
-| JS positioned boxes     | 59.36 / 90.28 |   32.96 / 38.24 |   65.86 / 90.97 |
+| Scenario                | Nimbo / celld |        Obscura |        Chromium |
+| ----------------------- | ------------: | -------------: | --------------: |
+| Static HTML             | 10.81 / 30.30 |  18.45 / 19.98 |   60.27 / 75.11 |
+| Selectors, 200 nodes    |  9.90 / 16.51 |  18.86 / 23.69 |   58.97 / 85.55 |
+| Dynamic fetch           | 10.62 / 15.12 |  20.71 / 26.62 |   64.15 / 72.06 |
+| JS, DOM and events      | 21.78 / 23.82 |  29.80 / 31.23 |   59.51 / 84.54 |
+| JS modules              | 26.24 / 28.88 |  29.53 / 30.50 |   67.60 / 93.40 |
+| JS selectors, 200 nodes | 22.70 / 26.63 |  30.00 / 32.65 |   66.67 / 82.32 |
+| Static HTML, 5000 nodes | 27.88 / 42.20 |  43.16 / 55.81 | 253.30 / 284.76 |
+| Selectors, 5000 nodes   | 36.89 / 48.95 | 98.07 / 108.82 | 254.41 / 301.20 |
+| JS positioned boxes     | 41.86 / 54.83 |  32.11 / 34.22 |   63.59 / 84.88 |
 
 Nimbo has a lower p50 than Chromium in **9/9** scenarios and Obscura in
-**1/9**. Matching or beating Obscura across the remaining scenarios is still
+**8/9**. Matching or beating Obscura across the remaining scenarios is still
 pending. These local fixtures do not establish general SPA compatibility,
 production throughput, memory consumption or cost. See the
-[raw results](docs/performance-comparison-svg-viewport.json) and
+[raw results](docs/performance-comparison-bytecode.json) and
 [reproduction guide](docs/benchmark-comparison.md).
 
 ## Runtime guides

@@ -2871,3 +2871,47 @@ Nimbo has lower p50 than Chromium in nine of nine scenarios and Obscura in one
 of nine. These are local fixture measurements, not production or universal SPA
 proof. This run and the preceding run were measured separately; their difference
 is not a causal measurement of the SVG changes.
+
+## Script modes and compiled browser bindings
+
+Classic inline/external scripts and extraction expressions now use their directive
+prologues to select strict mode. Modules and functions with `"use strict"` remain
+strict. The previous engine inherited QuickJS's forced-strict evaluation default,
+which rejected ordinary global assignment and changed `this`, arguments aliasing
+and direct eval behavior. This is corrected at the engine evaluation options.
+
+The [real HTTP fixture](../crates/engine/tests/fixtures/script-modes.txt) checks
+37 conditions across 64 fresh pages: 2368/2368 passed in native Rust, workerd,
+celld and ordinary Chromium. The [comparison report](script-modes-chromium.json)
+retains both runtimes. It covers inline/external scripts, strict directives,
+imports, eval, `this`, arguments, syntax and readonly property operations. It also
+checks that user script/module source remains available through function toString
+and that pages cannot import the engine's internal bindings module. These are
+supplemental contracts, not the full ECMAScript or HTML scripting conformance suites.
+
+Cargo compiles the owned browser binding code once with the same pinned QuickJS
+version used by the engine. Native and Wasm load only that build-generated
+bytecode. Source stripping applies to the engine bindings; page scripts and
+modules still compile from their own source. Every page owns a fresh runtime,
+DOM, callbacks and browser API instances. Page-supplied bytecode is never loaded;
+Obscura remains an isolated comparator only.
+
+The [same-engine A/B report](performance-engine-bytecode.json) records 432 correct
+extractions and 378 measured samples across two persistent celld hosts. Both
+builds have the same script-mode correction; only browser binding initialization
+changes between baseline and candidate. Candidate p50 is lower in nine of nine
+scenarios. The [three-runtime report](performance-comparison-bytecode.json) records
+648 correct extractions and 567 measured samples: Nimbo has lower p50 than Chromium
+in nine of nine scenarios and Obscura in eight of nine. Positioned box geometry
+still loses to Obscura. Neither measurement establishes production performance or
+full SPA/browser compatibility.
+
+The [unmodified SVG WPT rerun](performance-wpt-svg-script-modes.json) retains all
+72 original obligations. Chromium passes 72/72. Nimbo still passes zero: three
+files fail and one remains incomplete. Correct classic-script execution allows
+one previously interrupted file to register its original geometry test; that test
+still fails on unsupported SVG layout. The missing animation-frame callback also
+prevents an async SVG file from completing. Failures and incomplete executions
+are retained; original assertions and helper bytes remain unchanged.
+
+Reference: [ECMAScript strict mode code](https://tc39.es/ecma262/multipage/ecmascript-language-source-code.html#sec-strict-mode-code).

@@ -13,7 +13,7 @@ const build = Effect.tryPromise({
       target: "browser",
       minifyWhitespace: true,
     });
-    // Bun removes redundant directives; QuickJS evaluates this as a script.
+    // Preserve strict semantics in the source; Cargo compiles the IIFE as a module.
     await Bun.write(output, `"use strict";\n${transpiler.transformSync(source)}`);
   },
   catch: (cause) => new BuildError({ cause }),

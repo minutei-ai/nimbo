@@ -363,3 +363,15 @@ and one of nine against Obscura. The report records the Wasm hash and runtime
 versions. This is a separate measurement, not an A/B attribution of changes from
 the preceding build. Supplemental viewport geometry and original SVG WPT results
 are tracked independently in the [coverage inventory](browser-coverage.md#outer-svg-viewport-sizing).
+
+## Compiled browser bindings
+
+The [same-engine comparison](performance-engine-bytecode.json) isolates binding
+initialization between two otherwise matching script-mode builds in celld.
+All 432 attempts are correct. Precompiled binding p50 is lower in nine of nine
+scenarios; both runtime hashes and all measured samples are retained.
+The [current three-runtime report](performance-comparison-bytecode.json) has
+648 correct attempts. Nimbo wins p50 against Chromium in nine of nine scenarios
+and Obscura in eight of nine; positioned boxes remain slower than Obscura.
+The README uses this snapshot. These local measurements do not prove production
+latency or complete browser compatibility.

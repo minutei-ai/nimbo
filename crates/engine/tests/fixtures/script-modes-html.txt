@@ -1,0 +1,20 @@
+<!doctype html><body>
+<script>
+globalThis.modeVariant=__VARIANT__;
+classicCreated=modeVariant;
+globalThis.classicTopThis=this;
+__CASE_SOURCE__
+</script>
+<script src="/script-modes-assets/classic.js"></script>
+<script>
+"use strict";
+globalThis.strictSourceThis=this;
+try{strictSourceCreated=1;globalThis.strictSourceRejected=false}
+catch(e){globalThis.strictSourceRejected=e instanceof ReferenceError}
+</script>
+<script type="module">
+import {importedStrictMode} from '/script-modes-assets/module.mjs';
+globalThis.modeModule={thisValue:this===undefined,functionThis:(function(){return this})()===undefined,imported:importedStrictMode(),importedSource:importedStrictMode.toString().includes('importedModuleCreated')};
+try{moduleCreated=1;modeModule.assign=false}
+catch(e){modeModule.assign=e instanceof ReferenceError}
+</script>

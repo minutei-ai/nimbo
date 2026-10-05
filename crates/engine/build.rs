@@ -1,4 +1,4 @@
-//! Compila a ponte TypeScript para o diretório de artefatos do Cargo.
+//! Compile the owned browser bindings into version-matched `QuickJS` bytecode.
 
 use std::{
     env,
@@ -23,12 +23,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .current_dir(root)
         .arg("run")
         .arg("tooling/build-web.ts")
-        .arg(output)
+        .arg(&output)
         .status()?;
     if !status.success() {
         return Err(
             "TypeScript bridge compilation failed; run bun install --frozen-lockfile".into(),
         );
     }
+    let source = std::fs::read_to_string(&output)?;
+    let source = source
+        .strip_prefix("\"use strict\";\n")
+        .ok_or("missing browser bindings strict prologue")?;
+    let source = format!("export default {source}");
+    let runtime = rquickjs::Runtime::new()?;
+    let context = rquickjs::Context::full(&runtime)?;
+    let bytes = context.with(|ctx| {
+        rquickjs::Module::declare(ctx, "nimbo:bindings", source)?.write(rquickjs::WriteOptions {
+            endianness: rquickjs::WriteOptionsEndianness::Little,
+            strip_source: true,
+            ..rquickjs::WriteOptions::default()
+        })
+    })?;
+    std::fs::write(output.with_extension("bytecode"), bytes)?;
     Ok(())
 }

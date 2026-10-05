@@ -1,0 +1,37 @@
+function scriptModesCase(v) {
+  const checks={};
+  checks.inlineGlobal=classicCreated===v&&globalThis.classicCreated===v;
+  checks.inlineThis=classicTopThis===globalThis;
+  checks.externalGlobal=externalCreated===v+1;
+  checks.externalThis=externalReceiver===globalThis;
+  checks.freeThis=(function(){return this})()===globalThis;
+  checks.nullThis=(function(){return this}).call(null)===globalThis;
+  checks.undefinedThis=(function(){return this}).call(undefined)===globalThis;
+  checks.boxedThis=typeof (function(){return this}).call(v)==='object';
+  checks.argumentAlias=(function(a){a+=1;return arguments[0]===v+1})(v);
+  checks.argumentWrite=(function(a){arguments[0]+=1;return a===v+1})(v);
+  checks.directEval=(function(){eval('classicDirectEval='+v);return globalThis.classicDirectEval===v})();
+  checks.evalBinding=(function(){eval('var fromEval=7');return fromEval===7})();
+  checks.indirectEval=(0,eval)('indirectCreated=11;indirectCreated')===11;
+  const locked=Object.defineProperty({},'fixed',{value:1,configurable:false});
+  checks.readonly=(function(){locked.fixed=2;return locked.fixed===1})();
+  checks.deleteReadonly=(function(){return delete locked.fixed===false})();
+  checks.primitiveWrite=(function(){(7).property=1;return true})();
+  checks.withStatement=eval('with({x:8}){x}')===8;
+  checks.legacyOctal=eval('010')===8;
+  checks.duplicateParameters=eval('(function(x,x){return x})(1,2)')===2;
+  checks.blockFunction=(function(){if(true){function annex(){return 9}}return annex()===9})();
+  checks.strictSource=strictSourceRejected===true&&strictSourceThis===globalThis;
+  checks.strictThis=(function(){'use strict';return this})()===undefined;
+  checks.strictPrimitiveThis=(function(){'use strict';return this}).call(v)===v;
+  checks.strictArgument=(function(a){'use strict';a+=1;return arguments[0]===v})(v);
+  checks.strictEval=(function(){'use strict';try{eval('strictEvalCreated=1');return false}catch(e){return e instanceof ReferenceError}})();
+  checks.strictReadonly=(function(){'use strict';try{locked.fixed=2;return false}catch(e){return e instanceof TypeError}})();
+  checks.strictDelete=(function(){'use strict';try{delete locked.fixed;return false}catch(e){return e instanceof TypeError}})();
+  checks.strictSyntax=(function(){'use strict';try{eval('with({x:1}){x}');return false}catch(e){return e instanceof SyntaxError}})();
+  checks.moduleThis=modeModule.thisValue===true;
+  checks.moduleAssign=modeModule.assign===true;
+  checks.moduleFunction=modeModule.functionThis===true;
+  checks.moduleImport=modeModule.imported===true;
+  return checks;
+}

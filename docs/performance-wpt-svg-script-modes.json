@@ -1,0 +1,568 @@
+{
+  "date": "2026-10-05",
+  "source": "https://github.com/web-platform-tests/wpt",
+  "source_commit": "03f14d4780c4d981bc84c65679b18e9327a1affe",
+  "files": [
+    "svg/geometry/svg-baseval-in-display-none.html",
+    "svg/geometry/svg-geometry-apis-in-non-rendered-elements.html",
+    "svg/geometry/svg-get-bounding-client-rect-in-non-rendered-elements.html",
+    "svg/geometry/svg-image-intrinsic-size-with-cssstyle-auto.html"
+  ],
+  "scope": "Four original SVG WPT HTML files: animated lengths, non-rendered graphics geometry and bounding client rectangles, and image intrinsic sizing; original harness, Ahem font and PNG; source bytes and assertions unchanged; reporting-only adapter; real HTTP; default limits; no mocks; unsupported SVG APIs and rendering failures retained; separate from supplemental outer viewport checks",
+  "results": [
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "svg/geometry/svg-baseval-in-display-none.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 3,
+        "passed": 3,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "svg/geometry/svg-baseval-in-display-none.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 3,
+        "passed": 0,
+        "failed": [
+          {
+            "name": "With em",
+            "status": 1,
+            "message": "Cannot read properties of undefined (reading 'baseVal')"
+          },
+          {
+            "name": "With em and percentage",
+            "status": 1,
+            "message": "Cannot read properties of undefined (reading 'baseVal')"
+          },
+          {
+            "name": "Width with 30% of 400 viewport (float rounding)",
+            "status": 1,
+            "message": "Cannot read properties of undefined (reading 'baseVal')"
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "svg/geometry/svg-baseval-in-display-none.html",
+      "status": "incomplete",
+      "error": "Error: HTTP 504: scrape deadline or invalid input"
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "svg/geometry/svg-geometry-apis-in-non-rendered-elements.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 36,
+        "passed": 36,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "svg/geometry/svg-geometry-apis-in-non-rendered-elements.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 36,
+        "passed": 27,
+        "failed": [
+          {
+            "name": "rendered rect has a box, getBoundingClientRect()",
+            "status": 1,
+            "message": "assert_equals: width expected 10 but got 0"
+          },
+          {
+            "name": "rendered rect has a box, getClientRects()",
+            "status": 1,
+            "message": "assert_equals: expected 1 but got 0"
+          },
+          {
+            "name": "rect with visibility:hidden has a box, getBoundingClientRect()",
+            "status": 1,
+            "message": "assert_equals: width expected 10 but got 0"
+          },
+          {
+            "name": "rect with visibility:hidden has a box, getClientRects()",
+            "status": 1,
+            "message": "assert_equals: expected 1 but got 0"
+          },
+          {
+            "name": "rect in <g opacity=0> has a box, getBoundingClientRect()",
+            "status": 1,
+            "message": "assert_equals: width expected 10 but got 0"
+          },
+          {
+            "name": "rect in <g opacity=0> has a box, getClientRects()",
+            "status": 1,
+            "message": "assert_equals: expected 1 but got 0"
+          },
+          {
+            "name": "rect in <g visibility=hidden> has a box, getBoundingClientRect()",
+            "status": 1,
+            "message": "assert_equals: width expected 10 but got 0"
+          },
+          {
+            "name": "rect in <g visibility=hidden> has a box, getClientRects()",
+            "status": 1,
+            "message": "assert_equals: expected 1 but got 0"
+          },
+          {
+            "name": "display is honoured when toggled on an ancestor after layout",
+            "status": 1,
+            "message": "assert_equals: width while rendered expected 10 but got 0"
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "svg/geometry/svg-geometry-apis-in-non-rendered-elements.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 36,
+        "passed": 0,
+        "failed": [
+          {
+            "name": "rect in <mask> has no box, getBoundingClientRect()",
+            "status": 1,
+            "message": "DOM: layout unsupported: display formatting"
+          },
+          {
+            "name": "rect in <mask> has no box, getClientRects()",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "rect in <clipPath> has no box, getBoundingClientRect()",
+            "status": 1,
+            "message": "DOM: layout unsupported: display formatting"
+          },
+          {
+            "name": "rect in <clipPath> has no box, getClientRects()",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "rect in <marker> has no box, getBoundingClientRect()",
+            "status": 1,
+            "message": "DOM: layout unsupported: display formatting"
+          },
+          {
+            "name": "rect in <marker> has no box, getClientRects()",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "rect in <linearGradient> has no box, getBoundingClientRect()",
+            "status": 1,
+            "message": "DOM: layout unsupported: display formatting"
+          },
+          {
+            "name": "rect in <linearGradient> has no box, getClientRects()",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "rect in <filter> has no box, getBoundingClientRect()",
+            "status": 1,
+            "message": "DOM: layout unsupported: display formatting"
+          },
+          {
+            "name": "rect in <filter> has no box, getClientRects()",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "rect in <symbol> has no box, getBoundingClientRect()",
+            "status": 1,
+            "message": "DOM: layout unsupported: display formatting"
+          },
+          {
+            "name": "rect in <symbol> has no box, getClientRects()",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "rect in <g> with CSS display:none has no box, getBoundingClientRect()",
+            "status": 1,
+            "message": "DOM: layout unsupported: display formatting"
+          },
+          {
+            "name": "rect in <g> with CSS display:none has no box, getClientRects()",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "rect three levels below <g display=none> has no box, getBoundingClientRect()",
+            "status": 1,
+            "message": "DOM: layout unsupported: display formatting"
+          },
+          {
+            "name": "rect three levels below <g display=none> has no box, getClientRects()",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<g> in <defs> has no box, getBoundingClientRect()",
+            "status": 1,
+            "message": "DOM: layout unsupported: display formatting"
+          },
+          {
+            "name": "<g> in <defs> has no box, getClientRects()",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<text> in <g display=none> has no box, getBoundingClientRect()",
+            "status": 1,
+            "message": "DOM: layout unsupported: display formatting"
+          },
+          {
+            "name": "<text> in <g display=none> has no box, getClientRects()",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<image> in <g display=none> has no box, getBoundingClientRect()",
+            "status": 1,
+            "message": "DOM: layout unsupported: display formatting"
+          },
+          {
+            "name": "<image> in <g display=none> has no box, getClientRects()",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<foreignObject> in <g display=none> has no box, getBoundingClientRect()",
+            "status": 1,
+            "message": "DOM: layout unsupported: display formatting"
+          },
+          {
+            "name": "<foreignObject> in <g display=none> has no box, getClientRects()",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<use> in <g display=none> has no box, getBoundingClientRect()",
+            "status": 1,
+            "message": "DOM: layout unsupported: display formatting"
+          },
+          {
+            "name": "<use> in <g display=none> has no box, getClientRects()",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "rendered rect has a box, getBoundingClientRect()",
+            "status": 1,
+            "message": "DOM: layout unsupported: display formatting"
+          },
+          {
+            "name": "rendered rect has a box, getClientRects()",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "rect with visibility:hidden has a box, getBoundingClientRect()",
+            "status": 1,
+            "message": "DOM: layout unsupported: display formatting"
+          },
+          {
+            "name": "rect with visibility:hidden has a box, getClientRects()",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "rect in <g opacity=0> has a box, getBoundingClientRect()",
+            "status": 1,
+            "message": "DOM: layout unsupported: display formatting"
+          },
+          {
+            "name": "rect in <g opacity=0> has a box, getClientRects()",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "rect in <g visibility=hidden> has a box, getBoundingClientRect()",
+            "status": 1,
+            "message": "DOM: layout unsupported: display formatting"
+          },
+          {
+            "name": "rect in <g visibility=hidden> has a box, getClientRects()",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "display is honoured when toggled on an ancestor after layout",
+            "status": 1,
+            "message": "DOM: layout unsupported: display formatting"
+          },
+          {
+            "name": "rect in a subtree that was never inserted has no box",
+            "status": 1,
+            "message": "not a function"
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "svg/geometry/svg-get-bounding-client-rect-in-non-rendered-elements.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 1,
+        "passed": 1,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "svg/geometry/svg-get-bounding-client-rect-in-non-rendered-elements.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 1,
+        "passed": 0,
+        "failed": [
+          {
+            "name": "Get Bounding Client Rect",
+            "status": 1,
+            "message": "assert_equals: rect6 expected 10 but got 0"
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "svg/geometry/svg-get-bounding-client-rect-in-non-rendered-elements.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 1,
+        "passed": 0,
+        "failed": [
+          {
+            "name": "Get Bounding Client Rect",
+            "status": 1,
+            "message": "DOM: layout unsupported: display formatting"
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "svg/geometry/svg-image-intrinsic-size-with-cssstyle-auto.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 32,
+        "passed": 32,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "svg/geometry/svg-image-intrinsic-size-with-cssstyle-auto.html",
+      "status": "failed",
+      "verdict": {
+        "status": 2,
+        "message": null,
+        "total": 0,
+        "passed": 0,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "svg/geometry/svg-image-intrinsic-size-with-cssstyle-auto.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 32,
+        "passed": 0,
+        "failed": [
+          {
+            "name": "<svg:image> 'auto' sizing with 256x256 png image, attributes width='64' height='64'",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<svg:image> 'auto' sizing with 256x256 png image, attributes width='128' height='64' and CSS 'width:auto'",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<svg:image> 'auto' sizing with 256x256 png image, attributes width='64' height='128' and CSS 'height:auto'",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<svg:image> 'auto' sizing with 256x256 png image, attributes width='64' height='64' and CSS 'width:auto; height:auto'",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<svg:image> 'auto' sizing with default sized svg image, attributes width='50' height='50'",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<svg:image> 'auto' sizing with 200x100 svg image, attributes width='50' height='50' and CSS 'width:auto; height:auto'",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<svg:image> 'auto' sizing with 200x100 svg image, attributes width='50' height='50' and CSS 'width:auto'",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<svg:image> 'auto' sizing with 200x100 svg image, without attributes width and height and CSS 'width:auto'",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<svg:image> 'auto' sizing with 200x100 svg image, attributes height='50' and 'width:auto'",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<svg:image> 'auto' sizing with 200x100 svg image, attributes width='50' and CSS height:auto",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<svg:image> 'auto' sizing with default sized svg image, attributes width='200' height='200' and CSS 'width:auto; height:auto'",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<svg:image> 'auto' sizing with default sized svg image, attributes height='200' and CSS 'width:auto; height:auto'",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<svg:image> 'auto' sizing with default sized svg image, attributes width='200' and CSS 'width:auto; height:auto'",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<svg:image> 'auto' sizing with default sized svg image, without attributes width and height, no css width/height specified",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<svg:image> 'auto' sizing with default sized svg image viewBox='0 0 400 100', attributes width='60' height='60' and no css width/height specified",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<svg:image> 'auto' sizing with default sized svg image viewBox='0 0 400 100', attributes width='60' height='60' and CSS 'width:auto'",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<svg:image> 'auto' sizing with default sized svg image viewBox='0 0 400 100', attributes width='60' height='60' and CSS 'height:auto'",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<svg:image> 'auto' sizing with default sized svg image viewBox='0 0 400 100', attributes width='60' height='60' and CSS 'width:auto; height:auto'",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<svg:image> 'auto' sizing with svg image width='200' viewBox='0 0 400 100', attributes width='60' height='60' and no css width/height specified",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<svg:image> 'auto' sizing with svg image width='200' viewBox='0 0 400 100', attributes width='60' height='60' and CSS 'width:auto'",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<svg:image> 'auto' sizing with svg image width='200' viewBox='0 0 400 100', attributes width='60' height='60' and CSS 'height:auto'",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<svg:image> 'auto' sizing with svg image width='200' viewBox='0 0 400 100', attributes width='60' height='60' and CSS 'width:auto; height:auto'",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<svg:image> 'auto' sizing with svg image height='100' viewBox='0 0 400 100', attributes width='60' height='60' and no css width/height specified",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<svg:image> 'auto' sizing with svg image height='100' viewBox='0 0 400 100', attributes width='60' height='60' and CSS 'width:auto'",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<svg:image> 'auto' sizing with svg image height='100' viewBox='0 0 400 100', attributes width='60' height='60' and CSS 'height:auto'",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<svg:image> 'auto' sizing with svg image height='100' viewBox='0 0 400 100', attributes width='60' height='60' and CSS 'width:auto; height:auto'",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<svg:image> 'auto' sizing with 200x100 svg image viewBox='0 0 400 100', attributes width='60' height='60' and no css width/height specified",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<svg:image> 'auto' sizing with 200x100 svg image viewBox='0 0 400 100', attributes width='60' height='60' and CSS 'width:auto'",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<svg:image> 'auto' sizing with 200x100 svg image viewBox='0 0 400 100', attributes width='60' height='60' and CSS 'height:auto'",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<svg:image> 'auto' sizing with 200x100 svg image viewBox='0 0 400 100', attributes width='60' height='60' and CSS 'width:auto; height:auto'",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<svg:image> 'auto' sizing with default sized svg image, attributes width='60' height='60' and CSS 'height:auto'",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "<svg:image> 'auto' sizing with default sized svg image, attributes width='60' height='60' and CSS 'width:auto'",
+            "status": 1,
+            "message": "not a function"
+          }
+        ]
+      }
+    }
+  ]
+}

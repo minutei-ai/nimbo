@@ -8,6 +8,9 @@ publish.workspace = true
 [lib]
 crate-type = ["rlib", "cdylib"]
 
+[build-dependencies]
+rquickjs = { version = "=0.14.0", features = ["loader"] }
+
 [dependencies]
 cookie_store = { version = "=0.22.1", default-features = false }
 psl = "=2.1.239"
