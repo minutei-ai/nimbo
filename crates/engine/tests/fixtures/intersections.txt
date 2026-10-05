@@ -58,7 +58,7 @@ globalThis.comparison = (async () => {
   clipped.observer.disconnect();target.removeAttribute('hidden');middle.remove();root.appendChild(target);target.style.width='0px';
   const zeroWatch=watch(target);const zeroEntry=(await zeroWatch.first)[0];const zeroArea=zeroEntry.isIntersecting && zeroEntry.intersectionRatio===1 && zeroEntry.boundingClientRect.width===0;
   zeroWatch.observer.disconnect();target.remove();
-  const detachedWatch=watch(target);const detachedEntry=(await detachedWatch.first)[0];const detached=!detachedEntry.isIntersecting && detachedEntry.boundingClientRect.width===0;const detachedRootBounds=detachedEntry.rootBounds.width===100;
+  const detachedWatch=watch(target);const detachedEntry=(await detachedWatch.first)[0];const detached=!detachedEntry.isIntersecting && detachedEntry.boundingClientRect.width===0;const detachedRootBounds=detachedEntry.rootBounds.width===0 && detachedEntry.rootBounds.height===0;
   detachedWatch.observer.disconnect();document.body.appendChild(target);target.style.width='40px';
   const unrelatedWatch=watch(target);const unrelatedEntries=await Promise.race([unrelatedWatch.first,new Promise(resolve=>setTimeout(()=>resolve([]),100))]);const unrelatedEntry=unrelatedEntries[0];const unrelated=!!unrelatedEntry && !unrelatedEntry.isIntersecting && unrelatedEntry.boundingClientRect.width===0;
   unrelatedWatch.observer.disconnect();root.appendChild(target);

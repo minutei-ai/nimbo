@@ -64,7 +64,9 @@ impl Context {
                 let value =
                     FontSize::parse_string(&value).map_err(|_error| unsupported("font-size"))?;
                 match value {
-                    FontSize::Length(value) => self.percentage_length(&value, 0, work)?,
+                    FontSize::Length(value) => {
+                        self.percentage_length(&value, self.size, 0, work)?
+                    }
                     FontSize::Absolute(AbsoluteFontSize::Medium) => self.initial,
                     _ => return Err(unsupported("font-size keyword")),
                 }
@@ -101,7 +103,15 @@ impl Context {
         value: &LengthPercentage,
         work: &mut Work<'_>,
     ) -> Result<f64> {
-        let value = self.percentage_length(value, 0, work)?;
+        self.box_length(value, self.size, work)
+    }
+    pub(crate) fn box_length(
+        &self,
+        value: &LengthPercentage,
+        basis: f64,
+        work: &mut Work<'_>,
+    ) -> Result<f64> {
+        let value = self.percentage_length(value, basis, 0, work)?;
         if !value.is_finite() {
             return Err(unsupported("non-finite contextual length"));
         }
@@ -110,15 +120,16 @@ impl Context {
     fn percentage_length(
         &self,
         value: &LengthPercentage,
+        basis: f64,
         depth: usize,
         work: &mut Work<'_>,
     ) -> Result<f64> {
         match value {
             LengthPercentage::Dimension(value) => self.unit(value),
-            LengthPercentage::Percentage(value) => Ok(f64::from(value.0) * self.size),
+            LengthPercentage::Percentage(value) => Ok(f64::from(value.0) * basis),
             LengthPercentage::Calc(value) => {
                 calculate(value, depth, work, &|value, depth, work| {
-                    self.percentage_length(value, depth, work)
+                    self.percentage_length(value, basis, depth, work)
                 })
             }
         }

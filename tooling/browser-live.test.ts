@@ -6929,3 +6929,62 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     });
   },
 );
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: clip geometry variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`clip-geometry/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      value: Object.fromEntries(
+        [
+          "hiddenTarget",
+          "rootClip",
+          "empty",
+          "emptySeparated",
+          "degenerate",
+          "inset",
+          "box",
+          "mutation",
+          "none",
+          "polygon",
+          "calc",
+          "em",
+          "viewport",
+          "escaped",
+          "nonContainingRoot",
+        ].map((key) => [key, true]),
+      ),
+    });
+  },
+);
+
+test.each(["circle(25%)", 'url("#shape")', "inset(10%) content-box", "inset(10% round 4px)"])(
+  "real HTTP → workerd → Wasm: unsupported clip shape %s and recovery",
+  async (css) => {
+    const url = new URL("clip-geometry/0", origin.url).href;
+    const request = (expression: string) =>
+      worker.dispatchFetch("https://nimbo.test/scrape", {
+        method: "POST",
+        headers: { authorization: "Bearer test-secret" },
+        body: JSON.stringify({ url, expression }),
+      });
+    const failed = await request(
+      `(()=>{const e=document.createElement('div');e.style.clipPath=${JSON.stringify(css)};document.body.append(e);return e.getBoundingClientRect();})()`,
+    );
+    expect(failed.status).toBe(422);
+    expect(await failed.text()).toContain("clip-path");
+    const healthy = await request("globalThis.comparison");
+    expect(healthy.status).toBe(200);
+    expect(await healthy.json()).toMatchObject({
+      value: { inset: true, polygon: true, calc: true },
+    });
+  },
+);

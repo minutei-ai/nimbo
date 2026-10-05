@@ -18,6 +18,7 @@ pub(crate) struct Snapshot {
     fixed: HashSet<NodeId>,
     box_nodes: HashMap<taffy::NodeId, NodeId>,
     sticky: HashMap<taffy::NodeId, Rect<LengthPercentageAuto>>,
+    clips: HashMap<taffy::NodeId, super::clipping::Clip>,
     scroll: ScrollState,
     viewport: Size<f64>,
 }
@@ -29,6 +30,7 @@ pub(super) struct View<'a> {
     fixed: &'a HashSet<NodeId>,
     box_nodes: &'a HashMap<taffy::NodeId, NodeId>,
     sticky: &'a HashMap<taffy::NodeId, Rect<LengthPercentageAuto>>,
+    pub(super) clips: &'a HashMap<taffy::NodeId, super::clipping::Clip>,
     scroll: &'a ScrollState,
     viewport: Size<f64>,
 }
@@ -56,6 +58,7 @@ impl Snapshot {
             fixed: &self.fixed,
             box_nodes: &self.box_nodes,
             sticky: &self.sticky,
+            clips: &self.clips,
             scroll: &self.scroll,
             viewport: self.viewport,
         }
@@ -75,7 +78,10 @@ impl View<'_> {
         let Some(id) = self.ids.get(&target.id) else {
             return Ok(Bounds::default());
         };
-        self.visual(*id).map(|frame| frame.bounds)
+        self.native_rect(*id)
+    }
+    pub(super) fn native_rect(&self, id: taffy::NodeId) -> Result<Bounds> {
+        self.visual(id).map(|frame| frame.bounds)
     }
 }
 
@@ -314,6 +320,7 @@ pub(crate) fn snapshot(
             fixed: std::mem::take(&mut tree.fixed),
             box_nodes: std::mem::take(&mut tree.box_nodes),
             sticky: std::mem::take(&mut tree.sticky),
+            clips: std::mem::take(&mut tree.clips),
             scroll: tree.scroll.clone(),
             viewport: tree.viewport,
         })

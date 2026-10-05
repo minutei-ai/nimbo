@@ -116,7 +116,7 @@ impl Margins {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Observation {
     root_bounds: Bounds,
@@ -184,23 +184,43 @@ pub(super) fn observe(
         Bounds::default()
     };
     let mut intersection = present.then(|| bounding_client_rect.clone());
-    for ancestor in target.ancestors_it(None) {
+    let root_id = root.and_then(|root| tree.ids.get(&root.id)).copied();
+    let mut ancestor = tree
+        .ids
+        .get(&target.id)
+        .and_then(|id| tree.boxes.parent(*id));
+    let mut reached_root = root.is_none();
+    while let Some(id) = ancestor {
         work.charge()?;
-        if root.is_some_and(|root| ancestor.id == root.id) {
+        if Some(id) == root_id {
+            reached_root = true;
             break;
         }
-        let Some(id) = tree.ids.get(&ancestor.id) else {
-            continue;
-        };
+        ancestor = tree.boxes.parent(id);
         let style = tree
             .boxes
-            .style(*id)
+            .style(id)
             .map_err(|error| super::layout_error(&error))?;
         let x = style.overflow.x != Overflow::Visible;
         let y = style.overflow.y != Overflow::Visible;
         if x || y {
-            let bounds = tree.rect(ancestor)?;
+            let bounds = tree.native_rect(id)?;
             intersection = intersection.and_then(|rect| clip(rect, &bounds, x, y));
+        }
+    }
+    if !reached_root {
+        return Ok(Observation::default());
+    }
+    for ancestor in target.ancestors_it(None) {
+        work.charge()?;
+        if root.is_some_and(|root| root.id == ancestor.id) {
+            break;
+        }
+        if let Some(id) = tree.ids.get(&ancestor.id)
+            && let Some(path) = tree.clips.get(id)
+        {
+            let bounds = path.bounds(&tree.native_rect(*id)?, work)?;
+            intersection = intersection.and_then(|rect| clip(rect, &bounds, true, true));
         }
     }
     intersection = intersection.and_then(|rect| clip(rect, &root_bounds, true, true));

@@ -10,6 +10,7 @@ use crate::{
     styles::{Declarations, Variables},
 };
 
+mod clipping;
 mod inline;
 mod lengths;
 pub(crate) mod logical;
@@ -321,6 +322,7 @@ fn style_properties(
             continue;
         }
         match name {
+            "clip-path" => {}
             "appearance"
                 if crate::html_boxes::appearance(node, value, style.display, generated) => {}
             "writing-mode"
@@ -542,6 +544,7 @@ struct Tree<'a, 'b> {
     orders: HashMap<taffy::NodeId, i32>,
     inline_atoms: HashSet<taffy::NodeId>,
     sticky: HashMap<taffy::NodeId, Rect<LengthPercentageAuto>>,
+    clips: HashMap<taffy::NodeId, clipping::Clip>,
     percentage_padding: Vec<(taffy::NodeId, Rect<LengthPercentage>)>,
     scroll: &'a ScrollState,
     fonts: &'a std::cell::RefCell<crate::font_data::Arena>,
@@ -817,6 +820,13 @@ impl Tree<'_, '_> {
         self.remember_padding(id)?;
         self.ids.insert(node, id);
         self.box_nodes.insert(id, node);
+        let (value, deferred) = declarations.value("clip-path");
+        if deferred {
+            return Err(unsupported("clip-path variable substitution"));
+        }
+        if let Some(clip) = clipping::Clip::parse(&value, *fonts, self.work)? {
+            self.clips.insert(id, clip);
+        }
         if position == "sticky" {
             self.sticky
                 .insert(id, geometry::insets(declarations, fonts, self.work)?);
@@ -1022,6 +1032,7 @@ fn scene<T>(
             orders: HashMap::new(),
             inline_atoms: HashSet::new(),
             sticky: HashMap::new(),
+            clips: HashMap::new(),
             percentage_padding: Vec::new(),
             scroll: styles.scroll,
             fonts: styles.fonts,
