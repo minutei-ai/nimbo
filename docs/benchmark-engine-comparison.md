@@ -72,3 +72,26 @@ was not reproduced here. Its cause remains unproven.
 These are local synthetic extraction measurements, not production throughput,
 arbitrary website compatibility or evidence that every browser feature passes.
 See the [coverage inventory](browser-coverage.md) for remaining capability gaps.
+
+## Layout snapshot delivery
+
+The [alternating nine-scenario comparison](performance-engine-ab-layout-snapshot.json)
+uses the published animation-frame engine as baseline and the layout snapshot
+plus stylesheet replacement delivery as candidate. Both complete 216 attempts
+(432 total), with zero failures and 378 measured samples. The report records
+both Wasm hashes. The candidate includes CSSOM bindings and implementation
+changes as well as layout reuse, so this run does not isolate layout alone.
+
+Positioned-box p50 changes from 42.36 to 41.50 ms and p95 from 52.16 to
+49.36 ms. Candidate p50 is lower in two of nine scenarios and higher in seven;
+static p95 also increases from 17.19 to 24.73 ms. This is not an all-scenario
+performance win or statistical proof of improvement. Every retained sample and
+failure count is available in the raw report.
+
+The [final-bundle repeat](performance-engine-ab-layout-snapshot-repeat.json)
+includes the subsequent oversized asynchronous replacement recovery fix. All
+432 attempts pass, with zero failures and 378 measured samples. Candidate p50
+is lower in four of nine scenarios. Positioned-box p50 changes from 49.55 to
+46.92 ms and p95 from 61.48 to 57.08 ms. Static p95 increases from 22.85
+to 31.43 ms. Both rounds remain published; neither establishes an all-scenario
+win. The final three-runtime report is linked from the README.

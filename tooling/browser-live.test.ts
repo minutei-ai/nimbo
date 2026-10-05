@@ -1,5 +1,6 @@
 import { scriptModesFixture, scriptModesExpression } from "./script-modes-fixture";
 import { animationFramesFixture } from "./animation-frames-fixture";
+import { layoutSnapshotFixture } from "./layout-snapshot-fixture";
 import { svgViewportFixture } from "./svg-viewport-fixture";
 import { resolvedBoxValuesFixture } from "./resolved-box-values-fixture";
 import { contextualBoxLengthsFixture } from "./contextual-box-lengths-fixture";
@@ -454,6 +455,8 @@ const origin = Bun.serve({
     if (scriptModes) return scriptModes;
     const animationFrames = animationFramesFixture(path);
     if (animationFrames) return animationFrames;
+    const layoutSnapshot = layoutSnapshotFixture(path);
+    if (layoutSnapshot) return layoutSnapshot;
     const svg = svgViewportFixture(path);
     if (svg) return svg;
     const resolved = resolvedBoxValuesFixture(path);
@@ -2347,7 +2350,7 @@ test.each(["nodes", "depth"])(
 test("real HTTP → workerd → Wasm: geometry charges the shared DOM operation budget", async () => {
   const url = new URL("geometry-empty", origin.url).href;
   const expression =
-    "(() => {const root=document.createElement('div');document.body.appendChild(root);for(let i=0;i<30;i++){root.appendChild(document.createElement('div'));}for(let i=0;i<500;i++){root.getBoundingClientRect();}return false;})()";
+    "(() => {const root=document.createElement('div');document.body.appendChild(root);for(let i=0;i<30;i++){root.appendChild(document.createElement('div'));}for(let i=0;i<500;i++){root.style.width=(40+i)+'px';root.getBoundingClientRect();}return false;})()";
   const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
     method: "POST",
     headers: { authorization: "Bearer test-secret" },
@@ -4640,7 +4643,7 @@ test.each([
     path: "layout-budget/0",
     maxLayoutNodes: 4096,
     expression:
-      "(()=>{const r=document.querySelector('#root');for(let i=0;i<100;i++)r.getBoundingClientRect()})()",
+      "(()=>{const r=document.querySelector('#root');for(let i=0;i<100;i++){r.style.width=(100+i)+'px';r.getBoundingClientRect()}})()",
     reason: "DOM operations",
   },
 ])(
@@ -6214,6 +6217,27 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     const value: unknown = Reflect.get(result, "value");
     if (typeof value !== "object" || value === null) throw new Error("Missing checks");
     expect(Object.keys(value)).toHaveLength(32);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: layout snapshot invalidation variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`layout-snapshot/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing result");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing checks");
+    expect(Object.keys(value)).toHaveLength(30);
     expect(Object.values(value).every((check) => check === true)).toBe(true);
   },
 );

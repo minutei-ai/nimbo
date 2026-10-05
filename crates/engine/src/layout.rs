@@ -588,11 +588,7 @@ impl Tree<'_, '_> {
         Ok(Some(id))
     }
     fn rect(&self, target: NodeRef<'_>) -> Result<Bounds> {
-        svg_viewport::geometry(target)?;
-        let Some(id) = self.ids.get(&target.id) else {
-            return Ok(Bounds::default());
-        };
-        self.visual(*id).map(|frame| frame.bounds)
+        self.view().rect(target)
     }
     fn build(
         &mut self,
@@ -830,25 +826,6 @@ pub(crate) struct Sources<'a> {
     pub base: Option<&'a str>,
 }
 
-pub(crate) fn bounds(
-    document: &Document,
-    target: NodeRef<'_>,
-    styles: &Sources<'_>,
-    media: &MediaEnvironment,
-    work: &mut Work<'_>,
-) -> Result<Bounds> {
-    if !target.is_element() {
-        return Err(unsupported("non-element owner"));
-    }
-    if !target
-        .ancestors_it(None)
-        .any(|ancestor| ancestor.is_document())
-    {
-        return Ok(Bounds::default());
-    }
-    scene(document, styles, media, work, |tree| tree.rect(target))
-}
-
 fn scene<T>(
     document: &Document,
     styles: &Sources<'_>,
@@ -962,4 +939,4 @@ pub(crate) fn observe(
 }
 
 mod geometry;
-pub(crate) use geometry::{ScrollState, measurement};
+pub(crate) use geometry::{ScrollState, Snapshot, snapshot};

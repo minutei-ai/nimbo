@@ -5,8 +5,80 @@ use taffy::{Overflow, Point, prelude::*, style::ExpandedLengthPercentageAuto};
 
 use super::{Bounds, Sources, Tree, Work, layout_error, scene, unsupported};
 use crate::{MediaEnvironment, Result, styles::Declarations};
+use std::collections::{HashMap, HashSet};
 
-pub(crate) type ScrollState = std::collections::HashMap<NodeId, Point<f64>>;
+pub(crate) type ScrollState = HashMap<NodeId, Point<f64>>;
+
+// A completed layout owns only geometry inputs. Cascade/build borrows never
+// escape a scene; DOM invalidation controls reuse of this native snapshot.
+pub(crate) struct Snapshot {
+    boxes: TaffyTree<super::svg_viewport::Intrinsic>,
+    ids: HashMap<NodeId, taffy::NodeId>,
+    positioned: HashSet<NodeId>,
+    fixed: HashSet<NodeId>,
+    box_nodes: HashMap<taffy::NodeId, NodeId>,
+    sticky: HashMap<taffy::NodeId, Rect<LengthPercentageAuto>>,
+    scroll: ScrollState,
+    viewport: Size<f64>,
+}
+
+pub(super) struct View<'a> {
+    boxes: &'a TaffyTree<super::svg_viewport::Intrinsic>,
+    ids: &'a HashMap<NodeId, taffy::NodeId>,
+    positioned: &'a HashSet<NodeId>,
+    fixed: &'a HashSet<NodeId>,
+    box_nodes: &'a HashMap<taffy::NodeId, NodeId>,
+    sticky: &'a HashMap<taffy::NodeId, Rect<LengthPercentageAuto>>,
+    scroll: &'a ScrollState,
+    viewport: Size<f64>,
+}
+
+impl Tree<'_, '_> {
+    pub(super) fn view(&self) -> View<'_> {
+        View {
+            boxes: &self.boxes,
+            ids: &self.ids,
+            positioned: &self.positioned,
+            fixed: &self.fixed,
+            box_nodes: &self.box_nodes,
+            sticky: &self.sticky,
+            scroll: self.scroll,
+            viewport: self.viewport,
+        }
+    }
+}
+
+impl Snapshot {
+    fn view(&self) -> View<'_> {
+        View {
+            boxes: &self.boxes,
+            ids: &self.ids,
+            positioned: &self.positioned,
+            fixed: &self.fixed,
+            box_nodes: &self.box_nodes,
+            sticky: &self.sticky,
+            scroll: &self.scroll,
+            viewport: self.viewport,
+        }
+    }
+    pub(crate) fn bounds(&self, target: NodeRef<'_>) -> Result<Bounds> {
+        self.view().rect(target)
+    }
+    pub(crate) fn measurement(&self, target: NodeRef<'_>) -> Result<Measurement> {
+        super::svg_viewport::geometry(target)?;
+        measure(&self.view(), target)
+    }
+}
+
+impl View<'_> {
+    pub(super) fn rect(&self, target: NodeRef<'_>) -> Result<Bounds> {
+        super::svg_viewport::geometry(target)?;
+        let Some(id) = self.ids.get(&target.id) else {
+            return Ok(Bounds::default());
+        };
+        self.visual(*id).map(|frame| frame.bounds)
+    }
+}
 
 pub(super) struct Frame {
     pub bounds: Bounds,
@@ -73,7 +145,7 @@ fn axis(
     value
 }
 
-impl Tree<'_, '_> {
+impl View<'_> {
     fn measured(&self, id: taffy::NodeId) -> Result<&Layout> {
         self.boxes.layout(id).map_err(|error| layout_error(&error))
     }
@@ -229,18 +301,27 @@ pub(crate) struct Measurement {
     pub maximum: Point<f64>,
 }
 
-pub(crate) fn measurement(
+pub(crate) fn snapshot(
     document: &Document,
-    target: NodeRef<'_>,
     styles: &Sources<'_>,
     media: &MediaEnvironment,
     work: &mut Work<'_>,
-) -> Result<Measurement> {
-    super::svg_viewport::geometry(target)?;
-    scene(document, styles, media, work, |tree| measure(tree, target))
+) -> Result<Snapshot> {
+    scene(document, styles, media, work, |tree| {
+        Ok(Snapshot {
+            boxes: std::mem::replace(&mut tree.boxes, TaffyTree::with_capacity(0)),
+            ids: std::mem::take(&mut tree.ids),
+            positioned: std::mem::take(&mut tree.positioned),
+            fixed: std::mem::take(&mut tree.fixed),
+            box_nodes: std::mem::take(&mut tree.box_nodes),
+            sticky: std::mem::take(&mut tree.sticky),
+            scroll: tree.scroll.clone(),
+            viewport: tree.viewport,
+        })
+    })
 }
 
-fn measure(tree: &Tree<'_, '_>, target: NodeRef<'_>) -> Result<Measurement> {
+fn measure(tree: &View<'_>, target: NodeRef<'_>) -> Result<Measurement> {
     let mut values = json!({ "offsetTop":0,"offsetLeft":0,"offsetWidth":0,"offsetHeight":0,
         "clientTop":0,"clientLeft":0,"clientWidth":0,"clientHeight":0,
         "scrollWidth":0,"scrollHeight":0,"scrollTop":0,"scrollLeft":0 });

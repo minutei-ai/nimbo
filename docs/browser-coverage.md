@@ -2967,3 +2967,43 @@ unsupported geometry or animated lengths pass.
 
 References: [HTML animation frame callbacks](https://html.spec.whatwg.org/multipage/imagebitmap-and-animations.html#animation-frames)
 and [page visibility](https://html.spec.whatwg.org/multipage/interaction.html#page-visibility).
+
+## Layout snapshot reuse and flat stylesheet replacement
+
+Geometry calls reuse the engine's converged native layout scene while its DOM,
+CSSOM, external stylesheets, transition time and scroll state remain unchanged.
+Invalidation drops the old scene before rebuilding. Each call still consumes
+DOM operation budget; unsupported geometry and transforms still reject. This is
+scene reuse, not substituted rectangle output.
+
+The [real HTTP fixture](../crates/engine/tests/fixtures/layout-snapshot.txt)
+checks 30 contracts over 64 fresh pages in native Rust, workerd, celld and
+ordinary Chromium: 1920/1920 per runtime. The
+[celld and Chromium report](layout-snapshot-chromium.json) retains individual
+results. It covers live rule mutations, disabled sheets, insertion/deletion,
+constructed replacement and adoption, scrolling, ancestor sizing, detachment
+and recovery. Separate native tests retain operation limits, reject unsupported
+transforms after a cached read, and check asynchronous replacement locks and
+wrapper/rule identity.
+
+HTML style elements expose an owned `sheet` with stable wrappers while the
+source association is unchanged. Flat rules participate at the original
+stylesheet position in the native cascade. Constructed sheets support
+`replaceSync` and Promise-based `replace`; asynchronous replacement locks
+insert/delete/replacement until completion. Old rule objects survive with
+`parentStyleSheet` cleared. Ordinary syntax errors are discarded during sheet
+parsing, and unsupported valid groups/selectors remain errors.
+
+The [unchanged original WPT manifest](../tooling/wpt-cssom-owner-sources.json)
+pins four automated files and their harness/import resources. The
+[report](performance-wpt-cssom-owner.json) records Chromium 17/17, Obscura
+10/17 and Nimbo 12/17 original obligations. Nimbo passes the two live-rule
+replacement tests and all eight parse-recovery tests. It passes two of four
+detachment tests; nested grouped rules fail. All three regular-sheet replacement
+tests fail on an earlier unsupported computed background-color precondition.
+Those failures remain recorded and do not validate the later assertions.
+
+Document stylesheet lists, imports and CSSImportRule, linked-sheet wrappers,
+complete association/reset lifecycle, sheet metadata, grouping, ShadowRoot
+adoption and painting remain pending. The separately pinned ShadowRoot reftest
+remains unverified and is excluded from automated passing counts.

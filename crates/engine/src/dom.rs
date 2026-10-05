@@ -18,6 +18,7 @@ pub(crate) struct Dom {
     style_bytes: usize,
     operations: usize,
     layout_version: usize,
+    layout: Option<(usize, crate::layout::Snapshot)>,
     scroll: crate::layout::ScrollState,
     sheet_scan: Option<usize>,
     // Conservative presence guard: HTML parsing and element creation are the only name producers.
@@ -50,6 +51,7 @@ impl Dom {
             style_bytes: 0,
             operations: 0,
             layout_version: 0,
+            layout: None,
             scroll: crate::layout::ScrollState::new(),
             sheet_scan: None,
             may_have_links: contains_link_tag(html),
@@ -114,6 +116,7 @@ impl Dom {
         self.begin(operation, arg)?;
         let result = match operation {
             "cssom" => self.cssom_call(handle, arg, value)?,
+            "styleSheet" => self.style_sheet(handle)?,
             "baseHref" => json!(self.base_href()),
             "fontFaces" => self.font_faces()?,
             "cssSupports" => json!(crate::supports::query(arg)?),
@@ -516,30 +519,18 @@ impl Dom {
             return Err(Error::Dom("layout unsupported: viewport geometry".into()));
         }
         let id = target.id;
-        let base = self.base_href();
-        let mut work = crate::layout::Work::new(
-            &mut self.operations,
-            self.limits.max_dom_operations,
-            self.limits.max_layout_nodes,
-        );
-        let measured = crate::layout::measurement(
-            &self.document,
-            self.document
-                .tree
-                .get(&id)
-                .ok_or_else(|| Error::Dom("invalid node handle".into()))?,
-            &crate::layout::Sources {
-                scroll: &self.scroll,
-                transitions: &self.transitions,
-                now: self.now,
-                inline: &self.styles,
-                external: &self.sheets,
-                constructed: &self.cssom,
-                base: base.as_deref(),
-            },
-            &self.media,
-            &mut work,
-        )?;
+        self.ensure_layout()?;
+        let measured = self
+            .layout
+            .as_ref()
+            .ok_or_else(|| Error::Dom("missing layout snapshot".into()))?
+            .1
+            .measurement(
+                self.document
+                    .tree
+                    .get(&id)
+                    .ok_or_else(|| Error::Dom("invalid node handle".into()))?,
+            )?;
         if name == "offsetParent" {
             return Ok(json!(measured.parent.map(|id| self.handle(id))));
         }
@@ -569,25 +560,24 @@ impl Dom {
             .ok_or_else(|| Error::Dom("unknown geometry property".into()))
     }
 
-    fn bounds(&mut self, handle: usize) -> Result<Value> {
-        let id = self
-            .handles
-            .get(handle)
-            .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
-        let target = self
-            .document
-            .tree
-            .get(id)
-            .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
+    fn ensure_layout(&mut self) -> Result<()> {
+        if self
+            .layout
+            .as_ref()
+            .is_some_and(|(version, _)| *version == self.layout_version)
+        {
+            return Ok(());
+        }
+        // Drop an invalidated scene before allocating its replacement.
+        self.layout = None;
         let base = self.base_href();
         let mut work = crate::layout::Work::new(
             &mut self.operations,
             self.limits.max_dom_operations,
             self.limits.max_layout_nodes,
         );
-        let rect = crate::layout::bounds(
+        let layout = crate::layout::snapshot(
             &self.document,
-            target,
             &crate::layout::Sources {
                 scroll: &self.scroll,
                 transitions: &self.transitions,
@@ -600,6 +590,34 @@ impl Dom {
             &self.media,
             &mut work,
         )?;
+        self.layout = Some((self.layout_version, layout));
+        Ok(())
+    }
+
+    fn bounds(&mut self, handle: usize) -> Result<Value> {
+        let target = self.node(handle)?;
+        if !target.is_element() {
+            return Err(Error::Dom("layout unsupported: non-element owner".into()));
+        }
+        if !target
+            .ancestors_it(None)
+            .any(|ancestor| ancestor.is_document())
+        {
+            return Ok(serde_json::to_value(crate::layout::Bounds::default())?);
+        }
+        let id = target.id;
+        self.ensure_layout()?;
+        let target = self
+            .document
+            .tree
+            .get(&id)
+            .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
+        let rect = self
+            .layout
+            .as_ref()
+            .ok_or_else(|| Error::Dom("missing layout snapshot".into()))?
+            .1
+            .bounds(target)?;
         Ok(serde_json::to_value(rect)?)
     }
 
@@ -657,6 +675,33 @@ impl Dom {
         Ok(())
     }
 
+    fn style_sheet(&mut self, handle: usize) -> Result<Value> {
+        let node = self.node(handle)?;
+        if !node.has_name("style")
+            || node
+                .qual_name_ref()
+                .as_ref()
+                .is_none_or(|name| name.ns.as_ref() != "http://www.w3.org/1999/xhtml")
+        {
+            return Err(Error::Dom(
+                "stylesheet owner must be an HTML style element".into(),
+            ));
+        }
+        if !node.ancestors_it(None).any(|parent| parent.is_document())
+            || node
+                .attr("type")
+                .is_some_and(|value| !value.is_empty() && !value.eq_ignore_ascii_case("text/css"))
+        {
+            return Ok(Value::Null);
+        }
+        let source = node.text().to_string();
+        if source.len() > self.limits.max_stylesheet_bytes {
+            return Err(Error::Limit("stylesheet bytes"));
+        }
+        let id = node.id;
+        Ok(json!(self.cssom.owner_sheet(id, handle, source)?))
+    }
+
     fn cssom_call(&mut self, handle: usize, operation: &str, request: &str) -> Result<Value> {
         let request: Value = serde_json::from_str(request)?;
         let arg = request
@@ -669,7 +714,14 @@ impl Dom {
             .unwrap_or_default();
         if matches!(
             operation,
-            "adopt" | "new" | "insert" | "delete" | "disabled" | "selector"
+            "adopt"
+                | "new"
+                | "replace"
+                | "replaceFinish"
+                | "insert"
+                | "delete"
+                | "disabled"
+                | "selector"
         ) || (operation == "style" && matches!(arg, "text" | "set" | "remove"))
         {
             self.charge_write(arg.len().saturating_add(value.len()))?;
@@ -677,7 +729,7 @@ impl Dom {
         let output = self.cssom.call(operation, handle, arg, value)?;
         if matches!(
             operation,
-            "adopt" | "insert" | "delete" | "disabled" | "selector"
+            "adopt" | "replace" | "replaceFinish" | "insert" | "delete" | "disabled" | "selector"
         ) || (operation == "style" && matches!(arg, "text" | "set" | "remove"))
         {
             self.layout_version = self.layout_version.saturating_add(1);

@@ -541,7 +541,10 @@ impl Cascade {
                 };
                 source.to_owned()
             } else {
-                node.text().to_string()
+                let text = node.text();
+                constructed
+                    .owner_source(node.id, &text)
+                    .unwrap_or_else(|| text.to_string())
             };
             if source.len() > sheets.max_bytes() {
                 return Err(Error::Limit("stylesheet bytes"));

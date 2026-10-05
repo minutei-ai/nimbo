@@ -1515,8 +1515,7 @@ fn serve_resource(request: Request) -> io::Result<()> {
     if request.url().starts_with("/logical-size/") {
         return serve_logical_size(request);
     }
-    if request.url().starts_with("/script-modes") || request.url().starts_with("/animation-frames/")
-    {
+    if is_script_resource(request.url()) {
         return serve_scripts(request);
     }
     if request.url().starts_with("/svg-viewport/") {
@@ -1670,6 +1669,7 @@ fn is_resource(path: &str) -> bool {
         return true;
     }
     is_dom_resource(path)
+        || is_script_resource(path)
         || [
             "/sheets-css/",
             "/layout-budget/",
@@ -1677,9 +1677,6 @@ fn is_resource(path: &str) -> bool {
             "/contextual-box-lengths/",
             "/resolved-box-values/",
             "/svg-viewport/",
-            "/script-modes/",
-            "/animation-frames/",
-            "/script-modes-assets/",
             "/outlines/",
             "/tabs/",
             "/line-height/",
@@ -3082,7 +3079,21 @@ fn svg_viewports_use_native_intrinsic_sizing() -> TestResult {
     Ok(())
 }
 
+fn is_script_resource(path: &str) -> bool {
+    [
+        "/script-modes/",
+        "/script-modes-assets/",
+        "/animation-frames/",
+        "/layout-snapshot/",
+    ]
+    .iter()
+    .any(|prefix| path.starts_with(prefix))
+}
+
 fn serve_scripts(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/layout-snapshot/") {
+        return serve_layout_snapshot(request);
+    }
     if request.url().starts_with("/animation-frames/") {
         return serve_animation_frames(request);
     }
@@ -3186,5 +3197,79 @@ fn animation_frames_share_capacity_and_execution_budgets_with_timers() -> TestRe
     assert!(
         matches!(page.evaluate("new Promise(() => {function tick(){requestAnimationFrame(tick)}requestAnimationFrame(tick)})"), Err(Error::JavaScript(message)) if message.contains("timer task limit"))
     );
+    Ok(())
+}
+
+fn serve_layout_snapshot(request: Request) -> io::Result<()> {
+    let variant = request
+        .url()
+        .rsplit('/')
+        .next()
+        .unwrap_or("0")
+        .parse::<usize>()
+        .map_err(io::Error::other)?;
+    let source = include_str!("fixtures/layout-snapshot.txt");
+    request.respond(Response::from_string(format!("<!doctype html><body><script>{source};globalThis.comparison=layoutSnapshotCase({variant})</script>")).with_header(header("Content-Type", "text/html")?))
+}
+
+#[test]
+fn layout_snapshots_observe_dom_cssom_and_scroll_mutations() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/layout-snapshot/{variant}")))?;
+        let result = page.evaluate("globalThis.comparison")?;
+        let checks = result.as_object().ok_or("missing layout snapshot checks")?;
+        assert_eq!(checks.len(), 30);
+        assert!(
+            checks.values().all(|value| value == &json!(true)),
+            "{result}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn stylesheet_replacement_locks_and_owner_identity() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    assert_eq!(
+        page.evaluate(r"(async () => {
+          document.body.innerHTML='<style>div { width: 20px }</style>';
+          const owner=document.body.firstElementChild, owned=owner.sheet;
+          const sheet=new CSSStyleSheet();sheet.replaceSync('div { width: 30px }');
+          const old=sheet.cssRules[0], list=sheet.cssRules;
+          const pending=sheet.replace('div { width: 40px }');
+          const rejects=fn=>{try{fn();return false}catch(error){return error.name==='NotAllowedError'}};
+          const locked=rejects(()=>sheet.replaceSync('div { width: 50px }'))&&rejects(()=>sheet.insertRule('p {}',0))&&rejects(()=>sheet.deleteRule(0));
+          const settled=await pending;
+          let oversized=false;try{await sheet.replace(' '.repeat(65537))}catch(error){oversized=String(error).includes('CSSOM input')}
+          sheet.replaceSync('div { width: 40px }');
+          const rejected=rejects(()=>owned.replaceSync('div { width: 60px }'));
+          let asyncRejected=false;try{await owned.replace('div {}')}catch(error){asyncRejected=error.name==='NotAllowedError'}
+          return {identity:owner.sheet===owned&&owned.ownerNode===owner,locked,settled:settled===sheet,
+            detached:old.parentStyleSheet===null,live:sheet.cssRules===list&&list[0].style.width==='40px',oversized,rejected,asyncRejected};
+        })()")?,
+        json!({"identity":true,"locked":true,"settled":true,"detached":true,"live":true,"oversized":true,"rejected":true,"asyncRejected":true})
+    );
+    Ok(())
+}
+
+#[test]
+fn layout_snapshot_reuse_retains_operation_limits_and_unsupported_errors() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = Browser::new(
+        &fixture.url,
+        Limits {
+            max_dom_operations: 500,
+            ..Limits::default()
+        },
+    )?;
+    let page = browser.navigate(&fixture.path("/static"))?;
+    assert_eq!(page.evaluate(r#"(() => { document.body.innerHTML='<div style="width:80px;height:20px"></div>'; const box=document.body.firstElementChild; return Array.from({length:200},()=>box.getBoundingClientRect().width).every(width=>width===80); })()"#)?,json!(true));
+    let error = page.evaluate("(() => {const box=document.body.firstElementChild;for(let i=0;i<600;i++)box.getBoundingClientRect();return true})()").err().ok_or("repeated cached reads must retain the operation budget")?;
+    assert!(error.to_string().contains("DOM operations"), "{error}");
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    assert_eq!(page.evaluate(r#"(() => {document.body.innerHTML='<div style="width:80px;height:20px"></div>';const box=document.body.firstElementChild;const before=box.getBoundingClientRect().width;box.style.transform='rotate(10deg)';let rejected=false;try{box.getBoundingClientRect()}catch(error){rejected=String(error).includes('transform')}box.style.transform='';return {before,rejected,after:box.getBoundingClientRect().width}})()"#)?,json!({"before":80,"rejected":true,"after":80}));
     Ok(())
 }

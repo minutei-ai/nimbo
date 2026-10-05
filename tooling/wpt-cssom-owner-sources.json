@@ -1,0 +1,39 @@
+{
+  "commit": "03f14d4780c4d981bc84c65679b18e9327a1affe",
+  "files": [
+    {
+      "path": "css/cssom/CSSStyleSheet-constructable-replace-cssRules.html",
+      "sha256": "194ce41ae8f6537da03aed861362b287a0db54db15fd31bc532a2f1f0b13ab99"
+    },
+    {
+      "path": "css/cssom/CSSStyleSheet-constructable-replace-on-regular-sheet.html",
+      "sha256": "ce0cfd24a216c64f04a8cd4ad42478313d565babd7a2f95a8ab3b8e2152eb40a"
+    },
+    {
+      "path": "css/cssom/CSSStyleSheet-replace-detach-old-rules.html",
+      "sha256": "77730be21745bef1282644befbb995ebe78726ad927917bdd41f1f2ac76df58d"
+    },
+    {
+      "path": "css/cssom/CSSStyleSheet-replace-parse-errors.html",
+      "sha256": "f374825e445ebb60a125a676d2479436a973467e3c4dfa81b5ff218915ed447b"
+    },
+    {
+      "path": "css/cssom/support/constructable-import.css",
+      "sha256": "219ddbbbb3ab3ef90fc4ae1421abc1b6c72c0373c5f906297ef045437c567808"
+    },
+    {
+      "path": "resources/testharness.js",
+      "sha256": "d2399236c2a09c429804ff2299ad6629e17e2b53f17a74dd341e936adb11ae3e"
+    },
+    {
+      "path": "resources/testharnessreport.js",
+      "sha256": "3777176fc736b0a78cf7617b9613b220f635daae7536ec7ebb99c61dbb525aae"
+    }
+  ],
+  "reftest_files": [
+    {
+      "path": "css/cssom/adoptedstylesheets-adopt-style.tentative.html",
+      "sha256": "1524548dbe824459a803a059d9928ef1ce1536249f517575a079c7ea1de59fca"
+    }
+  ]
+}

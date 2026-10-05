@@ -1,0 +1,223 @@
+{
+  "date": "2026-10-05",
+  "source": "https://github.com/web-platform-tests/wpt",
+  "source_commit": "03f14d4780c4d981bc84c65679b18e9327a1affe",
+  "files": [
+    "css/cssom/CSSStyleSheet-constructable-replace-cssRules.html",
+    "css/cssom/CSSStyleSheet-constructable-replace-on-regular-sheet.html",
+    "css/cssom/CSSStyleSheet-replace-detach-old-rules.html",
+    "css/cssom/CSSStyleSheet-replace-parse-errors.html"
+  ],
+  "scope": "Four original CSSOM WPT HTML files: replacement, live rules, detached rule ownership, parse recovery and document-owned replacement rejection; original harness and import stylesheet; source bytes and assertions unchanged; reporting-only adapter; real HTTP; default limits; no mocks; grouping, document stylesheet list and import failures retained; the separately pinned shadow DOM reftest is not automated and remains unverified",
+  "results": [
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/cssom/CSSStyleSheet-constructable-replace-cssRules.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 2,
+        "passed": 2,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/cssom/CSSStyleSheet-constructable-replace-cssRules.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 2,
+        "passed": 2,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/cssom/CSSStyleSheet-constructable-replace-cssRules.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 2,
+        "passed": 2,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/cssom/CSSStyleSheet-constructable-replace-on-regular-sheet.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 3,
+        "passed": 3,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/cssom/CSSStyleSheet-constructable-replace-on-regular-sheet.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 3,
+        "passed": 0,
+        "failed": [
+          {
+            "name": "CSSStyleSheet.replaceSync throws NotAllowedError for non-constructed sheets",
+            "status": 1,
+            "message": "assert_throws_dom: replaceSync on non-constructed sheet should throw function \"() => sheet.replaceSync(\":root { background-color: red }\")\" did not throw"
+          },
+          {
+            "name": "CSSStyleSheet.replace returns a rejected promise for non-constructed sheets",
+            "status": 1,
+            "message": "assert_equals: precondition expected \"rgb(0, 255, 0)\" but got \"rgb(255, 0, 0)\""
+          },
+          {
+            "name": "CSSStyleSheet.replace returns a rejected promise for non-constructed sheets that have no associated document",
+            "status": 1,
+            "message": "assert_equals: precondition expected \"rgb(0, 255, 0)\" but got \"rgb(255, 0, 0)\""
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/cssom/CSSStyleSheet-constructable-replace-on-regular-sheet.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 3,
+        "passed": 0,
+        "failed": [
+          {
+            "name": "CSSStyleSheet.replaceSync throws NotAllowedError for non-constructed sheets",
+            "status": 1,
+            "message": "promise_test: Unhandled rejection with value: object \"Error: DOM: layout unsupported: computed style background-color\""
+          },
+          {
+            "name": "CSSStyleSheet.replace returns a rejected promise for non-constructed sheets",
+            "status": 1,
+            "message": "promise_test: Unhandled rejection with value: object \"Error: DOM: layout unsupported: computed style background-color\""
+          },
+          {
+            "name": "CSSStyleSheet.replace returns a rejected promise for non-constructed sheets that have no associated document",
+            "status": 1,
+            "message": "promise_test: Unhandled rejection with value: object \"Error: DOM: layout unsupported: computed style background-color\""
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/cssom/CSSStyleSheet-replace-detach-old-rules.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 4,
+        "passed": 4,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/cssom/CSSStyleSheet-replace-detach-old-rules.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 4,
+        "passed": 2,
+        "failed": [
+          {
+            "name": "replaceSync() nullifies parentStyleSheet on old nested rules",
+            "status": 1,
+            "message": "Cannot read properties of undefined (reading '0')"
+          },
+          {
+            "name": "replace() nullifies parentStyleSheet on old nested rules after replacement",
+            "status": 1,
+            "message": "promise_test: Unhandled rejection with value: object \"TypeError: Cannot read properties of undefined (reading '0')\""
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/cssom/CSSStyleSheet-replace-detach-old-rules.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 4,
+        "passed": 2,
+        "failed": [
+          {
+            "name": "replaceSync() nullifies parentStyleSheet on old nested rules",
+            "status": 1,
+            "message": "unsupported: CSSOM grouping and at-rules"
+          },
+          {
+            "name": "replace() nullifies parentStyleSheet on old nested rules after replacement",
+            "status": 1,
+            "message": "promise_test: Unhandled rejection with value: object \"Error: unsupported: CSSOM grouping and at-rules\""
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "file": "css/cssom/CSSStyleSheet-replace-parse-errors.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 8,
+        "passed": 8,
+        "failed": []
+      }
+    },
+    {
+      "runtime": "obscura 0.2.3",
+      "file": "css/cssom/CSSStyleSheet-replace-parse-errors.html",
+      "status": "failed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 8,
+        "passed": 6,
+        "failed": [
+          {
+            "name": "replace() with mixed valid and invalid CSS keeps valid rules",
+            "status": 1,
+            "message": "assert_equals: valid rules should survive around invalid at-rule expected 2 but got 3"
+          },
+          {
+            "name": "replaceSync() with mixed valid and invalid CSS keeps valid rules",
+            "status": 1,
+            "message": "assert_equals: valid rules should survive around invalid at-rule expected 2 but got 3"
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "file": "css/cssom/CSSStyleSheet-replace-parse-errors.html",
+      "status": "passed",
+      "verdict": {
+        "status": 0,
+        "message": null,
+        "total": 8,
+        "passed": 8,
+        "failed": []
+      }
+    }
+  ]
+}

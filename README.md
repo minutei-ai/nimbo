@@ -131,14 +131,14 @@ The engine implements bounded browser subsets. See the [coverage inventory](docs
 | Storage                          | Bounded local/session storage; Worker requests start fresh                                                                                         |
 | CSS                              | Native declarations, selector matching, cascade, computed-style subsets and bounded numeric CSS transitions                                        |
 | Layout                           | Native block/flex/grid geometry, explicitly inset absolute/fixed boxes, selected sticky/scroll metrics and HTML categories; incomplete text layout |
-| CSSOM                            | Constructed sheets, ordered live rule lists, declarations and Document adoption; grouped rules and document-owned wrappers pending                 |
+| CSSOM                            | Constructed sheet replacement, ordered live rules, declarations, Document adoption and HTML style-owned sheets; grouping/imports pending           |
 | SVG                              | Native outer viewport intrinsic sizing and CSSOM style; internal graphics geometry and painting remain pending                                     |
 | Canvas                           | Rust software OffscreenCanvas bitmap and selected 2D pixel operations                                                                              |
 | Compatibility work still pending | Full HTML/CSSOM/WPT behavior, text shaping, painting, screenshots/PDF, WebGL, video, controllable TLS, durable browser sessions and CDP automation |
 
 Scripts run after parsing; this is a simplified lifecycle. Frames are explicitly rejected. Images are not loaded. Import maps, JSON modules, IndexedDB and full CORS/networking contracts remain incomplete. Supported CSS metadata does not imply font rendering or painting.
 
-Constructed CSSOM currently differs from Chromium for a non-configurable indexed rule-list definition. Document adoption is implemented, with two recorded cascade-order differences from Chromium. Mutating document-owned stylesheets is still pending. These divergences remain visible in the real fixtures and evidence.
+Constructed CSSOM currently differs from Chromium for a non-configurable indexed rule-list definition. Document adoption is implemented, with two recorded cascade-order differences from Chromium. HTML style-owned flat rules now support live mutation. Document stylesheet lists, imports, association lifecycle and grouped rule wrappers remain pending. These divergences remain visible in the real fixtures and evidence.
 
 ## Resource limits
 
@@ -176,6 +176,8 @@ bun run compare:resolved-box-values # native used box CSSOM values and live upda
 bun run bench:wpt-contextual-box-lengths # original unit WPT files
 bun run compare:svg-viewport # outer SVG sizing in celld and Chromium
 bun run compare:script-modes # classic/strict/module semantics in celld and Chromium
+bun run compare:layout-snapshot # geometry invalidation after DOM, CSSOM and scroll changes
+bun run bench:wpt-cssom-owner # original stylesheet replacement and ownership WPT
 bun run compare:animation-frames # real-clock callback batches and cancellation
 bun run bench:wpt-animation-frames # original animation callback WPT files
 bun run bench:wpt-svg-viewport # original SVG API and image WPT files
@@ -189,7 +191,7 @@ The [upstream benchmark matrix](docs/benchmark-reference-matrix.md) records exac
 
 ### Current performance
 
-Measured on 2026-10-05 UTC (2026-10-04 in São Paulo) with Nimbo's Worker/Wasm bundle inside celld 0.6.1,
+Measured on 2026-10-05 UTC (2026-10-05 in São Paulo) with Nimbo's Worker/Wasm bundle inside celld 0.6.1,
 public Obscura 0.2.3 and unmodified Chromium 153. Each extraction uses a fresh
 page. Hosts stay running; runtime order rotates at concurrency 1. Three warmups
 are excluded from 21 measured samples per scenario. All 648 attempts returned
@@ -199,21 +201,21 @@ Latency in milliseconds, **p50 / p95**:
 
 | Scenario                | Nimbo / celld |        Obscura |        Chromium |
 | ----------------------- | ------------: | -------------: | --------------: |
-| Static HTML             | 12.76 / 30.80 |  18.99 / 20.51 |   60.83 / 71.82 |
-| Selectors, 200 nodes    | 16.03 / 18.66 |  19.20 / 21.39 |   59.06 / 67.18 |
-| Dynamic fetch           | 12.81 / 15.82 |  20.81 / 21.93 |   63.22 / 73.84 |
-| JS, DOM and events      | 21.53 / 24.04 |  29.71 / 31.37 |   66.96 / 83.03 |
-| JS modules              | 26.73 / 28.19 |  30.48 / 32.22 |   68.34 / 92.60 |
-| JS selectors, 200 nodes | 25.32 / 27.38 |  31.19 / 33.41 |   67.00 / 87.97 |
-| Static HTML, 5000 nodes | 43.30 / 47.01 |  42.36 / 44.22 | 254.96 / 282.84 |
-| Selectors, 5000 nodes   | 40.73 / 51.71 | 99.01 / 101.57 | 273.16 / 287.78 |
-| JS positioned boxes     | 48.18 / 52.52 |  33.49 / 35.24 |   69.43 / 91.84 |
+| Static HTML             | 10.32 / 22.66 |  18.02 / 19.31 |   52.67 / 60.25 |
+| Selectors, 200 nodes    | 14.46 / 17.51 |  18.71 / 19.53 |   54.37 / 63.04 |
+| Dynamic fetch           | 12.59 / 14.95 |  20.17 / 25.05 |   58.82 / 66.24 |
+| JS, DOM and events      | 21.45 / 24.17 |  29.64 / 31.69 |   66.76 / 83.78 |
+| JS modules              | 25.89 / 28.28 |  30.08 / 32.18 |   70.10 / 89.61 |
+| JS selectors, 200 nodes | 24.03 / 27.35 |  30.78 / 32.43 |   67.44 / 84.18 |
+| Static HTML, 5000 nodes | 34.61 / 49.13 |  41.67 / 43.73 | 254.64 / 285.39 |
+| Selectors, 5000 nodes   | 42.62 / 50.30 | 98.04 / 104.87 | 269.53 / 288.28 |
+| JS positioned boxes     | 44.16 / 52.82 |  33.31 / 35.01 |   66.79 / 85.04 |
 
 Nimbo has a lower p50 than Chromium in **9/9** scenarios and Obscura in
-**7/9**. Matching or beating Obscura across the remaining scenarios is still
+**8/9**. Matching or beating Obscura across the remaining scenarios is still
 pending. These local fixtures do not establish general SPA compatibility,
 production throughput, memory consumption or cost. See the
-[raw results](docs/performance-comparison-animation-frames.json) and
+[raw results](docs/performance-comparison-layout-snapshot-final.json) and
 [reproduction guide](docs/benchmark-comparison.md).
 
 ## Runtime guides

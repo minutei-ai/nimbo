@@ -46,6 +46,8 @@
     "bench:wpt-svg-viewport": "bun run build:worker && bun run tooling/benchmark-wpt-svg-viewport.ts",
     "compare:script-modes": "bun run build:worker && bun run tooling/compare-script-modes.ts",
     "compare:animation-frames": "bun run build:worker && bun run tooling/compare-animation-frames.ts",
+    "compare:layout-snapshot": "bun run build:worker && bun run tooling/compare-layout-snapshot.ts",
+    "bench:wpt-cssom-owner": "bun run build:worker && bun run tooling/benchmark-wpt-cssom-owner.ts",
     "bench:wpt-animation-frames": "bun run build:worker && bun run tooling/benchmark-wpt-animation-frames.ts",
     "compare:svg-viewport": "bun run build:worker && bun run tooling/compare-svg-viewport.ts",
     "compare:resolved-box-values": "bun run build:worker && bun run tooling/compare-resolved-box-values.ts"
