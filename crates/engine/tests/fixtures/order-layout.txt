@@ -1,0 +1,14 @@
+globalThis.comparison=(()=>{
+ const css=document.createElement('style');css.textContent='html,body{margin:0;padding:0}section{display:flex;width:100px;height:100px;position:relative;margin:0;padding:0}div{width:20px;height:10px;flex-shrink:0;margin:0;padding:0}';document.head.append(css);
+ const make=()=>{const p=document.createElement('section');document.body.append(p);const children=[2,-1,2].map(order=>{const e=document.createElement('div');e.style.order=String(order);p.append(e);return e;});return {p,children};};
+ const checks={},near=(a,b)=>Math.abs(a-b)<.001;
+ const positions=({p,children},axis)=>{const r=p.getBoundingClientRect();return children.map(e=>e.getBoundingClientRect()[axis]-r[axis]);};
+ let scene=make();let pos=positions(scene,'left');checks.flex=near(pos[0],20)&&near(pos[1],0)&&near(pos[2],40);checks.stable=pos[0]<pos[2];checks.computed=getComputedStyle(scene.children[0]).order==='2';
+ scene.children[2].style.order='-2';pos=positions(scene,'left');checks.mutation=near(pos[2],0)&&near(pos[1],20)&&near(pos[0],40);scene.p.remove();
+ scene=make();scene.p.style.flexDirection='row-reverse';pos=positions(scene,'left');checks.reverse=near(pos[1],80)&&near(pos[0],60)&&near(pos[2],40);scene.p.remove();
+ scene=make();scene.p.style.display='block';pos=positions(scene,'top');checks.block=near(pos[0],0)&&near(pos[1],10)&&near(pos[2],20);scene.p.remove();
+ scene=make();scene.p.style.display='grid';scene.p.style.alignContent='start';pos=positions(scene,'top');checks.grid=near(pos[1],0)&&near(pos[0],10)&&near(pos[2],20);scene.p.remove();
+ scene=make();scene.p.id='generated';css.textContent+='#generated::before{content:"";display:block;width:10px;height:10px;order:-3;flex-shrink:0}';pos=positions(scene,'left');checks.generated=near(pos[1],10)&&near(pos[0],30)&&near(pos[2],50);scene.p.remove();
+ scene=make();const wrapper=document.createElement('div');wrapper.style.display='contents';wrapper.style.order='-10';scene.p.prepend(wrapper);wrapper.append(scene.children[0],scene.children[1]);scene.children[2].style.order='0';pos=positions(scene,'left');checks.contents=near(pos[1],0)&&near(pos[2],20)&&near(pos[0],40);scene.p.remove();
+ return checks;
+})();

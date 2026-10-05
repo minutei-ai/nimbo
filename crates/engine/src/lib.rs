@@ -7,6 +7,7 @@ mod background_repeat;
 mod background_size;
 mod backgrounds;
 mod borders;
+mod builtin_fonts;
 mod canvas;
 mod cascade;
 mod computed_style;

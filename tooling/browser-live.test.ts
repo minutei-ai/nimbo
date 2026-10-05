@@ -2298,7 +2298,7 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
 );
 
 test.each([
-  ["text shaping", "el.textContent='real text';"],
+  ["text shaping", "el.innerHTML='A<span>B</span>';"],
   [
     "stylesheet at-rule",
     "const css=document.createElement('style');css.textContent='@scope {div {width: 50px;}}';document.body.appendChild(css);",
@@ -2767,8 +2767,8 @@ test.each([
     "layout unsupported: viewport overflow propagation",
   ],
   [
-    "text layout",
-    "new Promise(()=>{const el=document.createElement('div');el.textContent='real text';document.body.appendChild(el);new IntersectionObserver(()=>{}).observe(el);})",
+    "mixed inline text layout",
+    "new Promise(()=>{const el=document.createElement('div');el.innerHTML='A<span>B</span>';document.body.appendChild(el);new IntersectionObserver(()=>{}).observe(el);})",
     "layout unsupported: text shaping",
   ],
 ])(
@@ -4825,7 +4825,7 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
   expect(await response.json()).toMatchObject({
     value: {
       font: "18px",
-      count: 45,
+      count: 46,
       names: [
         "background-attachment",
         "background-clip",
@@ -4851,6 +4851,7 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
         "margin-left",
         "margin-right",
         "margin-top",
+        "order",
         "outline-color",
         "outline-offset",
         "outline-style",
@@ -4941,8 +4942,8 @@ test.each([
     "relative query length",
   ],
   [
-    "(()=>{document.body.textContent=String.fromCharCode(65,9,66);document.body.style.tabSize='4';return document.body.getBoundingClientRect()})()",
-    "text shaping",
+    "(()=>{document.body.textContent=String.fromCharCode(65,9,66);document.body.style.tabSize='4';document.body.style.whiteSpace='pre';return document.body.getBoundingClientRect()})()",
+    "text white-space",
   ],
 ])(
   "real HTTP → workerd → Wasm: unsupported tab layout %s fails explicitly",
@@ -4989,7 +4990,7 @@ test.each([
     "relative query length",
   ],
   [
-    "(()=>{document.body.textContent=String.fromCharCode(65,10,66);document.body.style.lineHeight='1.5';return document.body.getBoundingClientRect()})()",
+    "(()=>{document.body.innerHTML='A<span>B</span>';document.body.style.lineHeight='1.5';return document.body.getBoundingClientRect()})()",
     "text shaping",
   ],
 ])(
@@ -5428,7 +5429,7 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
   },
 );
 
-test("real HTTP → workerd → Wasm: font family scalar preserves explicit text shaping failure", async () => {
+test("real HTTP → workerd → Wasm: font family scalar and default native text geometry", async () => {
   const url = new URL("font-family/0", origin.url).href;
   const request = (expression: string) =>
     worker.dispatchFetch("https://nimbo.test/scrape", {
@@ -5442,10 +5443,10 @@ test("real HTTP → workerd → Wasm: font family scalar preserves explicit text
   expect(scalar.status).toBe(200);
   expect(await scalar.json()).toMatchObject({ value: { family: "serif", support: false } });
   const geometry = await request(
-    "(()=>{document.body.innerHTML='<div style=\"font-family:serif\">Actual text</div>';return document.body.firstElementChild.getBoundingClientRect().width})()",
+    "(()=>{document.body.innerHTML='<div style=\"font-family:serif\">Actual text</div>';return document.body.firstElementChild.getBoundingClientRect().height})()",
   );
-  expect(geometry.status).toBe(422);
-  expect(await geometry.text()).toContain("text shaping");
+  expect(geometry.status).toBe(200);
+  expect(await geometry.json()).toMatchObject({ value: 18 });
 });
 
 test("real HTTP → workerd → Wasm: font family list operation budget and recovery", async () => {
@@ -6508,11 +6509,6 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
 
 const textLayoutBoundaries = [
   [
-    "computed font invalidation",
-    "document.fonts.clear();getComputedStyle(document.querySelector('div')).width",
-    "font selection or fallback",
-  ],
-  [
     "flex text",
     "document.querySelector('div').style.display='flex'",
     "anonymous text in flex or grid",
@@ -6522,12 +6518,6 @@ const textLayoutBoundaries = [
     "document.querySelector('div').style.display='grid'",
     "anonymous text in flex or grid",
   ],
-  [
-    "normal line metrics",
-    "document.querySelector('div').style.lineHeight='normal'",
-    "normal line metrics",
-  ],
-  ["removed font", "document.fonts.clear()", "font selection or fallback"],
   ["font descriptor", "[...document.fonts][0].sizeAdjust='125%'", "font descriptor sizeAdjust"],
   ["pre whitespace", "document.querySelector('div').style.whiteSpace='pre'", "text white-space"],
   [
@@ -6574,3 +6564,102 @@ test.each(textLayoutBoundaries)(
     });
   },
 );
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: public font profile variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`font-profile/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      value: Object.fromEntries(
+        [
+          "regular",
+          "bold",
+          "italic",
+          "boldItalic",
+          "light",
+          "medium",
+          "semibold",
+          "positive",
+          "negative",
+          "combining",
+          "ligatureSpacing",
+          "characterSpacing",
+          "fontRemoval",
+          "fontSize",
+        ].map((key) => [key, true]),
+      ),
+    });
+  },
+);
+test("native text layout uses real normal metrics and invalidates cleared fonts", async () => {
+  const r = await requestTextLayout(
+    `(async()=>{await globalThis.comparison;const e=document.querySelector('div');e.textContent='AB';e.style.lineHeight='normal';const loaded=e.getBoundingClientRect().height;document.fonts.clear();const fallback=e.getBoundingClientRect().height;return {loaded,fallback,width:getComputedStyle(e).width};})()`,
+  );
+  expect(r.status).toBe(200);
+  expect(await r.json()).toMatchObject({ value: { loaded: 16, fallback: 18, width: "100px" } });
+});
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: order layout variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`order-layout/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      value: Object.fromEntries(
+        [
+          "flex",
+          "stable",
+          "computed",
+          "mutation",
+          "reverse",
+          "block",
+          "grid",
+          "generated",
+          "contents",
+        ].map((key) => [key, true]),
+      ),
+    });
+  },
+);
+
+test("real HTTP → workerd → Wasm: default font text reaches intersection callbacks", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const expression =
+    "new Promise(resolve=>{const el=document.createElement('div');el.textContent='real text';document.body.appendChild(el);const observer=new IntersectionObserver(entries=>{observer.disconnect();resolve({height:el.getBoundingClientRect().height,intersecting:entries[0].isIntersecting,ratio:entries[0].intersectionRatio});});observer.observe(el);})";
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
+    value: { height: 18, intersecting: true, ratio: 1 },
+  });
+});
+test("real HTTP → workerd → Wasm: default fonts collapse tabs and line breaks", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const expression =
+    "(()=>{const e=document.createElement('div');e.style.cssText='font:16px/1.5 serif;width:max-content';e.textContent='A\\tB';document.body.append(e);const a=e.getBoundingClientRect();e.textContent='A\\nB';const b=e.getBoundingClientRect();e.textContent='A B';const c=e.getBoundingClientRect();return {height:a.height,tab:a.width===c.width,newline:b.width===c.width};})()";
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ value: { height: 24, tab: true, newline: true } });
+});

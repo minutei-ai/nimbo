@@ -7,7 +7,7 @@ use crate::{
     styles::{Declarations, Variables},
 };
 
-pub(crate) const PROPERTIES: [&str; 45] = [
+pub(crate) const PROPERTIES: [&str; 46] = [
     "background-attachment",
     "background-clip",
     "background-color",
@@ -32,6 +32,7 @@ pub(crate) const PROPERTIES: [&str; 45] = [
     "margin-left",
     "margin-right",
     "margin-top",
+    "order",
     "outline-color",
     "outline-offset",
     "outline-style",
@@ -69,6 +70,7 @@ pub(crate) struct Computed {
     display: crate::display::Computed,
     position: &'static str,
     index: crate::z_index::Index,
+    order: i32,
     transitions: crate::transitions::Controls,
 }
 
@@ -101,6 +103,8 @@ impl Computed {
             self.sizes.value()
         } else if name == "position" {
             Ok(self.position.to_owned())
+        } else if name == "order" {
+            Ok(self.order.to_string())
         } else if name == "z-index" {
             Ok(self.index.value())
         } else if name == "display" {
@@ -153,6 +157,7 @@ pub(crate) fn resolve(
     let mut display = crate::display::Computed::default();
     let mut position = "static";
     let mut index = crate::z_index::Index::default();
+    let mut order = 0;
     let mut transitions = crate::transitions::Controls::default();
     for (depth, node) in ancestors.into_iter().enumerate() {
         work.charge()?;
@@ -193,6 +198,7 @@ pub(crate) fn resolve(
         layers = layers.compute(&declarations, images.count(), work)?;
         family = family.compute(&declarations, work)?;
         index = index.compute(&declarations.value("z-index").0)?;
+        order = crate::layout::order::compute(order, &declarations)?;
         let (specified, _) = declarations.value("position");
         position = match specified.as_str() {
             "" | "initial" | "unset" | "revert" | "static" => "static",
@@ -219,6 +225,7 @@ pub(crate) fn resolve(
         display,
         position,
         index,
+        order,
         transitions,
     })
 }

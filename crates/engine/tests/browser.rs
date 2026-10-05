@@ -1548,6 +1548,9 @@ fn serve_remaining_resource(request: Request) -> io::Result<()> {
         || request.url().starts_with("/font-loading/")
         || request.url().starts_with("/font-matching/")
         || request.url().starts_with("/text-layout/")
+        || request.url().starts_with("/font-profile/")
+        || request.url().starts_with("/order-layout/")
+        || request.url().starts_with("/public-font-assets/")
         || request.url().starts_with("/font-shaping/")
         || request.url().starts_with("/font-shaping-assets/")
     {
@@ -1713,6 +1716,9 @@ fn is_resource(path: &str) -> bool {
             "/font-loading/",
             "/font-matching/",
             "/text-layout/",
+            "/font-profile/",
+            "/order-layout/",
+            "/public-font-assets/",
             "/font-shaping/",
             "/font-shaping-assets/",
         ]
@@ -1745,6 +1751,35 @@ fn serve_fonts(request: Request) -> io::Result<()> {
     } else if path.starts_with("/font-shaping-assets/") {
         Response::from_data(include_bytes!("fixtures/synthetic-shaping-font.ttf").to_vec())
             .with_header(header("Content-Type", "font/ttf")?)
+    } else if let Some(name) = path.strip_prefix("/public-font-assets/") {
+        let allowed = ["Serif", "Sans", "Mono"].iter().any(|family| {
+            ["Regular", "Bold", "Italic", "BoldItalic"]
+                .iter()
+                .any(|style| name == format!("Liberation{family}-{style}.ttf"))
+        });
+        if !allowed {
+            return request.respond(Response::from_data("missing").with_status_code(404));
+        }
+        let bytes = std::fs::read(
+            std::path::Path::new(env!("OUT_DIR"))
+                .join("fonts")
+                .join(name),
+        )?;
+        Response::from_data(bytes).with_header(header("Content-Type", "font/ttf")?)
+    } else if let Some(variant) = path.strip_prefix("/order-layout/") {
+        let variant = variant.parse::<usize>().unwrap_or_default();
+        Response::from_data(format!(
+            "<!doctype html><meta charset=utf-8><body><script>globalThis.variant={variant};{}</script>",
+            include_str!("fixtures/order-layout.txt")
+        ))
+        .with_header(header("Content-Type", "text/html")?)
+    } else if let Some(variant) = path.strip_prefix("/font-profile/") {
+        let variant = variant.parse::<usize>().unwrap_or_default();
+        Response::from_data(format!(
+            "<!doctype html><meta charset=utf-8><script>globalThis.variant={variant};{}</script>",
+            include_str!("fixtures/font-profile.txt")
+        ))
+        .with_header(header("Content-Type", "text/html")?)
     } else if let Some(variant) = path.strip_prefix("/text-layout/") {
         let variant = variant.parse::<usize>().unwrap_or_default();
         Response::from_data(format!(
@@ -3527,6 +3562,40 @@ fn native_text_layout_uses_real_http_font_resources() -> TestResult {
         let result = page.evaluate("globalThis.comparison")?;
         let fields = result.as_object().ok_or("missing text layout result")?;
         assert_eq!(fields.len(), 12, "variant {variant}: {result}");
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn public_font_profile_uses_real_http_faces_and_builtin_metrics() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/font-profile/{variant}")))?;
+        let result = page.evaluate("globalThis.comparison")?;
+        let fields = result.as_object().ok_or("missing font profile result")?;
+        assert_eq!(fields.len(), 14, "variant {variant}: {result}");
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn flex_grid_order_layout_uses_stable_real_box_geometry() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/order-layout/{variant}")))?;
+        let result = page.evaluate("globalThis.comparison")?;
+        let fields = result.as_object().ok_or("missing order layout result")?;
+        assert_eq!(fields.len(), 9, "variant {variant}: {result}");
         assert!(
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"

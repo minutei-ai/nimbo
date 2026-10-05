@@ -240,6 +240,27 @@ fn style_score(target: Style, face: Style) -> Score {
         },
     }
 }
+pub(crate) fn without_synthesis(source: &str, description: &Description) -> Result<bool> {
+    let request = Font::parse_string(source).map_err(|_error| unsupported())?;
+    let face = Face::parse(description)?;
+    let style_source = request
+        .style
+        .to_css_string(PrinterOptions::default())
+        .map_err(|_error| unsupported())?;
+    let same_style = matches!(
+        (style(&style_source)?, face.style),
+        (Style::Normal, Style::Normal) | (Style::Italic, Style::Italic)
+    );
+    let target = weight(&request.weight, true)?;
+    let [low, high] = face.weight;
+    let [narrow, wide] = face.width;
+    Ok(same_style
+        && low.total_cmp(&high).is_eq()
+        && narrow.total_cmp(&wide).is_eq()
+        && width(&request.stretch)?.total_cmp(&narrow).is_eq()
+        && !(target > 500.0 && high < 600.0))
+}
+
 pub(crate) fn select(request: &Request) -> Result<Option<Vec<usize>>> {
     if request.font.len() > 4096 || request.text.len() > 65536 || request.faces.len() > 1024 {
         return Err(Error::Limit("font matching input"));

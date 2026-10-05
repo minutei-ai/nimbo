@@ -1,0 +1,19 @@
+globalThis.comparison=(async()=>{
+ const families=['Serif','Sans','Mono'], family=families[variant%3], generic=['serif','sans-serif','Liberation Mono'][variant%3];
+ const reference='Reference'+variant;
+ const faces=await Promise.all([['Regular','400','normal'],['Bold','700','normal'],['Italic','400','italic'],['BoldItalic','700','italic']].map(async([file,weight,style])=>{const face=new FontFace(reference,'url(/public-font-assets/Liberation'+family+'-'+file+'.ttf)',{weight,style});document.fonts.add(face);await face.load();return face;}));
+ const css=document.createElement('style');css.textContent='html,body{margin:0;padding:0}div{display:block;margin:0;padding:0;border:0;width:max-content;font-size:16px;line-height:normal}';document.head.append(css);
+ const near=(a,b)=>Math.abs(a-b)<=1/64+.000001;
+ const box=(family,weight='400',style='normal',spacing='normal',text='AV café')=>{const e=document.createElement('div');e.style.fontFamily=family;e.style.fontWeight=weight;e.style.fontStyle=style;e.style.letterSpacing=spacing;e.textContent=text;document.body.append(e);return e;};
+ const checks={};
+ for(const [name,weight,style] of [['regular','400','normal'],['bold','700','normal'],['italic','400','italic'],['boldItalic','700','italic'],['light','300','normal'],['medium','500','normal'],['semibold','600','normal']]){
+  const an=box(reference,weight,style),bn=box(generic,weight,style),a=an.getBoundingClientRect(),b=bn.getBoundingClientRect();checks[name]=near(a.width,b.width)&&near(a.height,b.height)&&a.height>0;an.remove();bn.remove();
+ }
+ for(const [name,spacing,text] of [['positive','1.2px','AV café'],['negative','-0.38px','AV café'],['combining','0.25px','e\u0301'],['ligatureSpacing','1.4px','office']]){
+  const an=box(reference,'400','normal',spacing,text),bn=box(generic,'400','normal',spacing,text),a=an.getBoundingClientRect(),b=bn.getBoundingClientRect();checks[name]=near(a.width,b.width)&&near(a.height,b.height);an.remove();bn.remove();
+ }
+ const plain=box(reference,'400','normal','normal','abc').getBoundingClientRect();const spaced=box(reference,'400','normal','1.2px','abc').getBoundingClientRect();checks.characterSpacing=near(spaced.width-plain.width,3.6);
+ const stable=box(reference);const old=stable.getBoundingClientRect();for(const face of faces)document.fonts.delete(face);const fallback=stable.getBoundingClientRect(),serif=box('serif').getBoundingClientRect();checks.fontRemoval=near(fallback.width,serif.width)&&near(fallback.height,serif.height)&&old.width>0;
+ const normal=box(generic);const before=normal.getBoundingClientRect();normal.style.fontSize='24px';const after=normal.getBoundingClientRect();checks.fontSize=after.height>before.height&&after.width>before.width;
+ return checks;
+})();

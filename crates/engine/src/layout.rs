@@ -12,6 +12,7 @@ use crate::{
 
 mod lengths;
 pub(crate) mod logical;
+pub(crate) mod order;
 mod percentage_padding;
 pub(crate) mod resolved;
 pub(crate) mod svg_viewport;
@@ -285,7 +286,9 @@ fn style_properties(
             continue;
         }
         let value = defaulted(name, value);
-        if name == "display" || (name.starts_with("font-variant-") && value == "normal") {
+        if matches!(name, "display" | "order")
+            || (name.starts_with("font-variant-") && value == "normal")
+        {
             continue;
         }
         if name == "visibility" && (deferred || value == "collapse") {
@@ -478,6 +481,7 @@ struct BoxContext {
     family: crate::font_family::Family,
     display: crate::display::Computed,
     typography: text::Typography,
+    order: i32,
 }
 
 impl BoxContext {
@@ -513,7 +517,8 @@ impl BoxContext {
             layers,
             family,
             display,
-            typography: self.typography.compute(declarations),
+            typography: self.typography.compute(declarations, &fonts, work)?,
+            order: order::compute(self.order, declarations)?,
         })
     }
 }
@@ -525,6 +530,7 @@ struct Tree<'a, 'b> {
     fixed: HashSet<NodeId>,
     out_of_flow: Vec<(taffy::NodeId, Option<NodeId>)>,
     box_nodes: HashMap<taffy::NodeId, NodeId>,
+    orders: HashMap<taffy::NodeId, i32>,
     sticky: HashMap<taffy::NodeId, Rect<LengthPercentageAuto>>,
     percentage_padding: Vec<(taffy::NodeId, Rect<LengthPercentage>)>,
     scroll: &'a ScrollState,
@@ -620,6 +626,7 @@ impl Tree<'_, '_> {
             .new_leaf(style)
             .map_err(|error| layout_error(&error))?;
         self.remember_padding(id)?;
+        self.orders.insert(id, context.order);
         Ok(Some(id))
     }
     fn build(
@@ -721,6 +728,7 @@ impl Tree<'_, '_> {
         }
         .map_err(|error| layout_error(&error))?;
         self.record_box(node.id, id, position, &declarations, &fonts)?;
+        self.orders.insert(id, context.order);
         if out_of_flow {
             self.out_of_flow.push((id, containing));
         }
@@ -900,6 +908,9 @@ impl Tree<'_, '_> {
         )? {
             output.push(after);
         }
+        if matches!(parent_display, Display::Flex | Display::Grid) {
+            output.sort_by_key(|id| self.orders.get(id).copied().unwrap_or_default());
+        }
         Ok(())
     }
 }
@@ -946,6 +957,7 @@ fn scene<T>(
             fixed: HashSet::new(),
             out_of_flow: Vec::new(),
             box_nodes: HashMap::new(),
+            orders: HashMap::new(),
             sticky: HashMap::new(),
             percentage_padding: Vec::new(),
             scroll: styles.scroll,
@@ -983,6 +995,7 @@ fn scene<T>(
                 family: crate::font_family::Family::default(),
                 display: crate::display::Computed::default(),
                 typography: text::Typography::default(),
+                order: 0,
             },
             &mut root_ids,
         )?;

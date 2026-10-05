@@ -25,6 +25,33 @@ export async function fontFixture(path: string): Promise<Response | undefined> {
   }
   if (path.startsWith("/font-assets/invalid/")) return new Response(new Uint8Array([1, 2, 3]));
   if (path.startsWith("/font-assets/missing/")) return new Response("missing", { status: 404 });
+  const publicFont =
+    /^\/public-font-assets\/(Liberation(?:Serif|Sans|Mono)-(?:Regular|Bold|Italic|BoldItalic)\.ttf)$/.exec(
+      path,
+    );
+  if (publicFont?.[1])
+    return new Response(
+      Bun.file(join(import.meta.dir, "../target/font-reference/profile", publicFont[1])),
+      { headers: { "content-type": "font/ttf" } },
+    );
+  if (path.startsWith("/font-profile/")) {
+    const source = await Bun.file(
+      join(import.meta.dir, "../crates/engine/tests/fixtures/font-profile.txt"),
+    ).text();
+    return new Response(
+      `<!doctype html><meta charset="utf-8"><script>globalThis.variant=${Number(path.split("/").at(-1))};${source}</script>`,
+      { headers: { "content-type": "text/html" } },
+    );
+  }
+  if (path.startsWith("/order-layout/")) {
+    const source = await Bun.file(
+      join(import.meta.dir, "../crates/engine/tests/fixtures/order-layout.txt"),
+    ).text();
+    return new Response(
+      `<!doctype html><meta charset="utf-8"><body><script>globalThis.variant=${Number(path.split("/").at(-1))};${source}</script>`,
+      { headers: { "content-type": "text/html" } },
+    );
+  }
   if (path.startsWith("/text-layout/")) {
     const script = await Bun.file(
       join(import.meta.dir, "../crates/engine/tests/fixtures/text-layout.txt"),

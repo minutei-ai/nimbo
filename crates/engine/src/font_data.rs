@@ -39,9 +39,14 @@ struct Registered {
     description: crate::font_matching::Description,
 }
 
+struct Resource {
+    font: Font,
+    variable: bool,
+}
+
 #[derive(Default)]
 pub(crate) struct Arena {
-    fonts: Vec<Font>,
+    fonts: Vec<Resource>,
     registered: Vec<Registered>,
     attempts: usize,
     total: usize,
@@ -61,10 +66,16 @@ impl Arena {
         if !valid(&bytes) {
             return Ok(0);
         }
+        let variable = Face::parse(&bytes, 0).is_ok_and(|face| {
+            face.raw_face()
+                .table_records
+                .into_iter()
+                .any(|table| table.tag == ttf_parser::Tag::from_bytes(b"fvar"))
+        });
         let Some(font) = Font::new(bytes, 0) else {
             return Ok(0);
         };
-        self.fonts.push(font);
+        self.fonts.push(Resource { font, variable });
         Ok(self.fonts.len())
     }
     pub(crate) fn synchronize(&mut self, source: &str) -> crate::Result<bool> {
@@ -97,6 +108,9 @@ impl Arena {
         };
         let selected = crate::font_matching::select(&request)?
             .ok_or_else(|| crate::Error::Dom("invalid layout font".into()))?;
+        if selected.is_empty() {
+            return crate::builtin_fonts::select(&request.font);
+        }
         let [index] = selected.as_slice() else {
             return Err(crate::Error::Dom(
                 "layout unsupported: text shaping: font selection or fallback".into(),
@@ -111,10 +125,18 @@ impl Arena {
                 "layout unsupported: font shaping descriptor".into(),
             ));
         }
-        self.fonts
+        let resource = self
+            .fonts
             .get(face.resource.saturating_sub(1))
-            .cloned()
-            .ok_or_else(|| crate::Error::Dom("invalid native font resource".into()))
+            .ok_or_else(|| crate::Error::Dom("invalid native font resource".into()))?;
+        if resource.variable
+            || !crate::font_matching::without_synthesis(&request.font, &face.description)?
+        {
+            return Err(crate::Error::Dom(
+                "layout unsupported: loaded font synthesis or variation".into(),
+            ));
+        }
+        Ok(resource.font.clone())
     }
 }
 
@@ -140,7 +162,13 @@ pub(crate) fn install<'js>(ctx: &Ctx<'js>, fonts: Rc<RefCell<Arena>>) -> rquickj
                     .ok_or_else(|| {
                         Exception::throw_message(&ctx, "invalid native font resource")
                     })?;
-                measure(font, &text, size)
+                if font.variable {
+                    return Err(Exception::throw_message(
+                        &ctx,
+                        "unsupported: font variations",
+                    ));
+                }
+                measure(&font.font, &text, size)
                     .map_err(|message| Exception::throw_message(&ctx, message))
             },
         )?,
@@ -177,6 +205,15 @@ pub(crate) fn install<'js>(ctx: &Ctx<'js>, fonts: Rc<RefCell<Arena>>) -> rquickj
 // One bounded LTR Latin run. Script itemization, bidi and glyph fallback are
 // deliberately rejected until the layout engine can implement their runs.
 pub(crate) fn measure(font: &Font, text: &str, size: f64) -> Result<f64, &'static str> {
+    measure_spaced(font, text, size, 0.0)
+}
+
+pub(crate) fn measure_spaced(
+    font: &Font,
+    text: &str,
+    size: f64,
+    spacing: f64,
+) -> Result<f64, &'static str> {
     if !text
         .chars()
         .all(|ch| matches!(u32::from(ch), 0x20..=0x024f | 0x0300..=0x036f | 0x20ac))
@@ -186,7 +223,12 @@ pub(crate) fn measure(font: &Font, text: &str, size: f64) -> Result<f64, &'stati
     let mut buffer = Buffer::new();
     buffer.push_str(text);
     buffer.guess_segment_properties();
-    harfrust::shape(&ShaperFont::new(font), &mut buffer, ShapeOptions::default())
+    let features = [
+        harfrust::Feature::new(harfrust::Tag::new(b"liga"), 0, ..),
+        harfrust::Feature::new(harfrust::Tag::new(b"clig"), 0, ..),
+    ];
+    let options = ShapeOptions::new().features(if spacing == 0.0 { &[] } else { &features });
+    harfrust::shape(&ShaperFont::new(font), &mut buffer, options)
         .map_err(|_error| "font shaping failed")?;
     if !buffer.allocation_successful() {
         return Err("font shaping work or allocation limit");
@@ -203,7 +245,20 @@ pub(crate) fn measure(font: &Font, text: &str, size: f64) -> Result<f64, &'stati
     if units == 0 {
         return Err("invalid font units");
     }
-    Ok(f64::from(advance) * size / f64::from(units))
+    // For this supported Latin subset, combining marks join the preceding
+    // typographic unit. Required ligatures do not erase character spacing.
+    if spacing == 0.0 {
+        return Ok(f64::from(advance) * size / f64::from(units));
+    }
+    let count = text
+        .chars()
+        .enumerate()
+        .filter(|(index, character)| {
+            *index == 0 || !matches!(u32::from(*character), 0x0300..=0x036f)
+        })
+        .count();
+    let count = u32::try_from(count).map_err(|_error| "font character unit limit")?;
+    Ok(f64::from(advance) * size / f64::from(units) + f64::from(count) * spacing)
 }
 
 #[cfg(test)]

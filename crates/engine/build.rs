@@ -16,8 +16,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .ok_or("missing workspace root")?;
     let output = PathBuf::from(env::var_os("OUT_DIR").ok_or("missing Cargo output directory")?)
         .join("web.js");
-    for path in ["src/web.ts", "../../tooling/build-web.ts", "../../bun.lock"] {
+    for path in [
+        "src/web.ts",
+        "../../tooling/build-web.ts",
+        "../../tooling/build-fonts.ts",
+        "../../bun.lock",
+    ] {
         writeln!(io::stdout().lock(), "cargo:rerun-if-changed={path}")?;
+    }
+    let font_output = output
+        .parent()
+        .ok_or("missing build output parent")?
+        .join("fonts");
+    let font_status = Command::new("bun")
+        .current_dir(root)
+        .args(["run", "tooling/build-fonts.ts"])
+        .arg(&font_output)
+        .status()?;
+    if !font_status.success() {
+        return Err("pinned public font reference build failed".into());
     }
     let status = Command::new("bun")
         .current_dir(root)

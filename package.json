@@ -62,7 +62,9 @@
     "compare:font-shaping": "bun run build:worker && bun run tooling/compare-font-shaping.ts",
     "compare:registrations": "bun run build:worker && bun run tooling/compare-registrations.ts",
     "bench:wpt-attribute-nodes": "bun run build:worker && bun run tooling/benchmark-wpt-attribute-nodes.ts",
-    "bench:wpt-attribute-namespaces": "bun run build:worker && bun run tooling/benchmark-wpt-attribute-namespaces.ts"
+    "bench:wpt-attribute-namespaces": "bun run build:worker && bun run tooling/benchmark-wpt-attribute-namespaces.ts",
+    "compare:font-profile": "bun run build:worker && bun run tooling/compare-font-profile.ts",
+    "compare:order-layout": "bun run build:worker && bun run tooling/compare-order-layout.ts"
   },
   "devDependencies": {
     "@effect/tsgo": "0.47.2",

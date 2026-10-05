@@ -15,7 +15,7 @@ use crate::{Result, styles::Declarations};
 pub(super) struct Typography {
     weight: String,
     style: String,
-    spacing: String,
+    spacing: f64,
     stretch: String,
     variant: String,
     whitespace: String,
@@ -25,7 +25,7 @@ impl Default for Typography {
         Self {
             weight: "normal".into(),
             style: "normal".into(),
-            spacing: "normal".into(),
+            spacing: 0.0,
             stretch: "normal".into(),
             variant: "normal".into(),
             whitespace: "normal".into(),
@@ -33,7 +33,12 @@ impl Default for Typography {
     }
 }
 impl Typography {
-    pub(super) fn compute(&self, declarations: &Declarations) -> Self {
+    pub(super) fn compute(
+        &self,
+        declarations: &Declarations,
+        fonts: &crate::fonts::Context,
+        work: &mut super::Work<'_>,
+    ) -> Result<Self> {
         fn inherited(declarations: &Declarations, name: &str, old: &str) -> String {
             let (value, _) = declarations.value(name);
             match value.as_str() {
@@ -42,14 +47,25 @@ impl Typography {
                 _ => value,
             }
         }
-        Self {
+        let (value, _) = declarations.value("letter-spacing");
+        let spacing = match value.as_str() {
+            "" | "inherit" | "unset" | "revert" => self.spacing,
+            "initial" | "normal" => 0.0,
+            _ => {
+                use lightningcss::{traits::Parse, values::length::Length};
+                let length =
+                    Length::parse_string(&value).map_err(|_error| unsupported("letter-spacing"))?;
+                fonts.length(&length, work)?
+            }
+        };
+        Ok(Self {
             weight: inherited(declarations, "font-weight", &self.weight),
             style: inherited(declarations, "font-style", &self.style),
-            spacing: inherited(declarations, "letter-spacing", &self.spacing),
+            spacing,
             stretch: inherited(declarations, "font-stretch", &self.stretch),
             variant: inherited(declarations, "font-variant", &self.variant),
             whitespace: inherited(declarations, "white-space", &self.whitespace),
-        }
+        })
     }
 }
 
@@ -62,13 +78,13 @@ impl Budget {
     pub(super) fn check(&self) -> Result<()> {
         self.error.borrow_mut().take().map_or(Ok(()), Err)
     }
-    fn shape(&self, font: &Font, source: &str, size: f64) -> Result<f64> {
+    fn shape(&self, font: &Font, source: &str, size: f64, spacing: f64) -> Result<f64> {
         self.bytes
             .set(self.bytes.get().saturating_add(source.len().max(1)));
         if source.len() > 1024 || self.bytes.get() > 1_048_576 {
             return Err(crate::Error::Limit("layout text shaping"));
         }
-        crate::font_data::measure(font, source, size).map_err(unsupported)
+        crate::font_data::measure_spaced(font, source, size, spacing).map_err(unsupported)
     }
 }
 
@@ -103,6 +119,7 @@ pub(super) struct Run {
     source: String,
     size: f64,
     height: f64,
+    spacing: f64,
     nowrap: bool,
     budget: Rc<Budget>,
 }
@@ -117,11 +134,9 @@ impl Run {
         if !matches!(typography.whitespace.as_str(), "normal" | "nowrap") {
             return Err(unsupported("text white-space"));
         }
-        if !matches!(typography.weight.as_str(), "normal" | "400")
-            || typography.style != "normal"
+        if !matches!(typography.style.as_str(), "normal" | "italic")
             || !matches!(typography.stretch.as_str(), "normal" | "100%")
             || typography.variant != "normal"
-            || !matches!(typography.spacing.as_str(), "normal" | "0" | "0px")
         {
             return Err(unsupported("text font synthesis or spacing"));
         }
@@ -138,26 +153,54 @@ impl Run {
         if normalized.is_empty() {
             return Ok(None);
         }
-        let height = context.fonts.line_height()?;
-        let height = height
-            .strip_suffix("px")
-            .and_then(|value| value.parse::<f64>().ok())
-            .filter(|value| value.is_finite() && *value >= 0.0)
-            .ok_or_else(|| unsupported("text shaping: normal line metrics"))?;
         let size = context.fonts.size();
-        let font = fonts.select(format!("{size}px {}", context.family.value()?), &normalized)?;
-        budget.shape(&font, &normalized, size)?;
+        let font = fonts.select(
+            format!(
+                "{} {} {size}px {}",
+                typography.style,
+                typography.weight,
+                context.family.value()?
+            ),
+            &normalized,
+        )?;
+        let height = context.fonts.line_height()?;
+        let height = if height == "normal" {
+            let metrics = font.metrics();
+            let line = if metrics.use_typo_metrics {
+                metrics.typo_line
+            } else {
+                metrics
+                    .hhea_line
+                    .filter(|line| line.ascender.to_f64() != 0.0 || line.descender.to_f64() != 0.0)
+                    .or(metrics.typo_line)
+            }
+            .ok_or_else(|| unsupported("text normal line metrics"))?;
+            let scale = size / f64::from(metrics.units_per_em);
+            let ascent = line.ascender.to_f64() * scale;
+            let descent = -line.descender.to_f64() * scale;
+            let gap = (line.line_gap.to_f64() * scale).max(0.0);
+            ascent.round() + descent.round() + gap.round()
+        } else {
+            height
+                .strip_suffix("px")
+                .and_then(|value| value.parse::<f64>().ok())
+                .filter(|value| value.is_finite() && *value >= 0.0)
+                .ok_or_else(|| unsupported("text line metrics"))?
+        };
+        budget.shape(&font, &normalized, size, typography.spacing)?;
         Ok(Some(Self {
             font,
             source: normalized,
             size,
             height,
+            spacing: typography.spacing,
             nowrap: typography.whitespace == "nowrap",
             budget,
         }))
     }
     fn width(&self, source: &str) -> Result<f64> {
-        self.budget.shape(&self.font, source, self.size)
+        self.budget
+            .shape(&self.font, source, self.size, self.spacing)
     }
     fn measure(
         &self,

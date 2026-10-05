@@ -26,6 +26,7 @@ const command = (args: string[]) =>
 
 const build = Effect.gen(function* () {
   const bindgen = Bun.which("wasm-bindgen") ?? join(homedir(), ".cargo/bin/wasm-bindgen");
+  yield* command(["bun", "run", "tooling/build-fonts.ts", "target/font-reference/profile"]);
   yield* command([
     "cargo",
     "build",
@@ -73,6 +74,10 @@ const build = Effect.gen(function* () {
       await Bun.write(
         join(root, "dist/worker/nimbo_engine_bg.wasm"),
         Bun.file(join(root, "dist/wasm/nimbo_engine_bg.wasm")),
+      );
+      await Bun.write(
+        join(root, "dist/worker/LICENSE.fonts.txt"),
+        Bun.file(join(root, "LICENSES/Liberation-fonts-OFL-1.1.txt")),
       );
     },
     catch: (cause) => new BuildError({ cause }),
