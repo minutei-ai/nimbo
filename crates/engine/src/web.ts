@@ -1949,7 +1949,12 @@
   const cssRules = new Map<number, CSSStyleRule>();
   const cssListSheets = new WeakMap<object, CSSStyleSheet>();
   const cssSheetLists = new WeakMap<object, CSSRuleList>();
-  type NativeSheet = { rules: number[]; disabled: boolean; owner: number | null };
+  type NativeSheet = {
+    rules: number[];
+    disabled: boolean;
+    owner: number | null;
+    href: string | null;
+  };
   type NativeRule = { selector: string; cssText: string; parent: number | null };
   // Native operation output shapes are fixed by the Rust CSSOM arena.
   // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
@@ -1996,9 +2001,8 @@
       cssSheetId(this);
       return "text/css";
     }
-    get href(): null {
-      cssSheetId(this);
-      return null;
+    get href(): string | null {
+      return cssSheetState(this).href;
     }
     get ownerNode(): Node | null {
       const owner = cssSheetState(this).owner;
@@ -2051,7 +2055,7 @@
       return null;
     }
     get cssRules(): CSSRuleList {
-      cssSheetId(this);
+      cssomCall("sheetAccess", cssSheetId(this));
       let list = cssSheetLists.get(this);
       if (!list) {
         list = new CSSRuleList(internal, this);
@@ -2114,6 +2118,16 @@
     }
   }
   Object.defineProperty(CSSRule.prototype, "STYLE_RULE", { value: 1, enumerable: true });
+  function cssSheetWrapper(id: number): CSSStyleSheet {
+    const cached = cssSheets.get(id);
+    if (cached) return cached;
+    // Native state owns the sheet; this map preserves JavaScript identity.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const sheet = Object.create(CSSStyleSheet.prototype) as CSSStyleSheet;
+    cssSheetIds.set(sheet, id);
+    cssSheets.set(id, sheet);
+    return sheet;
+  }
   function cssRuleWrapper(id: number): CSSStyleRule {
     const cached = cssRules.get(id);
     if (cached) return cached;
@@ -2126,52 +2140,57 @@
   function cssListState(owner: object): number[] {
     const sheet = cssListSheets.get(owner);
     if (!sheet) throw new TypeError("Illegal invocation");
-    return cssSheetState(sheet).rules;
+    return cssomCall<number[]>("sheetRules", cssSheetId(sheet));
+  }
+  function cssIndexedList<T extends object>(
+    target: T,
+    state: (owner: object) => number[],
+    wrap: (id: number) => object,
+  ): T {
+    return new Proxy(target, {
+      get: (owner, key, receiver) => {
+        const index = propertyIndex(key);
+        const id = index === null ? undefined : state(owner)[index];
+        return index === null
+          ? Reflect.get(owner, key, receiver)
+          : id === undefined
+            ? undefined
+            : wrap(id);
+      },
+      set: (owner, key, value, receiver) =>
+        propertyIndex(key) !== null || Reflect.set(owner, key, value, receiver),
+      has: (owner, key) => {
+        const index = propertyIndex(key);
+        return index === null ? Reflect.has(owner, key) : index < state(owner).length;
+      },
+      ownKeys: (owner) => [
+        ...state(owner).map((_, index) => String(index)),
+        ...Reflect.ownKeys(owner),
+      ],
+      getOwnPropertyDescriptor: (owner, key) => {
+        const index = propertyIndex(key);
+        if (index === null) return Reflect.getOwnPropertyDescriptor(owner, key);
+        const id = state(owner)[index];
+        return id === undefined
+          ? undefined
+          : { value: wrap(id), writable: false, enumerable: true, configurable: true };
+      },
+      defineProperty: (owner, key, descriptor) =>
+        propertyIndex(key) !== null
+          ? descriptor.configurable !== false
+          : Reflect.defineProperty(owner, key, descriptor),
+      deleteProperty: (owner, key) => {
+        const index = propertyIndex(key);
+        return index === null ? Reflect.deleteProperty(owner, key) : index >= state(owner).length;
+      },
+      preventExtensions: () => false,
+    });
   }
   class CSSRuleList {
     constructor(token: symbol, sheet: CSSStyleSheet) {
       if (token !== internal) throw new TypeError("Illegal constructor");
       cssListSheets.set(this, sheet);
-      const proxy = new Proxy(this, {
-        get: (owner, key, receiver) => {
-          const index = propertyIndex(key);
-          const id = index === null ? undefined : cssListState(owner)[index];
-          return index === null
-            ? Reflect.get(owner, key, receiver)
-            : id === undefined
-              ? undefined
-              : cssRuleWrapper(id);
-        },
-        set: (owner, key, value, receiver) =>
-          propertyIndex(key) !== null || Reflect.set(owner, key, value, receiver),
-        has: (owner, key) => {
-          const index = propertyIndex(key);
-          return index === null ? Reflect.has(owner, key) : index < cssListState(owner).length;
-        },
-        ownKeys: (owner) => [
-          ...cssListState(owner).map((_, index) => String(index)),
-          ...Reflect.ownKeys(owner),
-        ],
-        getOwnPropertyDescriptor: (owner, key) => {
-          const index = propertyIndex(key);
-          if (index === null) return Reflect.getOwnPropertyDescriptor(owner, key);
-          const id = cssListState(owner)[index];
-          return id === undefined
-            ? undefined
-            : { value: cssRuleWrapper(id), writable: false, enumerable: true, configurable: true };
-        },
-        defineProperty: (owner, key, descriptor) =>
-          propertyIndex(key) !== null
-            ? descriptor.configurable !== false
-            : Reflect.defineProperty(owner, key, descriptor),
-        deleteProperty: (owner, key) => {
-          const index = propertyIndex(key);
-          return index === null
-            ? Reflect.deleteProperty(owner, key)
-            : index >= cssListState(owner).length;
-        },
-        preventExtensions: () => false,
-      });
+      const proxy = cssIndexedList(this, cssListState, cssRuleWrapper);
       cssListSheets.set(proxy, sheet);
       return proxy;
     }
@@ -2192,12 +2211,45 @@
       }
     }
   }
+  const sheetListDocuments = new WeakMap<object, Document>();
+  const documentSheetLists = new WeakMap<object, StyleSheetList>();
+  function documentSheetIds(owner: object): number[] {
+    const doc = sheetListDocuments.get(owner);
+    if (!doc) throw new TypeError("Illegal invocation");
+    return call<number[]>("styleSheets", idOf(doc));
+  }
+  class StyleSheetList {
+    constructor(token: symbol, doc: Document) {
+      if (token !== internal) throw new TypeError("Illegal constructor");
+      sheetListDocuments.set(this, doc);
+      const proxy = cssIndexedList(this, documentSheetIds, cssSheetWrapper);
+      sheetListDocuments.set(proxy, doc);
+      return proxy;
+    }
+    get length(): number {
+      return documentSheetIds(this).length;
+    }
+    item(index: unknown): CSSStyleSheet | null {
+      documentSheetIds(this);
+      required(1, arguments.length);
+      const id = documentSheetIds(this)[cssIndex(index)];
+      return id === undefined ? null : cssSheetWrapper(id);
+    }
+    *[Symbol.iterator](): Generator<CSSStyleSheet> {
+      for (let index = 0; ; index++) {
+        const id = documentSheetIds(this)[index];
+        if (id === undefined) return;
+        yield cssSheetWrapper(id);
+      }
+    }
+  }
   for (const [prototype, tag] of [
     [StyleSheet.prototype, "StyleSheet"],
     [CSSStyleSheet.prototype, "CSSStyleSheet"],
     [CSSRule.prototype, "CSSRule"],
     [CSSStyleRule.prototype, "CSSStyleRule"],
     [CSSRuleList.prototype, "CSSRuleList"],
+    [StyleSheetList.prototype, "StyleSheetList"],
   ] as const)
     Object.defineProperty(prototype, Symbol.toStringTag, { value: tag, configurable: true });
   const datasets = new WeakMap<object, DOMStringMap>();
@@ -2828,15 +2880,7 @@
       if (!(this instanceof HTMLStyleElement)) throw new TypeError("Illegal invocation");
       const id = call<number | null>("styleSheet", idOf(this));
       if (id === null) return null;
-      let sheet = cssSheets.get(id);
-      if (!sheet) {
-        // Native sheet state exists already; this object preserves wrapper identity.
-        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-        sheet = Object.create(CSSStyleSheet.prototype) as CSSStyleSheet;
-        cssSheetIds.set(sheet, id);
-        cssSheets.set(id, sheet);
-      }
-      return sheet;
+      return cssSheetWrapper(id);
     }
   }
   Object.defineProperty(HTMLStyleElement.prototype, Symbol.toStringTag, {
@@ -2847,6 +2891,52 @@
     ...Object.getOwnPropertyDescriptor(HTMLStyleElement.prototype, "sheet"),
     enumerable: true,
   });
+  class HTMLLinkElement extends HTMLElement {
+    constructor(key?: symbol, id?: number) {
+      if (key !== internal || id === undefined) throw new TypeError("Illegal constructor");
+      super(internal, id);
+    }
+    get href(): string {
+      if (!(this instanceof HTMLLinkElement)) throw new TypeError("Illegal invocation");
+      const value = call<string | null>("attr", idOf(this), "href");
+      return linkValue("get", "href", value, documentBase()) ?? "";
+    }
+    set href(value: unknown) {
+      if (!(this instanceof HTMLLinkElement)) throw new TypeError("Illegal invocation");
+      call("setAttr", idOf(this), "href", usvString(value));
+    }
+    get sheet(): CSSStyleSheet | null {
+      if (!(this instanceof HTMLLinkElement)) throw new TypeError("Illegal invocation");
+      const id = call<number | null>("styleSheet", idOf(this));
+      return id === null ? null : cssSheetWrapper(id);
+    }
+  }
+  Object.defineProperty(HTMLLinkElement.prototype, Symbol.toStringTag, {
+    value: "HTMLLinkElement",
+    configurable: true,
+  });
+  Object.defineProperty(HTMLLinkElement.prototype, "sheet", {
+    ...Object.getOwnPropertyDescriptor(HTMLLinkElement.prototype, "sheet"),
+    enumerable: true,
+  });
+  for (const [ownerClass, attributes] of [
+    [HTMLStyleElement, ["type", "media"]],
+    [HTMLLinkElement, ["type", "media", "rel", "hreflang"]],
+  ] as const) {
+    for (const attribute of attributes)
+      Object.defineProperty(ownerClass.prototype, attribute, {
+        get(this: object): string {
+          if (!(this instanceof ownerClass)) throw new TypeError("Illegal invocation");
+          return call<string | null>("attr", idOf(this), attribute) ?? "";
+        },
+        set(this: object, value: unknown) {
+          if (!(this instanceof ownerClass)) throw new TypeError("Illegal invocation");
+          call("setAttr", idOf(this), attribute, domString(value));
+        },
+        enumerable: true,
+        configurable: true,
+      });
+  }
   class HTMLAnchorElement extends HTMLElement {
     constructor(key?: symbol, id?: number) {
       if (key !== internal || id === undefined) throw new TypeError("Illegal constructor");
@@ -3438,6 +3528,7 @@
           const name = call<string>("get", id, "localName");
           if (name === "style") return new HTMLStyleElement(internal, id);
           if (name === "a") return new HTMLAnchorElement(internal, id);
+          if (name === "link") return new HTMLLinkElement(internal, id);
           if (name === "iframe") return new HTMLIFrameElement(internal, id);
           return new HTMLElement(internal, id);
         }
@@ -3581,6 +3672,15 @@
       return tagElements(this, qualifiedName);
     }
 
+    get styleSheets(): StyleSheetList {
+      if (this !== document) throw new TypeError("Illegal invocation");
+      let list = documentSheetLists.get(this);
+      if (!list) {
+        list = new StyleSheetList(internal, this);
+        documentSheetLists.set(this, list);
+      }
+      return list;
+    }
     get adoptedStyleSheets(): CSSStyleSheet[] {
       if (this !== document) throw new TypeError("Illegal invocation");
       return adoptedSheets;
@@ -5216,6 +5316,7 @@
     HTMLElement,
     HTMLAnchorElement,
     HTMLStyleElement,
+    HTMLLinkElement,
     HTMLIFrameElement,
     SVGElement,
     DOMStringMap,
@@ -5226,6 +5327,7 @@
     CSSRule,
     CSSStyleRule,
     CSSRuleList,
+    StyleSheetList,
     getComputedStyle,
     CustomElementRegistry,
     Document,

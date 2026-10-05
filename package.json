@@ -52,7 +52,9 @@
     "compare:svg-viewport": "bun run build:worker && bun run tooling/compare-svg-viewport.ts",
     "compare:resolved-box-values": "bun run build:worker && bun run tooling/compare-resolved-box-values.ts",
     "compare:background-color": "bun run build:worker && bun run tooling/compare-background-color.ts",
-    "bench:wpt-background-color": "bun run build:worker && bun run tooling/benchmark-wpt-background-color.ts"
+    "bench:wpt-background-color": "bun run build:worker && bun run tooling/benchmark-wpt-background-color.ts",
+    "compare:document-stylesheets": "bun run build:worker && bun run tooling/compare-document-stylesheets.ts",
+    "bench:wpt-document-stylesheets": "bun run build:worker && bun run tooling/benchmark-wpt-document-stylesheets.ts"
   },
   "devDependencies": {
     "@effect/tsgo": "0.47.2",

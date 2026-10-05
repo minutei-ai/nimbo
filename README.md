@@ -122,23 +122,23 @@ compatibility and performance are measured below and in the coverage inventory.
 
 The engine implements bounded browser subsets. See the [coverage inventory](docs/browser-coverage.md) for individual contracts, real Chromium comparisons, known divergences and pending work.
 
-| Surface                          | Current scope                                                                                                                                      |
-| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| HTML and DOM                     | Parsing, selectors, attributes, text, mutations and selected element interfaces                                                                    |
-| JavaScript                       | Classic scripts, supported modules, live bindings, top-level await, Promises, bounded timers and animation callbacks                               |
-| HTTP                             | Redirects, shared HTTP/document cookies, page fetch and per-page isolation; simplified browser networking                                          |
-| URL                              | Native parsing and form encoding, live URLSearchParams and bounded Web IDL bindings; original WPT failures remain                                  |
-| Storage                          | Bounded local/session storage; Worker requests start fresh                                                                                         |
-| CSS                              | Native declarations, selector matching, cascade, computed-style subsets and bounded numeric CSS transitions                                        |
-| Layout                           | Native block/flex/grid geometry, explicitly inset absolute/fixed boxes, selected sticky/scroll metrics and HTML categories; incomplete text layout |
-| CSSOM                            | Constructed sheet replacement, ordered live rules, declarations, Document adoption and HTML style-owned sheets; grouping/imports pending           |
-| SVG                              | Native outer viewport intrinsic sizing and CSSOM style; internal graphics geometry and painting remain pending                                     |
-| Canvas                           | Rust software OffscreenCanvas bitmap and selected 2D pixel operations                                                                              |
-| Compatibility work still pending | Full HTML/CSSOM/WPT behavior, text shaping, painting, screenshots/PDF, WebGL, video, controllable TLS, durable browser sessions and CDP automation |
+| Surface                          | Current scope                                                                                                                                                           |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| HTML and DOM                     | Parsing, selectors, attributes, text, mutations and selected element interfaces                                                                                         |
+| JavaScript                       | Classic scripts, supported modules, live bindings, top-level await, Promises, bounded timers and animation callbacks                                                    |
+| HTTP                             | Redirects, shared HTTP/document cookies, page fetch and per-page isolation; simplified browser networking                                                               |
+| URL                              | Native parsing and form encoding, live URLSearchParams and bounded Web IDL bindings; original WPT failures remain                                                       |
+| Storage                          | Bounded local/session storage; Worker requests start fresh                                                                                                              |
+| CSS                              | Native declarations, selector matching, cascade, computed-style subsets and bounded numeric CSS transitions                                                             |
+| Layout                           | Native block/flex/grid geometry, explicitly inset absolute/fixed boxes, selected sticky/scroll metrics and HTML categories; incomplete text layout                      |
+| CSSOM                            | Constructed sheet replacement, ordered live rules, declarations, Document adoption, document stylesheet list and HTML style/link-owned sheets; grouping/imports pending |
+| SVG                              | Native outer viewport intrinsic sizing and CSSOM style; internal graphics geometry and painting remain pending                                                          |
+| Canvas                           | Rust software OffscreenCanvas bitmap and selected 2D pixel operations                                                                                                   |
+| Compatibility work still pending | Full HTML/CSSOM/WPT behavior, text shaping, painting, screenshots/PDF, WebGL, video, controllable TLS, durable browser sessions and CDP automation                      |
 
 Scripts run after parsing; this is a simplified lifecycle. Frames are explicitly rejected. Images are not loaded. Import maps, JSON modules, IndexedDB and full CORS/networking contracts remain incomplete. Supported CSS metadata does not imply font rendering or painting.
 
-Constructed CSSOM currently differs from Chromium for a non-configurable indexed rule-list definition. Document adoption is implemented, with two recorded cascade-order differences from Chromium. HTML style-owned flat rules now support live mutation. Document stylesheet lists, imports, association lifecycle and grouped rule wrappers remain pending. These divergences remain visible in the real fixtures and evidence.
+Constructed CSSOM currently differs from Chromium for a non-configurable indexed rule-list definition. Document adoption is implemented, with two recorded cascade-order differences from Chromium. HTML style/link-owned flat rules support live mutation, and Document.styleSheets exposes a live list. Imports, association lifecycle and grouped rule wrappers remain pending. These divergences remain visible in the real fixtures and evidence.
 
 ## Resource limits
 
@@ -180,6 +180,8 @@ bun run compare:background-color # live background-color computation in celld an
 bun run bench:wpt-background-color # original declaration and computed color WPT
 bun run compare:layout-snapshot # geometry invalidation after DOM, CSSOM and scroll changes
 bun run bench:wpt-cssom-owner # original stylesheet replacement and ownership WPT
+bun run compare:document-stylesheets # live lists and link sheets vs Chromium
+bun run bench:wpt-document-stylesheets # original StyleSheetList WPT; failures retained
 bun run compare:animation-frames # real-clock callback batches and cancellation
 bun run bench:wpt-animation-frames # original animation callback WPT files
 bun run bench:wpt-svg-viewport # original SVG API and image WPT files
@@ -203,21 +205,21 @@ Latency in milliseconds, **p50 / p95**:
 
 | Scenario                | Nimbo / celld |        Obscura |        Chromium |
 | ----------------------- | ------------: | -------------: | --------------: |
-| Static HTML             | 13.02 / 16.23 |  18.05 / 19.36 |   58.71 / 73.00 |
-| Selectors, 200 nodes    | 11.18 / 18.08 |  19.16 / 20.17 |   60.98 / 67.15 |
-| Dynamic fetch           | 10.98 / 15.91 |  20.00 / 21.08 |   57.94 / 69.28 |
-| JS, DOM and events      | 21.70 / 23.88 |  29.53 / 30.84 |   65.86 / 78.97 |
-| JS modules              | 26.24 / 28.12 |  29.88 / 32.68 |   73.51 / 90.47 |
-| JS selectors, 200 nodes | 22.97 / 26.43 |  31.25 / 33.54 |   66.81 / 89.92 |
-| Static HTML, 5000 nodes | 28.56 / 44.75 |  43.26 / 51.42 | 274.04 / 300.23 |
-| Selectors, 5000 nodes   | 43.93 / 50.67 | 98.09 / 109.13 | 280.51 / 297.60 |
-| JS positioned boxes     | 44.44 / 47.58 |  33.04 / 35.96 |   68.25 / 86.53 |
+| Static HTML             | 11.82 / 14.86 |  18.28 / 20.59 |   58.66 / 64.03 |
+| Selectors, 200 nodes    | 14.46 / 19.58 |  19.01 / 21.01 |   61.16 / 71.74 |
+| Dynamic fetch           | 11.25 / 13.48 |  20.81 / 23.35 |   62.98 / 72.93 |
+| JS, DOM and events      | 20.90 / 24.60 |  29.21 / 30.61 |   62.35 / 79.05 |
+| JS modules              | 21.80 / 26.71 |  29.45 / 30.96 |   64.91 / 79.21 |
+| JS selectors, 200 nodes | 23.05 / 26.12 |  29.75 / 30.99 |   68.96 / 83.93 |
+| Static HTML, 5000 nodes | 26.78 / 43.91 |  41.75 / 61.42 | 257.13 / 286.19 |
+| Selectors, 5000 nodes   | 37.63 / 64.78 | 98.41 / 123.24 | 258.89 / 292.91 |
+| JS positioned boxes     | 37.85 / 47.54 |  32.70 / 35.10 |   62.66 / 82.69 |
 
 Nimbo has a lower p50 than Chromium in **9/9** scenarios and Obscura in
 **8/9**. Matching or beating Obscura across the remaining scenarios is still
 pending. These local fixtures do not establish general SPA compatibility,
 production throughput, memory consumption or cost. See the
-[raw results](docs/performance-comparison-background-color.json) and
+[raw results](docs/performance-comparison-document-stylesheets.json) and
 [reproduction guide](docs/benchmark-comparison.md).
 
 ## Runtime guides

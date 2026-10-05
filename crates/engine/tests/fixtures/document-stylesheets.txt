@@ -1,0 +1,47 @@
+function documentStylesheetsCase(variant) {
+  const checks = {};
+  const list = document.styleSheets;
+  const inline = document.getElementById('inline');
+  const link = document.getElementById('external');
+  const sheet = link.sheet;
+  const box = document.getElementById('box');
+  checks.listIdentity = document.styleSheets === list;
+  checks.listBrand = list instanceof StyleSheetList && Object.prototype.toString.call(list) === '[object StyleSheetList]';
+  checks.initialOrder = list.length === 4 && list[0] === inline.sheet && list[1] === sheet;
+  checks.item = list.item(1) === sheet && list.item(4) === null && list[4] === undefined;
+  checks.iteration = Array.from(list).length === 4 && Array.from(list)[1] === sheet;
+  checks.linkBrand = link instanceof HTMLLinkElement && Object.prototype.toString.call(link) === '[object HTMLLinkElement]';
+  checks.failedLink = document.getElementById("failed").sheet instanceof CSSStyleSheet && document.getElementById("failed").sheet.cssRules.length === 0;
+  const restricted = document.getElementById("wrong-mime").sheet;
+  let security = false; try { restricted.cssRules; } catch (error) { security = error.name === "SecurityError"; }
+  const securityRejects = fn => { try { fn(); return false; } catch (error) { return error.name === "SecurityError"; } };
+  checks.wrongMime = restricted instanceof CSSStyleSheet && security && securityRejects(() => restricted.insertRule("div {}", 0)) && securityRejects(() => restricted.deleteRule(0));
+  checks.nonStylesheet = document.getElementById("reference").sheet === null;
+  checks.linkReflection = link.rel === "stylesheet" && link.type === "" && link.href === sheet.href;
+  checks.linkIdentity = link.sheet === sheet && sheet.ownerNode === link;
+  checks.href = sheet.href === new URL('/document-stylesheets-assets/' + variant + '.css', location.href).href && inline.sheet.href === null;
+  checks.externalRule = sheet.cssRules.length === 1 && sheet.cssRules[0].parentStyleSheet === sheet;
+  checks.loadedCascade = getComputedStyle(box).width === (30 + variant) + 'px';
+  sheet.cssRules[0].style.width = (100 + variant) + 'px';
+  checks.mutatedCascade = getComputedStyle(box).width === (100 + variant) + 'px';
+  sheet.disabled = true;
+  checks.disabledInList = list.length === 4 && list[1] === sheet && sheet.disabled;
+  checks.disabledCascade = getComputedStyle(box).width === '20px';
+  sheet.disabled = false;
+  checks.reenabledCascade = getComputedStyle(box).width === (100 + variant) + 'px';
+  const adopted = new CSSStyleSheet(); adopted.replaceSync('p { width: 2px }'); document.adoptedStyleSheets = [adopted];
+  checks.adoptionExcluded = list.length === 4;
+  const grouped = document.createElement('style'); grouped.textContent = '@media screen { #box { height: 17px } }'; document.head.appendChild(grouped);
+  const groupedSheet = grouped.sheet;
+  checks.groupAssociation = groupedSheet instanceof CSSStyleSheet && groupedSheet.ownerNode === grouped && list.length === 5 && list[4] === groupedSheet;
+  checks.groupCascade = getComputedStyle(box).height === '17px';
+  grouped.remove();
+  checks.liveRemoval = list.length === 4 && list[4] === undefined;
+  const invalid = document.createElement('style'); invalid.type = 'text/plain'; invalid.textContent = '#box { height: 99px }'; document.head.appendChild(invalid);
+  checks.invalidType = invalid.sheet === null && list.length === 4;
+  const detached = document.createElement('style'); detached.textContent = 'div {}';
+  checks.detached = detached.sheet === null;
+  let denied = false; try { sheet.replaceSync('div {}'); } catch (error) { denied = error.name === 'NotAllowedError'; }
+  checks.regularReplacement = denied;
+  return checks;
+}

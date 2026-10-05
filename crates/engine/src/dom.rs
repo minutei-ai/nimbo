@@ -117,6 +117,7 @@ impl Dom {
         let result = match operation {
             "cssom" => self.cssom_call(handle, arg, value)?,
             "styleSheet" => self.style_sheet(handle)?,
+            "styleSheets" => self.style_sheets(handle)?,
             "baseHref" => json!(self.base_href()),
             "fontFaces" => self.font_faces()?,
             "cssSupports" => json!(crate::supports::query(arg)?),
@@ -677,14 +678,14 @@ impl Dom {
 
     fn style_sheet(&mut self, handle: usize) -> Result<Value> {
         let node = self.node(handle)?;
-        if !node.has_name("style")
+        if !(node.has_name("style") || node.has_name("link"))
             || node
                 .qual_name_ref()
                 .as_ref()
                 .is_none_or(|name| name.ns.as_ref() != "http://www.w3.org/1999/xhtml")
         {
             return Err(Error::Dom(
-                "stylesheet owner must be an HTML style element".into(),
+                "stylesheet owner must be an HTML style or link element".into(),
             ));
         }
         if !node.ancestors_it(None).any(|parent| parent.is_document())
@@ -694,12 +695,62 @@ impl Dom {
         {
             return Ok(Value::Null);
         }
-        let source = node.text().to_string();
+        let (source, href, accessible) = if node.has_name("link") {
+            if !crate::stylesheets::is_stylesheet(node) {
+                return Ok(Value::Null);
+            }
+            let base = self.base_href();
+            let Some((source, href, accessible)) =
+                self.sheets.associated_source(node, base.as_deref())?
+            else {
+                return Ok(Value::Null);
+            };
+            (source.to_string(), Some(href.to_string()), accessible)
+        } else {
+            (node.text().to_string(), None, true)
+        };
         if source.len() > self.limits.max_stylesheet_bytes {
             return Err(Error::Limit("stylesheet bytes"));
         }
         let id = node.id;
-        Ok(json!(self.cssom.owner_sheet(id, handle, source)?))
+        Ok(json!(
+            self.cssom
+                .owner_sheet(id, handle, source, href, accessible)?
+        ))
+    }
+
+    fn style_sheets(&mut self, handle: usize) -> Result<Value> {
+        if !self.node(handle)?.is_document() {
+            return Err(Error::Dom(
+                "stylesheet list owner must be a document".into(),
+            ));
+        }
+        let mut candidates = Vec::new();
+        let mut work = crate::layout::Work::new(
+            &mut self.operations,
+            self.limits.max_dom_operations,
+            self.limits.max_layout_nodes,
+        );
+        for node in self.document.root().descendants_it() {
+            work.charge()?;
+            if (node.has_name("style") || node.has_name("link"))
+                && node
+                    .qual_name_ref()
+                    .as_ref()
+                    .is_some_and(|name| name.ns.as_ref() == "http://www.w3.org/1999/xhtml")
+            {
+                candidates.push(node.id);
+            }
+        }
+        let mut sheets = Vec::new();
+        for id in candidates {
+            let handle = self.handle(id);
+            let sheet = self.style_sheet(handle)?;
+            if !sheet.is_null() {
+                sheets.push(sheet);
+            }
+        }
+        Ok(json!(sheets))
     }
 
     fn cssom_call(&mut self, handle: usize, operation: &str, request: &str) -> Result<Value> {

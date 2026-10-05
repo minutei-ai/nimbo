@@ -308,3 +308,19 @@ retains the original sixteen files: Nimbo/celld remains at 126/181, Chromium
 layout but fail on absolute static positioning in the original document. Insets,
 shorthand CSSOM and canonical calc serialization remain gaps. No original
 assertions or markup were changed to remove those failures.
+
+## Original document stylesheet list WPT
+
+The [manifest](../tooling/wpt-document-stylesheets-sources.json) pins
+`StyleSheetList.html`, `StyleSheetList-constructable.html` and
+`StyleSheetList-constructable-with-style-recalc.html`, plus both original harness
+resources, to the shared upstream revision. Original bytes and assertions are
+unchanged; only vendor result reporting is appended. Run
+`bun run bench:wpt-document-stylesheets` with the original pinned source root.
+
+The [report](performance-wpt-document-stylesheets.json) records Nimbo/celld 1/3,
+Chromium 3/3 and public Obscura 3/3. Both Nimbo adoption files fail on missing
+Window named element access (`sheet1 is not defined`). Supplemental explicit
+DOM-access fixtures verify adoption exclusion, but do not replace the original
+assertions. The command remains unsuccessful; Window named properties, imports,
+grouped CSSOM and full owner-association lifecycle remain obligations.

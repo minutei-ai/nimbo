@@ -539,11 +539,13 @@ impl Cascade {
                 let Some(source) = sheets.source(node, base)? else {
                     continue;
                 };
-                source.to_owned()
+                constructed
+                    .owner_source(node.id, source, sheets.source_base(node, base)?)
+                    .unwrap_or_else(|| source.to_owned())
             } else {
                 let text = node.text();
                 constructed
-                    .owner_source(node.id, &text)
+                    .owner_source(node.id, &text, None)
                     .unwrap_or_else(|| text.to_string())
             };
             if source.len() > sheets.max_bytes() {

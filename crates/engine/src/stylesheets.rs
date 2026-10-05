@@ -9,6 +9,7 @@ struct Sheet {
     url: String,
     source: String,
     base: String,
+    accessible: bool,
 }
 
 pub(crate) struct Sheets {
@@ -109,6 +110,21 @@ impl Sheets {
             .map(|sheet| sheet.source.as_str()))
     }
 
+    pub(crate) fn associated_source(
+        &self,
+        node: NodeRef<'_>,
+        base: Option<&str>,
+    ) -> Result<Option<(&str, &str, bool)>> {
+        let Some(url) = self.url(node, base)? else {
+            return Ok(None);
+        };
+        Ok(self
+            .loaded
+            .get(&node.id)
+            .filter(|sheet| sheet.url == url)
+            .map(|sheet| (sheet.source.as_str(), sheet.base.as_str(), sheet.accessible)))
+    }
+
     pub(crate) fn source_base(
         &self,
         node: NodeRef<'_>,
@@ -167,6 +183,15 @@ impl Sheets {
         if !self.loaded.contains_key(&id) && self.loaded.len() >= 1024 {
             return Err(Error::Limit("stylesheet resources"));
         }
+        let accessible = response.is_some_and(|response| {
+            response
+                .content_type
+                .split(';')
+                .next()
+                .unwrap_or_default()
+                .trim()
+                .eq_ignore_ascii_case("text/css")
+        });
         let response = response.filter(|response| {
             (200..300).contains(&response.status)
                 && response
@@ -188,7 +213,15 @@ impl Sheets {
         }
         self.bytes = bytes;
         let base = response.map_or_else(|| url.clone(), |response| response.url.clone());
-        self.loaded.insert(id, Sheet { url, source, base });
+        self.loaded.insert(
+            id,
+            Sheet {
+                url,
+                source,
+                base,
+                accessible,
+            },
+        );
         Ok(response.is_some())
     }
 }

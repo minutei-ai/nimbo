@@ -2138,13 +2138,14 @@ inline display still fails explicitly when geometry needs inline formatting.
 SVG, other namespaces, replaced elements, native controls and unsupported HTML
 tags retain explicit layout errors; hidden descendants do not require layout.
 
-The shared real-HTTP fixture covers 17 HTML tags over 64 variants, using external
+The initial shared real-HTTP comparison covered 17 HTML tags over 64 variants, using external
 CSS, author cascade, nested box dimensions, flex/grid blockification and DOM
-detach/reattach. Chromium passed all 10,176 assertions. Native Rust and
-Worker/Wasm match 158 of 159 unique assertions per variant (10,112 matches).
-The remaining 64 comparisons expose a CSSOM gap: link.sheet and cssRules-based
-rule mutation are unsupported. That divergence is retained in the fixture and
-asserted explicitly rather than counted as a passing capability.
+detach/reattach. Chromium passed all 10,176 assertions. The initial Native Rust and
+Worker/Wasm builds matched 158 of 159 unique assertions per variant (10,112 matches).
+The remaining 64 comparisons exposed a CSSOM gap: link.sheet and cssRules-based
+rule mutation were unsupported. The later document stylesheet implementation
+closes that gap; current native/workerd tests require every field to pass,
+including externalMutation. The linked aggregate remains the historical baseline.
 [The aggregate records these counts and limitations](evidence/html-boxes-chromium.json).
 
 Engine runs split each variant into four fresh HTTP requests with 51, 51, 51 and
@@ -2152,7 +2153,7 @@ Engine runs split each variant into four fresh HTTP requests with 51, 51, 51 and
 budgets. Six shared checks repeat between groups; unique comparison counts
 exclude repetitions. This validates empty box geometry, not full HTML rendering.
 Inline line boxes, glyph shaping, full user-agent margins/fonts/link styling,
-replaced/media/control/SVG layout, CSSOM rule mutation and painting remain pending.
+replaced/media/control/SVG layout and painting remain pending.
 
 Public references: [HTML rendering defaults](https://html.spec.whatwg.org/multipage/rendering.html),
 [HTML text-level semantics](https://html.spec.whatwg.org/multipage/text-level-semantics.html).
@@ -2184,8 +2185,9 @@ This is structural constructed-sheet support, not a claim that these sheets
 affect document styling. Association with loaded link/style sheets, adopted
 sheets, cascading these mutations, constructor options, replace/replaceSync,
 MediaList, grouped/nested/at-rule APIs, cross-origin security and complete CSSOM
-remain pending. In particular, the earlier externalMutation comparison still
-diverges. Selector parsing follows the current native selector grammar; complete
+were pending at that implementation stage. Later sections record constructed
+replacement, adoption and owned-sheet mutations; the earlier externalMutation
+gap is now closed. Selector parsing follows the current native selector grammar; complete
 selector recovery and legacy-platform-object reflection remain pending too.
 
 Public reference: [CSSOM stylesheet and rule interfaces](https://drafts.csswg.org/cssom/#the-cssstylesheet-interface).
@@ -3054,3 +3056,49 @@ background layer fixture; the corrected engine preserves its 143 contracts over
 64 native pages (9152/9152) and passes 132 focused workerd cases including old
 layer contexts, limit recovery, property enumeration and new colors. Resource
 limits remain unchanged.
+
+## Document stylesheet lists and link-owned CSSOM
+
+`Document.styleSheets` now exposes a live `StyleSheetList` in DOM order with
+indexed access, `item`, iteration and stable list/sheet wrappers. Constructed
+adopted sheets are excluded. HTML style/link elements expose native owned sheets;
+link `href` metadata comes from the loaded resource. Link rule mutations and
+sheet disabling participate at the link's original native cascade position.
+HTML style/link type and media attributes, plus link href/rel/hreflang, reflect
+through the actual DOM.
+
+Association and metadata do not eagerly parse the rules. Valid grouped style
+sheets therefore expose metadata while their native grouped cascade still runs.
+Reading unsupported grouping rules remains an explicit error. Owned sheets have
+an explicit nonconstructed kind, so replacement and adoption reject them.
+
+Real HTTP failure cases follow the ordinary Chromium comparator: a 404 CSS
+response retains an associated empty sheet, and a wrong-MIME response retains
+an associated sheet whose `cssRules`, insertion and deletion reject with
+`SecurityError`. Nonstylesheet links and unsupported style types are excluded.
+These statements cover the pinned synthetic standards-mode fixtures, not all
+HTTP status/MIME, CORS or owner-association transitions.
+
+The [fixture](../crates/engine/tests/fixtures/document-stylesheets.txt) checks
+25 contracts across 64 fresh pages in native Rust, workerd, celld and ordinary
+Chromium: 1600 assertions per runtime. The
+[celld/Chromium report](document-stylesheets-chromium.json) records individual
+results. Native regression tests also verify that repeated unsupported grouping
+rule reads preserve metadata, identity and native cascade behavior.
+
+The [original WPT manifest](../tooling/wpt-document-stylesheets-sources.json)
+pins three HTML files and both harness resources, with unchanged source bytes
+and assertions and a reporting-only adapter. The
+[report](performance-wpt-document-stylesheets.json) records Nimbo **1/3**, ordinary
+Chromium **3/3**, and Obscura **3/3**. The two adoption files fail with
+`sheet1 is not defined`: Window named access to elements is missing. The same
+adoption exclusion is covered through explicit DOM access in the supplemental
+fixture; that does not turn either original WPT into a pass. The runner exits
+unsuccessfully while original failures remain.
+
+Imports, grouped CSSOM wrappers, SVG style owners, complete association lifecycle,
+stylesheet sets, full MIME/CORS behavior and Window named properties remain
+pending. This delivery does not establish full CSSOM or browser parity.
+
+References: [CSSOM stylesheet collections](https://drafts.csswg.org/cssom/#css-style-sheet-collections)
+and [StyleSheetList](https://drafts.csswg.org/cssom/#the-stylesheetlist-interface).

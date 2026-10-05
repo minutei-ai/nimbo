@@ -349,7 +349,7 @@ was measured on 2026-10-05 UTC after the full functional check passed, with no
 build or functional test competing with the benchmark. The recorded Wasm hash
 matches the validated bundle. All 648 attempts succeeded, with 567 measured
 samples. Nimbo/celld has a lower p50 than Chromium in 9/9 scenarios and public
-Obscura in 1/9; the README uses this snapshot. Latency differences from previous
+Obscura in 1/9; the README used this snapshot at that stage. Latency differences from previous
 runs remain measurements, without causal attribution. All-win performance is
 still pending.
 
@@ -382,6 +382,19 @@ The [current three-runtime report](performance-comparison-animation-frames.json)
 records 648 correct extractions and 567 measured samples with the animation
 scheduler enabled. Nimbo wins p50 against Chromium in nine of nine scenarios
 and Obscura in seven of nine. Static HTML with 5000 nodes and positioned boxes
-remain slower than Obscura. The README uses this snapshot; runtime versions,
+remain slower than Obscura. The README used this snapshot at that stage; runtime versions,
 Wasm hash, all measured samples and request counts are retained. This is a
 separate measurement, not a causal A/B attribution of the animation changes.
+
+## Document stylesheet build
+
+The [current three-runtime report](performance-comparison-document-stylesheets.json)
+was measured after the complete functional check passed, with no build or
+functional test competing with the benchmark. The recorded Wasm hash matches
+the validated bundle. All 648 attempts are correct, with 567 measured samples
+across nine scenarios. Nimbo/celld has a lower p50 than Chromium in 9/9 and public
+Obscura in 8/9. Positioned boxes remain slower than Obscura (37.85 ms versus
+32.70 ms p50). The README uses this snapshot. These are separate-run measurements,
+not causal attribution of performance changes to the stylesheet implementation.
+All-win performance, production throughput, memory and complete SPA compatibility
+remain unproven.

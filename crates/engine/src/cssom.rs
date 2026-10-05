@@ -18,11 +18,23 @@ const SHEETS: usize = 256;
 const BYTES: usize = 4 * 1024 * 1024;
 
 #[derive(Default)]
+enum Kind {
+    #[default]
+    Owned,
+    Restricted,
+    Constructed,
+}
+
+#[derive(Default)]
 struct Sheet {
     rules: Vec<usize>,
     disabled: bool,
     owner: Option<usize>,
     replacing: bool,
+    kind: Kind,
+    source: Option<String>,
+    parsed: bool,
+    href: Option<String>,
 }
 #[derive(Clone)]
 struct Rule {
@@ -36,7 +48,7 @@ pub(crate) struct Arena {
     rules: Vec<Rule>,
     bytes: usize,
     adopted: Vec<usize>,
-    owners: HashMap<NodeId, (String, usize)>,
+    owners: HashMap<NodeId, usize>,
 }
 
 fn exception(name: &str) -> Value {
@@ -207,43 +219,74 @@ impl Arena {
         node: NodeId,
         handle: usize,
         source: String,
+        href: Option<String>,
+        accessible: bool,
     ) -> Result<usize> {
-        if let Some((original, id)) = self.owners.get(&node)
-            && original == &source
+        if let Some(id) = self.owners.get(&node)
+            && self
+                .sheets
+                .get(*id)
+                .is_some_and(|sheet| sheet.source.as_ref() == Some(&source) && sheet.href == href)
         {
             return Ok(*id);
         }
-        let rules = parse_sheet(&source)?;
+        if self.sheets.len() >= SHEETS || self.bytes.saturating_add(source.len()) > BYTES {
+            return Err(Error::Limit("CSSOM state"));
+        }
+        let id = self.sheets.len();
+        self.bytes = self.bytes.saturating_add(source.len());
+        self.sheets.push(Sheet {
+            owner: Some(handle),
+            source: Some(source),
+            href,
+            kind: if accessible {
+                Kind::Owned
+            } else {
+                Kind::Restricted
+            },
+            ..Sheet::default()
+        });
+        self.owners.insert(node, id);
+        Ok(id)
+    }
+    fn ensure_rules(&mut self, id: usize) -> Result<()> {
+        let sheet = self
+            .sheets
+            .get(id)
+            .ok_or_else(|| Error::Dom("invalid CSSOM sheet".into()))?;
+        if sheet.parsed {
+            return Ok(());
+        }
+        let rules = parse_sheet(sheet.source.as_deref().unwrap_or_default())?;
         let cost = rules
             .iter()
             .map(Rule::bytes)
-            .fold(source.len(), usize::saturating_add);
-        if self.sheets.len() >= SHEETS
-            || self.rules.len().saturating_add(rules.len()) > RULES
+            .fold(0_usize, usize::saturating_add);
+        if self.rules.len().saturating_add(rules.len()) > RULES
             || self.bytes.saturating_add(cost) > BYTES
         {
             return Err(Error::Limit("CSSOM state"));
         }
-        let id = self.sheets.len();
         let first = self.rules.len();
         self.rules.extend(rules.into_iter().map(|mut rule| {
             rule.parent = Some(id);
             rule
         }));
-        self.sheets.push(Sheet {
-            rules: (first..self.rules.len()).collect(),
-            disabled: false,
-            owner: Some(handle),
-            replacing: false,
-        });
+        let sheet = self
+            .sheets
+            .get_mut(id)
+            .ok_or_else(|| Error::Dom("invalid CSSOM sheet".into()))?;
+        sheet.rules = (first..self.rules.len()).collect();
+        sheet.parsed = true;
         self.bytes = self.bytes.saturating_add(cost);
-        self.owners.insert(node, (source, id));
-        Ok(id)
+        Ok(())
     }
     fn text(&self, id: usize) -> Option<String> {
         let sheet = self.sheets.get(id)?;
         Some(if sheet.disabled {
             String::new()
+        } else if !sheet.parsed {
+            sheet.source.clone().unwrap_or_default()
         } else {
             sheet
                 .rules
@@ -254,9 +297,16 @@ impl Arena {
                 .join("\n")
         })
     }
-    pub(crate) fn owner_source(&self, node: NodeId, original: &str) -> Option<String> {
-        let (source, id) = self.owners.get(&node)?;
-        if source != original {
+    pub(crate) fn owner_source(
+        &self,
+        node: NodeId,
+        original: &str,
+        href: Option<&str>,
+    ) -> Option<String> {
+        let id = self.owners.get(&node)?;
+        if self.sheets.get(*id)?.source.as_deref() != Some(original)
+            || self.sheets.get(*id)?.href.as_deref() != href
+        {
             return None;
         }
         self.text(*id)
@@ -266,7 +316,7 @@ impl Arena {
             .sheets
             .get(id)
             .ok_or_else(|| Error::Dom("invalid CSSOM sheet".into()))?;
-        if sheet.owner.is_some() || sheet.replacing {
+        if !matches!(sheet.kind, Kind::Constructed) || sheet.replacing {
             return Ok(exception("NotAllowedError"));
         }
         let rules = parse_sheet(source)?;
@@ -323,7 +373,7 @@ impl Arena {
         if ids.iter().any(|id| {
             self.sheets
                 .get(*id)
-                .is_some_and(|sheet| sheet.owner.is_some())
+                .is_some_and(|sheet| !matches!(sheet.kind, Kind::Constructed))
         }) {
             return Ok(exception("NotAllowedError"));
         }
@@ -369,7 +419,7 @@ impl Arena {
             .sheets
             .get_mut(id)
             .ok_or_else(|| Error::Dom("invalid CSSOM sheet".into()))?;
-        if sheet.owner.is_some() || sheet.replacing {
+        if !matches!(sheet.kind, Kind::Constructed) || sheet.replacing {
             return Ok(exception("NotAllowedError"));
         }
         sheet.replacing = true;
@@ -382,6 +432,76 @@ impl Arena {
             .ok_or_else(|| Error::Dom("invalid CSSOM sheet".into()))?
             .replacing = false;
         self.replace(id, value)
+    }
+
+    fn constructed_sheet(&mut self) -> Result<Value> {
+        if self.sheets.len() >= SHEETS {
+            return Err(Error::Limit("CSSOM sheets"));
+        }
+        let id = self.sheets.len();
+        self.sheets.push(Sheet {
+            kind: Kind::Constructed,
+            parsed: true,
+            ..Sheet::default()
+        });
+        Ok(json!(id))
+    }
+    fn restricted(&self, id: usize) -> Result<bool> {
+        Ok(matches!(
+            self.sheets
+                .get(id)
+                .ok_or_else(|| Error::Dom("invalid CSSOM sheet".into()))?
+                .kind,
+            Kind::Restricted
+        ))
+    }
+    fn sheet_rules(&mut self, id: usize) -> Result<Value> {
+        if self.restricted(id)? {
+            return Ok(exception("SecurityError"));
+        }
+        self.ensure_rules(id)?;
+        let sheet = self
+            .sheets
+            .get(id)
+            .ok_or_else(|| Error::Dom("invalid CSSOM sheet".into()))?;
+        Ok(json!(sheet.rules))
+    }
+    fn insert(&mut self, id: usize, arg: &str, value: &str) -> Result<Value> {
+        if self.restricted(id)? {
+            return Ok(exception("SecurityError"));
+        }
+        self.ensure_rules(id)?;
+        let index = arg
+            .parse::<usize>()
+            .map_err(|_error| Error::Dom("invalid CSSOM index".into()))?;
+        let sheet = self
+            .sheets
+            .get(id)
+            .ok_or_else(|| Error::Dom("invalid CSSOM sheet".into()))?;
+        if sheet.replacing {
+            return Ok(exception("NotAllowedError"));
+        }
+        if index > sheet.rules.len() {
+            return Ok(exception("IndexSizeError"));
+        }
+        let mut rule = match parse(value) {
+            Ok(rule) => rule,
+            Err(name) => return Ok(exception(name)),
+        };
+        let bytes = self.bytes.saturating_add(rule.bytes());
+        if self.rules.len() >= RULES || bytes > BYTES {
+            return Err(Error::Limit("CSSOM state"));
+        }
+        rule.parent = Some(id);
+        let rule_id = self.rules.len();
+        self.sheets
+            .get_mut(id)
+            .ok_or_else(|| Error::Dom("invalid CSSOM sheet".into()))?
+            .rules
+            .insert(index, rule_id);
+        self.rules.push(rule);
+        self.bytes = bytes;
+        Ok(json!(index))
     }
 
     pub(crate) fn call(
@@ -397,21 +517,22 @@ impl Arena {
         match operation {
             "adopted" => Ok(json!(self.adopted)),
             "adopt" => self.adopt(value),
-            "new" => {
-                if self.sheets.len() >= SHEETS {
-                    return Err(Error::Limit("CSSOM sheets"));
-                }
-                let id = self.sheets.len();
-                self.sheets.push(Sheet::default());
-                Ok(json!(id))
-            }
+            "new" => self.constructed_sheet(),
             "sheet" => {
                 let sheet = self
                     .sheets
                     .get(id)
                     .ok_or_else(|| Error::Dom("invalid CSSOM sheet".into()))?;
-                Ok(json!({"rules":sheet.rules,"disabled":sheet.disabled,"owner":sheet.owner}))
+                Ok(
+                    json!({"rules":sheet.rules,"disabled":sheet.disabled,"owner":sheet.owner,"href":sheet.href}),
+                )
             }
+            "sheetRules" => self.sheet_rules(id),
+            "sheetAccess" => Ok(if self.restricted(id)? {
+                exception("SecurityError")
+            } else {
+                Value::Null
+            }),
             "replace" => self.replace(id, value),
             "replaceStart" => self.start_replace(id),
             "replaceFinish" => self.finish_replace(id, value),
@@ -422,40 +543,12 @@ impl Arena {
                     .disabled = value == "true";
                 Ok(Value::Null)
             }
-            "insert" => {
-                let index = arg
-                    .parse::<usize>()
-                    .map_err(|_error| Error::Dom("invalid CSSOM index".into()))?;
-                let sheet = self
-                    .sheets
-                    .get(id)
-                    .ok_or_else(|| Error::Dom("invalid CSSOM sheet".into()))?;
-                if sheet.replacing {
-                    return Ok(exception("NotAllowedError"));
-                }
-                if index > sheet.rules.len() {
-                    return Ok(exception("IndexSizeError"));
-                }
-                let mut rule = match parse(value) {
-                    Ok(rule) => rule,
-                    Err(name) => return Ok(exception(name)),
-                };
-                let bytes = self.bytes.saturating_add(rule.bytes());
-                if self.rules.len() >= RULES || bytes > BYTES {
-                    return Err(Error::Limit("CSSOM state"));
-                }
-                rule.parent = Some(id);
-                let rule_id = self.rules.len();
-                self.sheets
-                    .get_mut(id)
-                    .ok_or_else(|| Error::Dom("invalid CSSOM sheet".into()))?
-                    .rules
-                    .insert(index, rule_id);
-                self.rules.push(rule);
-                self.bytes = bytes;
-                Ok(json!(index))
-            }
+            "insert" => self.insert(id, arg, value),
             "delete" => {
+                if self.restricted(id)? {
+                    return Ok(exception("SecurityError"));
+                }
+                self.ensure_rules(id)?;
                 let index = arg
                     .parse::<usize>()
                     .map_err(|_error| Error::Dom("invalid CSSOM index".into()))?;

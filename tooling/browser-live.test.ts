@@ -1,3 +1,4 @@
+import { documentStylesheetsFixture } from "./document-stylesheets-fixture";
 import { backgroundColorFixture } from "./background-color-fixture";
 import { scriptModesFixture, scriptModesExpression } from "./script-modes-fixture";
 import { animationFramesFixture } from "./animation-frames-fixture";
@@ -456,6 +457,8 @@ const origin = Bun.serve({
     if (scriptModes) return scriptModes;
     const animationFrames = animationFramesFixture(path);
     if (animationFrames) return animationFrames;
+    const documentStylesheets = documentStylesheetsFixture(path);
+    if (documentStylesheets) return documentStylesheets;
     const backgroundColor = backgroundColorFixture(path);
     if (backgroundColor) return backgroundColor;
     const layoutSnapshot = layoutSnapshotFixture(path);
@@ -5503,10 +5506,9 @@ test.each(Array.from({ length: 256 }, (_, index) => [Math.floor(index / 4), inde
     const value: unknown = Reflect.get(result, "value");
     if (typeof value !== "object" || value === null) throw new Error("Missing HTML box values");
     expect(Object.keys(value)).toHaveLength(group === 3 ? 24 : 51);
-    // Rule mutation remains a measured divergence from Chromium, not a passing capability.
-    expect(Reflect.get(value, "externalMutation")).toBe(false);
-    for (const [name, check] of Object.entries(value)) {
-      expect(check).toBe(name !== "externalMutation");
+    expect(Reflect.get(value, "externalMutation")).toBe(true);
+    for (const check of Object.values(value)) {
+      expect(check).toBe(true);
     }
   },
 );
@@ -6263,6 +6265,27 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     const value: unknown = Reflect.get(result, "value");
     if (typeof value !== "object" || value === null) throw new Error("Missing checks");
     expect(Object.keys(value)).toHaveLength(24);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: document stylesheet list variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`document-stylesheets/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing result");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing checks");
+    expect(Object.keys(value)).toHaveLength(25);
     expect(Object.values(value).every((check) => check === true)).toBe(true);
   },
 );

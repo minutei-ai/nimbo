@@ -2468,9 +2468,7 @@ fn native_html_boxes_real_http() -> TestResult {
             let fields = result.as_object().ok_or("missing HTML box result")?;
             assert_eq!(fields.len(), if group == 3 { 24 } else { 51 });
             assert!(
-                fields
-                    .iter()
-                    .all(|(name, value)| *value == json!(name != "externalMutation")),
+                fields.values().all(|value| *value == json!(true)),
                 "variant {variant}, group {group}: {result}"
             );
         }
@@ -3086,12 +3084,56 @@ fn is_script_resource(path: &str) -> bool {
         "/animation-frames/",
         "/layout-snapshot/",
         "/background-color/",
+        "/document-stylesheets/",
+        "/document-stylesheets-assets/",
     ]
     .iter()
     .any(|prefix| path.starts_with(prefix))
 }
 
 fn serve_scripts(request: Request) -> io::Result<()> {
+    if request.url() == "/document-stylesheets-assets/missing.css" {
+        return request.respond(
+            Response::from_string("Missing")
+                .with_status_code(404)
+                .with_header(header("Content-Type", "text/css")?),
+        );
+    }
+    if request.url() == "/document-stylesheets-assets/wrong-mime.css" {
+        return request.respond(
+            Response::from_string("#box { width: 999px }")
+                .with_header(header("Content-Type", "text/plain")?)
+                .with_header(header("X-Content-Type-Options", "nosniff")?),
+        );
+    }
+    if request.url().starts_with("/document-stylesheets-assets/") {
+        let variant = request
+            .url()
+            .rsplit('/')
+            .next()
+            .unwrap_or("0.css")
+            .trim_end_matches(".css")
+            .parse::<usize>()
+            .map_err(io::Error::other)?;
+        return request.respond(
+            Response::from_string(format!(
+                "#box {{ width: {}px }}",
+                30_usize.saturating_add(variant)
+            ))
+            .with_header(header("Content-Type", "text/css")?),
+        );
+    }
+    if request.url().starts_with("/document-stylesheets/") {
+        let variant = request
+            .url()
+            .rsplit('/')
+            .next()
+            .unwrap_or("0")
+            .parse::<usize>()
+            .map_err(io::Error::other)?;
+        let source = include_str!("fixtures/document-stylesheets.txt");
+        return request.respond(Response::from_string(format!("<!doctype html><head><style id=inline>#box {{ width:20px }}</style><link id=external rel=stylesheet href=/document-stylesheets-assets/{variant}.css><link id=failed rel=stylesheet href=/document-stylesheets-assets/missing.css><link id=wrong-mime rel=stylesheet href=/document-stylesheets-assets/wrong-mime.css><link id=reference rel=help href=https://example.com></head><body><div id=box></div><script>{source};globalThis.comparison=documentStylesheetsCase({variant})</script>")).with_header(header("Content-Type", "text/html")?));
+    }
     if request.url().starts_with("/background-color/") {
         let variant = request
             .url()
@@ -3302,5 +3344,38 @@ fn background_colors_compute_native_cascade_and_live_mutations() -> TestResult {
             "{result}"
         );
     }
+    Ok(())
+}
+
+#[test]
+fn document_stylesheets_real_http_and_live_cssom() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/document-stylesheets/{variant}")))?;
+        let result = page.evaluate("globalThis.comparison")?;
+        let checks = result.as_object().ok_or("missing stylesheet checks")?;
+        assert_eq!(checks.len(), 25);
+        assert!(
+            checks.values().all(|value| value == &json!(true)),
+            "{result}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn grouped_sheet_metadata_does_not_parse_unsupported_cssom_rules() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    assert_eq!(page.evaluate(r"(() => {
+        document.body.innerHTML='<style>@media screen { div { width: 9px } }</style><div></div>';
+        const owner=document.body.firstElementChild, sheet=owner.sheet;
+        const rejects=()=>{try{sheet.cssRules.length;return false}catch(error){return String(error).includes('CSSOM grouping and at-rules')}};
+        const first=rejects(), second=rejects();
+        return {first,second,metadata:sheet.ownerNode===owner&&sheet.href===null&&sheet.type==='text/css',
+          identity:owner.sheet===sheet&&document.styleSheets[0]===sheet,
+          cascade:getComputedStyle(document.body.lastElementChild).width==='9px'};
+    })()")?,json!({"first":true,"second":true,"metadata":true,"identity":true,"cascade":true}));
     Ok(())
 }
