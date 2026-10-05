@@ -253,13 +253,39 @@
     {
       "runtime": "celld 0.6.1",
       "file": "html/browsers/the-window-object/named-access-on-the-window-object/id-non-html-elements.html",
-      "status": "passed",
+      "status": "failed",
       "verdict": {
         "status": 0,
         "message": null,
         "total": 30,
-        "passed": 30,
-        "failed": []
+        "passed": 25,
+        "failed": [
+          {
+            "name": "An id attribute in a namespace other than null is not exposed",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "A prefixed id attribute is not exposed",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "An xml:id attribute is not exposed",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "A name attribute in a namespace other than null on an img element is not exposed",
+            "status": 1,
+            "message": "not a function"
+          },
+          {
+            "name": "A prefixed name attribute on an img element is not exposed",
+            "status": 1,
+            "message": "not a function"
+          }
+        ]
       }
     },
     {

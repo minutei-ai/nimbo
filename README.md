@@ -182,6 +182,8 @@ bun run compare:layout-snapshot # geometry invalidation after DOM, CSSOM and scr
 bun run bench:wpt-cssom-owner # original stylesheet replacement and ownership WPT
 bun run compare:document-stylesheets # live lists and link sheets vs Chromium
 bun run bench:wpt-document-stylesheets # original StyleSheetList WPT
+bun run compare:attribute-namespaces # native attribute namespaces vs Chromium
+bun run bench:wpt-attribute-namespaces # original attribute WPT; failures retained
 bun run compare:window-named # native DOM names and reflection vs Chromium
 bun run bench:wpt-window-named # original named access WPT; failures retained
 bun run compare:animation-frames # real-clock callback batches and cancellation
@@ -207,21 +209,22 @@ Latency in milliseconds, **p50 / p95**:
 
 | Scenario                | Nimbo / celld |        Obscura |        Chromium |
 | ----------------------- | ------------: | -------------: | --------------: |
-| Static HTML             | 11.63 / 16.32 |  18.36 / 19.10 |   57.91 / 67.05 |
-| Selectors, 200 nodes    | 11.05 / 23.44 |  18.93 / 20.33 |   62.81 / 74.28 |
-| Dynamic fetch           | 10.46 / 13.92 |  20.57 / 23.21 |   58.80 / 64.79 |
-| JS, DOM and events      | 21.32 / 23.00 |  29.52 / 31.38 |   63.67 / 83.58 |
-| JS modules              | 22.51 / 28.13 |  29.84 / 30.94 |   65.70 / 79.70 |
-| JS selectors, 200 nodes | 21.90 / 26.97 |  29.86 / 31.19 |   64.94 / 83.07 |
-| Static HTML, 5000 nodes | 37.66 / 44.46 |  41.98 / 44.74 | 254.08 / 272.86 |
-| Selectors, 5000 nodes   | 37.22 / 49.55 | 97.52 / 106.76 | 267.23 / 288.25 |
-| JS positioned boxes     | 34.34 / 46.57 |  31.78 / 34.05 |   65.17 / 85.64 |
+| Static HTML             | 10.33 / 15.86 |  17.86 / 20.68 |   57.49 / 66.88 |
+| Selectors, 200 nodes    | 10.27 / 19.46 |  18.99 / 21.43 |   57.91 / 68.98 |
+| Dynamic fetch           | 10.27 / 12.61 |  20.54 / 22.96 |   63.61 / 70.21 |
+| JS, DOM and events      | 20.89 / 25.57 |  28.86 / 29.76 |   64.72 / 85.04 |
+| JS modules              | 25.29 / 29.14 |  30.27 / 31.17 |   68.25 / 91.65 |
+| JS selectors, 200 nodes | 23.01 / 27.54 |  30.21 / 33.31 |   63.28 / 84.46 |
+| Static HTML, 5000 nodes | 26.13 / 45.15 |  41.79 / 51.87 | 239.62 / 276.92 |
+| Selectors, 5000 nodes   | 36.54 / 59.53 | 97.53 / 104.03 | 256.42 / 280.10 |
+| JS positioned boxes     | 31.03 / 48.37 |  32.55 / 38.46 |   65.84 / 89.45 |
 
-Nimbo has a lower p50 than Chromium in **9/9** scenarios and Obscura in
-**8/9**. Matching or beating Obscura across the remaining scenarios is still
-pending. These local fixtures do not establish general SPA compatibility,
+Nimbo has a lower p50 than both Chromium and Obscura in **9/9** scenarios
+in this run. Positioned-box p95 remains higher than Obscura (48.37 ms versus
+38.46 ms); complete performance parity remains pending. These local fixtures
+do not establish general SPA compatibility,
 production throughput, memory consumption or cost. See the
-[raw results](docs/performance-comparison-window-named.json) and
+[raw results](docs/performance-comparison-attribute-namespaces.json) and
 [reproduction guide](docs/benchmark-comparison.md).
 
 ## Runtime guides

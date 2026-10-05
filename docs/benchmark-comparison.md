@@ -401,12 +401,26 @@ remain unproven.
 
 ## Window named-access build
 
-The [current report](performance-comparison-window-named.json) was measured after
+The [report](performance-comparison-window-named.json) was measured after
 `bun run check` passed, with no build or functional test competing with the
 benchmark. The recorded Wasm hash matches the validated bundle. All 648 real
 HTTP extractions are correct, with 567 measured samples across nine scenarios.
 Nimbo/celld has lower p50 than Chromium in 9/9 and public Obscura in 8/9.
 Positioned boxes remain slower than Obscura (34.34 ms versus 31.78 ms p50).
-The README uses this snapshot. These are separate runs, not causal attribution
+The README used this snapshot at that stage. These are separate runs, not causal attribution
 of timing changes to named access. All-win performance, production throughput,
 memory use and complete SPA compatibility remain unproven.
+
+## Native attribute namespace build
+
+The [current report](performance-comparison-attribute-namespaces.json) was
+measured after the complete functional gate passed, with no build or functional
+test competing with the benchmark. The Wasm hash matches the validated bundle.
+All 648 real HTTP extractions return expected values, with 567 measured samples
+across nine scenarios. Nimbo/celld has lower p50 than both Chromium and public
+Obscura in 9/9 scenarios in this run. Positioned boxes measure 31.03 ms p50,
+versus 32.55 ms for Obscura, but their p95 is still higher (48.37 versus 38.46 ms).
+The README uses this snapshot. Separate runs do not establish causal attribution
+of timing changes to namespace handling. The p50 result does not establish
+all-percentile performance parity, complete SPA/browser compatibility,
+production throughput, memory consumption or cost.

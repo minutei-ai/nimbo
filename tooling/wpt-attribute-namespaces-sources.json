@@ -1,0 +1,63 @@
+{
+  "commit": "03f14d4780c4d981bc84c65679b18e9327a1affe",
+  "test_files": [
+    "dom/nodes/Element-hasAttribute.html",
+    "dom/nodes/Element-hasAttributes.html",
+    "dom/nodes/Element-removeAttribute.html",
+    "dom/nodes/Element-removeAttributeNS.html",
+    "dom/nodes/Element-setAttribute-crbug-1138487.html",
+    "dom/nodes/Element-setAttribute.html",
+    "dom/nodes/attributes.html",
+    "dom/nodes/namespaced-attribute-mutations.html"
+  ],
+  "files": [
+    {
+      "path": "dom/nodes/Element-hasAttribute.html",
+      "sha256": "37257bd0824166da90068b2974601eb9885468a050973c11761d839a8a97a58b"
+    },
+    {
+      "path": "dom/nodes/Element-hasAttributes.html",
+      "sha256": "a2c36f3eb5f0f30bfa57ed95952346dae497de8f38f45861a21946bd9f6a4b07"
+    },
+    {
+      "path": "dom/nodes/Element-removeAttribute.html",
+      "sha256": "d18a4bb4b146b05f6b298648635c2472529eddf4dd5cd521b5c8d04076aa5678"
+    },
+    {
+      "path": "dom/nodes/Element-removeAttributeNS.html",
+      "sha256": "faed67fa57a1e3fa21cd10f304a944189c625e018805c576506d09655e405828"
+    },
+    {
+      "path": "dom/nodes/Element-setAttribute-crbug-1138487.html",
+      "sha256": "d1dc9462808c8328a2663b3fab13b2a4d6ec4c27d3a4a2212592f0693d92a3f8"
+    },
+    {
+      "path": "dom/nodes/Element-setAttribute.html",
+      "sha256": "f9dedd74d75dabc75b46fa828d1a240586b64d6e9316a1efd7926aeb69696b0b"
+    },
+    {
+      "path": "dom/nodes/attributes.html",
+      "sha256": "ea0e4e4a96887ac0c0790e5530a7e716229f78bf27fe1644f0fbb6ae80ac2edd"
+    },
+    {
+      "path": "dom/nodes/attributes.js",
+      "sha256": "9a84bd003ff5e9ef28fc8df7183a4e59cc4227ff1281f90f3d8b7222e314bfdf"
+    },
+    {
+      "path": "dom/nodes/namespaced-attribute-mutations.html",
+      "sha256": "7e17c2807c01b7131dc3940d7548b5aac1f04cb89e9fec3f1d6ebc9c87bde264"
+    },
+    {
+      "path": "dom/nodes/productions.js",
+      "sha256": "f500dd3b80c32680931b640c769597912feb2a8f733090967c1962ada4e686e5"
+    },
+    {
+      "path": "resources/testharness.js",
+      "sha256": "d2399236c2a09c429804ff2299ad6629e17e2b53f17a74dd341e936adb11ae3e"
+    },
+    {
+      "path": "resources/testharnessreport.js",
+      "sha256": "3777176fc736b0a78cf7617b9613b220f635daae7536ec7ebb99c61dbb525aae"
+    }
+  ]
+}

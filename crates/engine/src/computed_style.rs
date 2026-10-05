@@ -1,3 +1,4 @@
+use crate::dom_attributes::NativeAttributes;
 use dom_query::{Document, NodeRef};
 
 use crate::{
@@ -157,7 +158,7 @@ pub(crate) fn resolve(
         work.charge()?;
         let inline = sources.inline.get(&node.id).cloned().map_or_else(
             || {
-                Declarations::parse(node.attr("style").as_deref().unwrap_or_default())
+                Declarations::parse(node.null_attribute("style").as_deref().unwrap_or_default())
                     .map_err(|error| Error::Dom(error.into()))
             },
             Ok,

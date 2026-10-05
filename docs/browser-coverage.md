@@ -3131,10 +3131,10 @@ The [original WPT manifest](../tooling/wpt-window-named-sources.json) pins all
 17 standalone HTML tests in the named-access folder, the original harness and
 helper resources. Original bytes and assertions are unchanged; the adapter
 only collects reports. The [report](performance-wpt-window-named.json) records
-Chromium 82/82 original subtests, Obscura 64/82 and Nimbo 52/82. Nimbo completes
-68 subtests: 52 pass and 16 fail. Three incomplete files leave another 14
-obligations unverified, and do not count as passes. Seven files pass, seven fail
-and three are incomplete. Namespaced attribute APIs, frame contexts, independent documents, location and
+Chromium 82/82 original subtests, Obscura 64/82 and Nimbo 57/82. Nimbo completes
+68 subtests: 57 pass and 11 fail. Three incomplete files leave another 14
+obligations unverified, and do not count as passes. Eight files pass, six fail
+and three are incomplete. Frame contexts, independent documents, location and
 full WindowProxy behavior remain gaps. The multi-origin sub-template and the
 generated window-JS test are pinned separately and unverified; they are not part
 of the 82-subtest denominator. The WPT command remains unsuccessful.
@@ -3142,10 +3142,65 @@ of the 82-subtest denominator. The WPT command remains unsuccessful.
 References: [HTML named access](https://html.spec.whatwg.org/multipage/nav-history-apis.html#named-access-on-the-window-object)
 and [Web IDL named properties](https://webidl.spec.whatwg.org/#named-properties-object).
 
-The complete validation passes formatting, Worker/Wasm build, TypeScript/native/
-Wasm lint, 6039 Bun tests, Rust documentation and debug/release tests. Each Rust
+At the named-access stage, complete validation passed formatting, Worker/Wasm
+build, TypeScript/native/Wasm lint, 6039 Bun tests, Rust documentation and debug/release tests. Each Rust
 configuration passes 12 unit tests, 109 browser tests and the real proxy test.
-The [current performance report](performance-comparison-window-named.json)
+The [named-access performance snapshot](performance-comparison-window-named.json)
 records 648 correct extractions and 567 measured samples with the validated
 Wasm hash: lower Nimbo p50 than Chromium in 9/9 scenarios and Obscura in 8/9.
 This does not establish full browser parity or a production performance result.
+
+## Native attribute namespaces and qualified names
+
+Element exposes get/set/has/removeAttributeNS, getAttributeNames, hasAttributes
+and toggleAttribute. Rust stores attributes on the actual native element with
+namespace, prefix and local name. Namespace/local lookup is distinct from
+qualified-name lookup. Empty/null namespaces normalize to the null namespace;
+HTML qualified-name APIs lowercase names, while SVG names remain case-sensitive.
+Updating an existing namespace/local pair changes its value and preserves its
+original prefix and list position. Qualified-name mutation affects the first
+matching attribute, including a namespaced attribute. Serialized SVG retains
+qualified attribute prefixes.
+
+ID and class reflection, Window names, selector ID/class matching, native
+cascade indexing, inline styles, stylesheet metadata, script resources and
+SVG geometry read their actual null-namespace attributes. Namespace attributes
+with the same local name do not activate those native behaviors. Namespace
+writes use existing DOM operation/write budgets and invalidate native layout
+and stylesheet state. Custom element reactions carry the real local name,
+namespace and old/new values for both namespace and qualified-name mutation.
+
+The [42-contract fixture](../crates/engine/tests/fixtures/attribute-namespaces.txt)
+uses 64 fresh real HTTP pages with default limits and no mocks. Native Rust and workerd
+pass 2688 assertions per runtime. The [celld/ordinary Chromium comparison](attribute-namespaces-chromium.json)
+passes all 64 pages in each runtime. SVG serialization is tested with an
+explicit block SVG box; unsupported SVG layout modes remain separate gaps.
+
+The [original manifest](../tooling/wpt-attribute-namespaces-sources.json) pins
+eight HTML tests, both upstream harness files and both helper scripts.
+Original bytes and assertions are unchanged; only reporting is appended.
+The [report](performance-wpt-attribute-namespaces.json) records Chromium 101/101,
+public Obscura 43/101 and Nimbo/celld 43/101 original subtests. Nimbo passes
+three files and fails five. Missing Attr/NamedNodeMap interfaces, independent
+documents and event handlers remain explicit failures. The runner exits
+unsuccessfully. This cohort is not full DOM conformance.
+
+The same implementation closes all five namespaced-ID/name subtests in the
+original Window cohort: Nimbo now passes 57/82, up from the retained
+[52/82 baseline](performance-wpt-window-named-baseline.json). Incomplete frame
+files remain unverified and do not count as passes.
+
+References: [DOM attributes](https://dom.spec.whatwg.org/#attributes)
+and [namespace validation](https://dom.spec.whatwg.org/#validate-and-extract).
+
+The complete namespace build passes formatting, Worker/Wasm compilation,
+TypeScript/native/Wasm lint, 6103 Bun tests and Rust documentation. Debug and
+release each pass 12 unit tests, 110 real HTTP browser tests and the real proxy
+test. The gate uses unchanged resource limits and the same native engine.
+
+The [namespace performance snapshot](performance-comparison-attribute-namespaces.json)
+records 648 correct extractions and 567 measured samples, using the same bundle
+whose hash is recorded. Nimbo/celld has lower p50 than both Chromium and Obscura
+in 9/9 scenarios in this run. Positioned-box p95 still exceeds Obscura (48.37 ms
+versus 38.46 ms). Full browser and all-percentile performance parity remain
+unproven; the original WPT failures remain obligations.

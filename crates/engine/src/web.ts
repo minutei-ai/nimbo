@@ -867,9 +867,11 @@
     for (const value of items) {
       const item = collectionNode(value);
       if (!(item instanceof Element)) continue;
-      const id = item.getAttribute("id");
+      const id = item.getAttributeNS(null, "id");
       const name =
-        item.namespaceURI === "http://www.w3.org/1999/xhtml" ? item.getAttribute("name") : null;
+        item.namespaceURI === "http://www.w3.org/1999/xhtml"
+          ? item.getAttributeNS(null, "name")
+          : null;
       for (const key of [id, name]) {
         if (key && !names.has(key)) names.set(key, item);
       }
@@ -1684,29 +1686,114 @@
       return call("get", idOf(this), "tagName");
     }
     get id(): string {
-      return this.getAttribute("id") ?? "";
+      return this.getAttributeNS(null, "id") ?? "";
     }
     set id(value: string | number | null) {
-      this.setAttribute("id", value);
+      this.setAttributeNS(null, "id", value);
     }
     get className(): string {
-      return this.getAttribute("class") ?? "";
+      return this.getAttributeNS(null, "class") ?? "";
     }
     set className(value: string | number | null) {
-      this.setAttribute("class", value);
+      this.setAttributeNS(null, "class", value);
     }
-    getAttribute(name: string): string | null {
-      return call("attr", idOf(this), name);
+    getAttribute(name: unknown): string | null {
+      if (arguments.length < 1) throw new TypeError("name is required");
+      return call("attr", attributeElement(this), domString(name));
     }
-    setAttribute(name: string, value: string | number | null) {
-      call("setAttr", idOf(this), name, String(value));
+    setAttribute(name: unknown, value: unknown): void {
+      if (arguments.length < 2) throw new TypeError("name and value are required");
+      call("setAttr", attributeElement(this), domString(name), domString(value));
     }
-    hasAttribute(name: string): boolean {
-      return this.getAttribute(name) !== null;
+    hasAttribute(name: unknown): boolean {
+      if (arguments.length < 1) throw new TypeError("name is required");
+      return call<string | null>("attr", attributeElement(this), domString(name)) !== null;
     }
-    removeAttribute(name: string) {
-      call("removeAttr", idOf(this), name);
+    removeAttribute(name: unknown): void {
+      if (arguments.length < 1) throw new TypeError("name is required");
+      call("removeAttr", attributeElement(this), domString(name));
     }
+    getAttributeNS(namespace: unknown, localName: unknown): string | null {
+      if (arguments.length < 2) throw new TypeError("namespace and localName are required");
+      return raw(
+        "attrNS",
+        attributeElement(this),
+        JSON.stringify([attributeNamespace(namespace), domString(localName)]),
+      );
+    }
+    hasAttributeNS(namespace: unknown, localName: unknown): boolean {
+      if (arguments.length < 2) throw new TypeError("namespace and localName are required");
+      return (
+        raw<string | null>(
+          "attrNS",
+          attributeElement(this),
+          JSON.stringify([attributeNamespace(namespace), domString(localName)]),
+        ) !== null
+      );
+    }
+    setAttributeNS(namespace: unknown, qualifiedName: unknown, value: unknown): void {
+      if (arguments.length < 3)
+        throw new TypeError("namespace, qualifiedName and value are required");
+      mutateAttributeNS(
+        this,
+        "setAttrNS",
+        attributeNamespace(namespace),
+        domString(qualifiedName),
+        domString(value),
+      );
+    }
+    removeAttributeNS(namespace: unknown, localName: unknown): void {
+      if (arguments.length < 2) throw new TypeError("namespace and localName are required");
+      mutateAttributeNS(this, "removeAttrNS", attributeNamespace(namespace), domString(localName));
+    }
+    getAttributeNames(): string[] {
+      return raw("attributeNames", attributeElement(this));
+    }
+    hasAttributes(): boolean {
+      return raw<string[]>("attributeNames", attributeElement(this)).length !== 0;
+    }
+    toggleAttribute(name: unknown, force?: unknown): boolean {
+      if (arguments.length < 1) throw new TypeError("name is required");
+      const id = attributeElement(this),
+        converted = domString(name);
+      const present = call<string | null>("attr", id, converted) !== null;
+      const wanted = arguments.length < 2 ? !present : Boolean(force);
+      // Native set validates newly created names; explicit validation also covers removal/no-op.
+      if (converted.length === 0 || /[\0\t\n\r\f />=]/.test(converted))
+        throw new DOMException("invalid attribute local name", "InvalidCharacterError");
+      if (wanted && !present) call("setAttr", id, converted, "");
+      if (!wanted && present) call("removeAttr", id, converted);
+      return wanted;
+    }
+  }
+  function attributeElement(owner: object): number {
+    if (!(owner instanceof Element)) throw new TypeError("Illegal invocation");
+    return idOf(owner);
+  }
+  function attributeNamespace(value: unknown): string {
+    return value === null || value === undefined ? "" : domString(value);
+  }
+  function mutateAttributeNS(
+    owner: Element,
+    operation: "setAttrNS" | "removeAttrNS",
+    namespace: string,
+    name: string,
+    value = "",
+  ): void {
+    const id = attributeElement(owner);
+    const local =
+      operation === "setAttrNS" && name.includes(":") ? name.slice(name.indexOf(":") + 1) : name;
+    reactions(() => {
+      const previous = raw<string | null>("attrNS", id, JSON.stringify([namespace, local]));
+      raw(operation, id, JSON.stringify([namespace, name]), value);
+      if (isHTML(owner) && (operation === "setAttrNS" || previous !== null))
+        customCallback(owner, "attributeChangedCallback", [
+          local,
+          previous,
+          operation === "setAttrNS" ? value : null,
+          namespace || null,
+        ]);
+    });
   }
   function elementGeometry(owner: object, name: string): number {
     if (!(owner instanceof Element)) throw new TypeError("Illegal invocation");
@@ -1726,14 +1813,16 @@
     return idOf(owner);
   }
   function htmlAttribute(owner: object, name: string): string | null {
-    return call("attr", htmlId(owner), name);
+    return raw("attrNS", htmlId(owner), JSON.stringify(["", name]));
   }
   function reflectString(owner: object, name: string, value: unknown): void {
-    call("setAttr", htmlId(owner), name, domString(value));
+    htmlId(owner);
+    if (owner instanceof Element) mutateAttributeNS(owner, "setAttrNS", "", name, domString(value));
   }
   function reflectBoolean(owner: object, name: string, value: unknown): void {
-    const id = htmlId(owner);
-    call(value ? "setAttr" : "removeAttr", id, name);
+    htmlId(owner);
+    if (owner instanceof Element)
+      mutateAttributeNS(owner, value ? "setAttrNS" : "removeAttrNS", "", name);
   }
   type StyleOutput = {
     entries: { name: string; value: string; important: boolean }[];
@@ -3411,7 +3500,7 @@
     const mutate = () => {
       if (operation === "style") {
         const target = nodes.get(id);
-        const old = raw<string | null>("attr", id, "style");
+        const old = raw<string | null>("attrNS", id, JSON.stringify(["", "style"]));
         const result = raw<StyleOutput>(operation, id, arg, value);
         if (target && isHTML(target) && (arg === "text" || result.changed)) {
           customCallback(target, "attributeChangedCallback", ["style", old, result.css_text, null]);
@@ -3422,16 +3511,20 @@
       }
       if (operation === "setAttr" || operation === "removeAttr") {
         const target = nodes.get(id);
-        const old = raw<string | null>("attr", id, arg);
+        const old = raw<[string, string | null, string] | null>("attrInfo", id, arg);
         const result = raw<T>(operation, id, arg, value);
-        if (target && isHTML(target) && (operation === "setAttr" || old !== null)) {
+        const next =
+          operation === "setAttr"
+            ? raw<[string, string | null, string] | null>("attrInfo", id, arg)
+            : null;
+        const attribute = next ?? old;
+        if (target && isHTML(target) && attribute)
           customCallback(target, "attributeChangedCallback", [
-            arg,
-            old,
-            operation === "removeAttr" ? null : value,
-            null,
+            attribute[0],
+            old?.[2] ?? null,
+            next?.[2] ?? null,
+            attribute[1],
           ]);
-        }
         return result;
       }
       if (operation === "set" && !["innerHTML", "textContent"].includes(arg))

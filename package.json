@@ -56,7 +56,9 @@
     "compare:document-stylesheets": "bun run build:worker && bun run tooling/compare-document-stylesheets.ts",
     "bench:wpt-document-stylesheets": "bun run build:worker && bun run tooling/benchmark-wpt-document-stylesheets.ts",
     "compare:window-named": "bun run build:worker && bun run tooling/compare-window-named.ts",
-    "bench:wpt-window-named": "bun run build:worker && bun run tooling/benchmark-wpt-window-named.ts"
+    "bench:wpt-window-named": "bun run build:worker && bun run tooling/benchmark-wpt-window-named.ts",
+    "compare:attribute-namespaces": "bun run build:worker && bun run tooling/compare-attribute-namespaces.ts",
+    "bench:wpt-attribute-namespaces": "bun run build:worker && bun run tooling/benchmark-wpt-attribute-namespaces.ts"
   },
   "devDependencies": {
     "@effect/tsgo": "0.47.2",

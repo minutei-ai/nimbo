@@ -1,4 +1,5 @@
 //! Native computed display transformations, shared with supported box layout.
+use crate::dom_attributes::NativeAttributes;
 use crate::{Error, Result, styles::Declarations};
 use dom_query::NodeRef;
 use lightningcss::{
@@ -26,7 +27,7 @@ fn ua(node: NodeRef<'_>, generated: bool) -> Display {
     if generated {
         return initial();
     }
-    if node.has_attr("hidden")
+    if node.null_attribute("hidden").is_some()
         || ["head", "script", "style", "link", "meta", "title"]
             .iter()
             .any(|name| node.has_name(name))

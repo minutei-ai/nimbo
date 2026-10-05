@@ -1,6 +1,8 @@
+use crate::dom_attributes::NativeAttributes;
 use std::collections::HashMap;
 
-use dom_query::{Document, Matcher, NodeData, NodeId, NodeRef, Selection};
+use crate::dom_selectors::Matcher;
+use dom_query::{Document, NodeData, NodeId, NodeRef};
 use serde_json::{Value, json};
 
 use crate::{Error, Limits, Result};
@@ -99,6 +101,8 @@ impl Dom {
             "set"
                 | "setAttr"
                 | "removeAttr"
+                | "setAttrNS"
+                | "removeAttrNS"
                 | "append"
                 | "insert"
                 | "replace"
@@ -142,7 +146,7 @@ impl Dom {
             "children" => self.children(handle, arg)?,
             "matches" => {
                 let matcher = self.matcher(arg)?;
-                json!(self.node(handle)?.is_match(&matcher))
+                json!(matcher.matches(self.node(handle)?))
             }
             "closest" => self.closest(handle, arg)?,
             "parentElement" => {
@@ -192,7 +196,9 @@ impl Dom {
                     ))
                     .collect::<Vec<_>>()
             ),
-            "attr" => json!(self.node(handle)?.attr(arg).map(|text| text.to_string())),
+            "attr" | "attrInfo" | "attrNS" | "setAttrNS" | "removeAttrNS" | "attributeNames" => {
+                self.attribute_call(operation, handle, arg, value)?
+            }
             "style" => self.style(handle, arg, value)?,
             "set" | "setAttr" | "removeAttr" => {
                 self.write_value(operation, handle, arg, value)?;
@@ -640,7 +646,7 @@ impl Dom {
         {
             return Ok(());
         }
-        let old = node.attr(arg);
+        let old = node.null_attribute(arg);
         if (operation == "removeAttr" && old.is_some())
             || (operation == "setAttr" && old.as_deref() != Some(value))
         {
@@ -659,7 +665,7 @@ impl Dom {
         let style_changed = arg.eq_ignore_ascii_case("style")
             && (operation == "removeAttr"
                 || (operation == "setAttr"
-                    && self.node(handle)?.attr("style").as_deref() != Some(value)));
+                    && self.node(handle)?.null_attribute("style").as_deref() != Some(value)));
         let attribute_bytes = if operation == "setAttr" { arg.len() } else { 0 };
         self.charge_write(attribute_bytes.saturating_add(value.len()))?;
         self.invalidate_sheet(operation, handle, arg, value)?;
@@ -690,7 +696,7 @@ impl Dom {
         }
         if !node.ancestors_it(None).any(|parent| parent.is_document())
             || node
-                .attr("type")
+                .null_attribute("type")
                 .is_some_and(|value| !value.is_empty() && !value.eq_ignore_ascii_case("text/css"))
         {
             return Ok(Value::Null);
@@ -719,12 +725,69 @@ impl Dom {
         ))
     }
 
+    fn attribute_call(
+        &mut self,
+        operation: &str,
+        handle: usize,
+        arg: &str,
+        value: &str,
+    ) -> Result<Value> {
+        if !self.node(handle)?.is_element() {
+            return Err(Error::Dom("attribute target must be an element".into()));
+        }
+        if operation == "attr" {
+            return Ok(json!(crate::dom_attributes::named(self.node(handle)?, arg)));
+        }
+        if operation == "attrInfo" {
+            return Ok(json!(crate::dom_attributes::named_info(
+                self.node(handle)?,
+                arg
+            )));
+        }
+        if operation == "attributeNames" {
+            return Ok(json!(crate::dom_attributes::names(self.node(handle)?)));
+        }
+        let (namespace, name): (String, String) = serde_json::from_str(arg)?;
+        if operation == "attrNS" {
+            return Ok(json!(crate::dom_attributes::namespaced(
+                self.node(handle)?,
+                &namespace,
+                &name
+            )));
+        }
+        self.charge_write(arg.len().saturating_add(value.len()))?;
+        if namespace.is_empty() {
+            self.invalidate_sheet(
+                if operation == "setAttrNS" {
+                    "setAttr"
+                } else {
+                    "removeAttr"
+                },
+                handle,
+                &name,
+                value,
+            )?;
+        }
+        if operation == "setAttrNS" {
+            crate::dom_attributes::set_namespaced(self.node(handle)?, &namespace, &name, value)?;
+        } else {
+            crate::dom_attributes::remove_namespaced(self.node(handle)?, &namespace, &name);
+        }
+        if namespace.is_empty() && name == "style" {
+            let id = self.node(handle)?.id;
+            if let Some(previous) = self.styles.remove(&id) {
+                self.style_bytes = self.style_bytes.saturating_sub(previous.bytes());
+            }
+        }
+        Ok(Value::Null)
+    }
+
     fn closest(&mut self, handle: usize, arg: &str) -> Result<Value> {
         let matcher = self.matcher(arg)?;
         let node = self.node(handle)?;
         let id = std::iter::once(node)
             .chain(node.ancestors_it(None))
-            .find(|candidate| candidate.is_element() && candidate.is_match(&matcher))
+            .find(|candidate| candidate.is_element() && matcher.matches(*candidate))
             .map(|candidate| candidate.id);
         Ok(json!(id.map(|id| self.handle(id))))
     }
@@ -748,9 +811,9 @@ impl Dom {
             if !node.is_element() {
                 continue;
             }
-            let id = node.attr("id").filter(|id| !id.is_empty());
+            let id = node.null_attribute("id").filter(|id| !id.is_empty());
             if let Some(id) = &id {
-                names.entry(id.to_string()).or_default().push(node.id);
+                names.entry(id.clone()).or_default().push(node.id);
             }
             let html = node
                 .qual_name_ref()
@@ -760,10 +823,10 @@ impl Dom {
                 && ["embed", "form", "img", "object", "iframe"]
                     .iter()
                     .any(|tag| node.has_name(tag))
-                && let Some(name) = node.attr("name").filter(|name| !name.is_empty())
+                && let Some(name) = node.null_attribute("name").filter(|name| !name.is_empty())
                 && id.as_deref() != Some(name.as_ref())
             {
-                names.entry(name.to_string()).or_default().push(node.id);
+                names.entry(name).or_default().push(node.id);
             }
         }
         self.named = Some(NamedProperties {
@@ -877,8 +940,10 @@ impl Dom {
         } else if let Some(state) = self.styles.get(&id) {
             state.clone()
         } else {
-            crate::styles::Declarations::parse(node.attr("style").as_deref().unwrap_or_default())
-                .map_err(|message| Error::Dom(message.into()))?
+            crate::styles::Declarations::parse(
+                node.null_attribute("style").as_deref().unwrap_or_default(),
+            )
+            .map_err(|message| Error::Dom(message.into()))?
         };
         let output = crate::styles::call(&mut state, operation, request)
             .map_err(|message| Error::Dom(message.into()))?;
@@ -912,9 +977,9 @@ impl Dom {
                     matches!(&node.data, NodeData::Element(element)
                 if element.name.ns.as_ref() == "http://www.w3.org/1999/xhtml"
                     && element.name.local.as_ref() == "base")
-                }) && node.has_attr("href")
+                }) && node.null_attribute("href").is_some()
             })
-            .and_then(|node| node.attr("href").map(|value| value.to_string()))
+            .and_then(|node| node.null_attribute("href"))
     }
 
     fn remove_child(&self, handle: usize, value: &str) -> Result<Value> {
@@ -1070,9 +1135,8 @@ impl Dom {
             .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
         let handles = &mut self.handles;
         let ids = &mut self.ids;
-        let selection = Selection::from(node);
-        let result: Vec<_> = selection
-            .select_matcher_iter(&matcher)
+        let result: Vec<_> = matcher
+            .select(node)
             .map(|node| register_handle(handles, ids, node.id))
             .collect();
         Ok(json!(result))
@@ -1119,11 +1183,8 @@ impl Dom {
 
     fn query_one(&mut self, handle: usize, selector: &str) -> Result<Value> {
         let matcher = self.matcher(selector)?;
-        let selection = Selection::from(self.node(handle)?);
-        let id = selection
-            .select_matcher_iter(&matcher)
-            .next()
-            .map(|node| node.id);
+        let node = self.node(handle)?;
+        let id = matcher.select(node).next().map(|node| node.id);
         Ok(json!(id.map(|id| self.handle(id))))
     }
 
@@ -1131,8 +1192,7 @@ impl Dom {
         if let Some(matcher) = self.matchers.get(selector) {
             return Ok(matcher.clone());
         }
-        let matcher = Matcher::new(selector)
-            .map_err(|error| Error::Dom(format!("invalid selector: {error:?}")))?;
+        let matcher = Matcher::new(selector)?;
         // Bound retained keys and parser structures without restricting valid selectors.
         if self.matchers.len() < 64 && selector.len() <= 512 {
             self.matchers.insert(selector.to_owned(), matcher.clone());
@@ -1245,8 +1305,8 @@ impl Dom {
         }
         match (operation, property) {
             ("set", "innerHTML") => node.set_html(value),
-            ("setAttr", _) => node.set_attr(property, value),
-            ("removeAttr", _) => node.remove_attr(property),
+            ("setAttr", _) => crate::dom_attributes::set_named(node, property, value)?,
+            ("removeAttr", _) => crate::dom_attributes::remove_named(node, property),
             _ => return Err(Error::Dom(format!("unsupported write: {property}"))),
         }
         Ok(())

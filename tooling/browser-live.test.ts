@@ -1,3 +1,4 @@
+import { attributeNamespacesFixture } from "./attribute-namespaces-fixture";
 import { windowNamedFixture } from "./window-named-fixture";
 import { documentStylesheetsFixture } from "./document-stylesheets-fixture";
 import { backgroundColorFixture } from "./background-color-fixture";
@@ -458,6 +459,8 @@ const origin = Bun.serve({
     if (scriptModes) return scriptModes;
     const animationFrames = animationFramesFixture(path);
     if (animationFrames) return animationFrames;
+    const attributeNamespaces = attributeNamespacesFixture(path);
+    if (attributeNamespaces) return attributeNamespaces;
     const windowNamed = windowNamedFixture(path);
     if (windowNamed) return windowNamed;
     const documentStylesheets = documentStylesheetsFixture(path);
@@ -6310,6 +6313,27 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     const value: unknown = Reflect.get(result, "value");
     if (typeof value !== "object" || value === null) throw new Error("Missing checks");
     expect(Object.keys(value)).toHaveLength(34);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: Namespaced attributes variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`attribute-namespaces/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing result");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing checks");
+    expect(Object.keys(value)).toHaveLength(42);
     expect(Object.values(value).every((check) => check === true)).toBe(true);
   },
 );

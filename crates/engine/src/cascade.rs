@@ -1,3 +1,4 @@
+use crate::dom_attributes::NativeAttributes;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use cssparser::{
@@ -72,8 +73,8 @@ impl Index {
     }
     fn candidates(&self, node: NodeRef<'_>, work: &mut Work<'_>) -> Result<BTreeSet<Position>> {
         let mut candidates: BTreeSet<_> = self.universal.iter().copied().collect();
-        if let Some(id) = node.attr("id")
-            && let Some(positions) = self.ids.get(id.as_ref())
+        if let Some(id) = node.null_attribute("id")
+            && let Some(positions) = self.ids.get(id.as_str())
         {
             candidates.extend(positions);
         }
@@ -82,7 +83,7 @@ impl Index {
         {
             candidates.extend(positions);
         }
-        if let Some(classes) = node.attr("class") {
+        if let Some(classes) = node.null_attribute("class") {
             for class in classes.split_ascii_whitespace() {
                 work.charge()?;
                 if let Some(positions) = self.classes.get(class) {
@@ -524,15 +525,18 @@ impl Cascade {
                 continue;
             }
             if node
-                .attr("type")
+                .null_attribute("type")
                 .is_some_and(|value| !value.is_empty() && !value.eq_ignore_ascii_case("text/css"))
             {
                 continue;
             }
-            if !matches_media(media, node.attr("media").as_deref().unwrap_or_default())? {
+            if !matches_media(
+                media,
+                node.null_attribute("media").as_deref().unwrap_or_default(),
+            )? {
                 continue;
             }
-            if node.has_attr("title") {
+            if node.null_attribute("title").is_some() {
                 return Err(unsupported("stylesheet sets"));
             }
             let source = if external {

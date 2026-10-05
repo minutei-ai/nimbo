@@ -15,6 +15,8 @@ mod cookies;
 mod cssom;
 mod display;
 mod dom;
+mod dom_attributes;
+mod dom_selectors;
 mod dom_serialization;
 mod encoding;
 mod font_data;

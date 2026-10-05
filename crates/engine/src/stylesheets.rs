@@ -1,3 +1,4 @@
+use crate::dom_attributes::NativeAttributes;
 use std::collections::HashMap;
 
 use dom_query::{Document, NodeId, NodeRef};
@@ -21,7 +22,7 @@ pub(crate) struct Sheets {
 
 pub(crate) fn is_stylesheet(node: NodeRef<'_>) -> bool {
     node.has_name("link")
-        && node.attr("rel").is_some_and(|rel| {
+        && node.null_attribute("rel").is_some_and(|rel| {
             rel.split_ascii_whitespace()
                 .any(|part| part.eq_ignore_ascii_case("stylesheet"))
         })
@@ -42,10 +43,10 @@ impl Sheets {
     }
 
     fn url(&self, node: NodeRef<'_>, base: Option<&str>) -> Result<Option<String>> {
-        let Some(href) = node.attr("href") else {
+        let Some(href) = node.null_attribute("href") else {
             return Ok(None);
         };
-        if href.trim().is_empty() || node.has_attr("disabled") {
+        if href.trim().is_empty() || node.null_attribute("disabled").is_some() {
             return Ok(None);
         }
         let base =
@@ -72,7 +73,7 @@ impl Sheets {
                 continue;
             }
             if node
-                .attr("type")
+                .null_attribute("type")
                 .is_some_and(|value| !value.is_empty() && !value.eq_ignore_ascii_case("text/css"))
             {
                 continue;
@@ -81,7 +82,7 @@ impl Sheets {
                 continue;
             };
             if node
-                .attr("integrity")
+                .null_attribute("integrity")
                 .is_some_and(|value| !value.is_empty())
             {
                 return Err(Error::Unsupported(

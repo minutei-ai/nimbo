@@ -333,9 +333,9 @@ hash-verified source files run in all three runtimes; only result reporting is
 appended. Run `bun run bench:wpt-window-named` with the pinned source root.
 
 The [report](performance-wpt-window-named.json) records Chromium 82/82, public
-Obscura 64/82 and Nimbo/celld 52/82 original subtests. Nimbo completes 68:
-52 pass and 16 fail. Three incomplete files leave 14 additional obligations
-unverified. The file totals are seven passes, seven failures and three incomplete
+Obscura 64/82 and Nimbo/celld 57/82 original subtests. Nimbo completes 68:
+57 pass and 11 fail. Three incomplete files leave 14 additional obligations
+unverified. The file totals are eight passes, six failures and three incomplete
 runs. Frame realms, independent documents, location and full WindowProxy behavior
 remain gaps; no missing assertion is treated as a pass. Two additional upstream
 sources requiring multi-origin template substitution or the generated window-JS
@@ -347,3 +347,21 @@ its Reflect.defineProperty return value differs from the Web IDL requirement.
 The [comparison report](window-named-chromium.json) retains all 64 failed pages
 and the driver exits unsuccessfully. Supplemental contracts do not replace the
 original WPT obligations.
+
+## Original attribute WPT
+
+The [manifest](../tooling/wpt-attribute-namespaces-sources.json) pins eight
+standalone HTML tests for has/remove/set attribute APIs, attribute ordering,
+namespaces and native mutation behavior. It also pins both original harness
+resources and the attributes/production helper scripts. Original source bytes
+and assertions remain unchanged; only reporting is appended. Run
+`bun run bench:wpt-attribute-namespaces` with the pinned source root.
+
+The [report](performance-wpt-attribute-namespaces.json) records Chromium
+101/101, public Obscura 43/101 and Nimbo/celld 43/101 original subtests. Nimbo
+passes three files and fails five. Attr, NamedNodeMap, independent documents
+and event-handler behavior remain obligations. The command is unsuccessful;
+passing the [42 supplemental contracts](attribute-namespaces-chromium.json)
+in 64 fresh pages per comparator does not replace the original failures.
+The namespace implementation also closes five original Window access
+assertions, yielding 57/82 rather than the retained 52/82 baseline.

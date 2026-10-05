@@ -1,3 +1,4 @@
+use crate::dom_attributes::NativeAttributes;
 use cssparser::{CowRcStr, ParseError, Parser, ParserInput, SourceLocation, ToCss};
 use dom_query::{NodeData, NodeRef};
 use lightningcss::{
@@ -347,7 +348,7 @@ impl Element for NativeElement<'_> {
     fn is_link(&self) -> bool {
         self.is_html_element_in_html_document()
             && (self.0.has_name("a") || self.0.has_name("area"))
-            && self.0.has_attr("href")
+            && self.0.null_attribute("href").is_some()
     }
     fn is_html_slot_element(&self) -> bool {
         self.is_html_element_in_html_document() && self.0.has_name("slot")
@@ -358,7 +359,7 @@ impl Element for NativeElement<'_> {
         case: CaseSensitivity,
     ) -> bool {
         self.0
-            .attr("id")
+            .null_attribute("id")
             .is_some_and(|value| case.eq(name.as_bytes(), value.as_bytes()))
     }
     fn has_class(
@@ -366,7 +367,7 @@ impl Element for NativeElement<'_> {
         name: &<Self::Impl as SelectorImpl>::Identifier,
         case: CaseSensitivity,
     ) -> bool {
-        self.0.attr("class").is_some_and(|value| {
+        self.0.null_attribute("class").is_some_and(|value| {
             value
                 .split([' ', '\t', '\n', '\r', '\u{c}'])
                 .any(|value| case.eq(name.as_bytes(), value.as_bytes()))

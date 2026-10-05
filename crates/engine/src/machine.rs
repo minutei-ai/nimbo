@@ -1,3 +1,4 @@
+use crate::dom_attributes::NativeAttributes;
 use std::{
     cell::{Cell, RefCell},
     collections::{HashMap, VecDeque},
@@ -806,7 +807,7 @@ fn collect_scripts(dom: &Dom, execute_scripts: bool) -> Result<VecDeque<Script>>
     }
     for node in dom.document.select("script").nodes() {
         let kind = node
-            .attr("type")
+            .null_attribute("type")
             .unwrap_or_default()
             .trim()
             .to_ascii_lowercase();
@@ -816,16 +817,16 @@ fn collect_scripts(dom: &Dom, execute_scripts: bool) -> Result<VecDeque<Script>>
         ) {
             continue;
         }
-        if kind != "module" && node.attr("nomodule").is_some() {
+        if kind != "module" && node.null_attribute("nomodule").is_some() {
             continue;
         }
-        if node.attr("async").is_some() {
+        if node.null_attribute("async").is_some() {
             return Err(Error::Unsupported("async script scheduling".into()));
         }
-        let deferred =
-            kind == "module" || (node.attr("src").is_some() && node.attr("defer").is_some());
+        let deferred = kind == "module"
+            || (node.null_attribute("src").is_some() && node.null_attribute("defer").is_some());
         let script = Script {
-            src: node.attr("src").map(|src| src.to_string()),
+            src: node.null_attribute("src"),
             source: node.text().to_string(),
             module: kind == "module",
             deferred,

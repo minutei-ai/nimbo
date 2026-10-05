@@ -3086,23 +3086,46 @@ fn is_script_resource(path: &str) -> bool {
         "/background-color/",
         "/document-stylesheets/",
         "/window-named/",
+        "/attribute-namespaces/",
         "/document-stylesheets-assets/",
     ]
     .iter()
     .any(|prefix| path.starts_with(prefix))
 }
 
+fn serve_named_contracts(request: Request) -> io::Result<()> {
+    for (route, source, function) in [
+        (
+            "/attribute-namespaces/",
+            include_str!("fixtures/attribute-namespaces.txt"),
+            "attributeNamespacesCase",
+        ),
+        (
+            "/window-named/",
+            include_str!("fixtures/window-named.txt"),
+            "windowNamedCase",
+        ),
+    ] {
+        if request.url().starts_with(route) {
+            let variant = request
+                .url()
+                .rsplit('/')
+                .next()
+                .unwrap_or("0")
+                .parse::<usize>()
+                .map_err(io::Error::other)?;
+            return request.respond(Response::from_string(format!("<!doctype html><body><script>{source};globalThis.comparison={function}({variant})</script>")).with_header(header("Content-Type", "text/html")?));
+        }
+    }
+    request.respond(Response::from_string("Not found").with_status_code(404))
+}
+
 fn serve_scripts(request: Request) -> io::Result<()> {
-    if request.url().starts_with("/window-named/") {
-        let variant = request
-            .url()
-            .rsplit('/')
-            .next()
-            .unwrap_or("0")
-            .parse::<usize>()
-            .map_err(io::Error::other)?;
-        let source = include_str!("fixtures/window-named.txt");
-        return request.respond(Response::from_string(format!("<!doctype html><body><script>{source};globalThis.comparison=windowNamedCase({variant})</script>")).with_header(header("Content-Type", "text/html")?));
+    if ["/attribute-namespaces/", "/window-named/"]
+        .iter()
+        .any(|route| request.url().starts_with(route))
+    {
+        return serve_named_contracts(request);
     }
     if request.url() == "/document-stylesheets-assets/missing.css" {
         return request.respond(
@@ -3435,5 +3458,22 @@ fn window_interface_brand_and_prototype_identity() -> TestResult {
     let fixture = Fixture::new()?;
     let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
     assert_eq!(page.evaluate("({window:window instanceof Window,eventTarget:window instanceof EventTarget,tag:Object.prototype.toString.call(window),ownTag:Object.getOwnPropertyDescriptor(window,Symbol.toStringTag)?.value??null})")?,json!({"window":true,"eventTarget":true,"tag":"[object Window]","ownTag":null}));
+    Ok(())
+}
+
+#[test]
+fn attribute_namespaces_mass_real_http() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/attribute-namespaces/{variant}")))?;
+        let result = page.evaluate("globalThis.comparison")?;
+        let checks = result.as_object().ok_or("missing Window checks")?;
+        assert_eq!(checks.len(), 42);
+        assert!(
+            checks.values().all(|value| value == &json!(true)),
+            "{result}"
+        );
+    }
     Ok(())
 }

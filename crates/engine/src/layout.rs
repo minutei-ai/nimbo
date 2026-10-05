@@ -1,3 +1,4 @@
+use crate::dom_attributes::NativeAttributes;
 use std::collections::{HashMap, HashSet};
 
 use dom_query::{Document, NodeId, NodeRef};
@@ -90,7 +91,7 @@ fn defaulted<'a>(name: &str, value: &'a str) -> &'a str {
 
 fn initial_style(node: NodeRef<'_>, generated: bool) -> Result<Style> {
     if node
-        .attr("dir")
+        .null_attribute("dir")
         .is_some_and(|value| value.eq_ignore_ascii_case("rtl"))
     {
         return Err(unsupported("direction"));
@@ -103,7 +104,7 @@ fn initial_style(node: NodeRef<'_>, generated: bool) -> Result<Style> {
     if !generated && node.has_name("body") {
         style.margin = Rect::length(8.0);
     }
-    if !generated && node.has_attr("hidden") {
+    if !generated && node.null_attribute("hidden").is_some() {
         style.display = Display::None;
     }
     Ok(style)
@@ -621,7 +622,7 @@ impl Tree<'_, '_> {
         let declarations = if let Some(state) = self.styles.get(&node.id) {
             state.clone()
         } else {
-            Declarations::parse(node.attr("style").as_deref().unwrap_or_default())
+            Declarations::parse(node.null_attribute("style").as_deref().unwrap_or_default())
                 .map_err(|message| Error::Dom(message.into()))?
         };
         let declarations =

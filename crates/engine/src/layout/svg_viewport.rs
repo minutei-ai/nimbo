@@ -1,4 +1,5 @@
 //! Outermost SVG viewports are replaced boxes with native intrinsic sizing.
+use crate::dom_attributes::NativeAttributes;
 use cssparser::{Parser, ParserInput};
 use dom_query::NodeRef;
 use lightningcss::{traits::Parse, values::length::LengthPercentage};
@@ -55,7 +56,7 @@ impl Intrinsic {
         if !root(node) {
             return Ok(None);
         }
-        if node.has_attr("transform") {
+        if node.null_attribute("transform").is_some() {
             return Err(unsupported("SVG viewport transform"));
         }
         style.item_is_replaced = true;
@@ -124,7 +125,7 @@ fn attribute(
     fonts: &Context,
     work: &mut Work<'_>,
 ) -> Result<Option<Dimension>> {
-    let Some(value) = node.attr(name) else {
+    let Some(value) = node.null_attribute(name) else {
         return Ok(None);
     };
     work.charge()?;
@@ -148,7 +149,7 @@ fn attribute(
 }
 
 fn view_box_ratio(node: NodeRef<'_>, work: &mut Work<'_>) -> Result<Option<f32>> {
-    let Some(value) = node.attr("viewBox") else {
+    let Some(value) = node.null_attribute("viewBox") else {
         return Ok(None);
     };
     let mut input = ParserInput::new(&value);
