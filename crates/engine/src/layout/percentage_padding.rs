@@ -43,6 +43,7 @@ impl Tree<'_, '_> {
                     },
                 )
                 .map_err(|error| layout_error(&error))?;
+            self.text_budget.check()?;
             let mut changed = false;
             for (id, original) in &self.percentage_padding {
                 self.work.charge()?;

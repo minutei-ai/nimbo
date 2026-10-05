@@ -15,6 +15,7 @@ pub(crate) mod logical;
 mod percentage_padding;
 pub(crate) mod resolved;
 pub(crate) mod svg_viewport;
+mod text;
 
 pub(crate) struct Work<'a> {
     operations: &'a mut usize,
@@ -47,6 +48,14 @@ pub(crate) struct Bounds {
     y: f64,
     width: f64,
     height: f64,
+}
+
+fn non_rendered(node: NodeRef<'_>) -> bool {
+    [
+        "head", "script", "style", "link", "meta", "title", "noscript",
+    ]
+    .iter()
+    .any(|name| node.has_name(name))
 }
 
 fn unsupported(detail: &str) -> Error {
@@ -215,10 +224,13 @@ fn non_layout(name: &str) -> bool {
                 | "container-type"
                 | "font-size"
                 | "font-family"
-                // Supported box scenes contain no shaped text. Weight affects
-                // glyphs, not the geometry of these empty/block-only boxes.
+                // Text runs validate inherited typography before shaping.
                 | "font-weight"
                 | "letter-spacing"
+                | "font-style"
+                | "font-stretch"
+                | "font-variant"
+                | "white-space"
                 | "text-size-adjust"
                 | "tab-size"
                 | "line-height"
@@ -273,7 +285,7 @@ fn style_properties(
             continue;
         }
         let value = defaulted(name, value);
-        if name == "display" {
+        if name == "display" || (name.starts_with("font-variant-") && value == "normal") {
             continue;
         }
         if name == "visibility" && (deferred || value == "collapse") {
@@ -465,6 +477,7 @@ struct BoxContext {
     layers: crate::background_layers::Layers,
     family: crate::font_family::Family,
     display: crate::display::Computed,
+    typography: text::Typography,
 }
 
 impl BoxContext {
@@ -500,12 +513,13 @@ impl BoxContext {
             layers,
             family,
             display,
+            typography: self.typography.compute(declarations),
         })
     }
 }
 
 struct Tree<'a, 'b> {
-    boxes: TaffyTree<svg_viewport::Intrinsic>,
+    boxes: TaffyTree<text::Intrinsic>,
     ids: HashMap<NodeId, taffy::NodeId>,
     positioned: HashSet<NodeId>,
     fixed: HashSet<NodeId>,
@@ -514,6 +528,8 @@ struct Tree<'a, 'b> {
     sticky: HashMap<taffy::NodeId, Rect<LengthPercentageAuto>>,
     percentage_padding: Vec<(taffy::NodeId, Rect<LengthPercentage>)>,
     scroll: &'a ScrollState,
+    fonts: &'a std::cell::RefCell<crate::font_data::Arena>,
+    text_budget: std::rc::Rc<text::Budget>,
     transitions: &'a std::cell::RefCell<crate::transitions::State>,
     now: f64,
     viewport: Size<f64>,
@@ -627,12 +643,7 @@ impl Tree<'_, '_> {
             }
             return Ok(());
         }
-        if [
-            "head", "script", "style", "link", "meta", "title", "noscript",
-        ]
-        .iter()
-        .any(|name| node.has_name(name))
-        {
+        if non_rendered(node) {
             return Ok(());
         }
         let declarations = if let Some(state) = self.styles.get(&node.id) {
@@ -691,7 +702,11 @@ impl Tree<'_, '_> {
             self.positioned.insert(node.id);
         }
         let id = if let Some(intrinsic) = svg {
-            self.boxes.new_leaf_with_context(style, intrinsic)
+            self.boxes
+                .new_leaf_with_context(style, text::Intrinsic::Svg(intrinsic))
+        } else if let Some(run) = self.text_run(node, depth, &variables, style.display, &context)? {
+            self.boxes
+                .new_leaf_with_context(style, text::Intrinsic::Text(run))
         } else {
             let mut children = Vec::new();
             self.children(
@@ -714,6 +729,66 @@ impl Tree<'_, '_> {
         }
         output.push(id);
         Ok(())
+    }
+    fn text_run(
+        &mut self,
+        node: NodeRef<'_>,
+        depth: usize,
+        variables: &Variables,
+        display: Display,
+        context: &BoxContext,
+    ) -> Result<Option<text::Run>> {
+        if node.children_it(false).any(|child| child.is_element()) {
+            return Ok(None);
+        }
+        if !node.children_it(false).any(|child| {
+            child.is_text()
+                && !child
+                    .text()
+                    .trim_matches([' ', '\t', '\n', '\r', '\u{c}'])
+                    .is_empty()
+        }) {
+            return Ok(None);
+        }
+        let mut source = String::new();
+        for child in node.children_it(false) {
+            self.visit(depth.saturating_add(1))?;
+            if child.is_text() {
+                let text = child.text();
+                if source.len().saturating_add(text.len()) > 65_536 {
+                    return Err(Error::Limit("layout text source"));
+                }
+                source.push_str(&text);
+            }
+        }
+        if display != Display::Block {
+            return Err(unsupported("anonymous text in flex or grid"));
+        }
+        for kind in [
+            crate::cascade::Generated::Before,
+            crate::cascade::Generated::After,
+        ] {
+            if self
+                .generated(
+                    node,
+                    kind,
+                    variables,
+                    display,
+                    depth.saturating_add(1),
+                    context,
+                )?
+                .is_some()
+            {
+                return Err(unsupported("generated content in text formatting context"));
+            }
+        }
+        text::Run::new(
+            &source,
+            &context.typography,
+            context,
+            &self.fonts.borrow(),
+            std::rc::Rc::clone(&self.text_budget),
+        )
     }
     fn record_box(
         &mut self,
@@ -836,6 +911,7 @@ pub(crate) struct Sources<'a> {
     pub inline: &'a HashMap<NodeId, Declarations>,
     pub external: &'a crate::stylesheets::Sheets,
     pub constructed: &'a crate::cssom::Arena,
+    pub fonts: &'a std::cell::RefCell<crate::font_data::Arena>,
     pub base: Option<&'a str>,
 }
 
@@ -873,6 +949,8 @@ fn scene<T>(
             sticky: HashMap::new(),
             percentage_padding: Vec::new(),
             scroll: styles.scroll,
+            fonts: styles.fonts,
+            text_budget: std::rc::Rc::default(),
             transitions: styles.transitions,
             now: styles.now,
             viewport: Size {
@@ -904,6 +982,7 @@ fn scene<T>(
                 layers: crate::background_layers::Layers::default(),
                 family: crate::font_family::Family::default(),
                 display: crate::display::Computed::default(),
+                typography: text::Typography::default(),
             },
             &mut root_ids,
         )?;

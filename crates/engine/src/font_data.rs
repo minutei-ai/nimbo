@@ -1,7 +1,4 @@
-use std::{
-    cell::{Cell, RefCell},
-    rc::Rc,
-};
+use std::{cell::RefCell, rc::Rc};
 
 use harfrust::{Buffer, Font, ShapeOptions, ShaperFont};
 use rquickjs::{Ctx, Exception, Function, TypedArray};
@@ -33,29 +30,113 @@ fn valid(bytes: &[u8]) -> bool {
     tables.cmap.is_some() && tables.hmtx.is_some() && tables.glyf.is_some()
 }
 
-pub(crate) fn install<'js>(ctx: &Ctx<'js>) -> rquickjs::Result<()> {
-    let attempts = Rc::new(Cell::new(0_usize));
-    let total = Rc::new(Cell::new(0_usize));
-    let fonts = Rc::new(RefCell::new(Vec::<Font>::new()));
+#[derive(Clone, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Registered {
+    resource: usize,
+    supported: bool,
+    #[serde(flatten)]
+    description: crate::font_matching::Description,
+}
+
+#[derive(Default)]
+pub(crate) struct Arena {
+    fonts: Vec<Font>,
+    registered: Vec<Registered>,
+    attempts: usize,
+    total: usize,
+    canvas_work: usize,
+}
+
+impl Arena {
+    fn admit(&mut self, bytes: Vec<u8>) -> crate::Result<usize> {
+        if bytes
+            .get(..4)
+            .is_some_and(|header| matches!(header, b"wOFF" | b"wOF2" | b"OTTO" | b"ttcf"))
+        {
+            return Err(crate::Error::Dom(
+                "unsupported: compressed, CFF or collection fonts".into(),
+            ));
+        }
+        if !valid(&bytes) {
+            return Ok(0);
+        }
+        let Some(font) = Font::new(bytes, 0) else {
+            return Ok(0);
+        };
+        self.fonts.push(font);
+        Ok(self.fonts.len())
+    }
+    pub(crate) fn synchronize(&mut self, source: &str) -> crate::Result<bool> {
+        if source.len() > 1_048_576 {
+            return Err(crate::Error::Limit("font registry payload"));
+        }
+        let registered: Vec<Registered> = serde_json::from_str(source)?;
+        if registered.len() > 1024
+            || registered
+                .iter()
+                .any(|face| face.resource == 0 || face.resource > self.fonts.len())
+        {
+            return Err(crate::Error::Dom("invalid font registry resource".into()));
+        }
+        if self.registered == registered {
+            return Ok(false);
+        }
+        self.registered = registered;
+        Ok(true)
+    }
+    pub(crate) fn select(&self, font: String, text: &str) -> crate::Result<Font> {
+        let request = crate::font_matching::Request {
+            font,
+            text: text.encode_utf16().collect(),
+            faces: self
+                .registered
+                .iter()
+                .map(|face| face.description.clone())
+                .collect(),
+        };
+        let selected = crate::font_matching::select(&request)?
+            .ok_or_else(|| crate::Error::Dom("invalid layout font".into()))?;
+        let [index] = selected.as_slice() else {
+            return Err(crate::Error::Dom(
+                "layout unsupported: text shaping: font selection or fallback".into(),
+            ));
+        };
+        let face = self
+            .registered
+            .get(*index)
+            .ok_or_else(|| crate::Error::Dom("invalid layout font index".into()))?;
+        if !face.supported {
+            return Err(crate::Error::Dom(
+                "layout unsupported: font shaping descriptor".into(),
+            ));
+        }
+        self.fonts
+            .get(face.resource.saturating_sub(1))
+            .cloned()
+            .ok_or_else(|| crate::Error::Dom("invalid native font resource".into()))
+    }
+}
+
+pub(crate) fn install<'js>(ctx: &Ctx<'js>, fonts: Rc<RefCell<Arena>>) -> rquickjs::Result<()> {
     let measures = Rc::clone(&fonts);
-    let work = Cell::new(0_usize);
     ctx.globals().set(
         "nimboFontMeasure",
         Function::new(
             ctx.clone(),
             move |ctx: Ctx<'js>, id: usize, text: String, size: f64| {
-                work.set(work.get().saturating_add(text.len().max(1)));
-                if work.get() > 65_536
+                let mut arena = measures.borrow_mut();
+                arena.canvas_work = arena.canvas_work.saturating_add(text.len().max(1));
+                if arena.canvas_work > 65_536
                     || text.len() > 1024
                     || !size.is_finite()
                     || !(0.0..=4096.0).contains(&size)
                 {
                     return Err(Exception::throw_message(&ctx, "font shaping limit"));
                 }
-                let fonts = measures.borrow();
                 let font = id
                     .checked_sub(1)
-                    .and_then(|index| fonts.get(index))
+                    .and_then(|index| arena.fonts.get(index))
                     .ok_or_else(|| {
                         Exception::throw_message(&ctx, "invalid native font resource")
                     })?;
@@ -70,39 +151,24 @@ pub(crate) fn install<'js>(ctx: &Ctx<'js>) -> rquickjs::Result<()> {
             ctx.clone(),
             move |ctx: Ctx<'js>, source: TypedArray<'js, u8>| {
                 let length = source.len();
-                attempts.set(attempts.get().saturating_add(1));
-                total.set(total.get().saturating_add(length));
-                if attempts.get() > ATTEMPT_LIMIT
+                let mut arena = fonts.borrow_mut();
+                arena.attempts = arena.attempts.saturating_add(1);
+                arena.total = arena.total.saturating_add(length);
+                if arena.attempts > ATTEMPT_LIMIT
                     || length > INPUT_LIMIT
-                    || total.get() > TOTAL_LIMIT
+                    || arena.total > TOTAL_LIMIT
                 {
                     return Err(Exception::throw_message(&ctx, "font data limit"));
                 }
-                // Reading integer-indexed native array elements avoids unsafe borrowed
-                // buffer access across QuickJS calls and does not invoke page getters.
                 let count = u32::try_from(length)
                     .map_err(|error| Exception::throw_message(&ctx, &error.to_string()))?;
+                // Native integer-indexed elements preserve copied font ownership.
                 let bytes = (0..count)
                     .map(|index| source.as_object().get::<_, u8>(index))
                     .collect::<rquickjs::Result<Vec<_>>>()?;
-                if bytes
-                    .get(..4)
-                    .is_some_and(|header| matches!(header, b"wOFF" | b"wOF2" | b"OTTO" | b"ttcf"))
-                {
-                    return Err(Exception::throw_message(
-                        &ctx,
-                        "unsupported: compressed, CFF or collection fonts",
-                    ));
-                }
-                if !valid(&bytes) {
-                    return Ok(0_usize);
-                }
-                let Some(font) = Font::new(bytes, 0) else {
-                    return Ok(0_usize);
-                };
-                let mut fonts = fonts.borrow_mut();
-                fonts.push(font);
-                Ok(fonts.len())
+                arena
+                    .admit(bytes)
+                    .map_err(|error| Exception::throw_message(&ctx, &error.to_string()))
             },
         )?,
     )
@@ -110,7 +176,7 @@ pub(crate) fn install<'js>(ctx: &Ctx<'js>) -> rquickjs::Result<()> {
 
 // One bounded LTR Latin run. Script itemization, bidi and glyph fallback are
 // deliberately rejected until the layout engine can implement their runs.
-fn measure(font: &Font, text: &str, size: f64) -> Result<f64, &'static str> {
+pub(crate) fn measure(font: &Font, text: &str, size: f64) -> Result<f64, &'static str> {
     if !text
         .chars()
         .all(|ch| matches!(u32::from(ch), 0x20..=0x024f | 0x0300..=0x036f | 0x20ac))

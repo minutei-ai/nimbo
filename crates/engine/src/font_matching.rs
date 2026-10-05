@@ -17,19 +17,19 @@ use crate::{Error, Result};
 type Score = (u8, f64);
 type Rank = [Score; 3];
 
-#[derive(Deserialize)]
-struct Description {
-    family: String,
-    style: String,
-    weight: String,
-    stretch: String,
-    range: String,
+#[derive(Clone, PartialEq, Deserialize)]
+pub(crate) struct Description {
+    pub family: String,
+    pub style: String,
+    pub weight: String,
+    pub stretch: String,
+    pub range: String,
 }
 #[derive(Deserialize)]
-struct Request {
-    font: String,
-    text: Vec<u16>,
-    faces: Vec<Description>,
+pub(crate) struct Request {
+    pub font: String,
+    pub text: Vec<u16>,
+    pub faces: Vec<Description>,
 }
 struct Face {
     family: String,
@@ -240,7 +240,7 @@ fn style_score(target: Style, face: Style) -> Score {
         },
     }
 }
-fn select(request: &Request) -> Result<Option<Vec<usize>>> {
+pub(crate) fn select(request: &Request) -> Result<Option<Vec<usize>>> {
     if request.font.len() > 4096 || request.text.len() > 65536 || request.faces.len() > 1024 {
         return Err(Error::Limit("font matching input"));
     }

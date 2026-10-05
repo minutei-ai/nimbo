@@ -1,0 +1,20 @@
+globalThis.comparison=(async()=>{
+ const face=new FontFace('NimboLayout','url(/font-shaping-assets/'+variant+')');
+ document.fonts.add(face); await face.load();
+ const style=document.createElement('style');style.textContent='html,body{margin:0;padding:0;font:16px/20px NimboLayout}div{padding:0;margin:0;border:0}';document.head.append(style);
+ const near=(a,b)=>Math.abs(a-b)<=1/64+.000001, checks={};
+ const box=(text,width)=>{const node=document.createElement('div');node.textContent=text;node.style.width=width;document.body.append(node);return node;};
+ const wide=box('A B','100px'); checks.wide=near(wide.getBoundingClientRect().height,20);
+ const fit=box('AB','max-content');checks.ligature=near(fit.getBoundingClientRect().width,14.4);
+ const kern=box('BA','max-content');checks.kerning=near(kern.getBoundingClientRect().width,20);
+ const narrow=box('A B A','21px');checks.wrap=near(narrow.getBoundingClientRect().height,60);
+ narrow.style.width='30px';checks.resize=near(narrow.getBoundingClientRect().height,40);
+ const spaces=box('  A \t  B \n ','max-content');checks.collapse=near(spaces.getBoundingClientRect().width,24.8);
+ const accent=box('é','max-content');const decomposed=box('e\u0301','max-content');checks.canonical=near(accent.getBoundingClientRect().width,decomposed.getBoundingClientRect().width)&&near(accent.getBoundingClientRect().width,8.8);
+ wide.textContent='A B A B A B A B A B';checks.mutation=near(wide.getBoundingClientRect().height,40);
+ const line=box('AB','100px');line.style.lineHeight='30px';checks.lineHeight=near(line.getBoundingClientRect().height,30);
+ line.style.fontSize='32px';line.style.width='max-content';checks.fontSize=near(line.getBoundingClientRect().width,28.8);
+ const adjacent=box('','max-content');adjacent.append(document.createTextNode('A'),document.createComment('separator'),document.createTextNode(' B'));checks.adjacent=near(adjacent.getBoundingClientRect().width,24.8);
+ const empty=box('  \t \n ','100px');checks.empty=near(empty.getBoundingClientRect().height,0);
+ return checks;
+})();

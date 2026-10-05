@@ -41,12 +41,18 @@
   Reflect.deleteProperty(globalThis, "nimboTimerLimit");
   Reflect.deleteProperty(globalThis, "nimboTimerTaskLimit");
 
+  let fontsEverLoaded = false;
   const ids = new WeakMap<object, number>();
   const nodes = new Map<number, Node>();
   // Result shapes are serialized by Rust for each native operation.
   // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
   const raw = <T>(operation: string, id: number, arg = "", value = ""): T => {
     // The bridge owns this JSON contract; it is not page-supplied JSON.
+    if (
+      fontsEverLoaded &&
+      ["bounds", "geometry", "observerMeasure", "computedStyle"].includes(operation)
+    )
+      synchronizeLayoutFonts();
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     return JSON.parse(nativeDom(operation, id, arg, value)) as T;
   };
@@ -4840,6 +4846,7 @@
         const fontId = nativeFontData(data);
         if (!fontId) continue;
         state.resource = fontId;
+        fontsEverLoaded = true;
         state.data = data;
         state.status = "loaded";
         state.resolve(owner);
@@ -5478,6 +5485,7 @@
         const resource = nativeFontData(data);
         if (resource) {
           state.resource = resource;
+          fontsEverLoaded = true;
           state.data = data;
           state.status = "loaded";
           state.resolve(this);
@@ -5746,6 +5754,34 @@
       if (arguments.length === 0) throw new TypeError("FontFaceSet.check requires a font");
       return matchingFonts(this, font, text).every((face) => fontState(face).status === "loaded");
     }
+  }
+  function synchronizeLayoutFonts(): void {
+    const registered = [...fontSetState(documentFonts).all].flatMap((face) => {
+      const state = fontState(face);
+      if (state.status !== "loaded" || !state.resource) return [];
+      return [
+        {
+          resource: state.resource,
+          supported: (
+            [
+              "variant",
+              "featureSettings",
+              "variationSettings",
+              "sizeAdjust",
+              "ascentOverride",
+              "descentOverride",
+              "lineGapOverride",
+            ] as const
+          ).every((name) => state.descriptors[name] === fontDefaults[name]),
+          family: usvString(state.family),
+          style: state.descriptors.style ?? "normal",
+          weight: state.descriptors.weight ?? "normal",
+          stretch: state.descriptors.stretch ?? "normal",
+          range: state.descriptors.unicodeRange ?? "U+0-10FFFF",
+        },
+      ];
+    });
+    nativeDom("fontResources", 0, JSON.stringify(registered), "");
   }
   function matchingFonts(owner: FontFaceSet, font: unknown, text: unknown): FontFace[] {
     const source = usvString(font);

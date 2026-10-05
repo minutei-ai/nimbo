@@ -313,7 +313,10 @@ impl Machine {
             js(&ctx, globals.set("nimboStorage", js(&ctx, storage_call)?))?;
             install_media(&ctx, media)?;
             js(&ctx, crate::encoding::install(&ctx))?;
-            js(&ctx, crate::font_data::install(&ctx))?;
+            js(
+                &ctx,
+                crate::font_data::install(&ctx, Rc::clone(&self.dom.borrow().fonts)),
+            )?;
             js(&ctx, crate::canvas::install(&ctx))?;
             js(&ctx, crate::font_faces::install(&ctx))?;
             js(&ctx, crate::font_matching::install(&ctx))?;

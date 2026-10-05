@@ -6472,3 +6472,105 @@ test.each([
     value: { pair: true, kerning: true, accent: true, decomposed: true },
   });
 });
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native text layout variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`text-layout/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      value: Object.fromEntries(
+        [
+          "wide",
+          "ligature",
+          "kerning",
+          "wrap",
+          "resize",
+          "collapse",
+          "canonical",
+          "mutation",
+          "lineHeight",
+          "fontSize",
+          "adjacent",
+          "empty",
+        ].map((key) => [key, true]),
+      ),
+    });
+  },
+);
+
+const textLayoutBoundaries = [
+  [
+    "computed font invalidation",
+    "document.fonts.clear();getComputedStyle(document.querySelector('div')).width",
+    "font selection or fallback",
+  ],
+  [
+    "flex text",
+    "document.querySelector('div').style.display='flex'",
+    "anonymous text in flex or grid",
+  ],
+  [
+    "grid text",
+    "document.querySelector('div').style.display='grid'",
+    "anonymous text in flex or grid",
+  ],
+  [
+    "normal line metrics",
+    "document.querySelector('div').style.lineHeight='normal'",
+    "normal line metrics",
+  ],
+  ["removed font", "document.fonts.clear()", "font selection or fallback"],
+  ["font descriptor", "[...document.fonts][0].sizeAdjust='125%'", "font descriptor sizeAdjust"],
+  ["pre whitespace", "document.querySelector('div').style.whiteSpace='pre'", "text white-space"],
+  [
+    "font stretch",
+    "document.querySelector('div').style.fontStretch='condensed'",
+    "text font synthesis or spacing",
+  ],
+  ["mixed inline", "document.querySelector('div').innerHTML='A<span>B</span>'", "text shaping"],
+  [
+    "generated box",
+    "const s=document.createElement('style');s.textContent='div::before{content:\"\";display:block;width:10px;height:10px}';document.head.append(s)",
+    "generated content in text formatting context",
+  ],
+  [
+    "shape input",
+    "document.querySelector('div').textContent='A'.repeat(1025)",
+    "layout text shaping",
+  ],
+] as const;
+
+const requestTextLayout = (expression: string) =>
+  worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url: new URL("text-layout/0", origin.url).href, expression }),
+  });
+
+test.each(textLayoutBoundaries)(
+  "native text layout rejects unsupported %s and recovers on a fresh page",
+  async (_name, mutation, message) => {
+    const rejected = await requestTextLayout(
+      `(async()=>{await globalThis.comparison;try{${mutation};document.querySelector('div').getBoundingClientRect();return 'unexpected success';}catch(error){return String(error);}})()`,
+    );
+    expect(rejected.status).toBe(200);
+    const result: unknown = await rejected.json();
+    expect(
+      typeof result === "object" && result !== null ? Reflect.get(result, "value") : undefined,
+    ).toContain(message);
+    const recovered = await requestTextLayout("globalThis.comparison");
+    expect(recovered.status).toBe(200);
+    const body: unknown = await recovered.json();
+    expect(body).toMatchObject({
+      value: { wide: true, ligature: true, wrap: true, canonical: true },
+    });
+  },
+);

@@ -25,6 +25,7 @@ struct NamedProperties {
 
 pub(crate) struct Dom {
     pub document: Document,
+    pub fonts: std::rc::Rc<std::cell::RefCell<crate::font_data::Arena>>,
     handles: Vec<Handle>,
     ids: HashMap<NodeId, usize>,
     // Cache compiled selectors only; DOM results must always reflect mutations.
@@ -62,6 +63,7 @@ impl Dom {
         let root = document.root().id;
         Self {
             document,
+            fonts: std::rc::Rc::default(),
             handles: vec![Handle::Node(root)],
             ids: HashMap::from([(root, 0)]),
             matchers: HashMap::new(),
@@ -162,6 +164,7 @@ impl Dom {
             "fontFaces" => self.font_faces()?,
             "cssSupports" => json!(crate::supports::query(arg)?),
             "cssSupportsValue" => json!(crate::supports::value(arg, value)?),
+            "fontResources" => self.synchronize_fonts(arg)?,
             "bounds" => self.bounds(handle)?,
             "geometry" => self.geometry(handle, arg, value)?,
             "computedStyle" => self.computed_style(handle, arg, value)?,
@@ -240,6 +243,13 @@ impl Dom {
         self.finish(&result, version)
     }
 
+    fn synchronize_fonts(&mut self, source: &str) -> Result<Value> {
+        if self.fonts.borrow_mut().synchronize(source)? {
+            self.layout_version = self.layout_version.saturating_add(1);
+            self.computed_styles.clear();
+        }
+        Ok(Value::Null)
+    }
     fn attribute_metadata(&self, handle: usize) -> Result<Value> {
         Ok(json!(
             self.node(handle)?
@@ -471,6 +481,7 @@ impl Dom {
                             inline: &self.styles,
                             external: &self.sheets,
                             constructed: &self.cssom,
+                            fonts: &self.fonts,
                             base: base.as_deref(),
                         },
                         &self.media,
@@ -500,6 +511,7 @@ impl Dom {
                             inline: &self.styles,
                             external: &self.sheets,
                             constructed: &self.cssom,
+                            fonts: &self.fonts,
                             base: base.as_deref(),
                         },
                         &self.media,
@@ -517,9 +529,11 @@ impl Dom {
                     .value(name)?;
             }
         }
-        Ok(
-            json!({"entries":properties.iter().map(|name|json!({"name":name,"value":"","important":false})).collect::<Vec<_>>(),"css_text":"","value":value,"important":false,"changed":false}),
-        )
+        Ok(Self::computed_metadata(properties, &value))
+    }
+
+    fn computed_metadata(properties: &[&str], value: &str) -> Value {
+        json!({"entries":properties.iter().map(|name|json!({"name":name,"value":"","important":false})).collect::<Vec<_>>(),"css_text":"","value":value,"important":false,"changed":false})
     }
 
     fn observe(&mut self, handle: usize, request: &str) -> Result<Value> {
@@ -640,6 +654,7 @@ impl Dom {
                 inline: &self.styles,
                 external: &self.sheets,
                 constructed: &self.cssom,
+                fonts: &self.fonts,
                 base: base.as_deref(),
             },
             &self.media,

@@ -144,9 +144,9 @@ The engine implements bounded browser subsets. See the [coverage inventory](docs
 | Canvas                           | Rust software OffscreenCanvas bitmap, selected 2D pixel operations and bounded native `TextMetrics.width`                                                               |
 | Compatibility work still pending | Full HTML/CSSOM/WPT behavior, font fallback and text layout, painting, screenshots/PDF, WebGL, video, controllable TLS, durable browser sessions and CDP automation     |
 
-Scripts run after parsing; this is a simplified lifecycle. Frames are explicitly rejected. Images are not loaded. Import maps, JSON modules, IndexedDB and full CORS/networking contracts remain incomplete. Supported CSS metadata does not imply font rendering or painting. Loaded uncompressed TrueType fonts now provide native OpenType widths for one LTR Latin run through `OffscreenCanvasRenderingContext2D.measureText`; DOM text layout still rejects text requiring shaping. Font fallback, bidi/script itemization, wrapping, glyph bounding boxes and text painting remain pending. Measurements require a loaded matching normal face and a normal canvas font with an explicit pixel size; unsupported inputs fail explicitly.
+Scripts run after parsing; this is a simplified lifecycle. Frames are explicitly rejected. Images are not loaded. Import maps, JSON modules, IndexedDB and full CORS/networking contracts remain incomplete. Supported CSS metadata does not imply font rendering or painting. Loaded uncompressed TrueType fonts now provide native OpenType widths for one LTR Latin run through `OffscreenCanvasRenderingContext2D.measureText`; Pure block text now uses those owned font resources for native whitespace collapse and greedy line wrapping, including invalidation after text, style or font-set changes. It requires a loaded normal face and explicit line height. Normal line metrics, font fallback, mixed inline elements, anonymous flex/grid text, generated text boxes, bidi/script itemization, glyph bounding boxes and text painting remain pending. Measurements require a loaded matching normal face and a normal canvas font with an explicit pixel size; unsupported inputs fail explicitly.
 
-The shaper uses the public [HarfRust library](https://github.com/harfbuzz/harfrust), without an alternate browser backend. Font bytes remain private per page, with the existing 1 MiB per-source, 4 MiB cumulative and 128-attempt limits. A shaping call accepts at most 1,024 UTF-8 bytes; cumulative native shaping input is capped at 65,536 bytes per page, and font size at 4,096 CSS pixels.
+The shaper uses the public [HarfRust library](https://github.com/harfbuzz/harfrust), without an alternate browser backend. Font bytes remain private per page, with the existing 1 MiB per-source, 4 MiB cumulative and 128-attempt limits. A shaping call accepts at most 1,024 UTF-8 bytes; Canvas shaping input is capped at 65,536 cumulative bytes per page, and canvas font size at 4,096 CSS pixels. DOM text sources are limited to 65,536 bytes per block, with 1,024 UTF-8 bytes per normalized run and 1 MiB cumulative shaping input per layout scene. Unsupported inputs fail before geometry is exposed.
 
 Constructed CSSOM currently differs from Chromium for a non-configurable indexed rule-list definition. Document adoption is implemented, with two recorded cascade-order differences from Chromium. HTML style/link-owned flat rules support live mutation, and Document.styleSheets exposes a live list. Imports, association lifecycle and grouped rule wrappers remain pending. These divergences remain visible in the real fixtures and evidence.
 
@@ -187,6 +187,7 @@ bun run bench:wpt-contextual-box-lengths # original unit WPT files
 bun run compare:svg-viewport # outer SVG sizing in celld and Chromium
 bun run compare:script-modes # classic/strict/module semantics in celld and Chromium
 bun run compare:font-shaping # native OpenType widths with real loaded fonts
+bun run compare:text-layout # native DOM text geometry versus Chromium
 bun run compare:background-color # live background-color computation in celld and Chromium
 bun run bench:wpt-background-color # original declaration and computed color WPT
 bun run compare:layout-snapshot # geometry invalidation after DOM, CSSOM and scroll changes
@@ -202,6 +203,10 @@ bun run compare:animation-frames # real-clock callback batches and cancellation
 bun run bench:wpt-animation-frames # original animation callback WPT files
 bun run bench:wpt-svg-viewport # original SVG API and image WPT files
 ```
+
+Native Rust suites use four concurrent tests so real-clock transition assertions
+are not displaced beyond their sampling window by unrelated CPU-heavy suites.
+All cases and assertions still run against real HTTP and the native engine.
 
 Native CLI timings, local celld HTTP timings and deployed Cloudflare measurements are different measurements. The remote driver requires a fixture origin reachable from the Worker; the [Cloudflare guide](docs/cloudflare.md) explains that setup. Local measurements do not establish production throughput, memory use or cost.
 
@@ -236,7 +241,7 @@ in this run. Positioned-box p50 remains higher than Obscura (42.42 ms versus
 32.75 ms), as does p95 (52.09 versus 34.75 ms). Static HTML with 5,000 nodes
 also has higher p95 (46.39 versus 45.33 ms). Complete performance parity remains
 pending. These local fixtures do not establish general SPA compatibility,
-production throughput, memory consumption or cost. The font-width contracts
+production throughput, memory consumption or cost. These measurements precede DOM text layout. The font-width contracts
 are measured separately from these extraction scenarios. See the
 [raw results](docs/performance-comparison-font-widths.json) and
 [reproduction guide](docs/benchmark-comparison.md).
@@ -249,7 +254,7 @@ The loaded-font width foundation increases the uncompressed Wasm from
 9,294,708 to 10,356,700 bytes. Gzip level 9 increases from 2,709,074 to
 3,088,035 bytes. These are artifact sizes, not process memory or deployment
 measurements. The [font-shaping evidence](docs/evidence/font-shaping-widths.json)
-records both artifact hashes and the real font comparisons.
+records both artifact hashes and the real font comparisons. DOM text layout is validated separately in the [text layout evidence](docs/evidence/text-layout.json), using the same 12 assertions in 64 real HTTP pages per runtime and a tolerance of one Chromium layout unit (1/64 CSS px). This fixture covers loaded fonts and pure block text; it does not establish full SPA or private integration compatibility.
 
 The retained [alternating Attr build comparison](docs/performance-engine-ab-attribute-nodes.json)
 compares the earlier namespace and Attr builds, with 432 correct extractions

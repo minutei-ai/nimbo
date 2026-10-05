@@ -12,7 +12,7 @@ pub(crate) type ScrollState = HashMap<NodeId, Point<f64>>;
 // A completed layout owns only geometry inputs. Cascade/build borrows never
 // escape a scene; DOM invalidation controls reuse of this native snapshot.
 pub(crate) struct Snapshot {
-    boxes: TaffyTree<super::svg_viewport::Intrinsic>,
+    boxes: TaffyTree<super::text::Intrinsic>,
     ids: HashMap<NodeId, taffy::NodeId>,
     positioned: HashSet<NodeId>,
     fixed: HashSet<NodeId>,
@@ -23,7 +23,7 @@ pub(crate) struct Snapshot {
 }
 
 pub(super) struct View<'a> {
-    pub(super) boxes: &'a TaffyTree<super::svg_viewport::Intrinsic>,
+    pub(super) boxes: &'a TaffyTree<super::text::Intrinsic>,
     pub(super) ids: &'a HashMap<NodeId, taffy::NodeId>,
     positioned: &'a HashSet<NodeId>,
     fixed: &'a HashSet<NodeId>,

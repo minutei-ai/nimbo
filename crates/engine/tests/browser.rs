@@ -1547,6 +1547,7 @@ fn serve_remaining_resource(request: Request) -> io::Result<()> {
     if request.url().starts_with("/font-assets/")
         || request.url().starts_with("/font-loading/")
         || request.url().starts_with("/font-matching/")
+        || request.url().starts_with("/text-layout/")
         || request.url().starts_with("/font-shaping/")
         || request.url().starts_with("/font-shaping-assets/")
     {
@@ -1711,6 +1712,7 @@ fn is_resource(path: &str) -> bool {
             "/font-assets/",
             "/font-loading/",
             "/font-matching/",
+            "/text-layout/",
             "/font-shaping/",
             "/font-shaping-assets/",
         ]
@@ -1743,6 +1745,13 @@ fn serve_fonts(request: Request) -> io::Result<()> {
     } else if path.starts_with("/font-shaping-assets/") {
         Response::from_data(include_bytes!("fixtures/synthetic-shaping-font.ttf").to_vec())
             .with_header(header("Content-Type", "font/ttf")?)
+    } else if let Some(variant) = path.strip_prefix("/text-layout/") {
+        let variant = variant.parse::<usize>().unwrap_or_default();
+        Response::from_data(format!(
+            "<!doctype html><meta charset=utf-8><script>globalThis.variant={variant};{}</script>",
+            include_str!("fixtures/text-layout.txt")
+        ))
+        .with_header(header("Content-Type", "text/html")?)
     } else if let Some(variant) = path.strip_prefix("/font-shaping/") {
         let variant = variant.parse::<usize>().unwrap_or_default();
         Response::from_data(format!(
@@ -3501,6 +3510,23 @@ fn native_shaping_uses_real_http_font_resources() -> TestResult {
         let result = page.evaluate("globalThis.comparison")?;
         let fields = result.as_object().ok_or("missing font shaping result")?;
         assert_eq!(fields.len(), 27);
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn native_text_layout_uses_real_http_font_resources() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/text-layout/{variant}")))?;
+        let result = page.evaluate("globalThis.comparison")?;
+        let fields = result.as_object().ok_or("missing text layout result")?;
+        assert_eq!(fields.len(), 12, "variant {variant}: {result}");
         assert!(
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"

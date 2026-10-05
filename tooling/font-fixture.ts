@@ -25,6 +25,15 @@ export async function fontFixture(path: string): Promise<Response | undefined> {
   }
   if (path.startsWith("/font-assets/invalid/")) return new Response(new Uint8Array([1, 2, 3]));
   if (path.startsWith("/font-assets/missing/")) return new Response("missing", { status: 404 });
+  if (path.startsWith("/text-layout/")) {
+    const script = await Bun.file(
+      join(import.meta.dir, "../crates/engine/tests/fixtures/text-layout.txt"),
+    ).text();
+    return new Response(
+      `<!doctype html><meta charset="utf-8"><script>globalThis.variant=${Number(path.split("/").at(-1))};${script}</script>`,
+      { headers: { "content-type": "text/html" } },
+    );
+  }
   if (path.startsWith("/font-shaping/")) {
     const script = await Bun.file(
       join(import.meta.dir, "../crates/engine/tests/fixtures/font-shaping.txt"),
