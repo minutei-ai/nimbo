@@ -355,7 +355,7 @@ fn style_properties(
                 flow_position(value, generated)?;
             }
             "position" if matches!(value, "absolute" | "fixed") => {
-                absolute_position(&mut style, generated)?;
+                absolute_position(&mut style, generated && value == "fixed")?;
             }
             "left" => assign!(style.inset.left, value, name),
             "right" => assign!(style.inset.right, value, name),
@@ -411,9 +411,9 @@ fn alignment(style: &mut Style, name: &str, value: &str) -> Result<bool> {
     Ok(true)
 }
 
-fn absolute_position(style: &mut Style, generated: bool) -> Result<()> {
-    if generated {
-        return Err(unsupported("positioned generated boxes"));
+fn absolute_position(style: &mut Style, generated_fixed: bool) -> Result<()> {
+    if generated_fixed {
+        return Err(unsupported("fixed generated boxes"));
     }
     style.position = Position::Absolute;
     Ok(())
@@ -613,6 +613,7 @@ impl Tree<'_, '_> {
             return Ok(None);
         }
         if !matches!(parent_display, Display::Flex | Display::Grid)
+            && declarations.value("position").0 != "absolute"
             && !declarations.layout_entries().any(|(name, value, _)| {
                 name == "display" && matches!(value, "block" | "flex" | "grid")
             })
@@ -634,12 +635,22 @@ impl Tree<'_, '_> {
             self.work,
         )?;
         style.border = context.borders.geometry()?;
+        let out_of_flow = style.position == Position::Absolute;
         let id = self
             .boxes
             .new_leaf(style)
             .map_err(|error| layout_error(&error))?;
         self.remember_padding(id)?;
         self.orders.insert(id, context.order);
+        if out_of_flow {
+            // The originating element establishes the containing block when positioned.
+            // Keep the generated box distinct from its owner in the DOM-to-box map.
+            let containing = std::iter::once(node)
+                .chain(node.ancestors_it(None))
+                .find(|ancestor| self.positioned.contains(&ancestor.id))
+                .map(|ancestor| ancestor.id);
+            self.out_of_flow.push((id, containing));
+        }
         Ok(Some(id))
     }
     fn build(

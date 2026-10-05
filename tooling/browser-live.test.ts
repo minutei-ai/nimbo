@@ -6988,3 +6988,73 @@ test.each(["circle(25%)", 'url("#shape")', "inset(10%) content-box", "inset(10% 
     });
   },
 );
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: positioned generated variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`positioned-generated/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      value: Object.fromEntries(
+        [
+          "own",
+          "flow",
+          "rootOverflow",
+          "percentage",
+          "negative",
+          "flex",
+          "ancestor",
+          "mutation",
+          "stretch",
+          "grid",
+        ].map((key) => [key, true]),
+      ),
+    });
+  },
+);
+
+test.each([
+  [
+    "fixed",
+    'content:"";display:block;position:fixed;left:0;top:0;width:9px;height:7px',
+    "fixed generated boxes",
+  ],
+  [
+    "sticky",
+    'content:"";display:block;position:sticky;left:0;top:0;width:9px;height:7px',
+    "sticky generated boxes",
+  ],
+  [
+    "static-position",
+    'content:"";display:block;position:absolute;width:9px;height:7px',
+    "absolute static position",
+  ],
+])(
+  "real HTTP → workerd → Wasm: unsupported generated %s and recovery",
+  async (_name, css, reason) => {
+    const url = new URL("positioned-generated/0", origin.url).href;
+    const request = (expression: string) =>
+      worker.dispatchFetch("https://nimbo.test/scrape", {
+        method: "POST",
+        headers: { authorization: "Bearer test-secret" },
+        body: JSON.stringify({ url, expression }),
+      });
+    const failed = await request(
+      `(()=>{const sheet=document.createElement('style');sheet.textContent=${JSON.stringify("#unsupported::after{" + css + "}")};document.head.append(sheet);const owner=document.createElement('div');owner.id='unsupported';document.body.append(owner);return owner.scrollWidth;})()`,
+    );
+    expect(failed.status).toBe(422);
+    expect(await failed.text()).toContain(reason);
+    const healthy = await request("globalThis.comparison");
+    expect(healthy.status).toBe(200);
+    expect(await healthy.json()).toMatchObject({
+      value: { own: true, ancestor: true, mutation: true },
+    });
+  },
+);

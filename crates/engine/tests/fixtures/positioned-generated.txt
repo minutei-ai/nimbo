@@ -1,0 +1,15 @@
+globalThis.comparison=(()=>{
+ const v=globalThis.variant??0,checks={},near=(a,b)=>Math.abs(a-b)<=1/64+.000001;
+ document.body.style.cssText='margin:0';const style=document.createElement('style');document.head.append(style);
+ function scene(display='block'){const root=document.createElement('div'),owner=document.createElement('div'),child=document.createElement('div'),next=document.createElement('div');root.style.cssText='position:relative;width:240px;height:180px';owner.id='example';owner.style.cssText='position:relative;display:'+display+';width:'+(160+v)+'px;height:100px';child.style.cssText='width:12px;height:9px';next.style.cssText='width:10px;height:12px';owner.append(child);root.append(owner,next);document.body.append(root);return {root,owner,child,next};}
+ const pseudo=css=>{style.textContent='#example::'+(v%2?'after':'before')+'{content:"";position:absolute;'+css+'}';};const clear=s=>s.root.remove();
+ let s=scene();pseudo('left:'+(250+v)+'px;top:120px;width:24px;height:18px');checks.own=s.owner.scrollWidth===274+v&&s.owner.scrollHeight===138;checks.flow=near(s.next.getBoundingClientRect().top-s.owner.getBoundingClientRect().top,100)&&near(s.child.getBoundingClientRect().top,s.owner.getBoundingClientRect().top);checks.rootOverflow=s.root.scrollWidth===274+v&&s.root.scrollHeight===180;clear(s);
+ s=scene();s.owner.style.cssText+=';box-sizing:border-box;border:5px solid;padding:7px';pseudo('left:100%;top:100%;width:24px;height:18px');checks.percentage=s.owner.scrollWidth===174+v&&s.owner.scrollHeight===108;clear(s);
+ s=scene();s.owner.style.cssText+=';box-sizing:border-box;border:5px solid;padding:7px';pseudo('right:-20px;bottom:-20px;width:24px;height:18px');checks.negative=s.owner.scrollWidth===170+v&&s.owner.scrollHeight===110;clear(s);
+ s=scene('flex');pseudo('left:'+(250+v)+'px;top:120px;width:24px;height:18px');checks.flex=s.owner.scrollWidth===274+v&&s.owner.scrollHeight===138&&near(s.child.getBoundingClientRect().left,s.owner.getBoundingClientRect().left);clear(s);
+ s=scene();s.owner.style.position='static';pseudo('left:'+(250+v)+'px;top:210px;width:24px;height:18px');checks.ancestor=s.root.scrollWidth===274+v&&s.root.scrollHeight===228&&s.owner.scrollWidth===160+v&&s.owner.scrollHeight===100;clear(s);
+ s=scene();pseudo('left:'+(250+v)+'px;top:120px;width:24px;height:18px');const first=s.owner.scrollWidth;pseudo('left:0;top:0;width:10px;height:8px');checks.mutation=first===274+v&&s.owner.scrollWidth===160+v&&s.owner.scrollHeight===100;clear(s);
+ s=scene();pseudo('left:-13px;right:-17px;top:-7px;bottom:-11px');checks.stretch=s.owner.scrollWidth===177+v&&s.owner.scrollHeight===111&&near(s.owner.getBoundingClientRect().width,160+v)&&near(s.owner.getBoundingClientRect().height,100);clear(s);
+ s=scene('grid');pseudo('left:'+(250+v)+'px;top:120px;width:24px;height:18px');checks.grid=s.owner.scrollWidth===274+v&&s.owner.scrollHeight===138&&near(s.child.getBoundingClientRect().left,s.owner.getBoundingClientRect().left);clear(s);
+ style.remove();return checks;
+})();

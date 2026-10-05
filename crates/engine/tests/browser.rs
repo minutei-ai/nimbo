@@ -1557,6 +1557,7 @@ fn serve_remaining_resource(request: Request) -> io::Result<()> {
         || request.url().starts_with("/atomic-inline/")
         || request.url().starts_with("/rounded-box/")
         || request.url().starts_with("/clip-geometry/")
+        || request.url().starts_with("/positioned-generated/")
         || request.url().starts_with("/public-font-assets/")
         || request.url().starts_with("/font-shaping/")
         || request.url().starts_with("/font-shaping-assets/")
@@ -1732,6 +1733,7 @@ fn is_resource(path: &str) -> bool {
             "/atomic-inline/",
             "/rounded-box/",
             "/clip-geometry/",
+            "/positioned-generated/",
             "/public-font-assets/",
             "/font-shaping/",
             "/font-shaping-assets/",
@@ -1773,6 +1775,14 @@ fn serve_clip_fixture(request: Request, variant: &str) -> io::Result<()> {
     )).with_header(header("Content-Type", "text/html")?))
 }
 
+fn serve_positioned_generated_fixture(request: Request, variant: &str) -> io::Result<()> {
+    let variant = variant.parse::<usize>().unwrap_or_default();
+    request.respond(Response::from_data(format!(
+        "<!doctype html><meta charset=utf-8><body><script>globalThis.variant={variant};{}</script>",
+        include_str!("fixtures/positioned-generated.txt")
+    )).with_header(header("Content-Type", "text/html")?))
+}
+
 fn serve_atomic_fixture(request: Request, variant: &str) -> io::Result<()> {
     let variant = variant.parse::<usize>().unwrap_or_default();
     request.respond(Response::from_data(format!(
@@ -1802,6 +1812,9 @@ fn serve_fonts(request: Request) -> io::Result<()> {
     }
     if let Some(variant) = path.strip_prefix("/clip-geometry/") {
         return serve_clip_fixture(request, variant);
+    }
+    if let Some(variant) = path.strip_prefix("/positioned-generated/") {
+        return serve_positioned_generated_fixture(request, variant);
     }
     if let Some(variant) = path.strip_prefix("/rounded-box/") {
         return serve_rounded_fixture(request, variant);
@@ -3801,6 +3814,23 @@ fn clip_shapes_use_native_intersection_geometry() -> TestResult {
         let result = page.evaluate("globalThis.comparison")?;
         let fields = result.as_object().ok_or("missing rounded box result")?;
         assert_eq!(fields.len(), 15, "variant {variant}: {result}");
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn absolute_generated_boxes_use_native_positioning_and_scroll_geometry() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/positioned-generated/{variant}")))?;
+        let result = page.evaluate("globalThis.comparison")?;
+        let fields = result.as_object().ok_or("missing generated box result")?;
+        assert_eq!(fields.len(), 10, "variant {variant}: {result}");
         assert!(
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"

@@ -71,7 +71,8 @@
     "compare:text-baseline": "bun run build:worker && bun run tooling/compare-text-baseline.ts",
     "compare:atomic-inline": "bun run build:worker && bun run tooling/compare-atomic-inline.ts",
     "compare:rounded-box": "bun run build:worker && bun run tooling/compare-rounded-box.ts",
-    "compare:clip-geometry": "bun run build:worker && bun run tooling/compare-clip-geometry.ts"
+    "compare:clip-geometry": "bun run build:worker && bun run tooling/compare-clip-geometry.ts",
+    "compare:positioned-generated": "bun run build:worker && bun run tooling/compare-positioned-generated.ts"
   },
   "devDependencies": {
     "@effect/tsgo": "0.47.2",

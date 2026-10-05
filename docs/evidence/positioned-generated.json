@@ -1,0 +1,2226 @@
+{
+  "date": "2026-10-05",
+  "fixture": "crates/engine/tests/fixtures/positioned-generated.txt",
+  "scope": "64 distinct fresh HTTP pages per runtime; native empty absolute generated boxes, blockification, actual owner/ancestor containing blocks, percentage insets, border/padding, negative offsets, normal-flow exclusion, scroll overflow and mutations; supplemental fixture, not original WPT",
+  "results": [
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 0,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 1,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 2,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 3,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 4,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 5,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 6,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 7,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 8,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 9,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 10,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 11,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 12,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 13,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 14,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 15,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 16,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 17,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 18,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 19,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 20,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 21,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 22,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 23,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 24,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 25,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 26,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 27,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 28,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 29,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 30,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 31,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 32,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 33,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 34,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 35,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 36,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 37,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 38,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 39,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 40,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 41,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 42,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 43,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 44,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 45,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 46,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 47,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 48,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 49,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 50,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 51,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 52,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 53,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 54,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 55,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 56,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 57,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 58,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 59,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 60,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 61,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 62,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 63,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 0,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 1,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 2,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 3,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 4,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 5,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 6,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 7,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 8,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 9,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 10,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 11,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 12,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 13,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 14,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 15,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 16,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 17,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 18,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 19,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 20,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 21,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 22,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 23,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 24,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 25,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 26,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 27,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 28,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 29,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 30,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 31,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 32,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 33,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 34,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 35,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 36,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 37,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 38,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 39,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 40,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 41,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 42,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 43,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 44,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 45,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 46,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 47,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 48,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 49,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 50,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 51,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 52,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 53,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 54,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 55,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 56,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 57,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 58,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 59,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 60,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 61,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 62,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 63,
+      "status": "passed",
+      "checks": {
+        "own": true,
+        "flow": true,
+        "rootOverflow": true,
+        "percentage": true,
+        "negative": true,
+        "flex": true,
+        "ancestor": true,
+        "mutation": true,
+        "stretch": true,
+        "grid": true
+      }
+    }
+  ],
+  "artifact": {
+    "sha256": "afe7e6afef763d6c64782956b598767c83dcbfc766a941dba2dfa53657344fc6",
+    "rawBytes": 14826331,
+    "gzipBytes": 5502721
+  },
+  "fixtureSha256": "ff32fe00501d76c4f44f922ccf7e410b3f8b1bd9a9d3949a9b3b6f531ec87c29",
+  "references": [
+    "https://www.w3.org/TR/css-pseudo-4/#generated-content",
+    "https://www.w3.org/TR/css-display-3/#blockify",
+    "https://www.w3.org/TR/css-position-3/#absolute-positioning-containing-block"
+  ],
+  "limitations": [
+    "Only empty generated strings are supported; non-empty text, images and counters remain unsupported",
+    "Generated fixed/sticky positioning and automatic static-position rectangles fail explicitly",
+    "Owner and ancestor containing blocks are covered; initial viewport containing-block paths are not established by this fixture",
+    "Mixed text/generated block flows and complete generated-content layout remain unsupported",
+    "These supplemental contracts do not establish new performance results, full browser parity or private integration completion"
+  ],
+  "validation": {
+    "bun": {
+      "passed": 6979,
+      "failed": 0
+    },
+    "nativeDebug": {
+      "unit": 17,
+      "http": 122,
+      "proxy": 1,
+      "failed": 0
+    },
+    "nativeRelease": {
+      "unit": 17,
+      "http": 122,
+      "proxy": 1,
+      "failed": 0
+    },
+    "focusedWorker": {
+      "passed": 68,
+      "failed": 0,
+      "note": "64 new HTTP variants, three positioning rejection/recovery cases and one existing generated-content case"
+    },
+    "checks": ["TypeScript lint", "Native and Wasm clippy", "Rustdoc", "Formatting"],
+    "originalWptFixturesChanged": false
+  }
+}
