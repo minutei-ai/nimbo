@@ -1,5 +1,5 @@
 //! Supported non-replaced HTML box categories; special element layout is separate.
-use crate::{Error, Result};
+use crate::{Error, Result, styles::Declarations};
 use dom_query::NodeRef;
 
 const BLOCK: [&str; 11] = [
@@ -11,7 +11,44 @@ const INLINE: [&str; 6] = ["span", "a", "abbr", "bdi", "data", "time"];
 pub(crate) fn block(node: NodeRef<'_>) -> bool {
     BLOCK.iter().any(|name| node.has_name(name))
 }
-pub(crate) fn validate(node: NodeRef<'_>) -> Result<()> {
+pub(crate) fn validate(
+    node: NodeRef<'_>,
+    declarations: &Declarations,
+    authored_flex_grid: bool,
+) -> Result<()> {
+    // A fully authored flex/grid button uses the author's formatting context.
+    // Other native controls and default button rendering remain separate.
+    if node.has_name("button") && authored_flex_grid {
+        for name in [
+            "font-size",
+            "font-family",
+            "font-weight",
+            "font-style",
+            "line-height",
+            "letter-spacing",
+            "box-sizing",
+            "padding-top",
+            "padding-right",
+            "padding-bottom",
+            "padding-left",
+            "border-top-width",
+            "border-right-width",
+            "border-bottom-width",
+            "border-left-width",
+            "border-top-style",
+            "border-right-style",
+            "border-bottom-style",
+            "border-left-style",
+        ] {
+            let (value, _) = declarations.value(name);
+            if value.is_empty() || matches!(value.as_str(), "revert" | "revert-layer") {
+                return Err(Error::Dom(format!(
+                    "layout unsupported: button UA default ({name})"
+                )));
+            }
+        }
+        return Ok(());
+    }
     if crate::layout::svg_viewport::root(node) {
         return Ok(());
     }

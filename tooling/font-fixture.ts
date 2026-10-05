@@ -43,6 +43,33 @@ export async function fontFixture(path: string): Promise<Response | undefined> {
       { headers: { "content-type": "text/html" } },
     );
   }
+  if (path.startsWith("/font-settings/")) {
+    const source = await Bun.file(
+      join(import.meta.dir, "../crates/engine/tests/fixtures/font-settings.txt"),
+    ).text();
+    return new Response(
+      `<!doctype html><meta charset="utf-8"><body><script>globalThis.variant=${Number(path.split("/").at(-1))};${source}</script>`,
+      { headers: { "content-type": "text/html" } },
+    );
+  }
+  if (path.startsWith("/authored-button/")) {
+    const source = await Bun.file(
+      join(import.meta.dir, "../crates/engine/tests/fixtures/authored-button.txt"),
+    ).text();
+    return new Response(
+      `<!doctype html><meta charset="utf-8"><body><script>globalThis.variant=${Number(path.split("/").at(-1))};${source}</script>`,
+      { headers: { "content-type": "text/html" } },
+    );
+  }
+  if (path.startsWith("/anonymous-text/")) {
+    const source = await Bun.file(
+      join(import.meta.dir, "../crates/engine/tests/fixtures/anonymous-text.txt"),
+    ).text();
+    return new Response(
+      `<!doctype html><meta charset="utf-8"><body><script>globalThis.variant=${Number(path.split("/").at(-1))};${source}</script>`,
+      { headers: { "content-type": "text/html" } },
+    );
+  }
   if (path.startsWith("/order-layout/")) {
     const source = await Bun.file(
       join(import.meta.dir, "../crates/engine/tests/fixtures/order-layout.txt"),

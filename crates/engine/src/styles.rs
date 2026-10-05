@@ -206,7 +206,13 @@ fn custom_name(name: &str) -> bool {
 pub(crate) fn known_name(name: &str) -> bool {
     matches!(
         name,
-        "float" | "clear" | "content" | "writing-mode" | "outline-offset"
+        "float"
+            | "clear"
+            | "content"
+            | "writing-mode"
+            | "outline-offset"
+            | "font-feature-settings"
+            | "font-variation-settings"
     ) || !matches!(PropertyId::from(name), PropertyId::Custom(_))
 }
 
@@ -418,6 +424,9 @@ fn native_property(name: &str, value: &str, important: bool) -> Option<Vec<Entry
         "tab-size" => crate::tabs::specified(value)?,
         "z-index" => crate::z_index::specified(value)?,
         "line-height" => crate::line_height::specified(value)?,
+        "font-feature-settings" | "font-variation-settings" => {
+            crate::font_settings::specified(name, value)?
+        }
         "background-image" => crate::backgrounds::specified(value)?,
         "background-color" => crate::backgrounds::specified_color(value)?,
         "background-size" => crate::background_size::specified(value)?,
@@ -445,6 +454,8 @@ fn native_declaration(name: &str, value: &str) -> bool {
                 | "z-index"
                 | "line-height"
                 | "font-family"
+                | "font-feature-settings"
+                | "font-variation-settings"
                 | "display"
                 | "background-image"
                 | "background-color"

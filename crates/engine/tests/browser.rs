@@ -1550,6 +1550,9 @@ fn serve_remaining_resource(request: Request) -> io::Result<()> {
         || request.url().starts_with("/text-layout/")
         || request.url().starts_with("/font-profile/")
         || request.url().starts_with("/order-layout/")
+        || request.url().starts_with("/anonymous-text/")
+        || request.url().starts_with("/authored-button/")
+        || request.url().starts_with("/font-settings/")
         || request.url().starts_with("/public-font-assets/")
         || request.url().starts_with("/font-shaping/")
         || request.url().starts_with("/font-shaping-assets/")
@@ -1718,6 +1721,9 @@ fn is_resource(path: &str) -> bool {
             "/text-layout/",
             "/font-profile/",
             "/order-layout/",
+            "/anonymous-text/",
+            "/authored-button/",
+            "/font-settings/",
             "/public-font-assets/",
             "/font-shaping/",
             "/font-shaping-assets/",
@@ -1726,8 +1732,28 @@ fn is_resource(path: &str) -> bool {
         .any(|prefix| path.starts_with(prefix))
 }
 
+fn serve_public_font(request: Request, name: &str) -> io::Result<()> {
+    let allowed = ["Serif", "Sans", "Mono"].iter().any(|family| {
+        ["Regular", "Bold", "Italic", "BoldItalic"]
+            .iter()
+            .any(|style| name == format!("Liberation{family}-{style}.ttf"))
+    });
+    if !allowed {
+        return request.respond(Response::from_data("missing").with_status_code(404));
+    }
+    let bytes = std::fs::read(
+        std::path::Path::new(env!("OUT_DIR"))
+            .join("fonts")
+            .join(name),
+    )?;
+    request.respond(Response::from_data(bytes).with_header(header("Content-Type", "font/ttf")?))
+}
+
 fn serve_fonts(request: Request) -> io::Result<()> {
     let path = request.url().to_owned();
+    if let Some(name) = path.strip_prefix("/public-font-assets/") {
+        return serve_public_font(request, name);
+    }
     let mut response = if path.starts_with("/font-loading/font/")
         || path.starts_with("/font-assets/font/")
     {
@@ -1751,21 +1777,27 @@ fn serve_fonts(request: Request) -> io::Result<()> {
     } else if path.starts_with("/font-shaping-assets/") {
         Response::from_data(include_bytes!("fixtures/synthetic-shaping-font.ttf").to_vec())
             .with_header(header("Content-Type", "font/ttf")?)
-    } else if let Some(name) = path.strip_prefix("/public-font-assets/") {
-        let allowed = ["Serif", "Sans", "Mono"].iter().any(|family| {
-            ["Regular", "Bold", "Italic", "BoldItalic"]
-                .iter()
-                .any(|style| name == format!("Liberation{family}-{style}.ttf"))
-        });
-        if !allowed {
-            return request.respond(Response::from_data("missing").with_status_code(404));
-        }
-        let bytes = std::fs::read(
-            std::path::Path::new(env!("OUT_DIR"))
-                .join("fonts")
-                .join(name),
-        )?;
-        Response::from_data(bytes).with_header(header("Content-Type", "font/ttf")?)
+    } else if let Some(variant) = path.strip_prefix("/font-settings/") {
+        let variant = variant.parse::<usize>().unwrap_or_default();
+        Response::from_data(format!(
+            "<!doctype html><meta charset=utf-8><body><script>globalThis.variant={variant};{}</script>",
+            include_str!("fixtures/font-settings.txt")
+        ))
+        .with_header(header("Content-Type", "text/html")?)
+    } else if let Some(variant) = path.strip_prefix("/authored-button/") {
+        let variant = variant.parse::<usize>().unwrap_or_default();
+        Response::from_data(format!(
+            "<!doctype html><meta charset=utf-8><body><script>globalThis.variant={variant};{}</script>",
+            include_str!("fixtures/authored-button.txt")
+        ))
+        .with_header(header("Content-Type", "text/html")?)
+    } else if let Some(variant) = path.strip_prefix("/anonymous-text/") {
+        let variant = variant.parse::<usize>().unwrap_or_default();
+        Response::from_data(format!(
+            "<!doctype html><meta charset=utf-8><body><script>globalThis.variant={variant};{}</script>",
+            include_str!("fixtures/anonymous-text.txt")
+        ))
+        .with_header(header("Content-Type", "text/html")?)
     } else if let Some(variant) = path.strip_prefix("/order-layout/") {
         let variant = variant.parse::<usize>().unwrap_or_default();
         Response::from_data(format!(
@@ -3596,6 +3628,57 @@ fn flex_grid_order_layout_uses_stable_real_box_geometry() -> TestResult {
         let result = page.evaluate("globalThis.comparison")?;
         let fields = result.as_object().ok_or("missing order layout result")?;
         assert_eq!(fields.len(), 9, "variant {variant}: {result}");
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn anonymous_flex_grid_text_items_use_native_real_font_geometry() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/anonymous-text/{variant}")))?;
+        let result = page.evaluate("globalThis.comparison")?;
+        let fields = result.as_object().ok_or("missing anonymous text result")?;
+        assert_eq!(fields.len(), 9, "variant {variant}: {result}");
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn authored_flex_grid_button_geometry_uses_native_text_items() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/authored-button/{variant}")))?;
+        let result = page.evaluate("globalThis.comparison")?;
+        let fields = result.as_object().ok_or("missing authored button result")?;
+        assert_eq!(fields.len(), 8, "variant {variant}: {result}");
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn font_settings_cssom_preserves_native_validated_declarations() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/font-settings/{variant}")))?;
+        let result = page.evaluate("globalThis.comparison")?;
+        let fields = result.as_object().ok_or("missing font settings result")?;
+        assert_eq!(fields.len(), 12, "variant {variant}: {result}");
         assert!(
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"

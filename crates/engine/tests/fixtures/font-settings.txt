@@ -1,0 +1,9 @@
+globalThis.comparison=(()=>{
+ const index=globalThis.variant,weight=100+index*10,slant=-(index+.5),feature=index===1?'\"liga\"':'\"liga\" '+index;
+ const e=document.createElement('div'),checks={};
+ for(const [name,value,expected] of [['normal','normal','normal'],['tag','"kern"','"kern"'],['on','"kern" on','"kern"'],['off','"kern" off','"kern" 0'],['one','"kern" 1','"kern"'],['zero','"kern" 0','"kern" 0'],['list','"liga" '+index+', "kern" 1',feature+', "kern"']]){e.style.fontFeatureSettings=value;checks[name]=e.style.fontFeatureSettings===expected&&e.style.getPropertyValue('font-feature-settings')===expected;}
+ e.style.fontFeatureSettings='"kern" 0';for(const value of ['"bad" 0','"kern" 1.5','"kern" nope'])e.style.fontFeatureSettings=value;checks.invalid=e.style.fontFeatureSettings==='"kern" 0';
+ e.style.fontVariationSettings='normal';checks.variationNormal=e.style.fontVariationSettings==='normal';e.style.fontVariationSettings='"wght" '+weight;checks.weight=e.style.fontVariationSettings==='"wght" '+weight;e.style.fontVariationSettings='"slnt" '+slant;checks.slant=e.style.fontVariationSettings==='"slnt" '+slant;
+ e.style.fontFeatureSettings='inherit';e.style.fontVariationSettings='inherit';checks.inherit=e.style.fontFeatureSettings==='inherit'&&e.style.fontVariationSettings==='inherit';
+ return checks;
+})();

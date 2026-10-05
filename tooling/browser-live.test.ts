@@ -6509,14 +6509,14 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
 
 const textLayoutBoundaries = [
   [
-    "flex text",
-    "document.querySelector('div').style.display='flex'",
-    "anonymous text in flex or grid",
+    "anonymous preformatted text",
+    "document.querySelector('div').style.display='flex';document.querySelector('div').style.whiteSpace='pre'",
+    "text white-space",
   ],
   [
-    "grid text",
-    "document.querySelector('div').style.display='grid'",
-    "anonymous text in flex or grid",
+    "anonymous contents text",
+    "document.querySelector('div').style.display='contents';document.body.style.display='flex'",
+    "anonymous text through display:contents",
   ],
   ["font descriptor", "[...document.fonts][0].sizeAdjust='125%'", "font descriptor sizeAdjust"],
   ["pre whitespace", "document.querySelector('div').style.whiteSpace='pre'", "text white-space"],
@@ -6662,4 +6662,145 @@ test("real HTTP → workerd → Wasm: default fonts collapse tabs and line break
   });
   expect(response.status).toBe(200);
   expect(await response.json()).toMatchObject({ value: { height: 24, tab: true, newline: true } });
+});
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: anonymous text variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`anonymous-text/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      value: Object.fromEntries(
+        [
+          "pure",
+          "height",
+          "adjacent",
+          "separated",
+          "hidden",
+          "whitespace",
+          "order",
+          "mutation",
+          "grid",
+        ].map((key) => [key, true]),
+      ),
+    });
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: authored button variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`authored-button/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      value: Object.fromEntries(
+        ["base", "natural", "children", "edges", "inherit", "fontSize", "grid", "disabled"].map(
+          (key) => [key, true],
+        ),
+      ),
+    });
+  },
+);
+const requestAuthoredButton = (expression: string) =>
+  worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url: new URL("authored-button/0", origin.url).href, expression }),
+  });
+
+test.each([
+  [
+    "anonymous text baseline",
+    "const e=document.createElement('div');e.style.cssText='display:flex;align-items:baseline';e.textContent='AB';document.body.append(e);return e.getBoundingClientRect()",
+    "text baseline alignment",
+  ],
+  [
+    "descendant text baseline",
+    "const e=document.createElement('div');e.style.display='grid';const child=document.createElement('div');child.style.alignSelf='baseline';const text=document.createElement('div');text.textContent='AB';child.append(text);e.append(child);document.body.append(e);return e.getBoundingClientRect()",
+    "text baseline alignment",
+  ],
+  [
+    "button defaults",
+    "for(const s of document.querySelectorAll('style'))s.remove();const b=document.createElement('button');b.style.display='flex';document.body.append(b);return b.getBoundingClientRect()",
+    "button UA default",
+  ],
+  [
+    "partial font variant",
+    "const e=document.createElement('div');e.style.fontVariantCaps='small-caps';e.textContent='AB';document.body.append(e);return e.getBoundingClientRect()",
+    "text font features or variations",
+  ],
+  [
+    "font feature setting",
+    "const e=document.createElement('div');e.style.fontFeatureSettings='\"kern\" 0';e.textContent='AB';document.body.append(e);return e.getBoundingClientRect()",
+    "text font features or variations",
+  ],
+  [
+    "font variation setting",
+    "const e=document.createElement('div');e.style.fontVariationSettings='\"wght\" 600';e.textContent='AB';document.body.append(e);return e.getBoundingClientRect()",
+    "text font features or variations",
+  ],
+])("native authored controls reject unsupported %s and recover", async (_name, setup, message) => {
+  const failed = await requestAuthoredButton("(()=>{" + setup + "})()");
+  expect(failed.status).toBe(422);
+  expect(await failed.text()).toContain(message);
+  const healthy = await requestAuthoredButton("globalThis.comparison");
+  expect(healthy.status).toBe(200);
+  expect(await healthy.json()).toMatchObject({
+    value: { base: true, natural: true, inherit: true, disabled: true },
+  });
+});
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: font settings variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`font-settings/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      value: Object.fromEntries(
+        [
+          "normal",
+          "tag",
+          "on",
+          "off",
+          "one",
+          "zero",
+          "list",
+          "invalid",
+          "variationNormal",
+          "weight",
+          "slant",
+          "inherit",
+        ].map((key) => [key, true]),
+      ),
+    });
+  },
+);
+
+test("native font settings reject negative feature indices without changing real geometry", async () => {
+  const response = await requestAuthoredButton(
+    "(()=>{const e=document.createElement('div');e.style.cssText='width:max-content;font-feature-settings:normal';e.textContent='AB';document.body.append(e);const before=e.getBoundingClientRect().width;e.style.fontFeatureSettings='\"kern\" -1';return {setting:e.style.fontFeatureSettings,stable:e.getBoundingClientRect().width===before};})()",
+  );
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ value: { setting: "normal", stable: true } });
 });

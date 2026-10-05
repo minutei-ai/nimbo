@@ -24,6 +24,7 @@ mod font_data;
 mod font_faces;
 mod font_family;
 mod font_matching;
+mod font_settings;
 mod fonts;
 mod html_boxes;
 mod layers;

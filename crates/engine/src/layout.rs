@@ -231,6 +231,8 @@ fn non_layout(name: &str) -> bool {
                 | "font-style"
                 | "font-stretch"
                 | "font-variant"
+                | "font-feature-settings"
+                | "font-variation-settings"
                 | "white-space"
                 | "text-size-adjust"
                 | "tab-size"
@@ -286,9 +288,7 @@ fn style_properties(
             continue;
         }
         let value = defaulted(name, value);
-        if matches!(name, "display" | "order")
-            || (name.starts_with("font-variant-") && value == "normal")
-        {
+        if matches!(name, "display" | "order") || name.starts_with("font-variant-") {
             continue;
         }
         if name == "visibility" && (deferred || value == "collapse") {
@@ -531,6 +531,7 @@ struct Tree<'a, 'b> {
     out_of_flow: Vec<(taffy::NodeId, Option<NodeId>)>,
     box_nodes: HashMap<taffy::NodeId, NodeId>,
     orders: HashMap<taffy::NodeId, i32>,
+    text_boxes: HashSet<taffy::NodeId>,
     sticky: HashMap<taffy::NodeId, Rect<LengthPercentageAuto>>,
     percentage_padding: Vec<(taffy::NodeId, Rect<LengthPercentage>)>,
     scroll: &'a ScrollState,
@@ -675,7 +676,8 @@ impl Tree<'_, '_> {
         if display.none() {
             return Ok(());
         }
-        crate::html_boxes::validate(node)?;
+        let authored_button = node.has_name("button") && display.atomic_container();
+        crate::html_boxes::validate(node, &declarations, authored_button)?;
         if display.contents() {
             let context = context.compute(&declarations, false, display, self.work)?;
             return self.children(node, depth, &variables, parent_display, &context, output);
@@ -711,9 +713,9 @@ impl Tree<'_, '_> {
         let id = if let Some(intrinsic) = svg {
             self.boxes
                 .new_leaf_with_context(style, text::Intrinsic::Svg(intrinsic))
+                .map_err(|error| layout_error(&error))
         } else if let Some(run) = self.text_run(node, depth, &variables, style.display, &context)? {
-            self.boxes
-                .new_leaf_with_context(style, text::Intrinsic::Text(run))
+            self.text_leaf(style, run, parent_display)
         } else {
             let mut children = Vec::new();
             self.children(
@@ -724,9 +726,8 @@ impl Tree<'_, '_> {
                 &context,
                 &mut children,
             )?;
-            self.boxes.new_with_children(style, &children)
-        }
-        .map_err(|error| layout_error(&error))?;
+            self.container(style, &children, parent_display)
+        }?;
         self.record_box(node.id, id, position, &declarations, &fonts)?;
         self.orders.insert(id, context.order);
         if out_of_flow {
@@ -746,7 +747,7 @@ impl Tree<'_, '_> {
         display: Display,
         context: &BoxContext,
     ) -> Result<Option<text::Run>> {
-        if node.children_it(false).any(|child| child.is_element()) {
+        if display != Display::Block || node.children_it(false).any(|child| child.is_element()) {
             return Ok(None);
         }
         if !node.children_it(false).any(|child| {
@@ -768,9 +769,6 @@ impl Tree<'_, '_> {
                 }
                 source.push_str(&text);
             }
-        }
-        if display != Display::Block {
-            return Err(unsupported("anonymous text in flex or grid"));
         }
         for kind in [
             crate::cascade::Generated::Before,
@@ -869,6 +867,81 @@ impl Tree<'_, '_> {
         }
         Ok(viewport.unwrap_or(root))
     }
+    fn text_leaf(
+        &mut self,
+        style: Style,
+        run: text::Run,
+        parent: Display,
+    ) -> Result<taffy::NodeId> {
+        if matches!(parent, Display::Flex | Display::Grid)
+            && style.align_self == Some(AlignSelf::BASELINE)
+        {
+            return Err(unsupported("text baseline alignment"));
+        }
+        let id = self
+            .boxes
+            .new_leaf_with_context(style, text::Intrinsic::Text(run))
+            .map_err(|error| layout_error(&error))?;
+        self.text_boxes.insert(id);
+        Ok(id)
+    }
+    fn container(
+        &mut self,
+        style: Style,
+        children: &[taffy::NodeId],
+        parent: Display,
+    ) -> Result<taffy::NodeId> {
+        let text = children.iter().any(|id| self.text_boxes.contains(id));
+        if text
+            && ((matches!(style.display, Display::Flex | Display::Grid)
+                && style.align_items == Some(AlignItems::BASELINE))
+                || (matches!(parent, Display::Flex | Display::Grid)
+                    && style.align_self == Some(AlignSelf::BASELINE)))
+        {
+            return Err(unsupported("text baseline alignment"));
+        }
+        let id = self
+            .boxes
+            .new_with_children(style, children)
+            .map_err(|error| layout_error(&error))?;
+        if text {
+            self.text_boxes.insert(id);
+        }
+        Ok(id)
+    }
+    fn text_item(
+        &mut self,
+        source: &mut String,
+        context: &BoxContext,
+        output: &mut Vec<taffy::NodeId>,
+    ) -> Result<()> {
+        if source.is_empty() {
+            return Ok(());
+        }
+        let run = text::Run::new(
+            source,
+            &context.typography,
+            context,
+            &self.fonts.borrow(),
+            std::rc::Rc::clone(&self.text_budget),
+        )?;
+        source.clear();
+        if let Some(run) = run {
+            let id = self
+                .boxes
+                .new_leaf_with_context(
+                    Style {
+                        display: Display::Block,
+                        ..Style::default()
+                    },
+                    text::Intrinsic::Text(run),
+                )
+                .map_err(|error| layout_error(&error))?;
+            self.text_boxes.insert(id);
+            output.push(id);
+        }
+        Ok(())
+    }
     fn children(
         &mut self,
         node: NodeRef<'_>,
@@ -888,16 +961,38 @@ impl Tree<'_, '_> {
         )? {
             output.push(before);
         }
+        let anonymous = matches!(parent_display, Display::Flex | Display::Grid);
+        let mut source = String::new();
+        let mut child_boxes = Vec::new();
         for child in node.children_it(false) {
+            if anonymous && (child.is_text() || child.is_comment()) {
+                self.visit(depth.saturating_add(1))?;
+                if child.is_text() {
+                    if context.display.contents() && !child.text().trim().is_empty() {
+                        return Err(unsupported("anonymous text through display:contents"));
+                    }
+                    let text = child.text();
+                    if source.len().saturating_add(text.len()) > 65_536 {
+                        return Err(Error::Limit("layout text source"));
+                    }
+                    source.push_str(&text);
+                }
+                continue;
+            }
             self.build(
                 child,
                 depth.saturating_add(1),
                 variables,
                 parent_display,
                 context,
-                output,
+                &mut child_boxes,
             )?;
+            if !child_boxes.is_empty() {
+                self.text_item(&mut source, context, output)?;
+                output.append(&mut child_boxes);
+            }
         }
+        self.text_item(&mut source, context, output)?;
         if let Some(after) = self.generated(
             node,
             crate::cascade::Generated::After,
@@ -958,6 +1053,7 @@ fn scene<T>(
             out_of_flow: Vec::new(),
             box_nodes: HashMap::new(),
             orders: HashMap::new(),
+            text_boxes: HashSet::new(),
             sticky: HashMap::new(),
             percentage_padding: Vec::new(),
             scroll: styles.scroll,

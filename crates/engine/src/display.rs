@@ -125,6 +125,9 @@ impl Computed {
     pub(crate) fn contents(&self) -> bool {
         matches!(self.value, Display::Keyword(DisplayKeyword::Contents))
     }
+    pub(crate) fn atomic_container(&self) -> bool {
+        matches!(&self.value, Display::Pair(pair) if matches!(pair.inside, DisplayInside::Flex(VendorPrefix::None) | DisplayInside::Grid))
+    }
     pub(crate) fn layout(&self) -> Result<taffy::Display> {
         match &self.value {
             Display::Keyword(DisplayKeyword::None) => Ok(taffy::Display::None),

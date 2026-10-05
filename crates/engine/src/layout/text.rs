@@ -47,6 +47,17 @@ impl Typography {
                 _ => value,
             }
         }
+        // Supported runs use default OpenType features and no variation axes.
+        // Validate individual longhands too, so partial shorthands cannot hide
+        // a non-default setting behind an empty shorthand serialization.
+        for (name, value, _) in declarations.layout_entries() {
+            if (name.starts_with("font-variant-")
+                || matches!(name, "font-feature-settings" | "font-variation-settings"))
+                && !matches!(value, "normal" | "initial" | "unset" | "inherit" | "revert")
+            {
+                return Err(unsupported("text font features or variations"));
+            }
+        }
         let (value, _) = declarations.value("letter-spacing");
         let spacing = match value.as_str() {
             "" | "inherit" | "unset" | "revert" => self.spacing,

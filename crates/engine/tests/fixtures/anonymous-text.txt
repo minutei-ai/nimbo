@@ -1,0 +1,15 @@
+globalThis.comparison=(()=>{
+ const size=12+(globalThis.variant%16),line=20+Math.floor(globalThis.variant/16);
+ const style=document.createElement('style');style.textContent='html,body{margin:0;padding:0;font:'+size+'px/'+line+'px serif}section{display:flex;width:max-content;height:40px;align-items:center;column-gap:5px}div{margin:0;padding:0;width:10px;height:10px}';document.head.append(style);
+ const near=(a,b)=>Math.abs(a-b)<=1/64+.000001,checks={};
+ const width=text=>{const e=document.createElement('div');e.style.cssText='width:max-content;height:auto';e.textContent=text;document.body.append(e);const value=e.getBoundingClientRect().width;e.remove();return value;};const ab=width('AB'),ba=width('BA');
+ const section=()=>{const p=document.createElement('section');document.body.append(p);return p;};const child=p=>{const e=document.createElement('div');p.append(e);return e;};
+ let p=section();p.textContent='AB';checks.pure=near(p.getBoundingClientRect().width,ab);p.style.height='auto';checks.height=near(p.getBoundingClientRect().height,line);p.remove();
+ p=section();p.append(document.createTextNode('A'),document.createComment('join'),document.createTextNode('B'));let e=child(p),r=p.getBoundingClientRect(),c=e.getBoundingClientRect();checks.adjacent=near(r.width,ab+15)&&near(c.left-r.left,ab+5)&&near(c.top-r.top,15);p.remove();
+ p=section();p.append('AB');e=child(p);p.append('BA');r=p.getBoundingClientRect();checks.separated=near(r.width,ab+ba+20);p.remove();
+ p=section();p.append('A');e=child(p);e.style.display='none';p.append('B');checks.hidden=near(p.getBoundingClientRect().width,ab);p.remove();
+ p=section();p.append('  \t \n ');e=child(p);r=p.getBoundingClientRect();checks.whitespace=near(r.width,10)&&near(e.getBoundingClientRect().left-r.left,0);p.remove();
+ p=section();p.textContent='AB';e=child(p);e.style.order='-1';r=p.getBoundingClientRect();checks.order=near(r.width,ab+15)&&near(e.getBoundingClientRect().left-r.left,0);p.firstChild.data='BA';checks.mutation=near(p.getBoundingClientRect().width,ba+15);p.remove();
+ p=section();p.style.cssText='display:grid;width:max-content;height:auto;align-content:start';p.append('AB');e=child(p);r=p.getBoundingClientRect();checks.grid=near(r.height,line+10)&&near(e.getBoundingClientRect().top-r.top,line);p.remove();
+ return checks;
+})();

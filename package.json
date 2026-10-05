@@ -64,7 +64,10 @@
     "bench:wpt-attribute-nodes": "bun run build:worker && bun run tooling/benchmark-wpt-attribute-nodes.ts",
     "bench:wpt-attribute-namespaces": "bun run build:worker && bun run tooling/benchmark-wpt-attribute-namespaces.ts",
     "compare:font-profile": "bun run build:worker && bun run tooling/compare-font-profile.ts",
-    "compare:order-layout": "bun run build:worker && bun run tooling/compare-order-layout.ts"
+    "compare:order-layout": "bun run build:worker && bun run tooling/compare-order-layout.ts",
+    "compare:anonymous-text": "bun run build:worker && bun run tooling/compare-anonymous-text.ts",
+    "compare:authored-button": "bun run build:worker && bun run tooling/compare-authored-button.ts",
+    "compare:font-settings": "bun run build:worker && bun run tooling/compare-font-settings.ts"
   },
   "devDependencies": {
     "@effect/tsgo": "0.47.2",
