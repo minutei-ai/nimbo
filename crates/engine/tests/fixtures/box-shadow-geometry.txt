@@ -1,0 +1,12 @@
+globalThis.comparison=(async()=>{
+ const v=globalThis.variant??0,w=100+v,h=80+v%19,checks={},near=(a,b)=>Math.abs(a-b)<=1/64+.000001;
+ const sheet=document.createElement('style');sheet.textContent='html,body{margin:0;padding:0}div{margin:0;padding:0;border:0}';document.head.append(sheet);
+ const root=document.createElement('div'),child=document.createElement('div');root.style.cssText='position:relative;overflow:hidden;width:'+w+'px;height:'+h+'px';child.style.cssText='position:absolute;left:'+(w-10)+'px;top:10px;width:30px;height:20px';root.append(child);document.body.append(root);
+ const observe=()=>new Promise(resolve=>{const observer=new IntersectionObserver(entries=>{observer.disconnect();resolve(entries[0]);},{root});observer.observe(child);});
+ const shadows=['240px 180px 90px 75px rgb(10 20 30 / .4)','-240px -180px 90px 75px red','inset 4px 7px 10px 3px blue','1em 2em 3em 4em currentColor','calc(2px + 3px) 8px 12px -4px green','4px 8px 12px 3px black, inset -4px -8px 5px white'];
+ for(let index=0;index<shadows.length;index++){root.style.boxShadow=child.style.boxShadow=shadows[index];const r=root.getBoundingClientRect(),c=child.getBoundingClientRect();checks['box'+index]=near(r.width,w)&&near(r.height,h)&&near(c.x-r.x,w-10)&&near(c.y-r.y,10)&&near(c.width,30)&&near(c.height,20);checks['scroll'+index]=root.scrollWidth===w+20&&root.scrollHeight===h;}
+ let entry=await observe(),r=root.getBoundingClientRect();checks.intersection=entry.isIntersecting&&near(entry.intersectionRect.x-r.x,w-10)&&near(entry.intersectionRect.y-r.y,10)&&near(entry.intersectionRect.width,10)&&near(entry.intersectionRect.height,20)&&near(entry.intersectionRatio,1/3);checks.rootBounds=near(entry.rootBounds.width,w)&&near(entry.rootBounds.height,h);
+ child.style.boxShadow='none';root.style.boxShadow='none';checks.none=root.scrollWidth===w+20&&near(child.getBoundingClientRect().width,30);
+ root.style.setProperty('--shadow','240px 180px 90px 75px red');root.style.boxShadow='var(--shadow)';checks.variable=near(root.getBoundingClientRect().width,w)&&root.scrollWidth===w+20;
+ root.remove();sheet.remove();return checks;
+})();

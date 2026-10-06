@@ -7137,3 +7137,37 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     expect(Object.values(value).every((check) => check === true)).toBe(true);
   },
 );
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: box shadow geometry variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`box-shadow-geometry/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    const body: unknown = await response.json();
+    if (typeof body !== "object" || body === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(body, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing shadow checks");
+    expect(Object.keys(value)).toHaveLength(16);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test("real HTTP → workerd → Wasm: shadow geometry keeps paint support explicit", async () => {
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url: new URL("box-shadow-geometry/0", origin.url).href,
+      expression: "CSS.supports('box-shadow','4px 8px 12px black')",
+    }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ value: false });
+});

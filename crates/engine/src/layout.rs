@@ -155,6 +155,7 @@ pub(crate) fn supports(declarations: &Declarations) -> bool {
                 | "background-image"
                 | "background-repeat"
                 | "background-size"
+                | "box-shadow"
                 | "opacity"
                 | "font-family"
         ) || crate::outlines::property(name)
@@ -226,6 +227,8 @@ fn non_layout(name: &str) -> bool {
                 | "background-position-y"
                 | "background-repeat"
                 | "background-size"
+                // CSS ink overflow does not change boxes or scrollable overflow.
+                | "box-shadow"
                 | "opacity"
                 | "z-index"
                 | "visibility"

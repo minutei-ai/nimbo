@@ -1560,6 +1560,7 @@ fn serve_remaining_resource(request: Request) -> io::Result<()> {
         || request.url().starts_with("/positioned-generated/")
         || request.url().starts_with("/text-transform/")
         || request.url().starts_with("/adjacent-element/")
+        || request.url().starts_with("/box-shadow-geometry/")
         || request.url().starts_with("/public-font-assets/")
         || request.url().starts_with("/font-shaping/")
         || request.url().starts_with("/font-shaping-assets/")
@@ -1738,6 +1739,7 @@ fn is_resource(path: &str) -> bool {
             "/positioned-generated/",
             "/text-transform/",
             "/adjacent-element/",
+            "/box-shadow-geometry/",
             "/public-font-assets/",
             "/font-shaping/",
             "/font-shaping-assets/",
@@ -1803,6 +1805,14 @@ fn serve_adjacent_element_fixture(request: Request, variant: &str) -> io::Result
     )).with_header(header("Content-Type", "text/html")?))
 }
 
+fn serve_box_shadow_fixture(request: Request, variant: &str) -> io::Result<()> {
+    let variant = variant.parse::<usize>().unwrap_or_default();
+    request.respond(Response::from_data(format!(
+        "<!doctype html><meta charset=utf-8><body><script>globalThis.variant={variant};{}</script>",
+        include_str!("fixtures/box-shadow-geometry.txt")
+    )).with_header(header("Content-Type", "text/html")?))
+}
+
 fn serve_atomic_fixture(request: Request, variant: &str) -> io::Result<()> {
     let variant = variant.parse::<usize>().unwrap_or_default();
     request.respond(Response::from_data(format!(
@@ -1832,6 +1842,9 @@ fn serve_fonts(request: Request) -> io::Result<()> {
     }
     if let Some(variant) = path.strip_prefix("/clip-geometry/") {
         return serve_clip_fixture(request, variant);
+    }
+    if let Some(variant) = path.strip_prefix("/box-shadow-geometry/") {
+        return serve_box_shadow_fixture(request, variant);
     }
     if let Some(variant) = path.strip_prefix("/adjacent-element/") {
         return serve_adjacent_element_fixture(request, variant);
@@ -3893,6 +3906,23 @@ fn adjacent_elements_use_native_insertion_adoption_and_reactions() -> TestResult
             .as_object()
             .ok_or("missing adjacent element result")?;
         assert_eq!(fields.len(), 26, "variant {variant}: {result}");
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn shadow_ink_is_excluded_from_native_layout_scroll_and_intersection() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/box-shadow-geometry/{variant}")))?;
+        let result = page.evaluate("globalThis.comparison")?;
+        let fields = result.as_object().ok_or("missing shadow geometry result")?;
+        assert_eq!(fields.len(), 16, "variant {variant}: {result}");
         assert!(
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"

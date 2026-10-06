@@ -88,6 +88,15 @@ export async function fontFixture(path: string): Promise<Response | undefined> {
       { headers: { "content-type": "text/html" } },
     );
   }
+  if (path.startsWith("/box-shadow-geometry/")) {
+    const source = await Bun.file(
+      join(import.meta.dir, "../crates/engine/tests/fixtures/box-shadow-geometry.txt"),
+    ).text();
+    return new Response(
+      `<!doctype html><meta charset="utf-8"><body><script>globalThis.variant=${Number(path.split("/").at(-1))};${source}</script>`,
+      { headers: { "content-type": "text/html" } },
+    );
+  }
   if (path.startsWith("/atomic-inline/")) {
     const source = await Bun.file(
       join(import.meta.dir, "../crates/engine/tests/fixtures/atomic-inline.txt"),
