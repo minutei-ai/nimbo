@@ -7116,3 +7116,24 @@ test.each(["capitalize", "full-width", "full-size-kana"])(
     });
   },
 );
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native adjacent element variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`adjacent-element/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    const body: unknown = await response.json();
+    if (typeof body !== "object" || body === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(body, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing adjacent checks");
+    expect(Object.keys(value)).toHaveLength(26);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);

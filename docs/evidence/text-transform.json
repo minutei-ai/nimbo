@@ -2602,12 +2602,7 @@
       "failed": 0,
       "note": "64 new HTTP variants, three unsupported transform/recovery cases and one existing computed-style case"
     },
-    "checks": [
-      "TypeScript lint",
-      "Native and Wasm clippy",
-      "Rustdoc",
-      "Formatting"
-    ],
+    "checks": ["TypeScript lint", "Native and Wasm clippy", "Rustdoc", "Formatting"],
     "originalWptFixturesChanged": false
   }
 }

@@ -1,0 +1,30 @@
+globalThis.comparison=(()=>{
+ const v=globalThis.variant??0,result={},token='item-'+v;
+ const setup=()=>{const p=document.createElement('div'),a=document.createElement('i'),b=document.createElement('b'),c=document.createElement('u');a.textContent='a';b.textContent='b';c.textContent='c';p.append(a,b,c);document.body.append(p);return {p,a,b,c};};
+ const make=()=>{const e=document.createElement('span');e.textContent=token;return e;};
+ for(const [position,expected] of [['beforebegin','a'+token+'bc'],['afterbegin','a'+token+'bc'],['beforeend','ab'+token+'c'],['afterend','ab'+token+'c']]){const {p,b}=setup(),e=make();result[position]=b.insertAdjacentElement(position,e)===e&&p.textContent===expected&&(position==='afterbegin'||position==='beforeend'?e.parentNode===b:e.parentNode===p);p.remove();}
+ let {p,a,b,c}=setup(),e=make();result.asciiCase=b.insertAdjacentElement('BeFoReBeGiN',e)===e&&p.textContent==='a'+token+'bc';p.remove();
+ const detached=document.createElement('div');e=make();result.detachedSiblings=detached.insertAdjacentElement('beforebegin',e)===null&&detached.insertAdjacentElement('afterend',e)===null&&e.parentNode===null;
+ result.detachedChildren=detached.insertAdjacentElement('beforeend',e)===e&&e.parentNode===detached;
+ const error=(run,name)=>{try{run();return false;}catch(e){return e.name===name;}};
+ result.positionErrors=['',' beforebegin','afterend ','unsupported','BEFOREBEGİN'].every(where=>error(()=>detached.insertAdjacentElement(where,make()),'SyntaxError'))&&detached.childNodes.length===1;
+ result.argumentTypes=[null,{},new Text('text'),document.createDocumentFragment(),document].every(value=>error(()=>detached.insertAdjacentElement('beforeend',value),'TypeError'));
+ result.required=[()=>detached.insertAdjacentElement(),()=>detached.insertAdjacentElement('beforeend')].every(run=>error(run,'TypeError'));
+ result.receiver=[{},new Text('text'),document,document.createDocumentFragment()].every(value=>error(()=>Element.prototype.insertAdjacentElement.call(value,'beforeend',make()),'TypeError'));
+ result.symbol=error(()=>detached.insertAdjacentElement(Symbol(),make()),'TypeError');
+ ({p,a,b,c}=setup());result.cycle=error(()=>b.insertAdjacentElement('beforeend',p),'HierarchyRequestError')&&p.textContent==='abc'&&b.parentNode===p;p.remove();
+ ({p,a,b,c}=setup());result.self=b.insertAdjacentElement('beforebegin',b)===b&&b.insertAdjacentElement('afterend',b)===b&&p.textContent==='abc';p.remove();
+ ({p,a,b,c}=setup());result.move=b.insertAdjacentElement('afterend',a)===a&&p.textContent==='bac'&&b.nextSibling===a;p.remove();
+ ({p,a,b,c}=setup());e=make();p.insertBefore=()=>{throw new Error('override')};b.insertBefore=()=>{throw new Error('override')};Object.defineProperty(b,'parentNode',{value:null});Object.defineProperty(b,'nextSibling',{value:null});result.nativeOps=b.insertAdjacentElement('afterend',e)===e&&p.textContent==='ab'+token+'c';p.remove();
+ ({p,a,b,c}=setup());e=make();result.reentry=b.insertAdjacentElement({toString(){b.remove();return 'afterend';}},e)===null&&e.parentNode===null&&p.textContent==='ac';p.remove();
+ ({p,a,b,c}=setup());e=make();let converted=0;result.coercion=b.insertAdjacentElement({toString(){converted++;return 'beforebegin'}},e)===e&&converted===1;p.remove();
+ result.conversionOrder=error(()=>detached.insertAdjacentElement({toString(){throw new RangeError('conversion')}},null),'RangeError');
+ const fragment=document.createDocumentFragment(),f=document.createElement('i');fragment.append(f);e=make();result.fragment=f.insertAdjacentElement('afterend',e)===e&&fragment.lastChild===e;
+ const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'),g=document.createElementNS('http://www.w3.org/2000/svg','g');result.svg=svg.insertAdjacentElement('afterbegin',g)===g&&svg.firstChild===g;
+ ({p,a,b,c}=setup());const live=p.childNodes;e=make();b.insertAdjacentElement('beforebegin',e);result.liveCollections=live.length===4&&live[1]===e&&e.previousSibling===a&&e.nextSibling===b;p.remove();
+ const log=[],name='x-adjacent-'+v;customElements.define(name,class extends HTMLElement{connectedCallback(){log.push('connected')}disconnectedCallback(){log.push('disconnected')}});({p,a,b,c}=setup());e=document.createElement(name);document.body.append(e);log.length=0;b.insertAdjacentElement('beforebegin',e);result.reactions=log.join(',')==='disconnected,connected'&&e.parentNode===p;p.remove();
+ const foreign=document.implementation.createDocument(null,'root',null);e=foreign.createElement('i');foreign.documentElement.append(e);({p,a,b,c}=setup());result.adoption=b.insertAdjacentElement('beforebegin',e)===e&&e.ownerDocument===document&&e.parentNode===p&&foreign.documentElement.childNodes.length===0;p.remove();
+ result.documentHierarchy=error(()=>document.documentElement.insertAdjacentElement('beforebegin',make()),'HierarchyRequestError')&&document.documentElement.parentNode===document;
+ const d=Object.getOwnPropertyDescriptor(Element.prototype,'insertAdjacentElement');result.descriptor=d.enumerable&&d.configurable&&d.writable&&Element.prototype.insertAdjacentElement.length===2;
+ return result;
+})();

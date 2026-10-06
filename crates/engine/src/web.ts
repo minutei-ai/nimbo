@@ -1744,6 +1744,14 @@
     });
   }
   class Element extends ParentNode {
+    insertAdjacentElement(where: unknown, value: unknown): Element | null {
+      attributeElement(this);
+      required(2, arguments.length);
+      const position = domString(where);
+      if (!(value instanceof Element)) throw new TypeError("expected Element");
+      idOf(value);
+      return reactions(() => insertAdjacent(this, position, value));
+    }
     get attributes(): NamedNodeMap {
       const id = attributeElement(this);
       let map = attributeMaps.get(this);
@@ -1986,6 +1994,38 @@
       return wanted;
     }
   }
+  function insertAdjacent(target: Element, where: string, child: Element): Element | null {
+    const position = where.replace(/[A-Z]/g, (letter) => letter.toLowerCase());
+    let parent: Node | null;
+    let reference: Node | null;
+    switch (position) {
+      case "beforebegin":
+        parent = relative(target, "parent");
+        reference = target;
+        break;
+      case "afterend":
+        parent = relative(target, "parent");
+        reference = relative(target, "next");
+        break;
+      case "afterbegin":
+        parent = target;
+        reference = relative(target, "first");
+        break;
+      case "beforeend":
+        parent = target;
+        reference = null;
+        break;
+      default:
+        throw new DOMException("Invalid adjacent position", "SyntaxError");
+    }
+    if (!parent) return null;
+    insertNode(parent, child, reference);
+    return child;
+  }
+  Object.defineProperty(Element.prototype, "insertAdjacentElement", {
+    ...Object.getOwnPropertyDescriptor(Element.prototype, "insertAdjacentElement"),
+    enumerable: true,
+  });
   function attributeElement(owner: object): number {
     if (!(owner instanceof Element)) throw new TypeError("Illegal invocation");
     return idOf(owner);
