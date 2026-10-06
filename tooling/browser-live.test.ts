@@ -4331,7 +4331,11 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
 test.each([
   { css: "border:1ch solid", reason: "relative query length" },
   { css: "border-image-source:url('/image')", reason: "border-image-source" },
-  { css: "border-inline-start-width:2px", reason: "border-inline-start-width" },
+  {
+    css: "border-inline-start-width:2px",
+    reason: "border-inline-start-width",
+    geometryOnly: true,
+  },
   { css: "border-top-left-radius:2px", reason: "border-top-left-radius", geometryOnly: true },
 ])(
   "real HTTP → workerd → Wasm: border geometry boundary $css and recovery",
@@ -7171,3 +7175,25 @@ test("real HTTP → workerd → Wasm: shadow geometry keeps paint support explic
   expect(response.status).toBe(200);
   expect(await response.json()).toMatchObject({ value: false });
 });
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: logical border geometry variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`logical-borders/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    const body: unknown = await response.json();
+    if (typeof body !== "object" || body === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(body, "value");
+    if (typeof value !== "object" || value === null)
+      throw new Error("Missing logical border checks");
+    expect(Object.keys(value)).toHaveLength(20);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);

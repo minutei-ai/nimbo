@@ -37,22 +37,22 @@ pub(crate) fn property(name: &str) -> bool {
 fn side(
     name: &str,
     parent: &Side,
-    declarations: &Declarations,
+    declarations: &[(&str, &str, bool)],
     fonts: &Context,
     work: &mut Work<'_>,
 ) -> Result<Side> {
     work.charge()?;
-    let (value, _) = declarations.value(&format!("border-{name}-style"));
-    let style = match value.as_str() {
+    let value = resolved(declarations, &format!("border-{name}-style"));
+    let style = match value {
         "" | "initial" | "unset" => LineStyle::None,
         "inherit" => parent.style,
-        _ => LineStyle::parse_string(&value).map_err(|_error| unsupported("border style"))?,
+        _ => LineStyle::parse_string(value).map_err(|_error| unsupported("border style"))?,
     };
-    let (value, _) = declarations.value(&format!("border-{name}-width"));
-    let width = match value.as_str() {
+    let value = resolved(declarations, &format!("border-{name}-width"));
+    let width = match value {
         "inherit" => parent.width,
         "" | "initial" | "unset" => 3.0,
-        _ => match BorderSideWidth::parse_string(&value)
+        _ => match BorderSideWidth::parse_string(value)
             .map_err(|_error| unsupported("border width"))?
         {
             BorderSideWidth::Thin => 1.0,
@@ -72,6 +72,13 @@ fn side(
     Ok(Side { width, style })
 }
 
+fn resolved<'a>(entries: &[(&str, &'a str, bool)], name: &str) -> &'a str {
+    entries
+        .iter()
+        .find(|entry| entry.0 == name)
+        .map_or("", |entry| entry.1)
+}
+
 impl Borders {
     pub(crate) fn compute(
         &self,
@@ -79,17 +86,15 @@ impl Borders {
         fonts: &Context,
         work: &mut Work<'_>,
     ) -> Result<Self> {
-        if !declarations
-            .layout_entries()
-            .any(|(name, _, _)| property(name))
-        {
+        let entries = crate::layout::logical::entries(declarations);
+        if !entries.iter().any(|(name, _, _)| property(name)) {
             return Ok(Self::default());
         }
         Ok(Self(Rect {
-            top: side("top", &self.0.top, declarations, fonts, work)?,
-            right: side("right", &self.0.right, declarations, fonts, work)?,
-            bottom: side("bottom", &self.0.bottom, declarations, fonts, work)?,
-            left: side("left", &self.0.left, declarations, fonts, work)?,
+            top: side("top", &self.0.top, &entries, fonts, work)?,
+            right: side("right", &self.0.right, &entries, fonts, work)?,
+            bottom: side("bottom", &self.0.bottom, &entries, fonts, work)?,
+            left: side("left", &self.0.left, &entries, fonts, work)?,
         }))
     }
     pub(crate) fn geometry(&self) -> Result<Rect<LengthPercentage>> {
@@ -118,7 +123,7 @@ impl Borders {
 // clamped only after evaluation. Parser::next skips nested color/math blocks.
 pub(crate) fn valid_literals(name: &str, value: &str) -> bool {
     if !matches!(
-        name,
+        crate::layout::logical::physical(name),
         "border"
             | "outline"
             | "outline-width"
@@ -126,6 +131,14 @@ pub(crate) fn valid_literals(name: &str, value: &str) -> bool {
             | "border-right"
             | "border-bottom"
             | "border-left"
+            | "border-inline"
+            | "border-block"
+            | "border-inline-start"
+            | "border-inline-end"
+            | "border-block-start"
+            | "border-block-end"
+            | "border-inline-width"
+            | "border-block-width"
             | "border-width"
             | "border-top-width"
             | "border-right-width"

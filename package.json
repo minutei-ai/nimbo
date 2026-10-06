@@ -72,6 +72,7 @@
     "compare:atomic-inline": "bun run build:worker && bun run tooling/compare-atomic-inline.ts",
     "compare:rounded-box": "bun run build:worker && bun run tooling/compare-rounded-box.ts",
     "compare:clip-geometry": "bun run build:worker && bun run tooling/compare-clip-geometry.ts",
+    "compare:logical-borders": "bun run build:worker && bun run tooling/compare-logical-borders.ts",
     "compare:box-shadow-geometry": "bun run build:worker && bun run tooling/compare-box-shadow-geometry.ts",
     "compare:adjacent-element": "bun run build:worker && bun run tooling/compare-adjacent-element.ts",
     "compare:text-transform": "bun run build:worker && bun run tooling/compare-text-transform.ts",

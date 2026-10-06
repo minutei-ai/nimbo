@@ -45,19 +45,17 @@ impl Transform {
 mod tests {
     use super::Transform;
     #[test]
-    fn full_unicode_casing_preserves_context_and_language() {
+    fn full_unicode_casing_preserves_context_and_language() -> crate::Result<()> {
         assert_eq!(
-            Transform::Uppercase.apply("straße café", "de").unwrap(),
+            Transform::Uppercase.apply("straße café", "de")?,
             "STRASSE CAFÉ"
         );
+        assert_eq!(Transform::Lowercase.apply("ΟΣ ΟΣΑ", "und")?, "ος οσα");
         assert_eq!(
-            Transform::Lowercase.apply("ΟΣ ΟΣΑ", "und").unwrap(),
-            "ος οσα"
-        );
-        assert_eq!(
-            Transform::Uppercase.apply("istanbul izin", "tr").unwrap(),
+            Transform::Uppercase.apply("istanbul izin", "tr")?,
             "İSTANBUL İZİN"
         );
-        assert_eq!(Transform::Lowercase.apply("Iİ I", "tr").unwrap(), "ıi ı");
+        assert_eq!(Transform::Lowercase.apply("Iİ I", "tr")?, "ıi ı");
+        Ok(())
     }
 }
