@@ -1,0 +1,15 @@
+globalThis.comparison=(()=>{
+ const v=globalThis.variant??0,checks={},near=(a,b)=>Math.abs(a-b)<=1/64+.000001;
+ const style=document.createElement('style');style.textContent='html,body{margin:0;padding:0}div{display:block;width:max-content;margin:0;padding:0;border:0;font-family:'+['serif','sans-serif','"Liberation Mono"'][v%3]+';font-size:'+(12+v%14)+'px;line-height:28px}';document.head.append(style);
+ const box=(source,transform='none',language='und',parent=document.body)=>{const e=document.createElement('div');e.lang=language;e.style.textTransform=transform;e.textContent=source;parent.append(e);return e;};
+ const equal=(a,b)=>{const x=a.getBoundingClientRect(),y=b.getBoundingClientRect();return x.width>0&&near(x.width,y.width)&&near(x.height,y.height);};
+ for(const [name,input,mode,language,output] of [['upperLatin','straße café','uppercase','de','STRASSE CAFÉ'],['lowerLatin','ÉCOLE MIX','lowercase','fr','école mix'],['turkishUpper','istanbul izin','uppercase','tr','İSTANBUL İZİN'],['turkishLower','Iİ I','lowercase','tr','ıi ı']]){const a=box(input,mode,language),b=box(output,'none',language);checks[name]=equal(a,b)&&a.textContent===input&&getComputedStyle(a).textTransform===mode;a.remove();b.remove();}
+ const languageParent=document.createElement('section');languageParent.lang='tr';document.body.append(languageParent);
+ let languageTarget=box('istanbul','uppercase','tr',languageParent),languageControl=box('İSTANBUL');languageTarget.removeAttribute('lang');checks.languageInheritance=equal(languageTarget,languageControl);languageControl.remove();languageTarget.lang='';languageControl=box('ISTANBUL');checks.emptyLanguage=equal(languageTarget,languageControl);languageParent.remove();languageControl.remove();
+ const p=document.createElement('section');p.style.textTransform='uppercase';document.body.append(p);
+ for(const mode of ['inherit','unset','initial','none']){const a=box('abc',mode,'und',p),output=mode==='inherit'||mode==='unset'?'ABC':'abc',b=box(output);checks[mode]=equal(a,b)&&getComputedStyle(a).textTransform===(output==='ABC'?'uppercase':'none');a.remove();b.remove();}p.remove();
+ let a=box('straße café','lowercase'),b=box('STRASSE CAFÉ');a.style.textTransform='uppercase';checks.mutation=equal(a,b)&&a.textContent==='straße café';a.remove();b.remove();
+ a=box('abc abc abc','uppercase');b=box('ABC ABC ABC');a.style.width=b.style.width=(50+v%23)+'px';checks.wrap=equal(a,b)&&near(a.getBoundingClientRect().height,b.getBoundingClientRect().height);a.remove();b.remove();
+ a=box('straße café','uppercase');b=box('STRASSE CAFÉ');a.style.letterSpacing=b.style.letterSpacing='1.3px';checks.spacing=equal(a,b);a.remove();b.remove();
+ style.remove();return checks;
+})();

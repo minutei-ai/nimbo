@@ -7,7 +7,7 @@ use crate::{
     styles::{Declarations, Variables},
 };
 
-pub(crate) const PROPERTIES: [&str; 46] = [
+pub(crate) const PROPERTIES: [&str; 47] = [
     "background-attachment",
     "background-clip",
     "background-color",
@@ -48,6 +48,7 @@ pub(crate) const PROPERTIES: [&str; 46] = [
     "position",
     "tab-size",
     "text-size-adjust",
+    "text-transform",
     "transition-delay",
     "transition-duration",
     "transition-property",
@@ -72,6 +73,7 @@ pub(crate) struct Computed {
     index: crate::z_index::Index,
     order: i32,
     transitions: crate::transitions::Controls,
+    transform: crate::text_transform::Transform,
 }
 
 pub(crate) fn property(name: &str) -> bool {
@@ -103,6 +105,8 @@ impl Computed {
             self.sizes.value()
         } else if name == "position" {
             Ok(self.position.to_owned())
+        } else if name == "text-transform" {
+            Ok(self.transform.value().into())
         } else if name == "order" {
             Ok(self.order.to_string())
         } else if name == "z-index" {
@@ -158,6 +162,7 @@ pub(crate) fn resolve(
     let mut position = "static";
     let mut index = crate::z_index::Index::default();
     let mut order = 0;
+    let mut transform = crate::text_transform::Transform::default();
     let mut transitions = crate::transitions::Controls::default();
     for (depth, node) in ancestors.into_iter().enumerate() {
         work.charge()?;
@@ -188,6 +193,7 @@ pub(crate) fn resolve(
                 .transitions
                 .borrow_mut()
                 .sample(node, declarations, sources.now)?;
+        transform = transform.compute(&declarations)?;
         fonts = fonts.compute(&declarations, depth == 0, work)?;
         outlines = outlines.compute(&declarations, &fonts, work)?;
         background = background.compute(&declarations, outlines.color(), work)?;
@@ -199,16 +205,7 @@ pub(crate) fn resolve(
         family = family.compute(&declarations, work)?;
         index = index.compute(&declarations.value("z-index").0)?;
         order = crate::layout::order::compute(order, &declarations)?;
-        let (specified, _) = declarations.value("position");
-        position = match specified.as_str() {
-            "" | "initial" | "unset" | "revert" | "static" => "static",
-            "inherit" => position,
-            "relative" => "relative",
-            "absolute" => "absolute",
-            "fixed" => "fixed",
-            "sticky" => "sticky",
-            _ => return Err(Error::Dom("layout unsupported: computed position".into())),
-        };
+        position = computed_position(position, &declarations)?;
         display = display.compute(node, &declarations, depth == 0, false)?;
     }
     Ok(Computed {
@@ -227,6 +224,7 @@ pub(crate) fn resolve(
         index,
         order,
         transitions,
+        transform,
     })
 }
 
@@ -246,4 +244,16 @@ fn ancestors(target: NodeRef<'_>) -> Result<Vec<NodeRef<'_>>> {
         return Err(Error::Limit("computed style depth"));
     }
     Ok(ancestors)
+}
+
+fn computed_position(parent: &'static str, declarations: &Declarations) -> Result<&'static str> {
+    match declarations.value("position").0.as_str() {
+        "" | "initial" | "unset" | "revert" | "static" => Ok("static"),
+        "inherit" => Ok(parent),
+        "relative" => Ok("relative"),
+        "absolute" => Ok("absolute"),
+        "fixed" => Ok("fixed"),
+        "sticky" => Ok("sticky"),
+        _ => Err(Error::Dom("layout unsupported: computed position".into())),
+    }
 }

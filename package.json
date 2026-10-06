@@ -72,6 +72,7 @@
     "compare:atomic-inline": "bun run build:worker && bun run tooling/compare-atomic-inline.ts",
     "compare:rounded-box": "bun run build:worker && bun run tooling/compare-rounded-box.ts",
     "compare:clip-geometry": "bun run build:worker && bun run tooling/compare-clip-geometry.ts",
+    "compare:text-transform": "bun run build:worker && bun run tooling/compare-text-transform.ts",
     "compare:positioned-generated": "bun run build:worker && bun run tooling/compare-positioned-generated.ts"
   },
   "devDependencies": {

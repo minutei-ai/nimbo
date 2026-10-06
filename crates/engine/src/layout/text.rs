@@ -9,7 +9,7 @@ use num_traits::ToPrimitive;
 use taffy::prelude::*;
 
 use super::{svg_viewport, unsupported};
-use crate::{Result, styles::Declarations};
+use crate::{Result, dom_attributes::NativeAttributes, styles::Declarations};
 
 #[derive(Clone)]
 pub(super) struct Typography {
@@ -19,6 +19,8 @@ pub(super) struct Typography {
     stretch: String,
     variant: String,
     whitespace: String,
+    transform: crate::text_transform::Transform,
+    language: String,
 }
 impl Default for Typography {
     fn default() -> Self {
@@ -29,6 +31,8 @@ impl Default for Typography {
             stretch: "normal".into(),
             variant: "normal".into(),
             whitespace: "normal".into(),
+            transform: crate::text_transform::Transform::default(),
+            language: "und".into(),
         }
     }
 }
@@ -36,6 +40,7 @@ impl Typography {
     pub(super) fn compute(
         &self,
         declarations: &Declarations,
+        node: dom_query::NodeRef<'_>,
         fonts: &crate::fonts::Context,
         work: &mut super::Work<'_>,
     ) -> Result<Self> {
@@ -69,7 +74,22 @@ impl Typography {
                 fonts.length(&length, work)?
             }
         };
+        let language = node.null_attribute("lang").map_or_else(
+            || self.language.clone(),
+            |value| {
+                let base = value.split('-').next().unwrap_or_default();
+                if (2..=8).contains(&base.len())
+                    && base.bytes().all(|byte| byte.is_ascii_alphabetic())
+                {
+                    base.to_ascii_lowercase()
+                } else {
+                    "und".into()
+                }
+            },
+        );
         Ok(Self {
+            transform: self.transform.compute(declarations)?,
+            language,
             weight: inherited(declarations, "font-weight", &self.weight),
             style: inherited(declarations, "font-style", &self.style),
             spacing,
@@ -261,6 +281,20 @@ impl Run {
         if normalized.is_empty() && !strut {
             return Ok(None);
         }
+        if normalized.len() > 1024 {
+            return Err(crate::Error::Limit("layout text shaping"));
+        }
+        if !matches!(typography.transform, crate::text_transform::Transform::None) {
+            budget
+                .bytes
+                .set(budget.bytes.get().saturating_add(normalized.len().max(1)));
+        }
+        if budget.bytes.get() > 1_048_576 {
+            return Err(crate::Error::Limit("layout text shaping"));
+        }
+        let normalized = typography
+            .transform
+            .apply(&normalized, &typography.language)?;
         let size = context.fonts.size();
         let font = fonts.select(
             format!(

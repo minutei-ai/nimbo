@@ -1,0 +1,2613 @@
+{
+  "date": "2026-10-06",
+  "fixture": "crates/engine/tests/fixtures/text-transform.txt",
+  "scope": "64 distinct fresh HTTP pages per runtime; Unicode casing, language inheritance, source preservation, computed styles, wrapping, spacing and mutations; supplemental fixture, not original WPT",
+  "results": [
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 0,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 1,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 2,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 3,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 4,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 5,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 6,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 7,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 8,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 9,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 10,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 11,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 12,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 13,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 14,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 15,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 16,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 17,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 18,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 19,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 20,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 21,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 22,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 23,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 24,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 25,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 26,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 27,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 28,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 29,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 30,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 31,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 32,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 33,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 34,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 35,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 36,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 37,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 38,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 39,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 40,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 41,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 42,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 43,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 44,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 45,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 46,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 47,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 48,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 49,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 50,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 51,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 52,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 53,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 54,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 55,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 56,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 57,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 58,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 59,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 60,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 61,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 62,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "variant": 63,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 0,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 1,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 2,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 3,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 4,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 5,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 6,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 7,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 8,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 9,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 10,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 11,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 12,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 13,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 14,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 15,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 16,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 17,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 18,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 19,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 20,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 21,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 22,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 23,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 24,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 25,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 26,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 27,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 28,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 29,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 30,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 31,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 32,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 33,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 34,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 35,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 36,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 37,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 38,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 39,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 40,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 41,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 42,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 43,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 44,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 45,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 46,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 47,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 48,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 49,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 50,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 51,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 52,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 53,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 54,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 55,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 56,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 57,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 58,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 59,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 60,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 61,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 62,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "variant": 63,
+      "status": "passed",
+      "checks": {
+        "upperLatin": true,
+        "lowerLatin": true,
+        "turkishUpper": true,
+        "turkishLower": true,
+        "languageInheritance": true,
+        "emptyLanguage": true,
+        "inherit": true,
+        "unset": true,
+        "initial": true,
+        "none": true,
+        "mutation": true,
+        "wrap": true,
+        "spacing": true
+      }
+    }
+  ],
+  "artifact": {
+    "sha256": "46fb83e2de305f5bb412900c994e50ad5e9e0df66d7ce0fa20307dd8070bee1d",
+    "rawBytes": 14835722,
+    "gzipBytes": 5505888
+  },
+  "fixtureSha256": "7d3787c48363743877ac30ae11dfbf791e5ab4fb2da860448045157e36ec3497",
+  "references": [
+    "https://www.w3.org/TR/css-text-3/#text-transform-property",
+    "https://unicode-org.github.io/icu4x/rustdoc/icu/casemap/struct.CaseMapper.html"
+  ],
+  "limitations": [
+    "Geometry remains limited to existing supported Latin text runs; Greek final sigma conversion is separately verified by the Unicode unit test",
+    "capitalize, full-width and full-size-kana explicitly fail; general script itemization, bidi and text across mixed runs remain pending",
+    "Only language base subtags participate in casing; complete language-sensitive CSS Text behavior is not established",
+    "These original supplemental contracts are not original WPT tests and do not establish new performance results, full browser parity or private integration completion"
+  ],
+  "validation": {
+    "bun": {
+      "passed": 7046,
+      "failed": 0
+    },
+    "nativeDebug": {
+      "unit": 18,
+      "http": 123,
+      "proxy": 1,
+      "failed": 0
+    },
+    "nativeRelease": {
+      "unit": 18,
+      "http": 123,
+      "proxy": 1,
+      "failed": 0
+    },
+    "focusedWorker": {
+      "passed": 68,
+      "failed": 0,
+      "note": "64 new HTTP variants, three unsupported transform/recovery cases and one existing computed-style case"
+    },
+    "checks": [
+      "TypeScript lint",
+      "Native and Wasm clippy",
+      "Rustdoc",
+      "Formatting"
+    ],
+    "originalWptFixturesChanged": false
+  }
+}

@@ -4835,7 +4835,7 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
   expect(await response.json()).toMatchObject({
     value: {
       font: "18px",
-      count: 46,
+      count: 47,
       names: [
         "background-attachment",
         "background-clip",
@@ -4877,6 +4877,7 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
         "position",
         "tab-size",
         "text-size-adjust",
+        "text-transform",
         "transition-delay",
         "transition-duration",
         "transition-property",
@@ -7055,6 +7056,63 @@ test.each([
     expect(healthy.status).toBe(200);
     expect(await healthy.json()).toMatchObject({
       value: { own: true, ancestor: true, mutation: true },
+    });
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: Unicode text-transform variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`text-transform/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      value: Object.fromEntries(
+        [
+          "upperLatin",
+          "lowerLatin",
+          "turkishUpper",
+          "turkishLower",
+          "languageInheritance",
+          "emptyLanguage",
+          "inherit",
+          "unset",
+          "initial",
+          "none",
+          "mutation",
+          "wrap",
+          "spacing",
+        ].map((key) => [key, true]),
+      ),
+    });
+  },
+);
+
+test.each(["capitalize", "full-width", "full-size-kana"])(
+  "real HTTP → workerd → Wasm: unsupported text-transform %s and recovery",
+  async (mode) => {
+    const url = new URL("text-transform/0", origin.url).href;
+    const request = (expression: string) =>
+      worker.dispatchFetch("https://nimbo.test/scrape", {
+        method: "POST",
+        headers: { authorization: "Bearer test-secret" },
+        body: JSON.stringify({ url, expression }),
+      });
+    const failed = await request(
+      `(()=>{const e=document.createElement('div');e.style.textTransform=${JSON.stringify(mode)};e.textContent='sample';document.body.append(e);return e.getBoundingClientRect();})()`,
+    );
+    expect(failed.status).toBe(422);
+    expect(await failed.text()).toContain("text-transform");
+    const healthy = await request("globalThis.comparison");
+    expect(healthy.status).toBe(200);
+    expect(await healthy.json()).toMatchObject({
+      value: { upperLatin: true, languageInheritance: true },
     });
   },
 );

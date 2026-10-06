@@ -243,6 +243,7 @@ fn non_layout(name: &str) -> bool {
                 | "font-variation-settings"
                 | "white-space"
                 | "text-size-adjust"
+                | "text-transform"
                 | "tab-size"
                 | "line-height"
                 | "border-top-color"
@@ -500,6 +501,7 @@ impl BoxContext {
         &self,
         declarations: &Declarations,
         root: bool,
+        node: NodeRef<'_>,
         display: crate::display::Computed,
         work: &mut Work<'_>,
     ) -> Result<Self> {
@@ -528,7 +530,7 @@ impl BoxContext {
             layers,
             family,
             display,
-            typography: self.typography.compute(declarations, &fonts, work)?,
+            typography: self.typography.compute(declarations, node, &fonts, work)?,
             order: order::compute(self.order, declarations)?,
         })
     }
@@ -625,7 +627,7 @@ impl Tree<'_, '_> {
         if display.contents() {
             return Ok(None);
         }
-        let context = context.compute(&declarations, false, display, self.work)?;
+        let context = context.compute(&declarations, false, node, display, self.work)?;
         let (mut style, _) = style_for(
             node,
             &declarations,
@@ -702,10 +704,10 @@ impl Tree<'_, '_> {
         let authored_button = node.has_name("button") && display.atomic_container();
         crate::html_boxes::validate(node, &declarations, authored_button)?;
         if display.contents() {
-            let context = context.compute(&declarations, false, display, self.work)?;
+            let context = context.compute(&declarations, false, node, display, self.work)?;
             return self.children(node, depth, &variables, parent_display, &context, output);
         }
-        let context = context.compute(&declarations, depth == 0, display, self.work)?;
+        let context = context.compute(&declarations, depth == 0, node, display, self.work)?;
         let (mut style, svg) = style_for(
             node,
             &declarations,
