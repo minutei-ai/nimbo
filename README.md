@@ -2,6 +2,8 @@
 
 A browser engine for extracting data from JavaScript pages. Rust implements the DOM, CSS, layout and networking; QuickJS executes page scripts. The same engine runs natively and as WebAssembly in Cloudflare Workers and celld.
 
+See the [roadmap to 1.0](roadmap.md) for planned milestones and release criteria.
+
 ## Run
 
 Requires Bun 1.4.2 and Rust 1.96.
