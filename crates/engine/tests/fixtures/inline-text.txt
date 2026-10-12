@@ -1,0 +1,13 @@
+globalThis.comparison=(()=>{
+ const checks={},v=Number(globalThis.variant)||0;
+ const sheet=document.createElement('style');sheet.textContent='*{box-sizing:border-box;margin:0;padding:0;border:0 solid;outline-color:blue}html,body{margin:0;padding:0}div{font:16px/20px serif;width:120px;margin:0;padding:0;border:0}';document.head.append(sheet);
+ const make=html=>{const n=document.createElement('div');n.innerHTML=html;document.body.append(n);return n;};
+ const compare=(key,html,plain)=>{const a=make(html),b=make(plain);const ra=a.getBoundingClientRect(),rb=b.getBoundingClientRect();checks[key]=Math.abs(ra.width-rb.width)<.01&&Math.abs(ra.height-rb.height)<.01;a.remove();b.remove();};
+ compare('words','alpha <span>beta gamma</span> delta','alpha beta gamma delta');
+ compare('kerning','A<span>V</span>ATAR','AVATAR');
+ compare('nested','alpha <span>beta <a href="https://example.test/">gamma</a></span> delta','alpha beta gamma delta');
+ compare('spaces','alpha<span>  beta </span> gamma','alpha beta gamma');
+ compare('variant','alpha <span>'+('word '.repeat(1+v%9))+'</span>end','alpha '+('word '.repeat(1+v%9))+'end');
+ const a=make('alpha <span>beta</span>');a.getBoundingClientRect();let unsupported=false;try{a.querySelector('span').getBoundingClientRect();}catch(e){unsupported=String(e).includes('inline fragment geometry');}checks.fragmentBoundary=unsupported;a.remove();
+ sheet.remove();return checks;
+})();

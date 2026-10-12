@@ -1038,6 +1038,7 @@ dependencies = [
  "getrandom 0.3.4",
  "harfrust",
  "icu_casemap",
+ "icu_properties",
  "lightningcss",
  "num-traits",
  "psl",
@@ -1050,6 +1051,7 @@ dependencies = [
  "thiserror",
  "tiny_http",
  "ttf-parser",
+ "unicode-segmentation",
  "url",
  "wasm-bindgen",
 ]

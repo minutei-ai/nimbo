@@ -22,9 +22,10 @@ struct Selector {
     matcher: Matcher,
     specificity: u32,
     generated: Option<Generated>,
+    style_dependent: bool,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum Generated {
     Before,
     After,
@@ -35,8 +36,12 @@ struct Rule {
     layer: Vec<usize>,
     containers: Vec<std::rc::Rc<crate::containers::Query>>,
 }
+type Matches = std::rc::Rc<Vec<(usize, u32)>>;
+
 pub(crate) struct Cascade {
+    matches: std::cell::RefCell<HashMap<(dom_query::NodeId, Option<Generated>), Matches>>,
     rules: Vec<Rule>,
+    attributes: BTreeSet<String>,
     index: Index,
     pub(crate) animations: crate::animations::Definitions,
     pub(crate) registrations: crate::registrations::Definitions,
@@ -49,7 +54,11 @@ struct Index {
     ids: HashMap<String, Vec<Position>>,
     classes: HashMap<String, Vec<Position>>,
     tags: HashMap<String, Vec<Position>>,
+    attributes: HashMap<String, Vec<Position>>,
     universal: Vec<Position>,
+    dynamic: Vec<Position>,
+    ancestor_classes: HashMap<String, Vec<Position>>,
+    ancestry: std::cell::RefCell<HashMap<dom_query::NodeId, std::rc::Rc<BTreeSet<String>>>>,
 }
 impl Index {
     fn new(rules: &[Rule]) -> Self {
@@ -57,22 +66,98 @@ impl Index {
         for (rule_index, rule) in rules.iter().enumerate() {
             for (selector_index, selector) in rule.selectors.iter().enumerate() {
                 let position = (rule_index, selector_index);
-                let (map, key) = match selector.matcher.key() {
-                    Some(Key::Id(key)) => (&mut index.ids, key),
-                    Some(Key::Class(key)) => (&mut index.classes, key),
-                    Some(Key::Tag(key)) => (&mut index.tags, key),
-                    None => {
-                        index.universal.push(position);
-                        continue;
-                    }
+                if selector.style_dependent {
+                    index.dynamic.push(position);
+                    continue;
+                }
+                let key = selector.matcher.key();
+                // A required ancestor class is more selective than a subject
+                // tag or attribute-presence key. Identity keys stay local.
+                let ancestor = if key.as_ref().is_some_and(|key| key.priority() >= 3) {
+                    None
+                } else {
+                    selector.matcher.ancestor_class()
                 };
-                map.entry(key).or_default().push(position);
+                if let Some(class) = ancestor {
+                    index
+                        .ancestor_classes
+                        .entry(class)
+                        .or_default()
+                        .push(position);
+                } else if let Some(key) = key {
+                    index.insert(key, position);
+                } else {
+                    index.universal.push(position);
+                }
             }
         }
         index
     }
+    fn insert(&mut self, key: Key, position: Position) {
+        let (map, key) = match key {
+            Key::Id(key) => (&mut self.ids, key),
+            Key::Class(key) => (&mut self.classes, key),
+            Key::Tag(key) => (&mut self.tags, key),
+            Key::Attribute(key) => (&mut self.attributes, key),
+            Key::Any(keys) => {
+                for key in keys {
+                    self.insert(key, position);
+                }
+                return;
+            }
+        };
+        map.entry(key).or_default().push(position);
+    }
+    fn ancestor_tokens(
+        &self,
+        node: NodeRef<'_>,
+        work: &mut Work<'_>,
+    ) -> Result<std::rc::Rc<BTreeSet<String>>> {
+        if let Some(tokens) = self.ancestry.borrow().get(&node.id) {
+            return Ok(std::rc::Rc::clone(tokens));
+        }
+        let mut tokens = BTreeSet::new();
+        for parent in node.ancestors_it(None) {
+            work.charge()?;
+            if let Some(classes) = parent.null_attribute("class") {
+                for class in classes.split_ascii_whitespace() {
+                    work.charge()?;
+                    tokens.insert(class.to_owned());
+                }
+            }
+            if let Some(known) = self.ancestry.borrow().get(&parent.id) {
+                tokens.extend(known.iter().cloned());
+                break;
+            }
+        }
+        // Only the queried node is memoized: the union includes its parents,
+        // and must never accidentally include its own classes.
+        let tokens = std::rc::Rc::new(tokens);
+        self.ancestry
+            .borrow_mut()
+            .insert(node.id, std::rc::Rc::clone(&tokens));
+        Ok(tokens)
+    }
     fn candidates(&self, node: NodeRef<'_>, work: &mut Work<'_>) -> Result<BTreeSet<Position>> {
         let mut candidates: BTreeSet<_> = self.universal.iter().copied().collect();
+        if !self.ancestor_classes.is_empty() {
+            for class in self.ancestor_tokens(node, work)?.iter() {
+                if let Some(positions) = self.ancestor_classes.get(class) {
+                    candidates.extend(positions);
+                }
+            }
+        }
+        if !self.attributes.is_empty() {
+            for attribute in &node.attrs() {
+                work.charge()?;
+                if let Some(positions) = self
+                    .attributes
+                    .get(&attribute.name.local.to_ascii_lowercase().to_string())
+                {
+                    candidates.extend(positions);
+                }
+            }
+        }
         if let Some(id) = node.null_attribute("id")
             && let Some(positions) = self.ids.get(id.as_str())
         {
@@ -410,6 +495,7 @@ impl<'i> QualifiedRuleParser<'i> for Rules<'_> {
                 let matcher = Matcher::new(&origin)
                     .map_err(|_error| input.new_custom_error("stylesheet selector"))?;
                 Ok(Selector {
+                    style_dependent: matcher.references_style(),
                     matcher,
                     specificity: selector.specificity(),
                     generated,
@@ -600,28 +686,44 @@ impl Cascade {
             }
             rules.extend(parsed);
         }
-        Ok(Self {
+        Ok(Self::parsed(rules, definitions))
+    }
+    fn parsed(rules: Vec<Rule>, definitions: Definitions) -> Self {
+        Self {
+            attributes: rules
+                .iter()
+                .flat_map(|rule| &rule.selectors)
+                .flat_map(|selector| selector.matcher.attributes())
+                .collect(),
+            matches: std::cell::RefCell::default(),
             index: Index::new(&rules),
             rules,
             animations: definitions.animations,
             registrations: definitions.registrations,
             font_faces: definitions.font_faces,
-        })
+        }
+    }
+
+    pub(crate) fn references_attribute(&self, name: &str) -> bool {
+        self.attributes.contains(&name.to_ascii_lowercase())
     }
 
     pub(crate) fn has_containers(&self) -> bool {
         self.rules.iter().any(|rule| !rule.containers.is_empty())
     }
 
-    pub(crate) fn resolve(
+    fn stable_matches(
         &self,
         node: NodeRef<'_>,
-        inline: &Declarations,
         generated: Option<Generated>,
-        containers: &crate::containers::Snapshot,
         work: &mut Work<'_>,
-    ) -> Result<Declarations> {
-        let mut sources = Vec::new();
+    ) -> Result<Matches> {
+        // Cascade instances are local to an immutable scene or computed-style query.
+        // Container sizes may change across passes; selector matches cannot.
+        if let Some(matched) = self.matches.borrow().get(&(node.id, generated)) {
+            work.charge()?;
+            return Ok(std::rc::Rc::clone(matched));
+        }
         let mut matching = BTreeMap::<usize, u32>::new();
         for (rule_index, selector_index) in self.index.candidates(node, work)? {
             let rule = self
@@ -636,6 +738,74 @@ impl Cascade {
                 continue;
             }
             work.charge()?;
+            if selector.matcher.matches(node) {
+                matching
+                    .entry(rule_index)
+                    .and_modify(|specificity| {
+                        *specificity = (*specificity).max(selector.specificity);
+                    })
+                    .or_insert(selector.specificity);
+            }
+        }
+        let matched = std::rc::Rc::new(matching.into_iter().collect());
+        self.matches
+            .borrow_mut()
+            .insert((node.id, generated), std::rc::Rc::clone(&matched));
+        Ok(matched)
+    }
+
+    fn selector_matches(
+        &self,
+        node: NodeRef<'_>,
+        generated: Option<Generated>,
+        work: &mut Work<'_>,
+    ) -> Result<Matches> {
+        let stable = self.stable_matches(node, generated, work)?;
+        if self.index.dynamic.is_empty() {
+            return Ok(stable);
+        }
+        // Inline style updates preserve the immutable stylesheet and unrelated
+        // selectors. Predicates that read style (including :has/of branches)
+        // are always evaluated against the current native DOM.
+        let mut matching: BTreeMap<_, _> = stable.iter().copied().collect();
+        for &(rule_index, selector_index) in &self.index.dynamic {
+            let selector = self
+                .rules
+                .get(rule_index)
+                .and_then(|rule| rule.selectors.get(selector_index))
+                .ok_or_else(|| Error::Dom("invalid stylesheet index".into()))?;
+            if selector.generated != generated {
+                continue;
+            }
+            work.charge()?;
+            if selector.matcher.matches(node) {
+                matching
+                    .entry(rule_index)
+                    .and_modify(|specificity| {
+                        *specificity = (*specificity).max(selector.specificity);
+                    })
+                    .or_insert(selector.specificity);
+            }
+        }
+        Ok(std::rc::Rc::new(matching.into_iter().collect()))
+    }
+
+    pub(crate) fn resolve(
+        &self,
+        node: NodeRef<'_>,
+        inline: &Declarations,
+        generated: Option<Generated>,
+        containers: &crate::containers::Snapshot,
+        work: &mut Work<'_>,
+    ) -> Result<Declarations> {
+        let mut sources = Vec::new();
+        let matched = self.selector_matches(node, generated, work)?;
+        let mut matching = Vec::new();
+        for &(rule_index, specificity) in matched.iter() {
+            let rule = self
+                .rules
+                .get(rule_index)
+                .ok_or_else(|| Error::Dom("invalid stylesheet index".into()))?;
             let mut active = true;
             for query in &rule.containers {
                 if !query.matches(node, generated.is_some(), containers, work)? {
@@ -643,13 +813,8 @@ impl Cascade {
                     break;
                 }
             }
-            if active && selector.matcher.matches(node) {
-                matching
-                    .entry(rule_index)
-                    .and_modify(|specificity| {
-                        *specificity = (*specificity).max(selector.specificity);
-                    })
-                    .or_insert(selector.specificity);
+            if active {
+                matching.push((rule_index, specificity));
             }
         }
         // Source order resolves equal ranks; keep it independently of the
@@ -669,6 +834,14 @@ impl Cascade {
         if generated.is_none() {
             sources.push((inline, true, 0, [usize::MAX].as_slice()));
         }
-        Declarations::cascade(sources).map_err(|message| Error::Dom(message.into()))
+        Declarations::cascade(sources)
+            .and_then(|declarations| {
+                declarations.defaults(if generated.is_none() {
+                    crate::html_boxes::heading_defaults(node)
+                } else {
+                    ""
+                })
+            })
+            .map_err(|message| Error::Dom(message.into()))
     }
 }

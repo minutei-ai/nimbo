@@ -3356,3 +3356,13 @@ The DOM layout engine does not consume these advances yet: inline formatting,
 line boxes, wrapping, font fallback/readiness and text painting remain pending.
 The existing geometry text rejection remains active; extraction with JavaScript
 must not be reported as validated by skipping scripts or hiding that error.
+
+## Navigator and stealth contracts
+
+The owned Navigator exposes identity, language, connectivity and concurrency metadata, cookie support, `webdriver`, `pdfViewerEnabled` and `javaEnabled()`. HTTP and `navigator.userAgent` identify Nimbo as `Nimbo/0.1`. Legacy identity fields follow the [HTML Navigator contract](https://html.spec.whatwg.org/multipage/system-state.html); languages are a frozen per-page array, the exposed execution concurrency is one, and the platform/vendor strings are empty. Nimbo does not implement WebDriver sessions; `webdriver` is false. Plugins, permission queries, client hints and WorkerNavigator remain unimplemented.
+
+The synthetic `stealth.txt` fixture checks 22 contracts in 64 fresh pages per runtime through `compare:stealth`: interface/instance identity, descriptors, constructor/getter arity, receiver validation, read-only attributes, language consistency, object brands, event trust, clock values, host-binding cleanup and visible driver artifacts. It retains the ordinary `Function.prototype.toString` behavior. These are bounded compatibility checks, not evidence of indistinguishability from Chromium or a pass against anti-bot services.
+
+`test:stealth` adds real Worker/Wasm HTTP checks for UA/header consistency, API credential separation, inaccessible host modules and page disposal after prototype poisoning or failure. Cookies, storage, globals and API prototypes start fresh on the next extraction. The existing proxy suite separately covers transport credentials and TLS failures.
+
+The three budget regressions in the native unit suite lock down named-window cache invalidation, identical namespaced class writes and ancestor selector indexing without increasing operation limits. [Local measurements](performance-v01.json) retain all latency/RSS samples and both Wasm hashes. Linux RSS covers the local host process tree after each request; it is not peak page allocation.

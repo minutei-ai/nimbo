@@ -18,7 +18,7 @@ fn reserved(name: &str) -> bool {
         "initial" | "inherit" | "unset" | "revert" | "revert-layer" | "default"
     )
 }
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 enum Item {
     Generic(&'static str),
     Name(String),
@@ -93,7 +93,7 @@ fn serialize(items: &[Item]) -> Result<String> {
     }
     Ok(result)
 }
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub(crate) struct Family {
     items: Rc<[Item]>,
 }

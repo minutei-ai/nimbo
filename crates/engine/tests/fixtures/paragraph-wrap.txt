@@ -1,0 +1,18 @@
+globalThis.comparison=(()=>{
+ const v=Number(globalThis.variant)||0,checks={},near=(a,b)=>Math.abs(a-b)<.1;
+ const sheet=document.createElement('style');sheet.textContent='html,body{margin:0;padding:0;font:16px/20px "Liberation Mono"}div{margin:0;padding:0}';document.head.append(sheet);
+ const box=(text,css='',tag='div')=>{const node=document.createElement(tag);node.textContent=text;node.style.cssText=css;document.body.append(node);return node;};
+ const measure=box('A','width:max-content');const unit=measure.getBoundingClientRect().width;measure.remove();const narrow='width:'+(unit*2.5)+'px;';
+ for(const mode of ['normal','break-word','anywhere']){const a=box('AAAAAA',narrow+'overflow-wrap:'+mode);checks[mode]=near(a.getBoundingClientRect().height,mode==='normal'?20:60);a.remove();}
+ let a=box('AAAAAA',narrow+'overflow-wrap:anywhere;white-space:nowrap');checks.nowrap=near(a.getBoundingClientRect().height,20);a.remove();
+ a=box('AAAAAA','width:min-content;overflow-wrap:anywhere');checks.anywhereMin=near(a.getBoundingClientRect().width,unit);a.remove();
+ a=box('AAAAAA','width:min-content;overflow-wrap:break-word');checks.breakWordMin=near(a.getBoundingClientRect().width,unit*6);a.remove();
+ a=box('AA AA AAAA',narrow+'overflow-wrap:break-word');checks.words=near(a.getBoundingClientRect().height,80);a.remove();
+ a=box('e\u0301e\u0301e\u0301', 'width:'+(unit*1.5)+'px;overflow-wrap:anywhere');checks.grapheme=near(a.getBoundingClientRect().height,60);a.remove();
+ const parent=box('',narrow+'overflow-wrap:anywhere');const child=document.createElement('div');child.textContent='AAAAAA';parent.append(child);checks.inherited=near(child.getBoundingClientRect().height,60);child.style.overflowWrap='initial';checks.reset=near(child.getBoundingClientRect().height,20);parent.remove();
+ a=box('AAAAAA',narrow+'overflow-wrap:normal');a.style.overflowWrap='break-word';checks.mutation=near(a.getBoundingClientRect().height,60);a.remove();
+ a=box('A','font-size:'+(16+v%8)+'px','p');const ar=a.getBoundingClientRect();checks.paragraphMargin=near(ar.y,16+v%8)&&near(ar.height,20);a.remove();
+ a=box('A','margin:0;padding:0','p');const b=box('A');checks.authoredParagraph=near(a.getBoundingClientRect().height,b.getBoundingClientRect().height)&&near(a.getBoundingClientRect().y,0);a.remove();b.remove();
+ a=box('A','margin:0;display:flex','p');checks.flexParagraph=near(a.getBoundingClientRect().height,20);a.remove();
+ sheet.remove();return checks;
+})();

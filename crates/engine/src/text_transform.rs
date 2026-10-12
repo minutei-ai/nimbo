@@ -1,7 +1,7 @@
 //! Inherited Unicode casing of rendered text, without mutating DOM source.
 use crate::{Result, styles::Declarations};
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub(crate) enum Transform {
     #[default]
     None,

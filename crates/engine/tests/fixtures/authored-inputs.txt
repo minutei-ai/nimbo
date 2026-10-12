@@ -1,0 +1,7 @@
+globalThis.comparison=(()=>{
+ const checks={},v=Number(globalThis.variant)||0,w=240+v,near=(a,b)=>Math.abs(a-b)<.1;
+ const sheet=document.createElement('style');sheet.textContent='html,body{margin:0;padding:0}div{margin:0;padding:0;border:0}input{font:normal 400 16px/20px monospace;letter-spacing:0;box-sizing:border-box;padding:0;border:0 solid;min-width:0;appearance:none}';document.head.append(sheet);
+ for(const type of ['text','email','search']){const p=document.createElement('div');p.style.cssText='display:flex;width:'+w+'px';const n=document.createElement('input');n.setAttribute('type',type);n.style.cssText='flex:1 1 0%;height:30px';const s=document.createElement('div');s.style.cssText='width:40px;flex-shrink:0';p.append(n,s);document.body.append(p);checks[type]=near(n.getBoundingClientRect().width,w-40)&&near(n.getBoundingClientRect().height,30)&&near(s.getBoundingClientRect().x,w-40);p.remove();}
+ for(const type of ['checkbox','radio']){const n=document.createElement('input');n.setAttribute('type',type);n.style.cssText='display:block;width:1px;height:1px;margin:0';document.body.append(n);checks[type]=near(n.getBoundingClientRect().width,1)&&near(n.getBoundingClientRect().height,1);n.remove();}
+ sheet.remove();return checks;
+})();

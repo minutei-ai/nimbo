@@ -1,0 +1,14 @@
+{
+  "date": "2026-10-12",
+  "fixture": "crates/engine/tests/fixtures/stealth.txt",
+  "scope": "64 fresh HTTP pages per runtime; Navigator descriptors/brand, language consistency, global isolation, owned API receiver checks and visible automation artifacts; synthetic contracts, not an anti-bot challenge pass",
+  "contracts_per_page": 22,
+  "pages_per_runtime": 64,
+  "runtimes": ["Google Chrome 155.0.8059.39", "celld 0.6.1"],
+  "passed": 128,
+  "failed": 0,
+  "commands": [
+    "bun run test:stealth",
+    "NIMBO_COMPARE_CHROMIUM_BINARY=<ordinary Chromium> bun run compare:stealth"
+  ]
+}

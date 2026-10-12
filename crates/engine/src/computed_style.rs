@@ -1,5 +1,5 @@
 use crate::dom_attributes::NativeAttributes;
-use dom_query::{Document, NodeRef};
+use dom_query::NodeRef;
 
 use crate::{
     Error, MediaEnvironment, Result,
@@ -128,20 +128,12 @@ impl Computed {
 }
 
 pub(crate) fn resolve(
-    document: &Document,
     target: NodeRef<'_>,
     sources: &Sources<'_>,
     media: &MediaEnvironment,
     work: &mut Work<'_>,
 ) -> Result<Computed> {
-    let cascade = crate::cascade::Cascade::collect(
-        document,
-        sources.external,
-        sources.constructed,
-        sources.base,
-        media,
-        work,
-    )?;
+    let cascade = sources.cascade;
     if cascade.has_containers() {
         return Err(Error::Dom(
             "layout unsupported: computed style container queries".into(),

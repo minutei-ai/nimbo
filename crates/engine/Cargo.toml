@@ -18,6 +18,7 @@ cssparser = "=0.37.0"
 dom_query = { version = "=0.28.0", default-features = false }
 encoding_rs = "=0.8.42"
 icu_casemap = "=2.3.0"
+icu_properties = "=2.3.0"
 lightningcss = { version = "=1.0.0-alpha.72", default-features = false }
 num-traits = { version = "=0.2.19", default-features = false }
 selectors = "=0.38.0"
@@ -37,6 +38,7 @@ thiserror = "2"
 ttf-parser = "=0.25.1"
 harfrust = "=0.14.0"
 url = "=2.5.8"
+unicode-segmentation = "=1.13.3"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 reqwest = { version = "=0.13.5", default-features = false, features = [

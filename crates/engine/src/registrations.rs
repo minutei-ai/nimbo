@@ -30,6 +30,7 @@ pub(crate) struct Registration {
 }
 #[derive(Default)]
 pub(crate) struct Definitions {
+    pub(crate) scope: Rc<()>,
     pub(crate) entries: BTreeMap<String, Registration>,
     count: usize,
     pub(crate) initial_bytes: usize,
@@ -166,6 +167,7 @@ impl Definitions {
                     .map_or(0, |value| value.len()),
             )
             .saturating_add(initial.as_ref().map_or(0, |value| value.len()));
+        self.scope = Rc::new(());
         self.entries.insert(
             name.to_owned(),
             Registration {

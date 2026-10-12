@@ -308,6 +308,8 @@ impl Dom {
     ) -> Result<()> {
         self.layout_version = self.layout_version.saturating_add(1);
         self.computed_styles.clear();
+        self.cascade = None;
+        self.named = None;
         if namespace.is_empty() && local == "style" {
             let id = self.node_id(owner)?;
             if let Some(previous) = self.styles.remove(&id) {

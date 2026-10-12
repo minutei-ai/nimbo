@@ -1,0 +1,11 @@
+globalThis.comparison=(()=>{
+ const checks={},v=Number(globalThis.variant)||0,near=(a,b)=>Math.abs(a-b)<.1;
+ const sheet=document.createElement('style');sheet.textContent='html,body{margin:0;padding:0}div{font:16px/20px '+(globalThis.contractFontFamily||'monospace')+';width:200px;margin:0;padding:0;border:0}';document.head.append(sheet);
+ const make=text=>{const n=document.createElement('div');n.style.whiteSpace='pre-line';n.textContent=text;document.body.append(n);return n;};
+ const test=(key,text,height)=>{const n=make(text);checks[key]=near(n.getBoundingClientRect().height,height);n.remove();};
+ test('breaks','A\nB',40);test('leading','\nA',40);test('trailing','A\n',20);test('blank','A\n\nB',60);test('onlyBreaks','\n\n',40);test('crlf','A\r\nB',40);test('spaces',' A  \t B \n C ',40);
+ const a=make('word '.repeat(20+v)+'\nend'),b=make('word '.repeat(20+v));checks.wrap=near(a.getBoundingClientRect().height,b.getBoundingClientRect().height+20);a.remove();b.remove();
+ const inherited=make('');inherited.innerHTML='<span>A\nB</span>';checks.inherited=near(inherited.getBoundingClientRect().height,40);inherited.remove();
+ const clamp=make('A\nB\nC\nD');clamp.style.cssText='white-space:pre-line;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden';checks.clamp=near(clamp.getBoundingClientRect().height,40)&&near(clamp.scrollHeight,80);clamp.remove();
+ const mutation=make('A B');const before=mutation.getBoundingClientRect().height;mutation.textContent='A\nB';checks.mutation=near(before,20)&&near(mutation.getBoundingClientRect().height,40);mutation.remove();const unboxed=make('');const field=document.createElement('fieldset');field.style.display='contents';const hidden=document.createElement('input');hidden.setAttribute('type','hidden');const child=document.createElement('div');child.style.cssText='width:40px;height:10px';field.append(hidden,child);unboxed.append(field);checks.unboxedFieldset=near(field.getBoundingClientRect().width,0)&&near(field.getBoundingClientRect().height,0)&&near(unboxed.getBoundingClientRect().height,10);unboxed.remove();sheet.remove();return checks;
+})();

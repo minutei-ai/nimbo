@@ -1,0 +1,13 @@
+globalThis.comparison=(()=>{
+ const checks={},v=Number(globalThis.variant)||0,near=(a,b)=>Math.abs(a-b)<.1;
+ const sheet=document.createElement('style');sheet.textContent='html,body{margin:0;padding:0;font:16px/20px "Liberation Mono"}div{margin:0;padding:0}';document.head.append(sheet);
+ const box=(tag,css)=>{const n=document.createElement(tag);n.textContent='Heading';n.style.cssText=css||'';document.body.append(n);return n;};
+ const equal=(a,b)=>{const x=a.getBoundingClientRect(),y=b.getBoundingClientRect();return near(x.width,y.width)&&near(x.height,y.height)&&near(parseFloat(getComputedStyle(a).fontSize),parseFloat(getComputedStyle(b).fontSize));};
+ const factors=[2,1.5,1.17,1,.83,.67],margins=[.67,.83,1,1.33,1.67,2.33];
+ for(let i=0;i<6;i++){const a=box('h'+(i+1),'width:max-content'),b=box('div','width:max-content;font-size:'+factors[i]+'em;font-weight:bold;margin-block:'+margins[i]+'em');checks['h'+(i+1)]=equal(a,b)&&near(parseFloat(getComputedStyle(a).marginTop),16*factors[i]*margins[i]);a.remove();b.remove();}
+ let a=box('h1','font:normal '+(12+v%10)+'px/20px "Liberation Mono";margin:0;width:max-content'),b=box('div','font:normal '+(12+v%10)+'px/20px "Liberation Mono";width:max-content');checks.authored=equal(a,b)&&near(a.getBoundingClientRect().y,0);a.remove();b.remove();
+ a=box('h2','font-size:inherit;font-weight:normal;margin:0;width:max-content');b=box('div','width:max-content');checks.inherit=equal(a,b);a.remove();b.remove();
+ const parent=box('section','font-size:20px');parent.textContent='';a=document.createElement('h3');a.textContent='Heading';a.style.cssText='margin:0;width:max-content';parent.append(a);b=box('div','font-size:23.4px;font-weight:bold;width:max-content');checks.relative=equal(a,b);parent.remove();b.remove();
+ const layer=document.createElement('style');layer.textContent='@layer headings{h4{font-size:12px;font-weight:normal;margin:0}}';document.head.append(layer);a=box('h4','width:max-content');b=box('div','font-size:12px;font-weight:normal;width:max-content');checks.layer=equal(a,b)&&near(a.getBoundingClientRect().y,0);a.remove();b.remove();layer.remove();
+ sheet.remove();return checks;
+})();

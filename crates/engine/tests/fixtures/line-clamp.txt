@@ -1,0 +1,8 @@
+globalThis.comparison=(()=>{
+ const checks={},v=Number(globalThis.variant)||0,near=(a,b)=>Math.abs(a-b)<.1;
+ const sheet=document.createElement('style');sheet.textContent='html,body{margin:0;padding:0}div{font:16px/20px monospace;width:120px;margin:0;padding:0;border:0}';document.head.append(sheet);
+ const make=(clamp,extra='')=>{const n=document.createElement('div');n.textContent='word '.repeat(80+v);n.style.cssText=(clamp?'display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:'+clamp+';overflow:hidden;':'')+extra;document.body.append(n);return n;};
+ const plain=make(0),n=make(2);checks.computedDisplay=getComputedStyle(n).display==='flow-root';checks.height=near(n.getBoundingClientRect().height,40);checks.fullScroll=near(n.scrollHeight,plain.scrollHeight);n.style.webkitLineClamp='3';checks.mutation=near(n.getBoundingClientRect().height,60);n.remove();
+ const padded=make(2,'padding:4px;border:2px solid black;');checks.insets=near(padded.getBoundingClientRect().height,52);padded.remove();
+ const short=make(4);short.textContent='word';checks.short=near(short.getBoundingClientRect().height,20);short.remove();plain.remove();sheet.remove();return checks;
+})();

@@ -47,6 +47,43 @@ pub(super) struct Intrinsic {
 }
 
 impl Intrinsic {
+    pub(super) fn canvas(node: NodeRef<'_>, style: &mut Style) -> Result<Option<Self>> {
+        use num_traits::ToPrimitive;
+        fn dimension(node: NodeRef<'_>, name: &str, fallback: u32) -> u32 {
+            let Some(value) = node.null_attribute(name) else {
+                return fallback;
+            };
+            let value = value.trim_start_matches([' ', '\t', '\n', '\r', '\u{c}']);
+            let value = value.strip_prefix('+').unwrap_or(value);
+            let digits: String = value.chars().take_while(char::is_ascii_digit).collect();
+            digits
+                .parse::<u32>()
+                .ok()
+                .filter(|value| *value <= 2_147_483_647)
+                .unwrap_or(fallback)
+        }
+        if !node.has_name("canvas") {
+            return Ok(None);
+        }
+        let width = dimension(node, "width", 300)
+            .to_f32()
+            .ok_or_else(|| unsupported("canvas intrinsic width"))?;
+        let height = dimension(node, "height", 150)
+            .to_f32()
+            .ok_or_else(|| unsupported("canvas intrinsic height"))?;
+        let ratio = if width > 0.0 && height > 0.0 {
+            Some(width / height)
+        } else {
+            None
+        };
+        style.item_is_replaced = true;
+        style.aspect_ratio = ratio;
+        Ok(Some(Self {
+            width: Some(width),
+            height: Some(height),
+            ratio,
+        }))
+    }
     pub(super) fn apply(
         node: NodeRef<'_>,
         style: &mut Style,

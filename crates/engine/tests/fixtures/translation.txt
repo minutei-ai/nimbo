@@ -1,0 +1,24 @@
+globalThis.comparison=(async()=>{
+ const checks={},v=Number(globalThis.variant)||0,near=(a,b)=>Math.abs(a-b)<.1;
+ const sheet=document.createElement('style');sheet.textContent='html,body{margin:0;padding:0}div{margin:0;padding:0;border:0}';document.head.append(sheet);
+ const box=(css='')=>{const n=document.createElement('div');n.style.cssText=css;return n;};
+ const run=(name,css,fn)=>{const parent=box('position:relative;width:100px;height:80px;overflow:hidden'),child=box('width:60px;height:40px;'+css);parent.append(child);document.body.append(parent);checks[name]=fn(parent,child,parent.getBoundingClientRect(),child.getBoundingClientRect());parent.remove();};
+ run('translate','transform:translate(20px,30px)',(p,c,a,b)=>near(b.x-a.x,20)&&near(b.y-a.y,30)&&near(b.width,60)&&near(b.height,40));
+ run('offsets','transform:translate(20px,30px)',(p,c)=>c.offsetLeft===0&&c.offsetTop===0&&c.offsetWidth===60&&c.offsetHeight===40);
+ run('percentage','transform:translate(50%,25%)',(p,c,a,b)=>near(b.x-a.x,30)&&near(b.y-a.y,10));
+ run('relative','font-size:20px;transform:translate(1em,2rem)',(p,c,a,b)=>near(b.x-a.x,20)&&near(b.y-a.y,32));
+ run('matrix','transform:matrix(1,0,0,1,13,17)',(p,c,a,b)=>near(b.x-a.x,13)&&near(b.y-a.y,17));
+ run('threeDimensionalZero','transform:translate3d(12px,8px,0)',(p,c,a,b)=>near(b.x-a.x,12)&&near(b.y-a.y,8));
+ run('negative','width:150px;transform:translateX(-40px)',(p,c,a,b)=>near(b.x-a.x,-40)&&p.scrollWidth===150);
+ run('overflow','transform:translate(70px,60px)',(p,c)=>p.scrollWidth===130&&p.scrollHeight===100);
+ run('scroll','transform:translate(70px,60px)',(p,c,a,b)=>{p.scrollLeft=999;p.scrollTop=999;const r=c.getBoundingClientRect();return p.scrollLeft===30&&p.scrollTop===20&&near(r.x-a.x,40)&&near(r.y-a.y,40);});
+ run('composition','transform:translateX(10px) translateY(15px) translate(20%,25%)',(p,c,a,b)=>near(b.x-a.x,22)&&near(b.y-a.y,25));
+ run('origin','transform:translate(10px,15px);transform-origin:0 0',(p,c,a,b)=>near(b.x-a.x,10)&&near(b.y-a.y,15));
+ run('individual','translate:12px 7px;transform:translate(3px,4px)',(p,c,a,b)=>near(b.x-a.x,15)&&near(b.y-a.y,11));
+ run('mutation','transform:translateY(16px)',(p,c,a,b)=>{c.style.transform='translateY('+(20+v)+'px)';return near(c.getBoundingClientRect().y-a.y,20+v);});
+ const parent=box('width:100px;height:80px;transform:translate(30px,40px)'),child=box('width:50px;height:30px;transform:translate(10px,5px)'),grandchild=box('width:10px;height:10px');child.append(grandchild);parent.append(child);document.body.append(parent);const pr=parent.getBoundingClientRect(),cr=child.getBoundingClientRect(),gr=grandchild.getBoundingClientRect();checks.descendants=near(cr.x-pr.x,10)&&near(cr.y-pr.y,5)&&near(gr.x-cr.x,0)&&near(gr.y-cr.y,0);checks.descendantOffsets=child.offsetLeft===0&&child.offsetTop===0;parent.remove();
+ for(const position of ['absolute','fixed']){const parent=box('margin-left:25px;width:100px;height:80px;transform:translate(30px,40px)'),child=box('position:'+position+';left:10px;top:15px;width:20px;height:10px');parent.append(child);document.body.append(parent);const a=parent.getBoundingClientRect(),b=child.getBoundingClientRect();checks[position+'Containing']=near(b.x-a.x,10)&&near(b.y-a.y,15)&&child.offsetParent===parent;parent.remove();}
+ const clip=box('width:100px;height:80px;overflow:hidden'),inner=box('width:40px;height:40px;overflow:hidden'),outside=box('width:20px;height:20px;transform:translateX(200px)');inner.append(outside);clip.append(inner);document.body.append(clip);checks.clipOverflow=clip.scrollWidth===100&&inner.scrollWidth===220;clip.remove();
+ const root=box('width:100px;height:80px;overflow:hidden'),target=box('width:20px;height:20px;transform:translateY(90px)');root.append(target);document.body.append(root);checks.intersection=await new Promise(resolve=>{const observer=new IntersectionObserver(entries=>{resolve(entries.length===1&&!entries[0].isIntersecting&&near(entries[0].boundingClientRect.y-root.getBoundingClientRect().y,90));observer.disconnect();},{root});observer.observe(target);});root.remove();
+ sheet.remove();return checks;
+})();

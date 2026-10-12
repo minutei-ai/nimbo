@@ -19,7 +19,6 @@ enum Handle {
 }
 
 struct NamedProperties {
-    version: usize,
     nodes: HashMap<String, Vec<NodeId>>,
 }
 
@@ -35,6 +34,7 @@ pub(crate) struct Dom {
     documents: documents::Arena,
     styles: HashMap<NodeId, crate::styles::Declarations>,
     computed_styles: HashMap<NodeId, crate::computed_style::Computed>,
+    cascade: Option<std::rc::Rc<crate::cascade::Cascade>>,
     transitions: std::cell::RefCell<crate::transitions::State>,
     now: f64,
     style_bytes: usize,
@@ -72,6 +72,7 @@ impl Dom {
             documents: documents::Arena::default(),
             styles: HashMap::new(),
             computed_styles: HashMap::new(),
+            cascade: None,
             transitions: std::cell::RefCell::default(),
             now: 0.0,
             style_bytes: 0,
@@ -114,11 +115,48 @@ impl Dom {
             .ok_or_else(|| Error::Dom("invalid node handle".into()))
     }
 
-    fn begin(&mut self, operation: &str, arg: &str) -> Result<()> {
+    fn unchanged_attribute(&self, operation: &str, handle: usize, arg: &str, value: &str) -> bool {
+        let Ok(node) = self.node(handle) else {
+            return false;
+        };
+        let old = match operation {
+            "setAttr" | "removeAttr" => {
+                crate::dom_attributes::named(node, arg, self.html_document(node.id))
+            }
+            "setAttrNS" | "removeAttrNS" => {
+                let Ok([namespace, name]) = serde_json::from_str::<[String; 2]>(arg) else {
+                    return false;
+                };
+                let local = if operation == "setAttrNS" {
+                    name.split_once(':')
+                        .map_or(name.as_str(), |(_, local)| local)
+                } else {
+                    name.as_str()
+                };
+                crate::dom_attributes::namespaced(node, &namespace, local)
+            }
+            _ => return false,
+        };
+        if matches!(operation, "removeAttr" | "removeAttrNS") {
+            old.is_none()
+        } else {
+            old.as_deref() == Some(value)
+        }
+    }
+
+    fn begin(&mut self, operation: &str, handle: usize, arg: &str, value: &str) -> Result<()> {
         if self.operations >= self.limits.max_dom_operations {
             return Err(Error::Limit("DOM operations"));
         }
         self.operations = self.operations.saturating_add(1);
+        // Preserve work caches for identical writes; mutation callbacks still run.
+        if matches!(
+            operation,
+            "setAttr" | "removeAttr" | "setAttrNS" | "removeAttrNS"
+        ) && self.unchanged_attribute(operation, handle, arg, value)
+        {
+            return Ok(());
+        }
         if matches!(
             operation,
             "set"
@@ -133,8 +171,31 @@ impl Dom {
                 | "remove"
         ) || (operation == "style" && matches!(arg, "set" | "remove" | "text"))
         {
+            let names_changed = if matches!(operation, "setAttr" | "removeAttr") {
+                arg.eq_ignore_ascii_case("id") || arg.eq_ignore_ascii_case("name")
+            } else {
+                operation != "style"
+            };
+            if names_changed {
+                self.named = None;
+            }
             self.layout_version = self.layout_version.saturating_add(1);
             self.computed_styles.clear();
+            let inline_style = operation == "style"
+                || (matches!(operation, "setAttr" | "removeAttr") && arg == "style");
+            let irrelevant_attribute = matches!(operation, "setAttr" | "removeAttr")
+                && self.node(handle).is_ok_and(|node| {
+                    !["style", "link", "base"]
+                        .iter()
+                        .any(|name| node.has_name(name))
+                })
+                && self
+                    .cascade
+                    .as_ref()
+                    .is_some_and(|cascade| !cascade.references_attribute(arg));
+            if !(inline_style || irrelevant_attribute) {
+                self.cascade = None;
+            }
         }
         Ok(())
     }
@@ -147,7 +208,7 @@ impl Dom {
         value: &str,
     ) -> Result<String> {
         let version = self.layout_version;
-        self.begin(operation, arg)?;
+        self.begin(operation, handle, arg, value)?;
         if matches!(self.handles.get(handle), Some(Handle::Attribute)) {
             let result = self.attribute_node_call(operation, handle, arg, value)?;
             return self.finish(&result, version);
@@ -409,25 +470,34 @@ impl Dom {
         let success = self.sheets.respond(id, url, response)?;
         self.layout_version = self.layout_version.saturating_add(1);
         self.computed_styles.clear();
+        self.cascade = None;
         Ok(success)
     }
 
-    fn font_faces(&mut self) -> Result<Value> {
+    fn ensure_cascade(&mut self) -> Result<std::rc::Rc<crate::cascade::Cascade>> {
+        if let Some(cascade) = &self.cascade {
+            return Ok(std::rc::Rc::clone(cascade));
+        }
         let base = self.base_href();
         let mut work = crate::layout::Work::new(
             &mut self.operations,
             self.limits.max_dom_operations,
             self.limits.max_layout_nodes,
         );
-        let cascade = crate::cascade::Cascade::collect(
+        let cascade = std::rc::Rc::new(crate::cascade::Cascade::collect(
             &self.document,
             &self.sheets,
             &self.cssom,
             base.as_deref(),
             &self.media,
             &mut work,
-        )?;
-        Ok(serde_json::to_value(cascade.font_faces.values)?)
+        )?);
+        self.cascade = Some(std::rc::Rc::clone(&cascade));
+        Ok(cascade)
+    }
+    fn font_faces(&mut self) -> Result<Value> {
+        let cascade = self.ensure_cascade()?;
+        Ok(serde_json::to_value(&cascade.font_faces.values)?)
     }
 
     fn computed_style(&mut self, handle: usize, operation: &str, name: &str) -> Result<Value> {
@@ -464,25 +534,27 @@ impl Dom {
             }
             if crate::computed_style::property(name) {
                 let id = node.id;
+                let cascade = self.ensure_cascade()?;
+                let node = self
+                    .document
+                    .tree
+                    .get(&id)
+                    .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
                 if !self.computed_styles.contains_key(&id) {
-                    let base = self.base_href();
                     let mut work = crate::layout::Work::new(
                         &mut self.operations,
                         self.limits.max_dom_operations,
                         self.limits.max_layout_nodes,
                     );
                     let values = crate::computed_style::resolve(
-                        &self.document,
                         node,
                         &crate::layout::Sources {
                             scroll: &self.scroll,
                             transitions: &self.transitions,
                             now: self.now,
                             inline: &self.styles,
-                            external: &self.sheets,
-                            constructed: &self.cssom,
+                            cascade: &cascade,
                             fonts: &self.fonts,
-                            base: base.as_deref(),
                         },
                         &self.media,
                         &mut work,
@@ -495,7 +567,6 @@ impl Dom {
                         .get(&id)
                         .is_some_and(|style| style.used_box.is_none())
                 {
-                    let base = self.base_href();
                     let mut work = crate::layout::Work::new(
                         &mut self.operations,
                         self.limits.max_dom_operations,
@@ -509,10 +580,8 @@ impl Dom {
                             transitions: &self.transitions,
                             now: self.now,
                             inline: &self.styles,
-                            external: &self.sheets,
-                            constructed: &self.cssom,
+                            cascade: &cascade,
                             fonts: &self.fonts,
-                            base: base.as_deref(),
                         },
                         &self.media,
                         &mut work,
@@ -639,7 +708,7 @@ impl Dom {
         }
         // Drop an invalidated scene before allocating its replacement.
         self.layout = None;
-        let base = self.base_href();
+        let cascade = self.ensure_cascade()?;
         let mut work = crate::layout::Work::new(
             &mut self.operations,
             self.limits.max_dom_operations,
@@ -652,10 +721,8 @@ impl Dom {
                 transitions: &self.transitions,
                 now: self.now,
                 inline: &self.styles,
-                external: &self.sheets,
-                constructed: &self.cssom,
+                cascade: &cascade,
                 fonts: &self.fonts,
-                base: base.as_deref(),
             },
             &self.media,
             &mut work,
@@ -861,11 +928,7 @@ impl Dom {
     }
 
     fn ensure_window_names(&mut self) -> Result<()> {
-        if self
-            .named
-            .as_ref()
-            .is_some_and(|cache| cache.version == self.layout_version)
-        {
+        if self.named.is_some() {
             return Ok(());
         }
         let mut names: HashMap<String, Vec<NodeId>> = HashMap::new();
@@ -897,10 +960,7 @@ impl Dom {
                 names.entry(name).or_default().push(node.id);
             }
         }
-        self.named = Some(NamedProperties {
-            version: self.layout_version,
-            nodes: names,
-        });
+        self.named = Some(NamedProperties { nodes: names });
         Ok(())
     }
     fn window_named(&mut self, name: &str) -> Result<Value> {
@@ -992,6 +1052,7 @@ impl Dom {
         {
             self.layout_version = self.layout_version.saturating_add(1);
             self.computed_styles.clear();
+            self.cascade = None;
         }
         Ok(output)
     }

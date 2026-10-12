@@ -3,22 +3,28 @@ use std::collections::{HashMap, HashSet};
 
 use dom_query::{Document, NodeId, NodeRef};
 use serde::Serialize;
-use taffy::{Overflow, TaffyError, prelude::*};
+use taffy::{Overflow, Point, TaffyError, prelude::*};
 
 use crate::{
     Error, MediaEnvironment, Result,
     styles::{Declarations, Variables},
 };
 
+mod clamp;
 mod clipping;
+mod grid;
 mod inline;
+mod inline_text;
 mod lengths;
 pub(crate) mod logical;
+mod native_tree;
 pub(crate) mod order;
 mod percentage_padding;
 pub(crate) mod resolved;
+mod static_position;
 pub(crate) mod svg_viewport;
 mod text;
+mod translation;
 
 pub(crate) struct Work<'a> {
     operations: &'a mut usize,
@@ -128,7 +134,7 @@ fn overflow(value: &str) -> Result<Overflow> {
     match value {
         "visible" => Ok(Overflow::Visible),
         "clip" => Ok(Overflow::Clip),
-        "hidden" => Ok(Overflow::Hidden),
+        "hidden" | "auto" => Ok(Overflow::Hidden),
         _ => Err(unsupported("scrolling overflow")),
     }
 }
@@ -152,9 +158,16 @@ pub(crate) fn supports(declarations: &Declarations) -> bool {
         matches!(
             name,
             "color"
+                | "-webkit-box-orient"
+                | "-webkit-line-clamp"
+                | "scroll-margin-top"
+                | "scroll-margin-right"
+                | "scroll-margin-bottom"
+                | "scroll-margin-left"
                 | "background-image"
                 | "background-repeat"
                 | "background-size"
+                | "text-overflow"
                 | "box-shadow"
                 | "opacity"
                 | "font-family"
@@ -173,13 +186,25 @@ pub(crate) fn supports(declarations: &Declarations) -> bool {
     }
     let mut operations = 0;
     let mut work = Work::new(&mut operations, 10_000, 1024);
-    let Ok(fonts) = crate::fonts::Context::new(&MediaEnvironment::default()).compute(
+    let Ok(mut fonts) = crate::fonts::Context::new(&MediaEnvironment::default()).compute(
         declarations,
         false,
         &mut work,
     ) else {
         return false;
     };
+    if declarations
+        .layout_entries()
+        .any(|(_, value, _)| value.contains("ch"))
+    {
+        let Ok(font) = crate::builtin_fonts::select(&format!("{}px serif", fonts.size())) else {
+            return false;
+        };
+        let Ok(width) = crate::font_data::measure(&font, "0", fonts.size()) else {
+            return false;
+        };
+        fonts = fonts.with_zero_advance(width);
+    }
     if crate::borders::Borders::default()
         .compute(declarations, &fonts, &mut work)
         .and_then(|borders| borders.geometry())
@@ -192,25 +217,26 @@ pub(crate) fn supports(declarations: &Declarations) -> bool {
         .root()
         .descendants_it()
         .find(|node| node.has_name("div"))
-        .is_some_and(|node| style(node, declarations).is_ok())
+        .is_some_and(|node| style(node, declarations, &fonts, &mut work).is_ok())
 }
 
-fn style(node: NodeRef<'_>, declarations: &Declarations) -> Result<Style> {
+fn style(
+    node: NodeRef<'_>,
+    declarations: &Declarations,
+    fonts: &crate::fonts::Context,
+    work: &mut Work<'_>,
+) -> Result<Style> {
     let display = crate::display::Computed::default().compute(node, declarations, false, false)?;
-    let mut operations = 0;
-    let mut work = Work::new(&mut operations, 10_000, 1024);
-    let fonts = crate::fonts::Context::new(&MediaEnvironment::default()).compute(
-        declarations,
-        false,
-        &mut work,
-    )?;
-    style_for(node, declarations, false, &display, &fonts, &mut work).map(|(style, _)| style)
+    style_for(node, declarations, false, &display, fonts, work).map(|(style, _)| style)
 }
 
 fn non_layout(name: &str) -> bool {
     crate::transitions::property(name)
         || crate::background_layers::property(name)
         || name.starts_with("text-decoration-")
+        // These only affect legacy box layout or scrollIntoView, neither supported here.
+        || name.starts_with("scroll-margin-")
+        || matches!(name, "-webkit-box-orient" | "-webkit-line-clamp")
         || matches!(
             name,
             "color"
@@ -228,6 +254,7 @@ fn non_layout(name: &str) -> bool {
                 | "background-repeat"
                 | "background-size"
                 // CSS ink overflow does not change boxes or scrollable overflow.
+                | "text-overflow"
                 | "box-shadow"
                 | "opacity"
                 | "z-index"
@@ -265,14 +292,55 @@ fn style_for(
     work: &mut Work<'_>,
 ) -> Result<(Style, Option<svg_viewport::Intrinsic>)> {
     let mut style = initial_style(node, generated)?;
+    if !generated
+        && (node.has_name("p") || node.has_name("ol") || node.has_name("ul") || node.has_name("dl"))
+    {
+        use num_traits::ToPrimitive;
+        let margin = fonts
+            .size()
+            .to_f32()
+            .ok_or_else(|| unsupported("paragraph margin"))?;
+        style.margin.top = LengthPercentageAuto::length(margin);
+        style.margin.bottom = LengthPercentageAuto::length(margin);
+        if node.has_name("ul") || node.has_name("ol") {
+            style.padding.left = LengthPercentage::length(40.0);
+        }
+    }
+    if !generated && node.has_name("dd") {
+        style.margin.left = LengthPercentageAuto::length(40.0);
+    }
     let svg = if generated {
         None
     } else {
         svg_viewport::Intrinsic::apply(node, &mut style, fonts, work)?
+            .or(svg_viewport::Intrinsic::canvas(node, &mut style)?)
     };
-    style.display = display.layout()?;
-    let style = style_properties(node, declarations, generated, fonts, work, style)?;
+    style.display = if clamp::lines(declarations)?.is_some() {
+        Ok(Display::Block)
+    } else {
+        display.layout()
+    }
+    .map_err(|error| match error {
+        Error::Dom(detail) if detail.contains("display formatting") => Error::Dom(format!(
+            "{detail} ({})",
+            node.qual_name_ref()
+                .as_ref()
+                .map_or("unknown", |name| name.local.as_ref())
+        )),
+        other => other,
+    })?;
+    let mut style = style_properties(node, declarations, generated, fonts, work, style)?;
+    if svg.is_some() && !style.size.width.is_auto() && !style.size.height.is_auto() {
+        style.aspect_ratio = None;
+    }
     Ok((style, svg))
+}
+
+fn ignored_property(name: &str, svg: bool) -> bool {
+    name.starts_with("--")
+        || translation::Translation::property(name)
+        || non_layout(name)
+        || (svg && svg_viewport::paint_property(name))
 }
 
 fn style_properties(
@@ -284,6 +352,7 @@ fn style_properties(
     mut style: Style,
 ) -> Result<Style> {
     let svg = svg_viewport::root(node);
+    translation::Translation::parse(declarations, fonts, work)?;
     macro_rules! assign {
         ($field:expr, $value:expr, $name:expr) => {{
             let value = if $value == "0" && !matches!($name, "flex-grow" | "flex-shrink") {
@@ -306,8 +375,7 @@ fn style_properties(
         if name == "visibility" && (deferred || value == "collapse") {
             return Err(unsupported("visibility"));
         }
-        if name.starts_with("--") || non_layout(name) || (svg && svg_viewport::paint_property(name))
-        {
+        if ignored_property(name, svg) {
             continue;
         }
 
@@ -317,7 +385,10 @@ fn style_properties(
         if crate::borders::property(name) || crate::outlines::property(name) {
             continue;
         }
-        if alignment(&mut style, name, value)? {
+        if grid::apply(&mut style, name, value, fonts, work)?
+            || alignment(&mut style, name, value)?
+            || crate::html_boxes::non_layout(name, value)
+        {
             continue;
         }
         // Atomic inline boxes validate vertical-align separately. It does not
@@ -376,13 +447,23 @@ fn style_properties(
             _ => return Err(unsupported_property(name, value)),
         }
     }
-    if svg && !style.size.width.is_auto() && !style.size.height.is_auto() {
-        style.aspect_ratio = None;
-    }
     if !generated {
+        couple_overflow(&mut style, declarations);
         validate_overflow(node, &style)?;
     }
-    position_insets(style, declarations)
+    Ok(position_insets(style, declarations))
+}
+
+fn couple_overflow(style: &mut Style, declarations: &Declarations) {
+    if declarations.value("overflow-x").0 == "auto" || declarations.value("overflow-y").0 == "auto"
+    {
+        if style.overflow.x == Overflow::Visible {
+            style.overflow.x = Overflow::Hidden;
+        }
+        if style.overflow.y == Overflow::Visible {
+            style.overflow.y = Overflow::Hidden;
+        }
+    }
 }
 
 fn alignment(style: &mut Style, name: &str, value: &str) -> Result<bool> {
@@ -430,22 +511,15 @@ fn flow_position(value: &str, generated: bool) -> Result<()> {
     Ok(())
 }
 
-fn position_insets(mut style: Style, declarations: &Declarations) -> Result<Style> {
-    // Static boxes ignore insets. Out-of-flow boxes need explicit coordinates
-    // until CSS static-position rectangles are implemented.
-    if style.position == Position::Absolute {
-        if (style.inset.left.is_auto() && style.inset.right.is_auto())
-            || (style.inset.top.is_auto() && style.inset.bottom.is_auto())
-        {
-            return Err(unsupported("absolute static position"));
-        }
-    } else if !declarations
-        .layout_entries()
-        .any(|(name, value, _)| name == "position" && value == "relative")
+fn position_insets(mut style: Style, declarations: &Declarations) -> Style {
+    if style.position != Position::Absolute
+        && !declarations
+            .layout_entries()
+            .any(|(name, value, _)| name == "position" && value == "relative")
     {
         style.inset = Rect::auto();
     }
-    Ok(style)
+    style
 }
 
 // Empty generated strings create real boxes. Non-empty content requires the
@@ -494,21 +568,83 @@ struct BoxContext {
     sizes: crate::background_size::Sizes,
     layers: crate::background_layers::Layers,
     family: crate::font_family::Family,
+    clamp: Option<u32>,
     display: crate::display::Computed,
     typography: text::Typography,
+    markerless: bool,
+    row_flex: bool,
     order: i32,
 }
 
 impl BoxContext {
+    fn initial(media: &MediaEnvironment) -> Self {
+        Self {
+            fonts: crate::fonts::Context::new(media),
+            borders: crate::borders::Borders::default(),
+            outlines: crate::outlines::Outlines::default(),
+            images: crate::backgrounds::Images::default(),
+            positions: crate::background_position::Positions::default(),
+            repeats: crate::background_repeat::Repeats::default(),
+            sizes: crate::background_size::Sizes::default(),
+            layers: crate::background_layers::Layers::default(),
+            family: crate::font_family::Family::default(),
+            clamp: None,
+            display: crate::display::Computed::default(),
+            typography: text::Typography::default(),
+            markerless: false,
+            row_flex: false,
+            order: 0,
+        }
+    }
+
+    fn markerless(&self, declarations: &Declarations) -> bool {
+        match declarations.value("list-style-type").0.as_str() {
+            "none" => true,
+            "" | "inherit" | "unset" => self.markerless,
+            _ => false,
+        }
+    }
+    fn validate_display(
+        &self,
+        node: NodeRef<'_>,
+        declarations: &Declarations,
+        display: crate::display::Computed,
+    ) -> Result<crate::display::Computed> {
+        if node.has_name("fieldset") && display.contents() {
+            return Ok(display);
+        }
+        let markerless = self.markerless(declarations);
+        crate::html_boxes::validate(
+            node,
+            declarations,
+            display.atomic_container(),
+            markerless,
+            self.row_flex,
+        )?;
+        Ok(if node.has_name("li") && markerless {
+            display.markerless()
+        } else {
+            display
+        })
+    }
     fn compute(
         &self,
         declarations: &Declarations,
         root: bool,
         node: NodeRef<'_>,
         display: crate::display::Computed,
+        arena: &crate::font_data::Arena,
         work: &mut Work<'_>,
     ) -> Result<Self> {
-        let fonts = self.fonts.compute(declarations, root, work)?;
+        let mut fonts = self.fonts.compute(declarations, root, work)?;
+        let family = self.family.compute(declarations, work)?;
+        let typography = self.typography.compute(declarations, node, &fonts, work)?;
+        if declarations
+            .layout_entries()
+            .any(|(_, value, _)| value.contains("ch"))
+        {
+            fonts = fonts.with_zero_advance(typography.zero_advance(&fonts, &family, arena, work)?);
+        }
         let borders = self.borders.compute(declarations, &fonts, work)?;
         let outlines = self.outlines.compute(declarations, &fonts, work)?;
         let images = self.images.compute(declarations, &fonts, work)?;
@@ -521,7 +657,6 @@ impl BoxContext {
             .compute(declarations, images.count(), &fonts, work)?;
         sizes.validate()?;
         let layers = self.layers.compute(declarations, images.count(), work)?;
-        let family = self.family.compute(declarations, work)?;
         Ok(Self {
             fonts,
             borders,
@@ -532,15 +667,30 @@ impl BoxContext {
             sizes,
             layers,
             family,
+            clamp: clamp::lines(declarations)?,
+            row_flex: if display.contents() {
+                self.row_flex
+            } else {
+                display.atomic_container()
+                    && display.layout()? == Display::Flex
+                    && !matches!(
+                        declarations.value("flex-direction").0.as_str(),
+                        "column" | "column-reverse"
+                    )
+            },
             display,
-            typography: self.typography.compute(declarations, node, &fonts, work)?,
+            typography,
+            markerless: self.markerless(declarations),
             order: order::compute(self.order, declarations)?,
         })
     }
 }
 
 struct Tree<'a, 'b> {
-    boxes: TaffyTree<text::Intrinsic>,
+    computed: &'a mut crate::styles::ComputedCache,
+    resolved: HashMap<NodeId, (Declarations, Variables)>,
+    folded_inlines: HashSet<NodeId>,
+    boxes: native_tree::Boxes,
     ids: HashMap<NodeId, taffy::NodeId>,
     positioned: HashSet<NodeId>,
     fixed: HashSet<NodeId>,
@@ -549,6 +699,10 @@ struct Tree<'a, 'b> {
     orders: HashMap<taffy::NodeId, i32>,
     inline_atoms: HashSet<taffy::NodeId>,
     sticky: HashMap<taffy::NodeId, Rect<LengthPercentageAuto>>,
+    translations: HashMap<taffy::NodeId, translation::Translation>,
+    transformed: HashSet<NodeId>,
+    translated_overflow: HashMap<taffy::NodeId, Point<f64>>,
+    automatic_overflow: HashSet<taffy::NodeId>,
     clips: HashMap<taffy::NodeId, clipping::Clip>,
     percentage_padding: Vec<(taffy::NodeId, Rect<LengthPercentage>)>,
     scroll: &'a ScrollState,
@@ -605,8 +759,12 @@ impl Tree<'_, '_> {
             self.containers,
             self.work,
         )?;
-        let (declarations, variables) =
-            declarations.compute_registered(parent, &self.cascade.registrations, self.work)?;
+        let (declarations, variables) = self.computed.compute(
+            &declarations,
+            parent,
+            &self.cascade.registrations,
+            self.work,
+        )?;
         let declarations = self.animate(&declarations, &variables)?;
         if declarations
             .layout_entries()
@@ -630,7 +788,14 @@ impl Tree<'_, '_> {
         if display.contents() {
             return Ok(None);
         }
-        let context = context.compute(&declarations, false, node, display, self.work)?;
+        let context = context.compute(
+            &declarations,
+            false,
+            node,
+            display,
+            &self.fonts.borrow(),
+            self.work,
+        )?;
         let (mut style, _) = style_for(
             node,
             &declarations,
@@ -647,16 +812,56 @@ impl Tree<'_, '_> {
             .map_err(|error| layout_error(&error))?;
         self.remember_padding(id)?;
         self.orders.insert(id, context.order);
+        if let Some(translation) =
+            translation::Translation::parse(&declarations, &context.fonts, self.work)?
+        {
+            self.translations.insert(id, translation);
+        }
         if out_of_flow {
             // The originating element establishes the containing block when positioned.
             // Keep the generated box distinct from its owner in the DOM-to-box map.
             let containing = std::iter::once(node)
                 .chain(node.ancestors_it(None))
-                .find(|ancestor| self.positioned.contains(&ancestor.id))
+                .find(|ancestor| {
+                    self.positioned.contains(&ancestor.id)
+                        || self.transformed.contains(&ancestor.id)
+                })
                 .map(|ancestor| ancestor.id);
             self.out_of_flow.push((id, containing));
         }
         Ok(Some(id))
+    }
+    fn resolve_node(
+        &mut self,
+        node: NodeRef<'_>,
+        parent: &Variables,
+    ) -> Result<(Declarations, Variables)> {
+        if let Some(resolved) = self.resolved.get(&node.id) {
+            return Ok(resolved.clone());
+        }
+        let declarations = if let Some(state) = self.styles.get(&node.id) {
+            state.clone()
+        } else {
+            Declarations::parse(node.null_attribute("style").as_deref().unwrap_or_default())
+                .map_err(|message| Error::Dom(message.into()))?
+        };
+        let declarations =
+            self.cascade
+                .resolve(node, &declarations, None, self.containers, self.work)?;
+        let (declarations, variables) = self.computed.compute(
+            &declarations,
+            parent,
+            &self.cascade.registrations,
+            self.work,
+        )?;
+        let declarations = self.animate(&declarations, &variables)?;
+        let declarations = self
+            .transitions
+            .borrow_mut()
+            .sample(node, declarations, self.now)?;
+        self.resolved
+            .insert(node.id, (declarations.clone(), variables.clone()));
+        Ok((declarations, variables))
     }
     fn build(
         &mut self,
@@ -682,35 +887,33 @@ impl Tree<'_, '_> {
         if non_rendered(node) {
             return Ok(());
         }
-        let declarations = if let Some(state) = self.styles.get(&node.id) {
-            state.clone()
-        } else {
-            Declarations::parse(node.null_attribute("style").as_deref().unwrap_or_default())
-                .map_err(|message| Error::Dom(message.into()))?
-        };
-        let declarations =
-            self.cascade
-                .resolve(node, &declarations, None, self.containers, self.work)?;
-        let (declarations, variables) =
-            declarations.compute_registered(parent, &self.cascade.registrations, self.work)?;
-        let declarations = self.animate(&declarations, &variables)?;
-        let declarations = self
-            .transitions
-            .borrow_mut()
-            .sample(node, declarations, self.now)?;
+        let (declarations, variables) = self.resolve_node(node, parent)?;
         let display = context
             .display
             .compute(node, &declarations, depth == 0, false)?;
         if display.none() {
             return Ok(());
         }
-        let authored_button = node.has_name("button") && display.atomic_container();
-        crate::html_boxes::validate(node, &declarations, authored_button)?;
+        let display = context.validate_display(node, &declarations, display)?;
         if display.contents() {
-            let context = context.compute(&declarations, false, node, display, self.work)?;
+            let context = context.compute(
+                &declarations,
+                false,
+                node,
+                display,
+                &self.fonts.borrow(),
+                self.work,
+            )?;
             return self.children(node, depth, &variables, parent_display, &context, output);
         }
-        let context = context.compute(&declarations, depth == 0, node, display, self.work)?;
+        let context = context.compute(
+            &declarations,
+            depth == 0,
+            node,
+            display,
+            &self.fonts.borrow(),
+            self.work,
+        )?;
         let (mut style, svg) = style_for(
             node,
             &declarations,
@@ -720,53 +923,93 @@ impl Tree<'_, '_> {
             self.work,
         )?;
         style.border = context.borders.geometry()?;
+        if node.has_name("input") {
+            style.item_is_replaced = true;
+        }
         inline::atomic_style(&mut style, &context.display, &declarations)?;
         let fonts = context.fonts;
-        let container =
-            crate::containers::Container::apply(&declarations, &mut style, parent_display, fonts)?;
+        let container = crate::containers::Container::apply(&declarations, &mut style, fonts)?;
         let (position, _) = declarations.value("position");
         let position = defaulted("position", &position);
         let out_of_flow = style.position == Position::Absolute;
-        let containing = if out_of_flow && position != "fixed" {
-            node.ancestors_it(None)
-                .find(|ancestor| self.positioned.contains(&ancestor.id))
-                .map(|ancestor| ancestor.id)
-        } else {
-            None
-        };
-        // display:contents contributes no box; size containers alone do not
-        // establish positioning containing blocks in CSS Conditional Rules 5.
-        if matches!(position, "relative" | "absolute" | "fixed" | "sticky") {
-            self.positioned.insert(node.id);
+        let containing = self.containing_block(node, position, &declarations, &fonts)?;
+        let id = self.build_box(node, depth, &variables, &context, style, svg)?;
+        self.record_box(node.id, id, position, &declarations, &fonts)?;
+        self.remember_inline_item(id, &context);
+        if out_of_flow {
+            if position == "fixed" && containing.is_some() {
+                self.fixed.remove(&node.id);
+            }
+            self.out_of_flow.push((id, containing));
         }
+        if let Some(container) = container {
+            self.boxes.contain(id, container.axes());
+            self.next_containers.insert(node.id, container);
+        }
+        output.push(id);
+        Ok(())
+    }
+    fn validate_automatic_overflow(&self) -> Result<()> {
+        for id in &self.automatic_overflow {
+            let layout = self
+                .boxes
+                .layout(*id)
+                .map_err(|error| layout_error(&error))?;
+            let overflow = self.translated_overflow.get(id).copied().unwrap_or(Point {
+                x: f64::from(layout.scroll_width()),
+                y: f64::from(layout.scroll_height()),
+            });
+            if overflow.x > 0.001 || overflow.y > 0.001 {
+                return Err(unsupported("automatic scrollbar gutters"));
+            }
+        }
+        Ok(())
+    }
+    fn build_box(
+        &mut self,
+        node: NodeRef<'_>,
+        depth: usize,
+        variables: &Variables,
+        context: &BoxContext,
+        mut style: Style,
+        svg: Option<svg_viewport::Intrinsic>,
+    ) -> Result<taffy::NodeId> {
         let id = if let Some(intrinsic) = svg {
-            self.leaf(style, text::Intrinsic::Svg(intrinsic))
-        } else if let Some(run) = self.text_run(node, depth, &variables, style.display, &context)? {
+            self.leaf(style, text::Intrinsic::Replaced(intrinsic))
+        } else if node.has_name("input") {
+            let run = text::Run::strut(
+                &context.typography,
+                context,
+                &self.fonts.borrow(),
+                std::rc::Rc::clone(&self.text_budget),
+            )?;
+            self.leaf(style, text::Intrinsic::Text(run))
+        } else if let Some(run) = self.text_run(node, depth, variables, style.display, context)? {
+            if let Some(lines) = context.clamp {
+                clamp::apply(&mut style, run.line_height(), lines)?;
+            }
             self.leaf(style, text::Intrinsic::Text(run))
         } else {
             let mut children = Vec::new();
             self.children(
                 node,
                 depth,
-                &variables,
+                variables,
                 style.display,
-                &context,
+                context,
                 &mut children,
             )?;
-            self.inline_flow(&mut style, &mut children, &context)?;
+            if context.display.inline_atomic()
+                && style.display == Display::FlowRoot
+                && !children.is_empty()
+            {
+                return Err(unsupported("nested block inline formatting"));
+            }
+            self.inline_flow(&mut style, &mut children, context)?;
             self.boxes.new_with_children(style, &children)
         }
         .map_err(|error| layout_error(&error))?;
-        self.record_box(node.id, id, position, &declarations, &fonts)?;
-        self.remember_inline_item(id, &context);
-        if out_of_flow {
-            self.out_of_flow.push((id, containing));
-        }
-        if let Some(container) = container {
-            self.next_containers.insert(node.id, container);
-        }
-        output.push(id);
-        Ok(())
+        Ok(id)
     }
     fn text_run(
         &mut self,
@@ -776,29 +1019,30 @@ impl Tree<'_, '_> {
         display: Display,
         context: &BoxContext,
     ) -> Result<Option<text::Run>> {
-        if display != Display::Block || node.children_it(false).any(|child| child.is_element()) {
-            return Ok(None);
-        }
-        if !node.children_it(false).any(|child| {
-            child.is_text()
-                && !child
-                    .text()
-                    .trim_matches([' ', '\t', '\n', '\r', '\u{c}'])
-                    .is_empty()
-        }) {
+        if !matches!(display, Display::Block | Display::FlowRoot)
+            || node.children_it(false).any(|child| {
+                child.is_element()
+                    && !non_rendered(child)
+                    && !["span", "a", "label", "abbr"]
+                        .iter()
+                        .any(|name| child.has_name(name))
+            })
+        {
             return Ok(None);
         }
         let mut source = String::new();
-        for child in node.children_it(false) {
-            self.visit(depth.saturating_add(1))?;
-            if child.is_text() {
-                let text = child.text();
-                if source.len().saturating_add(text.len()) > 65_536 {
-                    return Err(Error::Limit("layout text source"));
-                }
-                source.push_str(&text);
-            }
+        let mut folded = Vec::new();
+        if !self.inline_source(node, depth, variables, context, &mut source, &mut folded)? {
+            return Ok(None);
         }
+        if source
+            .trim_matches([' ', '\t', '\n', '\r', '\u{c}'])
+            .is_empty()
+            && !(context.typography.preserves_breaks() && source.contains(['\n', '\r']))
+        {
+            return Ok(None);
+        }
+        self.folded_inlines.extend(folded);
         for kind in [
             crate::cascade::Generated::Before,
             crate::cascade::Generated::After,
@@ -825,6 +1069,40 @@ impl Tree<'_, '_> {
             std::rc::Rc::clone(&self.text_budget),
         )
     }
+    fn containing_block(
+        &mut self,
+        node: NodeRef<'_>,
+        position: &str,
+        declarations: &Declarations,
+        fonts: &crate::fonts::Context,
+    ) -> Result<Option<NodeId>> {
+        let transformed =
+            translation::Translation::parse(declarations, fonts, self.work)?.is_some();
+        if transformed {
+            self.transformed.insert(node.id);
+            self.positioned.insert(node.id);
+        }
+        let containing = if position == "fixed" {
+            node.ancestors_it(None)
+                .find(|ancestor| self.transformed.contains(&ancestor.id))
+                .map(|ancestor| ancestor.id)
+        } else if position == "absolute" {
+            node.ancestors_it(None)
+                .find(|ancestor| {
+                    self.positioned.contains(&ancestor.id)
+                        || self.transformed.contains(&ancestor.id)
+                })
+                .map(|ancestor| ancestor.id)
+        } else {
+            None
+        };
+        // display:contents contributes no box; size containers alone do not
+        // establish positioning containing blocks in CSS Conditional Rules 5.
+        if matches!(position, "relative" | "absolute" | "fixed" | "sticky") {
+            self.positioned.insert(node.id);
+        }
+        Ok(containing)
+    }
     fn record_box(
         &mut self,
         node: NodeId,
@@ -834,6 +1112,15 @@ impl Tree<'_, '_> {
         fonts: &crate::fonts::Context,
     ) -> Result<()> {
         self.remember_padding(id)?;
+        if let Some(translation) = translation::Translation::parse(declarations, fonts, self.work)?
+        {
+            self.translations.insert(id, translation);
+        }
+        if declarations.value("overflow-x").0 == "auto"
+            || declarations.value("overflow-y").0 == "auto"
+        {
+            self.automatic_overflow.insert(id);
+        }
         self.ids.insert(node, id);
         self.box_nodes.insert(id, node);
         let (value, deferred) = declarations.value("clip-path");
@@ -881,6 +1168,7 @@ impl Tree<'_, '_> {
         } else {
             None
         };
+        self.prepare_static_positions(root, viewport, width, height)?;
         for (id, containing) in &self.out_of_flow {
             self.work.charge()?;
             let parent = if let Some(node) = containing {
@@ -891,6 +1179,17 @@ impl Tree<'_, '_> {
             .ok_or_else(|| unsupported("missing positioning containing block"))?;
             if self.boxes.parent(*id) == Some(parent) {
                 continue;
+            }
+            let style = self
+                .boxes
+                .style(*id)
+                .map_err(|error| layout_error(&error))?;
+            if (style.inset.left.is_auto() && style.inset.right.is_auto())
+                || (style.inset.top.is_auto() && style.inset.bottom.is_auto())
+            {
+                return Err(unsupported(
+                    "absolute static position across containing blocks",
+                ));
             }
             if let Some(old) = self.boxes.parent(*id) {
                 self.boxes
@@ -1008,10 +1307,8 @@ pub(crate) struct Sources<'a> {
     pub transitions: &'a std::cell::RefCell<crate::transitions::State>,
     pub now: f64,
     pub inline: &'a HashMap<NodeId, Declarations>,
-    pub external: &'a crate::stylesheets::Sheets,
-    pub constructed: &'a crate::cssom::Arena,
+    pub cascade: &'a crate::cascade::Cascade,
     pub fonts: &'a std::cell::RefCell<crate::font_data::Arena>,
-    pub base: Option<&'a str>,
 }
 
 fn scene<T>(
@@ -1021,14 +1318,7 @@ fn scene<T>(
     work: &mut Work<'_>,
     measure: impl FnOnce(&mut Tree<'_, '_>) -> Result<T>,
 ) -> Result<T> {
-    let cascade = crate::cascade::Cascade::collect(
-        document,
-        styles.external,
-        styles.constructed,
-        styles.base,
-        media,
-        work,
-    )?;
+    let cascade = styles.cascade;
     let root = document
         .root()
         .children_it(false)
@@ -1037,9 +1327,14 @@ fn scene<T>(
     let width = f32::from(u16::try_from(media.width).map_err(|_error| unsupported("viewport"))?);
     let height = f32::from(u16::try_from(media.height).map_err(|_error| unsupported("viewport"))?);
     let mut containers = crate::containers::Snapshot::new();
+    let mut computed = crate::styles::ComputedCache::default();
+    let root_variables = Variables::default();
     for _round in 0..=32 {
         let mut tree = Tree {
-            boxes: TaffyTree::new(),
+            computed: &mut computed,
+            resolved: HashMap::new(),
+            folded_inlines: HashSet::new(),
+            boxes: native_tree::Boxes::new(),
             ids: HashMap::new(),
             positioned: HashSet::new(),
             fixed: HashSet::new(),
@@ -1048,6 +1343,10 @@ fn scene<T>(
             orders: HashMap::new(),
             inline_atoms: HashSet::new(),
             sticky: HashMap::new(),
+            translations: HashMap::new(),
+            transformed: HashSet::new(),
+            translated_overflow: HashMap::new(),
+            automatic_overflow: HashSet::new(),
             clips: HashMap::new(),
             percentage_padding: Vec::new(),
             scroll: styles.scroll,
@@ -1061,7 +1360,7 @@ fn scene<T>(
             },
             styles: styles.inline,
             visited: 0,
-            cascade: &cascade,
+            cascade,
             containers: &containers,
             next_containers: crate::containers::Snapshot::new(),
             work,
@@ -1071,27 +1370,18 @@ fn scene<T>(
         tree.build(
             root,
             0,
-            &Variables::default(),
+            &root_variables,
             Display::Block,
-            &BoxContext {
-                fonts: crate::fonts::Context::new(media),
-                borders: crate::borders::Borders::default(),
-                outlines: crate::outlines::Outlines::default(),
-                images: crate::backgrounds::Images::default(),
-                positions: crate::background_position::Positions::default(),
-                repeats: crate::background_repeat::Repeats::default(),
-                sizes: crate::background_size::Sizes::default(),
-                layers: crate::background_layers::Layers::default(),
-                family: crate::font_family::Family::default(),
-                display: crate::display::Computed::default(),
-                typography: text::Typography::default(),
-                order: 0,
-            },
+            &BoxContext::initial(media),
             &mut root_ids,
         )?;
         if let Some(root_id) = root_ids.first().copied() {
             let root_id = tree.position_boxes(root_id, width, height)?;
             tree.compute_layout(root_id, width, height)?;
+            if !tree.translations.is_empty() {
+                tree.translation_overflow(root_id)?;
+            }
+            tree.validate_automatic_overflow()?;
         }
         for (node, container) in &mut tree.next_containers {
             let id = tree

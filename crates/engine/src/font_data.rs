@@ -3,6 +3,7 @@ use std::{cell::RefCell, rc::Rc};
 use harfrust::{Buffer, Font, ShapeOptions, ShaperFont};
 use rquickjs::{Ctx, Exception, Function, TypedArray};
 use ttf_parser::Face;
+use unicode_segmentation::UnicodeSegmentation;
 
 const INPUT_LIMIT: usize = 1_048_576;
 const TOTAL_LIMIT: usize = 4_194_304;
@@ -214,10 +215,28 @@ pub(crate) fn measure_spaced(
     size: f64,
     spacing: f64,
 ) -> Result<f64, &'static str> {
-    if !text
-        .chars()
-        .all(|ch| matches!(u32::from(ch), 0x20..=0x024f | 0x0300..=0x036f | 0x20ac))
-    {
+    use icu_properties::{
+        CodePointMapData,
+        props::{BidiClass, Script},
+    };
+    let scripts = CodePointMapData::<Script>::new();
+    let bidi = CodePointMapData::<BidiClass>::new();
+    if !text.chars().all(|ch| {
+        matches!(
+            scripts.get(ch),
+            Script::Latin | Script::Common | Script::Inherited
+        ) && matches!(
+            bidi.get(ch),
+            BidiClass::LeftToRight
+                | BidiClass::EuropeanNumber
+                | BidiClass::EuropeanSeparator
+                | BidiClass::EuropeanTerminator
+                | BidiClass::CommonSeparator
+                | BidiClass::OtherNeutral
+                | BidiClass::WhiteSpace
+                | BidiClass::NonspacingMark
+        )
+    }) {
         return Err("unsupported: text script itemization or bidi");
     }
     let mut buffer = Buffer::new();
@@ -250,13 +269,7 @@ pub(crate) fn measure_spaced(
     if spacing == 0.0 {
         return Ok(f64::from(advance) * size / f64::from(units));
     }
-    let count = text
-        .chars()
-        .enumerate()
-        .filter(|(index, character)| {
-            *index == 0 || !matches!(u32::from(*character), 0x0300..=0x036f)
-        })
-        .count();
+    let count = text.graphemes(true).count();
     let count = u32::try_from(count).map_err(|_error| "font character unit limit")?;
     Ok(f64::from(advance) * size / f64::from(units) + f64::from(count) * spacing)
 }
@@ -275,6 +288,14 @@ mod tests {
         .ok_or("font parsing")?;
         assert_eq!(measure(&font, "A B€", 16.0), Ok(37.6));
         assert_eq!(measure(&font, "", 16.0), Ok(0.0));
+        assert_eq!(
+            measure(&font, "—", 16.0),
+            Err("unsupported: font glyph fallback")
+        );
+        assert_eq!(
+            measure(&font, "A\u{202e}B", 16.0),
+            Err("unsupported: text script itemization or bidi")
+        );
         assert_eq!(
             measure(&font, "C", 16.0),
             Err("unsupported: font glyph fallback")

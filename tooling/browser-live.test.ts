@@ -2298,7 +2298,7 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
 );
 
 test.each([
-  ["text shaping", "el.innerHTML='A<span>B</span>';"],
+  ["text shaping", "el.innerHTML='A<span style=\"font-size:20px\">B</span>';"],
   [
     "stylesheet at-rule",
     "const css=document.createElement('style');css.textContent='@scope {div {width: 50px;}}';document.body.appendChild(css);",
@@ -2307,12 +2307,12 @@ test.each([
     "stylesheet sets",
     "const css=document.createElement('link');css.setAttribute('rel','stylesheet');css.setAttribute('title','alternate');document.body.appendChild(css);",
   ],
-  ["transform", "el.style.transform='translateX(10px)';"],
+  ["non-translation transform", "el.style.transform='rotate(10deg)';"],
   ["environment substitution", "el.style.width='env(safe-area-inset-left, 10px)';"],
-  ["absolute static position", "el.style.position='absolute';"],
+  ["fixed static position", "el.style.position='fixed';"],
   ["display formatting", "const child=document.createElement('span');el.appendChild(child);"],
   ["element formatting", "const child=document.createElement('img');el.appendChild(child);"],
-  ["relative query length", "el.style.width='2ch';"],
+  ["relative query length", "el.style.width='2ic';"],
 ])(
   "real HTTP → workerd → Wasm: geometry rejects %s without fictional values",
   async (reason, setup) => {
@@ -2757,9 +2757,9 @@ test.each([
     "intersection registration limit",
   ],
   [
-    "scrolling layout",
-    "new Promise(()=>{const el=document.createElement('div');el.style.cssText='width:20px;height:20px;overflow:auto';document.body.appendChild(el);new IntersectionObserver(()=>{}).observe(el);})",
-    "layout unsupported: scrolling overflow",
+    "automatic scrollbar gutters",
+    "new Promise(()=>{const el=document.createElement('div');el.style.cssText='width:20px;height:20px;overflow:auto';el.innerHTML='<div style=\"width:40px;height:40px\"></div>';document.body.appendChild(el);new IntersectionObserver(()=>{}).observe(el);})",
+    "layout unsupported: automatic scrollbar gutters",
   ],
   [
     "viewport overflow",
@@ -2768,7 +2768,7 @@ test.each([
   ],
   [
     "mixed inline text layout",
-    "new Promise(()=>{const el=document.createElement('div');el.innerHTML='A<span>B</span>';document.body.appendChild(el);new IntersectionObserver(()=>{}).observe(el);})",
+    "new Promise(()=>{const el=document.createElement('div');el.innerHTML='A<span style=\"font-size:20px\">B</span>';document.body.appendChild(el);new IntersectionObserver(()=>{}).observe(el);})",
     "layout unsupported: text shaping",
   ],
 ])(
@@ -3329,7 +3329,7 @@ test.each([
 test("real HTTP → workerd → Wasm: native feature support leaves unsupported capabilities explicit", async () => {
   const url = new URL("geometry-empty", origin.url).href;
   const expression =
-    "['color:red','transform:translateX(1px)','width:var(--x)','selector(div)'].map(query=>CSS.supports(query))";
+    "['color:red','transform:rotate(1deg)','width:var(--x)','selector(div)'].map(query=>CSS.supports(query))";
   const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
     method: "POST",
     headers: { authorization: "Bearer test-secret" },
@@ -3682,21 +3682,6 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
 );
 
 for (const [name, css, reason] of [
-  [
-    "intrinsic inline sizing",
-    ".target{container-type:inline-size}",
-    "container intrinsic size containment",
-  ],
-  [
-    "intrinsic block sizing",
-    ".target{container-type:size;width:100px}",
-    "container intrinsic size containment",
-  ],
-  [
-    "flex intrinsic items",
-    ".parent{display:flex}.target{container-type:inline-size;width:100px}",
-    "container intrinsic item containment",
-  ],
   [
     "style conditions",
     "@container style(--value:test){.target{width:1px}}",
@@ -4329,7 +4314,7 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
 );
 
 test.each([
-  { css: "border:1ch solid", reason: "relative query length" },
+  { css: "border:1ic solid", reason: "relative query length" },
   { css: "border-image-source:url('/image')", reason: "border-image-source" },
   {
     css: "border-inline-start-width:2px",
@@ -4751,7 +4736,7 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
 test.each([
   ["writing-mode:vertical-rl;inline-size:20px", "writing-mode"],
   ["direction:rtl;inline-size:20px", "direction"],
-  ["inline-size:2ch", "relative query length"],
+  ["inline-size:2ic", "relative query length"],
   ["inline-size:inherit", "width"],
 ])(
   "real HTTP → workerd → Wasm: unsupported logical geometry %s fails explicitly",
@@ -5005,7 +4990,7 @@ test.each([
     "relative query length",
   ],
   [
-    "(()=>{document.body.innerHTML='A<span>B</span>';document.body.style.lineHeight='1.5';return document.body.getBoundingClientRect()})()",
+    "(()=>{document.body.innerHTML='A<span style=\"font-size:20px\">B</span>';document.body.style.lineHeight='1.5';return document.body.getBoundingClientRect()})()",
     "text shaping",
   ],
 ])(
@@ -5500,7 +5485,24 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
   },
 );
 
-test.each(["inline", "inline-block", "flow-root", "table-row", "ruby", "list-item"])(
+test.each(["inline-block", "flow-root"])(
+  "real HTTP → workerd → Wasm: computed %s display has native formatting",
+  async (display) => {
+    const url = new URL("display/0", origin.url).href;
+    const expression = `(()=>{document.body.innerHTML='<div></div>';const e=document.body.firstElementChild;e.style.cssText='display:${display};width:23px;height:7px';const r=e.getBoundingClientRect();return {display:getComputedStyle(e).display,support:CSS.supports('display',e.style.display),width:r.width,height:r.height}})()`;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      value: { display, support: true, width: 23, height: 7 },
+    });
+  },
+);
+
+test.each(["inline", "table-row", "ruby", "list-item"])(
   "real HTTP → workerd → Wasm: computed %s display retains explicit unsupported formatting",
   async (display) => {
     const url = new URL("display/0", origin.url).href;
@@ -5802,11 +5804,11 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
 );
 
 test.each([
-  { css: "position:absolute;top:0;width:10px;height:5px", reason: "absolute static position" },
-  { css: "position:fixed;left:0;width:10px;height:5px", reason: "absolute static position" },
+  { css: "position:absolute;top:0;width:10px;height:5px", supported: true },
+  { css: "position:fixed;left:0;width:10px;height:5px", supported: false },
 ])(
-  "real HTTP → workerd → Wasm: positioned boxes reject $css and recover",
-  async ({ css, reason }) => {
+  "real HTTP → workerd → Wasm: positioned static boxes $css and recovery",
+  async ({ css, supported }) => {
     const url = new URL("positioned-boxes/0", origin.url).href;
     const expression = `(()=>{document.body.innerHTML='';const e=document.createElement('div');e.style.cssText=${JSON.stringify(css)};document.body.append(e);return e.getBoundingClientRect().width})()`;
     const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
@@ -5814,8 +5816,13 @@ test.each([
       headers: { authorization: "Bearer test-secret" },
       body: JSON.stringify({ url, expression }),
     });
-    expect(response.status).toBe(422);
-    expect(await response.text()).toContain(reason);
+    if (supported) {
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({ value: 10 });
+    } else {
+      expect(response.status).toBe(422);
+      expect(await response.text()).toContain("fixed static position across containing blocks");
+    }
     const recovered = await worker.dispatchFetch("https://nimbo.test/scrape", {
       method: "POST",
       headers: { authorization: "Bearer test-secret" },
@@ -6540,16 +6547,20 @@ const textLayoutBoundaries = [
     "document.querySelector('div').style.fontStretch='condensed'",
     "text font synthesis or spacing",
   ],
-  ["mixed inline", "document.querySelector('div').innerHTML='A<span>B</span>'", "text shaping"],
+  [
+    "mixed inline fonts",
+    "document.querySelector('div').innerHTML='A<span style=font-size:20px>B</span>'",
+    "text shaping",
+  ],
   [
     "generated box",
     "const s=document.createElement('style');s.textContent='div::before{content:\"\";display:block;width:10px;height:10px}';document.head.append(s)",
     "generated content in text formatting context",
   ],
   [
-    "shape input",
-    "document.querySelector('div').textContent='A'.repeat(1025)",
-    "layout text shaping",
+    "text source",
+    "document.querySelector('div').textContent='A'.repeat(65537)",
+    "layout text source",
   ],
 ] as const;
 
@@ -6879,9 +6890,9 @@ const requestAtomicInline = (expression: string) =>
   });
 test.each([
   [
-    "mixed inline boxes",
-    "const p=document.createElement('section');for(let i=0;i<2;i++){const e=document.createElement('div');e.style.cssText='display:inline-flex;width:20px;height:20px';p.append(e);}document.body.append(p);return p.getBoundingClientRect()",
-    "mixed atomic inline formatting",
+    "text and atomic inline boxes",
+    "const p=document.createElement('section');p.append('A');for(let i=0;i<2;i++){const e=document.createElement('div');e.style.cssText='display:inline-flex;width:20px;height:20px';p.append(e);}document.body.append(p);return p.getBoundingClientRect()",
+    "text shaping",
   ],
   [
     "vertical alignment",
@@ -7025,6 +7036,19 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
   },
 );
 
+test("real HTTP → workerd → Wasm: generated static position contributes scroll geometry", async () => {
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url: new URL("geometry-empty", origin.url).href,
+      expression: `(()=>{const sheet=document.createElement('style');sheet.textContent='#staticGenerated::after{content:"";display:block;position:absolute;width:9px;height:7px}';document.head.append(sheet);const owner=document.createElement('div');owner.id='staticGenerated';owner.style.cssText='position:relative;width:5px;height:4px';document.body.append(owner);return {width:owner.scrollWidth,height:owner.scrollHeight}})()`,
+    }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ value: { width: 9, height: 7 } });
+});
+
 test.each([
   [
     "fixed",
@@ -7036,11 +7060,7 @@ test.each([
     'content:"";display:block;position:sticky;left:0;top:0;width:9px;height:7px',
     "sticky generated boxes",
   ],
-  [
-    "static-position",
-    'content:"";display:block;position:absolute;width:9px;height:7px',
-    "absolute static position",
-  ],
+  ["text", 'content:"sample";display:block;position:absolute;width:9px;height:7px', "text shaping"],
 ])(
   "real HTTP → workerd → Wasm: unsupported generated %s and recovery",
   async (_name, css, reason) => {
@@ -7194,6 +7214,151 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     if (typeof value !== "object" || value === null)
       throw new Error("Missing logical border checks");
     expect(Object.keys(value)).toHaveLength(20);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: explicit grid geometry variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`explicit-grid/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    const body: unknown = await response.json();
+    if (typeof body !== "object" || body === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(body, "value");
+    if (typeof value !== "object" || value === null)
+      throw new Error("Missing explicit grid checks");
+    expect(Object.keys(value)).toHaveLength(23);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: paragraph wrap geometry variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`paragraph-wrap/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    const body: unknown = await response.json();
+    if (typeof body !== "object" || body === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(body, "value");
+    if (typeof value !== "object" || value === null)
+      throw new Error("Missing paragraph wrap checks");
+    expect(Object.keys(value)).toHaveLength(14);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: headings geometry variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`headings/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    const body: unknown = await response.json();
+    if (typeof body !== "object" || body === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(body, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing headings checks");
+    expect(Object.keys(value)).toHaveLength(10);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each([
+  ["grid-template-columns:repeat(257,1px)", "div", "grid track limit"],
+  ["grid-template-columns:[named] 1fr", "div", "named grid lines"],
+  ["grid-template-columns:repeat(auto-fit,20px)", "div", "automatic grid repetition"],
+  ["grid-column:span 257", "div", "overlarge grid placement"],
+  ["", "ol", "list marker"],
+])(
+  "real HTTP → workerd → Wasm: bounded grid/list rejection and recovery %s",
+  async (css, tag, error) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL("geometry-empty", origin.url).href,
+        expression: `(()=>{const n=document.createElement(${JSON.stringify(tag)});n.style.cssText=${JSON.stringify(css)};document.body.append(n);return n.getBoundingClientRect().width})()`,
+      }),
+    });
+    expect(response.status).toBe(422);
+    const body: unknown = await response.json();
+    if (typeof body !== "object" || body === null) throw new Error("Missing rejection");
+    expect(Reflect.get(body, "error")).toContain(error);
+    const recovered = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL("explicit-grid/0", origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(recovered.status).toBe(200);
+    const result: unknown = await recovered.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing recovery");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing geometry checks");
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: translation geometry variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`translation/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    const body: unknown = await response.json();
+    if (typeof body !== "object" || body === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(body, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing translation checks");
+    expect(Object.keys(value)).toHaveLength(19);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: canvas box geometry variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`canvas-box/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    const body: unknown = await response.json();
+    if (typeof body !== "object" || body === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(body, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing canvas box checks");
+    expect(Object.keys(value)).toHaveLength(15);
     expect(Object.values(value).every((check) => check === true)).toBe(true);
   },
 );

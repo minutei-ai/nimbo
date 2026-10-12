@@ -178,10 +178,13 @@ impl<'i> selectors::parser::Parser<'i> for BrowserParser {
         }
     }
 }
+#[derive(PartialEq, Eq)]
 pub(crate) enum Key {
     Id(String),
     Class(String),
     Tag(String),
+    Attribute(String),
+    Any(Vec<Key>),
 }
 
 #[derive(Clone)]
@@ -199,32 +202,41 @@ impl Matcher {
         .map_err(|_error| ())?;
         Ok(Self { list })
     }
-    // A direct predicate in the rightmost compound is necessary for a match.
-    // Functional predicates remain unindexed; indexing their branches could
-    // incorrectly discard valid alternatives or relational matches.
+    // Every positive branch must have a required predicate. Alternatives
+    // contribute a union; negation and relational predicates stay unindexed.
     pub(crate) fn key(&self) -> Option<Key> {
         let [selector] = self.list.slice() else {
             return None;
         };
-        let mut key = None;
-        for component in selector
-            .iter_raw_match_order()
-            .take_while(|component| !component.is_combinator())
-        {
+        selector_key(selector)
+    }
+    pub(crate) fn ancestor_class(&self) -> Option<String> {
+        use selectors::parser::{Combinator, Component};
+        let [selector] = self.list.slice() else {
+            return None;
+        };
+        let mut ancestor = false;
+        for component in selector.iter_raw_match_order() {
             match component {
-                selectors::parser::Component::ID(name) => return Some(Key::Id(name.to_string())),
-                selectors::parser::Component::Class(name)
-                    if !matches!(key, Some(Key::Class(_))) =>
-                {
-                    key = Some(Key::Class(name.to_string()));
+                Component::Combinator(Combinator::Child | Combinator::Descendant) => {
+                    ancestor = true;
                 }
-                selectors::parser::Component::LocalName(name) if key.is_none() => {
-                    key = Some(Key::Tag(name.name.to_string().to_ascii_lowercase()));
-                }
+                Component::Combinator(_) => break,
+                Component::Class(name) if ancestor => return Some(name.to_string()),
                 _ => {}
             }
         }
-        key
+        None
+    }
+    pub(crate) fn attributes(&self) -> std::collections::BTreeSet<String> {
+        let mut attributes = std::collections::BTreeSet::new();
+        for selector in self.list.slice() {
+            attribute_dependencies(selector, &mut attributes);
+        }
+        attributes
+    }
+    pub(crate) fn references_style(&self) -> bool {
+        self.list.slice().iter().any(references_style)
     }
     pub(crate) fn matches(&self, node: NodeRef<'_>) -> bool {
         let mut caches = SelectorCaches::default();
@@ -238,6 +250,137 @@ impl Matcher {
         );
         matches_selector_list(&self.list, &NativeElement(node), &mut context)
     }
+}
+fn attribute_dependencies(
+    selector: &selectors::parser::Selector<NativeImpl>,
+    attributes: &mut std::collections::BTreeSet<String>,
+) {
+    use selectors::parser::Component;
+    for component in selector.iter_raw_match_order() {
+        match component {
+            Component::ID(_) => {
+                attributes.insert("id".into());
+            }
+            Component::Class(_) => {
+                attributes.insert("class".into());
+            }
+            Component::AttributeInNoNamespaceExists {
+                local_name_lower, ..
+            } => {
+                attributes.insert(local_name_lower.to_string());
+            }
+            Component::AttributeInNoNamespace { local_name, .. } => {
+                attributes.insert(local_name.to_string());
+            }
+            Component::AttributeOther(attribute) => {
+                attributes.insert(attribute.local_name_lower.to_string());
+            }
+            Component::NonTSPseudoClass(pseudo)
+                if matches!(
+                    pseudo.0.as_str(),
+                    ":any-link" | ":link" | ":-webkit-any-link" | ":-moz-any-link"
+                ) =>
+            {
+                attributes.insert("href".into());
+            }
+            Component::Is(list) | Component::Where(list) | Component::Negation(list) => {
+                for selector in list.slice() {
+                    attribute_dependencies(selector, attributes);
+                }
+            }
+            Component::Has(list) => {
+                for relative in list {
+                    attribute_dependencies(&relative.selector, attributes);
+                }
+            }
+            Component::NthOf(data) => {
+                for selector in data.selectors() {
+                    attribute_dependencies(selector, attributes);
+                }
+            }
+            Component::Host(Some(selector)) | Component::Slotted(selector) => {
+                attribute_dependencies(selector, attributes);
+            }
+            _ => {}
+        }
+    }
+}
+
+fn references_style(selector: &selectors::parser::Selector<NativeImpl>) -> bool {
+    use selectors::parser::Component;
+    selector
+        .iter_raw_match_order()
+        .any(|component| match component {
+            Component::AttributeInNoNamespaceExists {
+                local_name_lower, ..
+            } => local_name_lower.as_ref() == "style",
+            Component::AttributeInNoNamespace { local_name, .. } => local_name.as_ref() == "style",
+            Component::AttributeOther(attribute) => attribute.local_name_lower.as_ref() == "style",
+            Component::Is(list) | Component::Where(list) | Component::Negation(list) => {
+                list.slice().iter().any(references_style)
+            }
+            Component::Has(list) => list
+                .iter()
+                .any(|relative| references_style(&relative.selector)),
+            Component::NthOf(data) => data.selectors().iter().any(references_style),
+            Component::Host(Some(selector)) | Component::Slotted(selector) => {
+                references_style(selector)
+            }
+            _ => false,
+        })
+}
+impl Key {
+    pub(crate) fn priority(&self) -> u8 {
+        match self {
+            Self::Id(_) => 4,
+            Self::Class(_) => 3,
+            Self::Attribute(_) => 2,
+            Self::Tag(_) => 1,
+            Self::Any(keys) => keys.iter().map(Self::priority).min().unwrap_or(0),
+        }
+    }
+}
+fn selector_key(selector: &selectors::parser::Selector<NativeImpl>) -> Option<Key> {
+    use selectors::parser::Component;
+    let mut key: Option<Key> = None;
+    for component in selector
+        .iter_raw_match_order()
+        .take_while(|component| !component.is_combinator())
+    {
+        let next = match component {
+            Component::ID(name) => Some(Key::Id(name.to_string())),
+            Component::Class(name) => Some(Key::Class(name.to_string())),
+            Component::LocalName(name) => {
+                Some(Key::Tag(name.name.to_string().to_ascii_lowercase()))
+            }
+            Component::AttributeInNoNamespaceExists {
+                local_name_lower, ..
+            } => Some(Key::Attribute(local_name_lower.to_string())),
+            Component::AttributeInNoNamespace { local_name, .. } => {
+                Some(Key::Attribute(local_name.to_string().to_ascii_lowercase()))
+            }
+            Component::AttributeOther(attribute) => {
+                Some(Key::Attribute(attribute.local_name_lower.to_string()))
+            }
+            Component::Is(list) | Component::Where(list) => {
+                let branches = list
+                    .slice()
+                    .iter()
+                    .map(selector_key)
+                    .collect::<Option<Vec<_>>>();
+                branches.filter(|keys| !keys.is_empty()).map(Key::Any)
+            }
+            _ => None,
+        };
+        if let Some(next) = next
+            && key
+                .as_ref()
+                .is_none_or(|key| next.priority() > key.priority())
+        {
+            key = Some(next);
+        }
+    }
+    key
 }
 #[derive(Clone, Copy, Debug)]
 struct NativeElement<'a>(NodeRef<'a>);

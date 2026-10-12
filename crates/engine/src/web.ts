@@ -2198,6 +2198,8 @@
     if (typeof key !== "string" || key.startsWith("--")) return null;
     if (key === "cssFloat") return "float";
     if (key === "webkitTextSizeAdjust") return "text-size-adjust";
+    if (key === "webkitLineClamp") return "-webkit-line-clamp";
+    if (key === "webkitBoxOrient") return "-webkit-box-orient";
     return key.includes("-") ? key : key.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
   }
   function inlineStyle(owner: object, computed = false, rule?: CSSStyleRule): CSSStyleProperties {
@@ -5985,6 +5987,74 @@
     timerTasks++;
     dispatch(node(handle), new Event(success ? "load" : "error"), true);
   };
+  // Stable engine identity matches the native and Worker HTTP transports.
+  // Nimbo has no WebDriver session or shared platform state between pages.
+  const navigatorInstances = new WeakSet<object>();
+  class Navigator {
+    constructor(key: symbol | null = null) {
+      if (key !== internal) throw new TypeError("Illegal constructor");
+      navigatorInstances.add(this);
+    }
+    javaEnabled(): boolean {
+      if (!navigatorInstances.has(this)) throw new TypeError("Illegal invocation");
+      return false;
+    }
+  }
+  const navigatorValues = {
+    userAgent: "Nimbo/0.1",
+    appCodeName: "Mozilla",
+    appName: "Netscape",
+    appVersion: "0.1",
+    platform: "",
+    product: "Gecko",
+    productSub: "20100101",
+    vendor: "",
+    vendorSub: "",
+    language: "en-US",
+    languages: Object.freeze(["en-US"]),
+    onLine: true,
+    hardwareConcurrency: 1,
+    cookieEnabled: true,
+    webdriver: false,
+    pdfViewerEnabled: false,
+  };
+  for (const [name, value] of Object.entries(navigatorValues)) {
+    const getter = function (this: Navigator): unknown {
+      if (!navigatorInstances.has(this)) throw new TypeError("Illegal invocation");
+      return value;
+    };
+    Object.defineProperty(getter, "name", { value: `get ${name}`, configurable: true });
+    Object.defineProperty(Navigator.prototype, name, {
+      get: getter,
+      enumerable: true,
+      configurable: true,
+    });
+  }
+  Object.defineProperty(Navigator.prototype, Symbol.toStringTag, {
+    value: "Navigator",
+    configurable: true,
+  });
+  Object.defineProperty(Navigator.prototype, "javaEnabled", {
+    ...Object.getOwnPropertyDescriptor(Navigator.prototype, "javaEnabled"),
+    enumerable: true,
+  });
+  const navigator = new Navigator(internal);
+  Object.defineProperty(globalThis, "Navigator", {
+    value: Navigator,
+    writable: true,
+    configurable: true,
+  });
+  const navigatorGetter = function (this: unknown): Navigator {
+    if (this !== globalThis) throw new TypeError("Illegal invocation");
+    return navigator;
+  };
+  Object.defineProperty(navigatorGetter, "name", { value: "get navigator", configurable: true });
+  Object.defineProperty(globalThis, "navigator", {
+    get: navigatorGetter,
+    enumerable: true,
+    configurable: true,
+  });
+
   const CSS = {};
   Object.defineProperty(CSS, "supports", {
     enumerable: true,

@@ -1,12 +1,13 @@
 //! Supported non-replaced HTML box categories; special element layout is separate.
+use crate::dom_attributes::NativeAttributes;
 use crate::{Error, Result, styles::Declarations};
 use dom_query::NodeRef;
 
-const BLOCK: [&str; 11] = [
+const BLOCK: [&str; 24] = [
     "html", "body", "div", "main", "section", "article", "aside", "header", "footer", "nav",
-    "hgroup",
+    "hgroup", "p", "ul", "ol", "h1", "h2", "h3", "h4", "h5", "h6", "form", "dl", "dt", "dd",
 ];
-const INLINE: [&str; 6] = ["span", "a", "abbr", "bdi", "data", "time"];
+const INLINE: [&str; 7] = ["span", "a", "abbr", "bdi", "data", "time", "label"];
 
 pub(crate) fn block(node: NodeRef<'_>) -> bool {
     BLOCK.iter().any(|name| node.has_name(name))
@@ -17,6 +18,12 @@ pub(crate) fn appearance(
     display: taffy::Display,
     generated: bool,
 ) -> bool {
+    if !generated
+        && node.has_name("input")
+        && matches!(value, "none" | "auto" | "textfield" | "searchfield")
+    {
+        return true;
+    }
     !generated
         && node.has_name("button")
         && matches!(display, taffy::Display::Flex | taffy::Display::Grid)
@@ -30,10 +37,41 @@ pub(crate) fn validate(
     node: NodeRef<'_>,
     declarations: &Declarations,
     authored_flex_grid: bool,
+    markerless: bool,
+    row_flex: bool,
 ) -> Result<()> {
     // A fully authored flex/grid button uses the author's formatting context.
     // Other native controls and default button rendering remain separate.
-    if node.has_name("button") && authored_flex_grid {
+    if (node.has_name("button") && authored_flex_grid) || node.has_name("input") {
+        if node.has_name("input") {
+            let kind = node.null_attribute("type").unwrap_or_default();
+            let width = declarations.value("width").0;
+            let definite_width = !matches!(width.as_str(), "" | "auto" | "initial" | "unset");
+            let allocated_width = row_flex
+                && matches!(
+                    declarations.value("flex-basis").0.as_str(),
+                    "0" | "0px" | "0%"
+                )
+                && matches!(
+                    declarations.value("min-width").0.as_str(),
+                    "0" | "0px" | "0%"
+                );
+            let text = matches!(
+                kind.to_ascii_lowercase().as_str(),
+                "" | "text" | "search" | "email" | "url" | "tel" | "password"
+            );
+            let sized_toggle = matches!(kind.to_ascii_lowercase().as_str(), "checkbox" | "radio")
+                && definite_width
+                && !matches!(
+                    declarations.value("height").0.as_str(),
+                    "" | "auto" | "initial" | "unset"
+                );
+            if !(text && (definite_width || allocated_width) || sized_toggle) {
+                return Err(Error::Dom(
+                    "layout unsupported: input type or intrinsic width".into(),
+                ));
+            }
+        }
         for name in [
             "font-size",
             "font-family",
@@ -58,13 +96,24 @@ pub(crate) fn validate(
             let (value, _) = declarations.value(name);
             if value.is_empty() || matches!(value.as_str(), "revert" | "revert-layer") {
                 return Err(Error::Dom(format!(
-                    "layout unsupported: button UA default ({name})"
+                    "layout unsupported: {} UA default ({name})",
+                    if node.has_name("button") {
+                        "button"
+                    } else {
+                        "input"
+                    }
                 )));
             }
         }
         return Ok(());
     }
-    if crate::layout::svg_viewport::root(node) {
+    if node.has_name("ol") || node.has_name("ul") || node.has_name("li") {
+        if !(markerless || node.has_name("li") && authored_flex_grid) {
+            return Err(Error::Dom("layout unsupported: list marker".into()));
+        }
+        return Ok(());
+    }
+    if node.has_name("canvas") || crate::layout::svg_viewport::root(node) {
         return Ok(());
     }
     let name = node.qual_name_ref();
@@ -116,4 +165,37 @@ fn custom_name(name: &str) -> bool {
                 | '\u{f900}'..='\u{fdcf}' | '\u{fdf0}'..='\u{fffd}' | '\u{10000}'..='\u{effff}'
             )
         })
+}
+
+/// Authored markerless list paint and wrapping validated by text runs.
+pub(crate) fn non_layout(name: &str, value: &str) -> bool {
+    match name {
+        "text-align" => matches!(value, "left" | "start" | "initial" | "inherit" | "unset"),
+        "overflow-wrap" => matches!(
+            value,
+            "normal" | "break-word" | "anywhere" | "initial" | "unset" | "inherit"
+        ),
+        "list-style-type" | "list-style-image" => matches!(value, "none" | "inherit" | "unset"),
+        "list-style-position" => matches!(value, "inside" | "outside"),
+        _ => false,
+    }
+}
+
+/// Modern HTML heading defaults, before authored declarations.
+pub(crate) fn heading_defaults(node: NodeRef<'_>) -> &'static str {
+    if node.has_name("h1") {
+        "font-size:2em;font-weight:bold;margin-block:.67em"
+    } else if node.has_name("h2") {
+        "font-size:1.5em;font-weight:bold;margin-block:.83em"
+    } else if node.has_name("h3") {
+        "font-size:1.17em;font-weight:bold;margin-block:1em"
+    } else if node.has_name("h4") {
+        "font-size:1em;font-weight:bold;margin-block:1.33em"
+    } else if node.has_name("h5") {
+        "font-size:.83em;font-weight:bold;margin-block:1.67em"
+    } else if node.has_name("h6") {
+        "font-size:.67em;font-weight:bold;margin-block:2.33em"
+    } else {
+        ""
+    }
 }

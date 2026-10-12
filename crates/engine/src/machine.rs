@@ -843,3 +843,134 @@ fn collect_scripts(dom: &Dom, execute_scripts: bool) -> Result<VecDeque<Script>>
     scripts.extend(modules);
     Ok(scripts)
 }
+
+#[cfg(test)]
+mod layout_contracts {
+    use super::{Action, Machine};
+    use crate::{Limits, MediaEnvironment, Result};
+    use std::{fmt::Write as _, sync::Arc};
+
+    fn hot_path(html: &str, expression: &str, operations: usize) -> Result<bool> {
+        let mut machine = Machine::new(
+            html,
+            "https://example.test/",
+            Limits {
+                max_dom_operations: operations,
+                ..Limits::default()
+            },
+            Arc::new(|| false),
+            true,
+            crate::cookies::Session::default(),
+            MediaEnvironment::default(),
+        )?;
+        assert!(matches!(machine.step()?, Action::Ready));
+        machine.evaluate(expression)?;
+        let Action::Result { json } = machine.step()? else {
+            return Err(crate::Error::Dom(
+                "fixture must finish without transport".into(),
+            ));
+        };
+        Ok(json == "true")
+    }
+
+    #[test]
+    fn window_names_survive_visual_mutation_without_rescanning() -> Result<()> {
+        let html = format!(
+            "<!doctype html><body><div id=target></div>{}",
+            "<div></div>".repeat(512)
+        );
+        assert!(hot_path(
+            &html,
+            "(()=>{const e=document.getElementById('target');for(let i=0;i<48;i++){e.style.opacity=String(i/48);if(typeof absentWindowProperty!=='undefined')return false;}e.id='updated';return typeof target==='undefined'&&updated===e})()",
+            4000
+        )?);
+        Ok(())
+    }
+
+    #[test]
+    fn unchanged_namespaced_classes_preserve_layout_budget() -> Result<()> {
+        let html = format!(
+            "<!doctype html><style>.entry{{width:20px;height:10px}}</style><body>{}",
+            "<div class=entry></div>".repeat(48)
+        );
+        assert!(hot_path(
+            &html,
+            "(()=>{const e=document.querySelector('.entry');for(let i=0;i<24;i++){e.className='entry';if(e.getBoundingClientRect().height!==10)return false;}return true})()",
+            4000
+        )?);
+        Ok(())
+    }
+
+    #[test]
+    fn ancestor_selector_index_avoids_unrelated_attribute_rules() -> Result<()> {
+        let mut rules = String::new();
+        for i in 0..80 {
+            write!(rules, ".unused{i}>[data-kind]{{width:1px}}")
+                .map_err(|_| crate::Error::Dom("fixture CSS formatting".into()))?;
+        }
+        let html = format!(
+            "<!doctype html><style>.entry{{width:20px;height:10px}}{rules}</style><body>{}",
+            "<div class=entry data-kind=example></div>".repeat(192)
+        );
+        assert!(hot_path(
+            &html,
+            "document.querySelector('.entry').getBoundingClientRect().width===20",
+            10000
+        )?);
+        Ok(())
+    }
+
+    #[test]
+    fn synthetic_layout_contracts_without_transport() -> Result<()> {
+        let fixtures = [
+            (include_str!("../tests/fixtures/stealth.txt"), 22),
+            (include_str!("../tests/fixtures/inline-block.txt"), 8),
+            (include_str!("../tests/fixtures/static-position.txt"), 11),
+            (include_str!("../tests/fixtures/selector-index.txt"), 17),
+            (include_str!("../tests/fixtures/authored-inputs.txt"), 5),
+            (include_str!("../tests/fixtures/size-containment.txt"), 9),
+            (include_str!("../tests/fixtures/latin-punctuation.txt"), 6),
+            (include_str!("../tests/fixtures/pre-line.txt"), 12),
+            (include_str!("../tests/fixtures/line-clamp.txt"), 6),
+            (include_str!("../tests/fixtures/inline-text.txt"), 6),
+            (include_str!("../tests/fixtures/explicit-grid.txt"), 23),
+            (include_str!("../tests/fixtures/paragraph-wrap.txt"), 14),
+            (include_str!("../tests/fixtures/headings.txt"), 10),
+            (include_str!("../tests/fixtures/translation.txt"), 19),
+            (include_str!("../tests/fixtures/canvas-box.txt"), 15),
+        ];
+        for (source, count) in fixtures {
+            for variant in 0..64 {
+                let html = format!(
+                    "<!doctype html><body><script>globalThis.variant={variant};{source}</script>"
+                );
+                let mut machine = Machine::new(
+                    &html,
+                    "https://example.test/",
+                    Limits::default(),
+                    Arc::new(|| false),
+                    true,
+                    crate::cookies::Session::default(),
+                    MediaEnvironment::default(),
+                )?;
+                assert!(matches!(machine.step()?, Action::Ready));
+                machine.evaluate("globalThis.comparison")?;
+                let Action::Result { json } = machine.step()? else {
+                    return Err(crate::Error::Dom(
+                        "synthetic fixture must finish without transport".into(),
+                    ));
+                };
+                let value: serde_json::Value = serde_json::from_str(&json)
+                    .map_err(|error| crate::Error::Dom(error.to_string()))?;
+                let checks = value
+                    .as_object()
+                    .ok_or_else(|| crate::Error::Dom("fixture checks".into()))?;
+                assert_eq!(checks.len(), count);
+                for (name, passed) in checks {
+                    assert_eq!(passed, true, "variant {variant}: {name}");
+                }
+            }
+        }
+        Ok(())
+    }
+}

@@ -12,25 +12,31 @@ pub(crate) type ScrollState = HashMap<NodeId, Point<f64>>;
 // A completed layout owns only geometry inputs. Cascade/build borrows never
 // escape a scene; DOM invalidation controls reuse of this native snapshot.
 pub(crate) struct Snapshot {
-    boxes: TaffyTree<super::text::Intrinsic>,
+    folded_inlines: HashSet<NodeId>,
+    boxes: super::native_tree::Boxes,
     ids: HashMap<NodeId, taffy::NodeId>,
     positioned: HashSet<NodeId>,
     fixed: HashSet<NodeId>,
     box_nodes: HashMap<taffy::NodeId, NodeId>,
     sticky: HashMap<taffy::NodeId, Rect<LengthPercentageAuto>>,
     clips: HashMap<taffy::NodeId, super::clipping::Clip>,
+    translations: HashMap<taffy::NodeId, super::translation::Translation>,
+    translated_overflow: HashMap<taffy::NodeId, Point<f64>>,
     scroll: ScrollState,
     viewport: Size<f64>,
 }
 
 pub(super) struct View<'a> {
-    pub(super) boxes: &'a TaffyTree<super::text::Intrinsic>,
+    folded_inlines: &'a HashSet<NodeId>,
+    pub(super) boxes: &'a super::native_tree::Boxes,
     pub(super) ids: &'a HashMap<NodeId, taffy::NodeId>,
     positioned: &'a HashSet<NodeId>,
     fixed: &'a HashSet<NodeId>,
     box_nodes: &'a HashMap<taffy::NodeId, NodeId>,
     sticky: &'a HashMap<taffy::NodeId, Rect<LengthPercentageAuto>>,
     pub(super) clips: &'a HashMap<taffy::NodeId, super::clipping::Clip>,
+    translations: &'a HashMap<taffy::NodeId, super::translation::Translation>,
+    translated_overflow: &'a HashMap<taffy::NodeId, Point<f64>>,
     scroll: &'a ScrollState,
     viewport: Size<f64>,
 }
@@ -52,6 +58,7 @@ impl Snapshot {
     }
     fn view(&self) -> View<'_> {
         View {
+            folded_inlines: &self.folded_inlines,
             boxes: &self.boxes,
             ids: &self.ids,
             positioned: &self.positioned,
@@ -59,6 +66,8 @@ impl Snapshot {
             box_nodes: &self.box_nodes,
             sticky: &self.sticky,
             clips: &self.clips,
+            translations: &self.translations,
+            translated_overflow: &self.translated_overflow,
             scroll: &self.scroll,
             viewport: self.viewport,
         }
@@ -75,10 +84,17 @@ impl Snapshot {
 impl View<'_> {
     pub(super) fn rect(&self, target: NodeRef<'_>) -> Result<Bounds> {
         super::svg_viewport::geometry(target)?;
+        self.inline_geometry(target)?;
         let Some(id) = self.ids.get(&target.id) else {
             return Ok(Bounds::default());
         };
         self.native_rect(*id)
+    }
+    fn inline_geometry(&self, target: NodeRef<'_>) -> Result<()> {
+        if self.folded_inlines.contains(&target.id) {
+            return Err(unsupported("inline fragment geometry"));
+        }
+        Ok(())
     }
     pub(super) fn native_rect(&self, id: taffy::NodeId) -> Result<Bounds> {
         self.visual(id).map(|frame| frame.bounds)
@@ -88,6 +104,7 @@ impl View<'_> {
 pub(super) struct Frame {
     pub bounds: Bounds,
     scroll: Point<f64>,
+    translation: Point<f64>,
 }
 
 pub(super) fn insets(
@@ -154,17 +171,24 @@ impl View<'_> {
     fn measured(&self, id: taffy::NodeId) -> Result<&Layout> {
         self.boxes.layout(id).map_err(|error| layout_error(&error))
     }
-    fn maximum(&self, id: taffy::NodeId) -> Result<Point<f64>> {
+    fn overflow(&self, id: taffy::NodeId) -> Result<Point<f64>> {
         let layout = self.measured(id)?;
+        Ok(self.translated_overflow.get(&id).copied().unwrap_or(Point {
+            x: f64::from(layout.scroll_width()),
+            y: f64::from(layout.scroll_height()),
+        }))
+    }
+    fn maximum(&self, id: taffy::NodeId) -> Result<Point<f64>> {
+        let overflow = self.overflow(id)?;
         let style = self.boxes.style(id).map_err(|error| layout_error(&error))?;
         Ok(Point {
             x: if style.overflow.x == Overflow::Hidden {
-                f64::from(layout.scroll_width())
+                overflow.x
             } else {
                 0.0
             },
             y: if style.overflow.y == Overflow::Hidden {
-                f64::from(layout.scroll_height())
+                overflow.y
             } else {
                 0.0
             },
@@ -200,11 +224,13 @@ impl View<'_> {
                     height: f64::from(layout.size.height),
                 },
                 scroll: Point { x: 0.0, y: 0.0 },
+                translation: Point { x: 0.0, y: 0.0 },
             };
             if let Some((parent, previous)) = frames.last() {
                 let offset = self.scroll_offset(*parent)?;
                 frame.bounds.x += previous.bounds.x - offset.x;
                 frame.bounds.y += previous.bounds.y - offset.y;
+                frame.translation = previous.translation;
                 frame.scroll = Point {
                     x: previous.scroll.x + offset.x,
                     y: previous.scroll.y + offset.y,
@@ -212,6 +238,13 @@ impl View<'_> {
                 if let Some(inset) = self.sticky.get(&id) {
                     self.stick(&mut frame.bounds, inset, layout, &frames)?;
                 }
+            }
+            if let Some(translation) = self.translations.get(&id) {
+                let offset = translation.offset(frame.bounds.width, frame.bounds.height)?;
+                frame.bounds.x += offset.x;
+                frame.bounds.y += offset.y;
+                frame.translation.x += offset.x;
+                frame.translation.y += offset.y;
             }
             frames.push((id, frame));
         }
@@ -314,13 +347,16 @@ pub(crate) fn snapshot(
 ) -> Result<Snapshot> {
     scene(document, styles, media, work, |tree| {
         Ok(Snapshot {
-            boxes: std::mem::replace(&mut tree.boxes, TaffyTree::with_capacity(0)),
+            folded_inlines: std::mem::take(&mut tree.folded_inlines),
+            boxes: std::mem::replace(&mut tree.boxes, super::native_tree::Boxes::new()),
             ids: std::mem::take(&mut tree.ids),
             positioned: std::mem::take(&mut tree.positioned),
             fixed: std::mem::take(&mut tree.fixed),
             box_nodes: std::mem::take(&mut tree.box_nodes),
             sticky: std::mem::take(&mut tree.sticky),
             clips: std::mem::take(&mut tree.clips),
+            translations: std::mem::take(&mut tree.translations),
+            translated_overflow: std::mem::take(&mut tree.translated_overflow),
             scroll: tree.scroll.clone(),
             viewport: tree.viewport,
         })
@@ -328,6 +364,7 @@ pub(crate) fn snapshot(
 }
 
 fn measure(tree: &View<'_>, target: NodeRef<'_>) -> Result<Measurement> {
+    tree.inline_geometry(target)?;
     let mut values = json!({ "offsetTop":0,"offsetLeft":0,"offsetWidth":0,"offsetHeight":0,
         "clientTop":0,"clientLeft":0,"clientWidth":0,"clientHeight":0,
         "scrollWidth":0,"scrollHeight":0,"scrollTop":0,"scrollLeft":0 });
@@ -360,8 +397,9 @@ fn measure(tree: &View<'_>, target: NodeRef<'_>) -> Result<Measurement> {
         let frame = tree.visual(*id)?;
         let layout = tree.measured(*id)?;
         Point {
-            x: frame.bounds.x + frame.scroll.x + f64::from(layout.border.left),
-            y: frame.bounds.y + frame.scroll.y + f64::from(layout.border.top),
+            x: frame.bounds.x + frame.scroll.x - frame.translation.x
+                + f64::from(layout.border.left),
+            y: frame.bounds.y + frame.scroll.y - frame.translation.y + f64::from(layout.border.top),
         }
     } else {
         Point { x: 0.0, y: 0.0 }
@@ -371,6 +409,7 @@ fn measure(tree: &View<'_>, target: NodeRef<'_>) -> Result<Measurement> {
         y: f64::from(layout.size.height - layout.border.top - layout.border.bottom),
     };
     let scroll = tree.scroll_offset(*id)?;
+    let overflow = tree.overflow(*id)?;
     let object = values
         .as_object_mut()
         .ok_or_else(|| unsupported("geometry result"))?;
@@ -380,7 +419,7 @@ fn measure(tree: &View<'_>, target: NodeRef<'_>) -> Result<Measurement> {
             if target.has_name("body") {
                 0.0
             } else {
-                frame.bounds.y + frame.scroll.y - origin.y
+                frame.bounds.y + frame.scroll.y - frame.translation.y - origin.y
             },
         ),
         (
@@ -388,7 +427,7 @@ fn measure(tree: &View<'_>, target: NodeRef<'_>) -> Result<Measurement> {
             if target.has_name("body") {
                 0.0
             } else {
-                frame.bounds.x + frame.scroll.x - origin.x
+                frame.bounds.x + frame.scroll.x - frame.translation.x - origin.x
             },
         ),
         ("offsetWidth", frame.bounds.width),
@@ -397,8 +436,8 @@ fn measure(tree: &View<'_>, target: NodeRef<'_>) -> Result<Measurement> {
         ("clientLeft", f64::from(layout.border.left)),
         ("clientWidth", client.x),
         ("clientHeight", client.y),
-        ("scrollWidth", client.x + f64::from(layout.scroll_width())),
-        ("scrollHeight", client.y + f64::from(layout.scroll_height())),
+        ("scrollWidth", client.x + overflow.x),
+        ("scrollHeight", client.y + overflow.y),
     ] {
         object.insert(name.into(), json!(value.round()));
     }
@@ -410,4 +449,65 @@ fn measure(tree: &View<'_>, target: NodeRef<'_>) -> Result<Measurement> {
         scroll,
         maximum: tree.maximum(*id)?,
     })
+}
+
+impl super::Tree<'_, '_> {
+    pub(super) fn translation_overflow(&mut self, id: taffy::NodeId) -> Result<Point<f64>> {
+        self.work.charge()?;
+        let layout = *self
+            .boxes
+            .layout(id)
+            .map_err(|error| layout_error(&error))?;
+        let mut extent = Point {
+            x: f64::from(layout.scrollable_overflow_rect.right),
+            y: f64::from(layout.scrollable_overflow_rect.bottom),
+        };
+        for child in self
+            .boxes
+            .children(id)
+            .map_err(|error| layout_error(&error))?
+        {
+            let child_extent = self.translation_overflow(child)?;
+            let child_layout = self
+                .boxes
+                .layout(child)
+                .map_err(|error| layout_error(&error))?;
+            let offset = self
+                .translations
+                .get(&child)
+                .copied()
+                .unwrap_or_default()
+                .offset(
+                    f64::from(child_layout.size.width),
+                    f64::from(child_layout.size.height),
+                )?;
+            extent.x = extent
+                .x
+                .max(f64::from(child_layout.location.x) + child_extent.x + offset.x);
+            extent.y = extent
+                .y
+                .max(f64::from(child_layout.location.y) + child_extent.y + offset.y);
+        }
+        let overflow = Point {
+            x: (extent.x - f64::from(layout.size.width - layout.border.left - layout.border.right))
+                .max(0.0),
+            y: (extent.y
+                - f64::from(layout.size.height - layout.border.top - layout.border.bottom))
+            .max(0.0),
+        };
+        self.translated_overflow.insert(id, overflow);
+        let style = self.boxes.style(id).map_err(|error| layout_error(&error))?;
+        Ok(Point {
+            x: if style.overflow.x == Overflow::Visible {
+                extent.x.max(f64::from(layout.size.width))
+            } else {
+                f64::from(layout.size.width)
+            },
+            y: if style.overflow.y == Overflow::Visible {
+                extent.y.max(f64::from(layout.size.height))
+            } else {
+                f64::from(layout.size.height)
+            },
+        })
+    }
 }

@@ -1,0 +1,28 @@
+globalThis.comparison=(()=>{
+ const checks={},n=navigator,p=Navigator.prototype,desc=Object.getOwnPropertyDescriptor(p,'userAgent');
+ const throws=f=>{try{f();return false}catch(e){return e instanceof TypeError}};
+ checks.navigatorBrand=n instanceof Navigator&&Object.getPrototypeOf(n)===p&&Object.prototype.toString.call(n)==='[object Navigator]';
+ checks.navigatorConstructor=throws(()=>new Navigator());
+ checks.navigatorGlobalReceiver=throws(()=>Object.getOwnPropertyDescriptor(window,'navigator').get.call({}));
+ checks.navigatorArity=Navigator.length===0&&desc.get.length===0&&desc.get.name==='get userAgent'&&n.javaEnabled.length===0;
+ checks.navigatorSingleton=n===window.navigator&&n===self.navigator;
+ checks.webdriverType=typeof n.webdriver==='boolean'&&!Object.hasOwn(n,'webdriver');
+ checks.identity=typeof n.userAgent==='string'&&n.userAgent.length>0&&typeof n.appVersion==='string'&&n.appName==='Netscape'&&n.product==='Gecko';
+ checks.languages=Array.isArray(n.languages)&&Object.isFrozen(n.languages)&&n.languages.length>0&&n.languages[0]===n.language&&n.languages===n.languages;
+ checks.concurrency=Number.isInteger(n.hardwareConcurrency)&&n.hardwareConcurrency>=1;
+ checks.navigatorDescriptor=!!desc&&typeof desc.get==='function'&&desc.set===undefined&&desc.enumerable&&desc.configurable;
+ checks.navigatorReceiver=throws(()=>desc.get.call({}))&&throws(()=>desc.get.call(p));
+ checks.navigatorReadonly=(()=>{'use strict';return throws(()=>{n.userAgent='changed'})&&n.userAgent.length>0})();
+ checks.noBridges=['nimboDom','nimboRequest','nimboStorage','nimboCookie','nimboMedia','nimboEncode','nimboDecoder','nimboLink','nimboCanvas','nimboCanvasPut','nimboFontData','nimboFontMeasure','nimboFontMeta','nimboFontMatch','nimboMediaEnvironment','nimboUrl','nimboNow','nimboTimerLimit','nimboTimerTaskLimit'].every(key=>!Reflect.ownKeys(globalThis).includes(key));
+ checks.noDriverArtifacts=['__webdriver_script_fn','__webdriver_evaluate','__selenium_evaluate','__driver_evaluate','callPhantom','_phantom'].every(key=>!(key in globalThis));
+ checks.windowIdentity=window===self&&window===globalThis&&window instanceof Window&&Object.prototype.toString.call(window)==='[object Window]';
+ const element=document.createElement('a');element.id='probe'+Number(globalThis.variant||0);document.body.append(element);
+ checks.nodeIdentity=document.getElementById(element.id)===element&&element.ownerDocument===document&&element instanceof HTMLElement;
+ checks.domBrands=Object.prototype.toString.call(element)==='[object HTMLAnchorElement]'&&document instanceof Document;
+ checks.events=(()=>{const event=new Event('probe');element.dispatchEvent(event);return !event.isTrusted&&event.target===element})();
+ checks.nativeFunctionSource=/\[native code\]/.test(Function.prototype.toString.call(Object.prototype.toString));
+ checks.functionSourceIntegrity=Function.prototype.toString.call(function example(){return 7}).includes('return 7');
+ checks.noHostRuntime=['process','require','Bun','Deno'].every(key=>typeof globalThis[key]==='undefined');
+ checks.clock=Number.isFinite(performance.timeOrigin)&&performance.now()>=0;
+ element.remove();return checks;
+})();

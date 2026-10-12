@@ -1,4 +1,4 @@
-//! A bounded native line box containing exactly one atomic inline flex box.
+//! Native atomic inline boxes arranged in baseline-aligned line boxes.
 use super::{BoxContext, Tree, layout_error, text, unsupported};
 use crate::{Result, styles::Declarations};
 use taffy::{TaffyError, prelude::*};
@@ -37,6 +37,13 @@ impl Tree<'_, '_> {
         self.orders.insert(id, context.order);
         if context.display.inline_atomic() {
             self.inline_atoms.insert(id);
+            if context
+                .display
+                .layout()
+                .is_ok_and(|display| display == Display::FlowRoot)
+            {
+                self.boxes.inline_block(id);
+            }
         }
     }
     pub(super) fn leaf(
@@ -55,33 +62,65 @@ impl Tree<'_, '_> {
         if !children.iter().any(|id| self.inline_atoms.contains(id)) {
             return Ok(());
         }
-        if style.display != Display::Block || children.len() != 1 {
+        if !matches!(style.display, Display::Block | Display::FlowRoot)
+            || children.iter().any(|id| !self.inline_atoms.contains(id))
+        {
             return Err(unsupported("mixed atomic inline formatting"));
         }
-        self.work.charge()?;
+        let multiple = children.len() > 1;
+        if multiple {
+            let mut groups = Vec::new();
+            for atom in children.iter().copied() {
+                let strut = self.inline_strut(context)?;
+                self.visit(0)?;
+                let group = self
+                    .boxes
+                    .new_with_children(
+                        Style {
+                            display: Display::Flex,
+                            align_items: Some(AlignItems::BASELINE),
+                            flex_grow: 0.0,
+                            flex_shrink: 1.0,
+                            ..Style::default()
+                        },
+                        &[strut, atom],
+                    )
+                    .map_err(|error| layout_error(&error))?;
+                groups.push(group);
+            }
+            *children = groups;
+        } else {
+            children.insert(0, self.inline_strut(context)?);
+        }
+        style.display = Display::Flex;
+        style.flex_direction = FlexDirection::Row;
+        style.flex_wrap = if multiple {
+            FlexWrap::Wrap
+        } else {
+            FlexWrap::NoWrap
+        };
+        style.align_content = Some(AlignContent::START);
+        style.align_items = Some(AlignItems::BASELINE);
+        style.justify_content = Some(JustifyContent::START);
+        style.gap = Size::ZERO.map(LengthPercentage::length);
+        Ok(())
+    }
+    fn inline_strut(&mut self, context: &BoxContext) -> Result<NodeId> {
+        self.visit(0)?;
         let run = text::Run::strut(
             &context.typography,
             context,
             &self.fonts.borrow(),
             std::rc::Rc::clone(&self.text_budget),
         )?;
-        let strut = self
-            .leaf(
-                Style {
-                    display: Display::Block,
-                    flex_shrink: 0.0,
-                    ..Style::default()
-                },
-                text::Intrinsic::Text(run),
-            )
-            .map_err(|error| layout_error(&error))?;
-        children.insert(0, strut);
-        style.display = Display::Flex;
-        style.flex_direction = FlexDirection::Row;
-        style.flex_wrap = FlexWrap::NoWrap;
-        style.align_items = Some(AlignItems::BASELINE);
-        style.justify_content = Some(JustifyContent::START);
-        style.gap = Size::ZERO.map(LengthPercentage::length);
-        Ok(())
+        self.leaf(
+            Style {
+                display: Display::Block,
+                flex_shrink: 0.0,
+                ..Style::default()
+            },
+            text::Intrinsic::Text(run),
+        )
+        .map_err(|error| layout_error(&error))
     }
 }

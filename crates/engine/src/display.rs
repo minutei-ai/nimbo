@@ -27,12 +27,23 @@ fn ua(node: NodeRef<'_>, generated: bool) -> Display {
     if generated {
         return initial();
     }
-    if node.null_attribute("hidden").is_some()
+    if (node.has_name("input")
+        && node
+            .null_attribute("type")
+            .is_some_and(|value| value.eq_ignore_ascii_case("hidden")))
+        || node.null_attribute("hidden").is_some()
         || ["head", "script", "style", "link", "meta", "title"]
             .iter()
             .any(|name| node.has_name(name))
     {
         return Display::Keyword(DisplayKeyword::None);
+    }
+    if node.has_name("li") {
+        let mut value = flow();
+        if let Display::Pair(pair) = &mut value {
+            pair.is_list_item = true;
+        }
+        return value;
     }
     if crate::html_boxes::block(node) {
         flow()
@@ -96,6 +107,17 @@ impl Computed {
             "inherit" => self.value.clone(),
             _ => Display::parse_string(&value).map_err(|_error| unsupported())?,
         };
+        if declarations.value("-webkit-box-orient").0 == "vertical"
+            && declarations
+                .value("-webkit-line-clamp")
+                .0
+                .parse::<u32>()
+                .is_ok_and(|count| count > 0)
+            && let Display::Pair(pair) = &mut value
+            && matches!(pair.inside, DisplayInside::Box(VendorPrefix::WebKit))
+        {
+            pair.inside = DisplayInside::FlowRoot;
+        }
         let (position, _) = declarations.value("position");
         let (float, _) = declarations.value("float");
         if root
@@ -126,10 +148,16 @@ impl Computed {
         matches!(self.value, Display::Keyword(DisplayKeyword::Contents))
     }
     pub(crate) fn inline_atomic(&self) -> bool {
-        matches!(&self.value, Display::Pair(pair) if pair.outside == DisplayOutside::Inline && !pair.is_list_item && matches!(pair.inside, DisplayInside::Flex(VendorPrefix::None)))
+        matches!(&self.value, Display::Pair(pair) if pair.outside == DisplayOutside::Inline && !pair.is_list_item && matches!(pair.inside, DisplayInside::Flex(VendorPrefix::None) | DisplayInside::FlowRoot))
     }
     pub(crate) fn atomic_container(&self) -> bool {
         matches!(&self.value, Display::Pair(pair) if matches!(pair.inside, DisplayInside::Flex(VendorPrefix::None) | DisplayInside::Grid))
+    }
+    pub(crate) fn markerless(mut self) -> Self {
+        if let Display::Pair(pair) = &mut self.value {
+            pair.is_list_item = false;
+        }
+        self
     }
     pub(crate) fn layout(&self) -> Result<taffy::Display> {
         match &self.value {
@@ -140,6 +168,7 @@ impl Computed {
             {
                 match pair.inside {
                     DisplayInside::Flow => Ok(taffy::Display::Block),
+                    DisplayInside::FlowRoot => Ok(taffy::Display::FlowRoot),
                     DisplayInside::Flex(VendorPrefix::None) => Ok(taffy::Display::Flex),
                     DisplayInside::Grid => Ok(taffy::Display::Grid),
                     _ => Err(Error::Dom(format!(

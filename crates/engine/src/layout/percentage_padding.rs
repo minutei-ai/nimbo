@@ -22,28 +22,13 @@ impl Tree<'_, '_> {
 
     pub(super) fn compute_layout(&mut self, root: NodeId, width: f32, height: f32) -> Result<()> {
         for _round in 0..=32 {
-            self.boxes
-                .compute_layout_with_measure(
-                    root,
-                    Size {
-                        width: AvailableSpace::Definite(width),
-                        height: AvailableSpace::Definite(height),
-                    },
-                    |inputs, _, context, style| {
-                        context.as_ref().map_or_else(
-                            || {
-                                taffy::compute::compute_leaf_layout(
-                                    inputs,
-                                    style,
-                                    |_, _| 0.0,
-                                    |_, _| Size::ZERO,
-                                )
-                            },
-                            |intrinsic| intrinsic.layout(inputs, style),
-                        )
-                    },
-                )
-                .map_err(|error| layout_error(&error))?;
+            self.boxes.compute(
+                root,
+                Size {
+                    width: AvailableSpace::Definite(width),
+                    height: AvailableSpace::Definite(height),
+                },
+            );
             self.text_budget.check()?;
             let mut changed = false;
             for (id, original) in &self.percentage_padding {

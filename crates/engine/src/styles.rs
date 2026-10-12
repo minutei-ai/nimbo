@@ -17,28 +17,28 @@ const ENTRY_LIMIT: usize = 1024;
 const DEPTH_LIMIT: usize = 32;
 
 mod computed;
-pub(crate) use computed::Variables;
+pub(crate) use computed::{ComputedCache, Variables};
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct Pending {
     name: String,
     value: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 enum PositionOrigin {
     Axis,
     Shorthand,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 enum SampleOrigin {
     Declaration,
     Animation,
     Transition,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
 struct Entry {
     name: String,
     value: String,
@@ -74,7 +74,7 @@ impl Entry {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, PartialEq, Eq, Hash)]
 pub(crate) struct Declarations {
     entries: Vec<Entry>,
     shorthands: Vec<String>,
@@ -213,6 +213,7 @@ pub(crate) fn known_name(name: &str) -> bool {
             | "outline-offset"
             | "font-feature-settings"
             | "font-variation-settings"
+            | "-webkit-line-clamp"
     ) || !matches!(PropertyId::from(name), PropertyId::Custom(_))
 }
 
@@ -424,6 +425,14 @@ fn native_property(name: &str, value: &str, important: bool) -> Option<Vec<Entry
         "tab-size" => crate::tabs::specified(value)?,
         "z-index" => crate::z_index::specified(value)?,
         "line-height" => crate::line_height::specified(value)?,
+        "-webkit-line-clamp" => {
+            if value == "none" {
+                value.to_owned()
+            } else {
+                let count = value.parse::<u32>().ok().filter(|count| *count > 0)?;
+                count.to_string()
+            }
+        }
         "font-feature-settings" | "font-variation-settings" => {
             crate::font_settings::specified(name, value)?
         }
@@ -456,6 +465,7 @@ fn native_declaration(name: &str, value: &str) -> bool {
                 | "font-family"
                 | "font-feature-settings"
                 | "font-variation-settings"
+                | "-webkit-line-clamp"
                 | "display"
                 | "background-image"
                 | "background-color"
@@ -664,6 +674,21 @@ impl Declarations {
             entries: ordered.into_iter().map(|(_rank, entry)| entry).collect(),
             shorthands: Vec::new(),
         })
+    }
+    pub(crate) fn defaults(mut self, source: &str) -> Result<Self, &'static str> {
+        if source.is_empty() {
+            return Ok(self);
+        }
+        let mut defaults = Self::parse(source)?.entries;
+        defaults.retain(|entry| {
+            !self
+                .entries
+                .iter()
+                .any(|authored| authored.name == entry.name)
+        });
+        defaults.append(&mut self.entries);
+        self.entries = defaults;
+        Ok(self)
     }
     pub(crate) fn layout_entries(&self) -> impl Iterator<Item = (&str, &str, bool)> {
         self.entries

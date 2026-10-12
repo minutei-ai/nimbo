@@ -1,0 +1,7 @@
+globalThis.comparison=(()=>{
+ const checks={},v=Number(globalThis.variant)||0,near=(a,b)=>Math.abs(a-b)<.1;
+ const sheet=document.createElement('style');sheet.textContent='html,body{margin:0;padding:0}div{font:16px/20px '+(globalThis.contractFontFamily||'monospace')+';width:fit-content;white-space:nowrap;margin:0;padding:0;border:0}';document.head.append(sheet);
+ const measure=text=>{const n=document.createElement('div');n.textContent=text;document.body.append(n);const w=n.getBoundingClientRect().width;n.remove();return w;};
+ const advance=measure('A'.repeat(256))/256;for(const [name,text] of [['emDash','A—B'],['enDash','A–B'],['quotes','“AB”'],['ellipsis','A…B'],['triangle','A▼B']])checks[name]=near(measure(text),advance*text.length);
+ const text='A—“B”…'.repeat(1+v);checks.repeated=near(measure(text),advance*text.length);sheet.remove();return checks;
+})();

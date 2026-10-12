@@ -283,10 +283,12 @@ impl Query {
     }
 }
 impl Container {
+    pub(crate) fn axes(&self) -> u8 {
+        self.axes
+    }
     pub(crate) fn apply(
         declarations: &Declarations,
         style: &mut Style,
-        parent_display: Display,
         fonts: crate::fonts::Context,
     ) -> Result<Option<Self>> {
         let (kind, _) = declarations.value("container-type");
@@ -316,18 +318,6 @@ impl Container {
             return Ok(None);
         }
         if axes > 0 {
-            // Taffy's current containment handles formatting contexts, but not
-            // intrinsic size suppression. Reject dependent sizing until that
-            // missing algorithm is integrated, rather than measuring children
-            // as if they contributed to a size-contained box.
-            if style.size.width.into_option().is_none()
-                || (axes == 3 && style.size.height.into_option().is_none())
-            {
-                return Err(unsupported("intrinsic size containment"));
-            }
-            if matches!(parent_display, Display::Flex | Display::Grid) {
-                return Err(unsupported("intrinsic item containment"));
-            }
             style.contain = taffy::Contain::LAYOUT;
         }
         Ok(Some(Self {

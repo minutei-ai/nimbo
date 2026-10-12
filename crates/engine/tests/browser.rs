@@ -219,6 +219,30 @@ fn serve_cookies(request: Request) -> io::Result<()> {
     respond(request, body, 200, "text/html; charset=utf-8", headers)
 }
 
+fn serve_stealth(request: Request) -> io::Result<()> {
+    let agent = request
+        .headers()
+        .iter()
+        .find(|header| header.field.equiv("User-Agent"))
+        .map_or("", |header| header.value.as_str())
+        .to_owned();
+    if request.url() == "/stealth-echo" {
+        return respond(
+            request,
+            json!({"userAgent":agent}).to_string(),
+            200,
+            "application/json",
+            Vec::new(),
+        );
+    }
+    let body = format!(
+        "<!doctype html><body><script>globalThis.httpAgent={};{}</script>",
+        json!(agent),
+        include_str!("fixtures/stealth.txt")
+    );
+    respond(request, body, 200, "text/html; charset=utf-8", Vec::new())
+}
+
 fn serve(mut request: Request) -> io::Result<()> {
     if is_resource(request.url()) {
         return serve_resource(request);
@@ -1444,6 +1468,9 @@ fn is_logical_spacing_resource(path: &str) -> bool {
 }
 
 fn serve_resource(request: Request) -> io::Result<()> {
+    if matches!(request.url(), "/stealth" | "/stealth-echo") {
+        return serve_stealth(request);
+    }
     if is_logical_spacing_resource(request.url()) {
         return serve_logical_spacing(request);
     }
@@ -1561,6 +1588,11 @@ fn serve_remaining_resource(request: Request) -> io::Result<()> {
         || request.url().starts_with("/text-transform/")
         || request.url().starts_with("/adjacent-element/")
         || request.url().starts_with("/logical-borders/")
+        || request.url().starts_with("/explicit-grid/")
+        || request.url().starts_with("/paragraph-wrap/")
+        || request.url().starts_with("/headings/")
+        || request.url().starts_with("/translation/")
+        || request.url().starts_with("/canvas-box/")
         || request.url().starts_with("/box-shadow-geometry/")
         || request.url().starts_with("/public-font-assets/")
         || request.url().starts_with("/font-shaping/")
@@ -1683,6 +1715,9 @@ fn binary_font_data_parses_real_bytes_and_tracks_status() -> TestResult {
 }
 
 fn is_resource(path: &str) -> bool {
+    if matches!(path, "/stealth" | "/stealth-echo") {
+        return true;
+    }
     if is_cookie_resource(path) {
         return true;
     }
@@ -1741,6 +1776,11 @@ fn is_resource(path: &str) -> bool {
             "/text-transform/",
             "/adjacent-element/",
             "/logical-borders/",
+            "/explicit-grid/",
+            "/paragraph-wrap/",
+            "/headings/",
+            "/translation/",
+            "/canvas-box/",
             "/box-shadow-geometry/",
             "/public-font-assets/",
             "/font-shaping/",
@@ -1807,6 +1847,46 @@ fn serve_adjacent_element_fixture(request: Request, variant: &str) -> io::Result
     )).with_header(header("Content-Type", "text/html")?))
 }
 
+fn serve_canvas_box_fixture(request: Request, variant: &str) -> io::Result<()> {
+    let variant = variant.parse::<usize>().unwrap_or_default();
+    request.respond(Response::from_data(format!(
+        "<!doctype html><meta charset=utf-8><body><script>globalThis.variant={variant};{}</script>",
+        include_str!("fixtures/canvas-box.txt")
+    )).with_header(header("Content-Type", "text/html")?))
+}
+
+fn serve_translation_fixture(request: Request, variant: &str) -> io::Result<()> {
+    let variant = variant.parse::<usize>().unwrap_or_default();
+    request.respond(Response::from_data(format!(
+        "<!doctype html><meta charset=utf-8><body><script>globalThis.variant={variant};{}</script>",
+        include_str!("fixtures/translation.txt")
+    )).with_header(header("Content-Type", "text/html")?))
+}
+
+fn serve_headings_fixture(request: Request, variant: &str) -> io::Result<()> {
+    let variant = variant.parse::<usize>().unwrap_or_default();
+    request.respond(Response::from_data(format!(
+        "<!doctype html><meta charset=utf-8><body><script>globalThis.variant={variant};{}</script>",
+        include_str!("fixtures/headings.txt")
+    )).with_header(header("Content-Type", "text/html")?))
+}
+
+fn serve_paragraph_fixture(request: Request, variant: &str) -> io::Result<()> {
+    let variant = variant.parse::<usize>().unwrap_or_default();
+    request.respond(Response::from_data(format!(
+        "<!doctype html><meta charset=utf-8><body><script>globalThis.variant={variant};{}</script>",
+        include_str!("fixtures/paragraph-wrap.txt")
+    )).with_header(header("Content-Type", "text/html")?))
+}
+
+fn serve_grid_fixture(request: Request, variant: &str) -> io::Result<()> {
+    let variant = variant.parse::<usize>().unwrap_or_default();
+    request.respond(Response::from_data(format!(
+        "<!doctype html><meta charset=utf-8><body><script>globalThis.variant={variant};{}</script>",
+        include_str!("fixtures/explicit-grid.txt")
+    )).with_header(header("Content-Type", "text/html")?))
+}
+
 fn serve_logical_borders_fixture(request: Request, variant: &str) -> io::Result<()> {
     let variant = variant.parse::<usize>().unwrap_or_default();
     request.respond(Response::from_data(format!(
@@ -1852,6 +1932,21 @@ fn serve_fonts(request: Request) -> io::Result<()> {
     }
     if let Some(variant) = path.strip_prefix("/clip-geometry/") {
         return serve_clip_fixture(request, variant);
+    }
+    if let Some(variant) = path.strip_prefix("/canvas-box/") {
+        return serve_canvas_box_fixture(request, variant);
+    }
+    if let Some(variant) = path.strip_prefix("/translation/") {
+        return serve_translation_fixture(request, variant);
+    }
+    if let Some(variant) = path.strip_prefix("/headings/") {
+        return serve_headings_fixture(request, variant);
+    }
+    if let Some(variant) = path.strip_prefix("/paragraph-wrap/") {
+        return serve_paragraph_fixture(request, variant);
+    }
+    if let Some(variant) = path.strip_prefix("/explicit-grid/") {
+        return serve_grid_fixture(request, variant);
     }
     if let Some(variant) = path.strip_prefix("/logical-borders/") {
         return serve_logical_borders_fixture(request, variant);
@@ -3957,6 +4052,110 @@ fn logical_borders_resolve_to_physical_geometry() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
+    }
+    Ok(())
+}
+
+#[test]
+fn explicit_grid_and_authored_lists_geometry() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/explicit-grid/{variant}")))?;
+        let result = page.evaluate("globalThis.comparison")?;
+        let fields = result.as_object().ok_or("missing grid result")?;
+        assert_eq!(fields.len(), 23);
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn paragraph_and_emergency_wrap_geometry() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/paragraph-wrap/{variant}")))?;
+        let result = page.evaluate("globalThis.comparison")?;
+        let fields = result.as_object().ok_or("missing grid result")?;
+        assert_eq!(fields.len(), 14);
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn heading_defaults_and_authored_geometry() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/headings/{variant}")))?;
+        let result = page.evaluate("globalThis.comparison")?;
+        let fields = result.as_object().ok_or("missing grid result")?;
+        assert_eq!(fields.len(), 10);
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn translation_geometry_and_scrolling() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/translation/{variant}")))?;
+        let result = page.evaluate("globalThis.comparison")?;
+        let fields = result.as_object().ok_or("missing grid result")?;
+        assert_eq!(fields.len(), 19);
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn canvas_replaced_box_geometry() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/canvas-box/{variant}")))?;
+        let result = page.evaluate("globalThis.comparison")?;
+        let fields = result.as_object().ok_or("missing grid result")?;
+        assert_eq!(fields.len(), 15);
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn navigator_and_stealth_contracts_use_real_native_http_and_fresh_prototypes() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for _ in 0..16 {
+        let page = browser.navigate(&fixture.path("/stealth"))?;
+        let result = page.evaluate("comparison")?;
+        let fields = result.as_object().ok_or("missing stealth contracts")?;
+        assert_eq!(fields.len(), 22);
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "{result}"
+        );
+        assert_eq!(page.evaluate("fetch('/stealth-echo').then(r=>r.json()).then(r=>r.userAgent===navigator.userAgent&&httpAgent===navigator.userAgent)")?, json!(true));
+        assert_eq!(page.evaluate("(()=>{Object.defineProperty(Navigator.prototype,'userAgent',{get:()=> 'poison'});return navigator.userAgent})()")?, json!("poison"));
     }
     Ok(())
 }

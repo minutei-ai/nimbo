@@ -1,17 +1,19 @@
 //! Native loaded-font advances, collapsed whitespace and greedy line breaking.
 use std::{
     cell::{Cell, RefCell},
+    collections::HashMap,
     rc::Rc,
 };
 
 use harfrust::Font;
 use num_traits::ToPrimitive;
 use taffy::prelude::*;
+use unicode_segmentation::UnicodeSegmentation;
 
 use super::{svg_viewport, unsupported};
 use crate::{Result, dom_attributes::NativeAttributes, styles::Declarations};
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub(super) struct Typography {
     weight: String,
     style: String,
@@ -19,6 +21,7 @@ pub(super) struct Typography {
     stretch: String,
     variant: String,
     whitespace: String,
+    overflow_wrap: String,
     transform: crate::text_transform::Transform,
     language: String,
 }
@@ -31,12 +34,36 @@ impl Default for Typography {
             stretch: "normal".into(),
             variant: "normal".into(),
             whitespace: "normal".into(),
+            overflow_wrap: "normal".into(),
             transform: crate::text_transform::Transform::default(),
             language: "und".into(),
         }
     }
 }
 impl Typography {
+    pub(super) fn preserves_breaks(&self) -> bool {
+        self.whitespace == "pre-line"
+    }
+    pub(super) fn zero_advance(
+        &self,
+        fonts: &crate::fonts::Context,
+        family: &crate::font_family::Family,
+        arena: &crate::font_data::Arena,
+        work: &mut super::Work<'_>,
+    ) -> Result<f64> {
+        work.charge()?;
+        let font = arena.select(
+            format!(
+                "{} {} {}px {}",
+                self.style,
+                self.weight,
+                fonts.size(),
+                family.value()?
+            ),
+            "0",
+        )?;
+        crate::font_data::measure(&font, "0", fonts.size()).map_err(unsupported)
+    }
     pub(super) fn compute(
         &self,
         declarations: &Declarations,
@@ -96,6 +123,7 @@ impl Typography {
             stretch: inherited(declarations, "font-stretch", &self.stretch),
             variant: inherited(declarations, "font-variant", &self.variant),
             whitespace: inherited(declarations, "white-space", &self.whitespace),
+            overflow_wrap: inherited(declarations, "overflow-wrap", &self.overflow_wrap),
         })
     }
 }
@@ -112,7 +140,7 @@ impl Budget {
     fn shape(&self, font: &Font, source: &str, size: f64, spacing: f64) -> Result<f64> {
         self.bytes
             .set(self.bytes.get().saturating_add(source.len().max(1)));
-        if source.len() > 1024 || self.bytes.get() > 1_048_576 {
+        if source.len() > 65_536 || self.bytes.get() > 1_048_576 {
             return Err(crate::Error::Limit("layout text shaping"));
         }
         crate::font_data::measure_spaced(font, source, size, spacing).map_err(unsupported)
@@ -120,7 +148,7 @@ impl Budget {
 }
 
 pub(super) enum Intrinsic {
-    Svg(svg_viewport::Intrinsic),
+    Replaced(svg_viewport::Intrinsic),
     Text(Run),
 }
 impl Intrinsic {
@@ -132,7 +160,11 @@ impl Intrinsic {
             style,
             |_, _| 0.0,
             |known, available| {
-                let size = self.measure(known, available);
+                let size = if let Self::Replaced(value) = self {
+                    Self::replaced_size(value, known, available, inputs, style)
+                } else {
+                    self.measure(known, available)
+                };
                 measured = Some(size);
                 size
             },
@@ -174,13 +206,78 @@ impl Intrinsic {
         output
     }
 
+    fn replaced_size(
+        value: &svg_viewport::Intrinsic,
+        known: Size<Option<f32>>,
+        available: Size<AvailableSpace>,
+        inputs: taffy::LayoutInput,
+        style: &Style,
+    ) -> Size<f32> {
+        use taffy::util::{MaybeResolve, ResolveOrZero};
+        let padding = style
+            .padding
+            .resolve_or_zero(inputs.parent_size.width, |_, _| 0.0)
+            .sum_axes();
+        let border = style
+            .border
+            .resolve_or_zero(inputs.parent_size.width, |_, _| 0.0)
+            .sum_axes();
+        let inset = Size {
+            width: padding.width + border.width,
+            height: padding.height + border.height,
+        };
+        let adjust = if style.box_sizing == BoxSizing::BorderBox {
+            inset
+        } else {
+            Size::ZERO
+        };
+        let declared = style
+            .size
+            .maybe_resolve(inputs.parent_size, |_, _| 0.0)
+            .zip_map(adjust, |value, inset| {
+                value.map(|value| (value - inset).max(0.0))
+            });
+        let known = known
+            .or(inputs.known_dimensions.zip_map(inset, |value, inset| {
+                value.map(|value| (value - inset).max(0.0))
+            }))
+            .or(declared);
+        let min = style
+            .min_size
+            .maybe_resolve(inputs.parent_size, |_, _| 0.0)
+            .zip_map(adjust, |value, inset| {
+                value.map(|value| (value - inset).max(0.0))
+            });
+        let max = style
+            .max_size
+            .maybe_resolve(inputs.parent_size, |_, _| 0.0)
+            .zip_map(adjust, |value, inset| {
+                value.map(|value| (value - inset).max(0.0))
+            });
+        let mut size = value.measure(known, available);
+        size.width = size
+            .width
+            .min(max.width.unwrap_or(f32::INFINITY))
+            .max(min.width.unwrap_or(0.0));
+        if known.height.is_none() && style.aspect_ratio.is_some() {
+            size.height = size.width / style.aspect_ratio.unwrap_or(1.0);
+        }
+        size.height = size
+            .height
+            .min(max.height.unwrap_or(f32::INFINITY))
+            .max(min.height.unwrap_or(0.0));
+        if known.width.is_none() && style.aspect_ratio.is_some() {
+            size.width = size.height * style.aspect_ratio.unwrap_or(1.0);
+        }
+        size
+    }
     pub(super) fn measure(
         &self,
         known: Size<Option<f32>>,
         available: Size<AvailableSpace>,
     ) -> Size<f32> {
         match self {
-            Self::Svg(value) => value.measure(known, available),
+            Self::Replaced(value) => value.measure(known, available),
             Self::Text(value) => match value.measure(known, available) {
                 Ok(size) => size,
                 Err(error) => {
@@ -229,9 +326,14 @@ pub(super) struct Run {
     baseline: f64,
     spacing: f64,
     nowrap: bool,
+    overflow_wrap: String,
     budget: Rc<Budget>,
+    advances: RefCell<HashMap<String, f64>>,
 }
 impl Run {
+    pub(super) fn line_height(&self) -> f64 {
+        self.height
+    }
     pub(super) fn new(
         source: &str,
         typography: &Typography,
@@ -259,7 +361,10 @@ impl Run {
         budget: Rc<Budget>,
         strut: bool,
     ) -> Result<Option<Self>> {
-        if !matches!(typography.whitespace.as_str(), "normal" | "nowrap") {
+        if !matches!(
+            typography.whitespace.as_str(),
+            "normal" | "nowrap" | "pre-line"
+        ) {
             return Err(unsupported("text white-space"));
         }
         if !matches!(typography.style.as_str(), "normal" | "italic")
@@ -268,20 +373,11 @@ impl Run {
         {
             return Err(unsupported("text font synthesis or spacing"));
         }
-        let mut normalized = String::new();
-        for part in source
-            .split([' ', '\t', '\n', '\r', '\u{c}'])
-            .filter(|part| !part.is_empty())
-        {
-            if !normalized.is_empty() {
-                normalized.push(' ');
-            }
-            normalized.push_str(part);
-        }
+        let normalized = normalize(source, typography.preserves_breaks());
         if normalized.is_empty() && !strut {
             return Ok(None);
         }
-        if normalized.len() > 1024 {
+        if normalized.len() > 65_536 {
             return Err(crate::Error::Limit("layout text shaping"));
         }
         if !matches!(typography.transform, crate::text_transform::Transform::None) {
@@ -306,7 +402,15 @@ impl Run {
             &normalized,
         )?;
         let (height, baseline) = line_metrics(&font, size, &context.fonts.line_height()?)?;
-        budget.shape(&font, &normalized, size, typography.spacing)?;
+        let mut advances = HashMap::new();
+        for line in normalized.split('\n') {
+            if !advances.contains_key(line) {
+                advances.insert(
+                    line.to_owned(),
+                    budget.shape(&font, line, size, typography.spacing)?,
+                );
+            }
+        }
         Ok(Some(Self {
             font,
             source: normalized,
@@ -315,19 +419,56 @@ impl Run {
             baseline,
             spacing: typography.spacing,
             nowrap: typography.whitespace == "nowrap",
+            overflow_wrap: typography.overflow_wrap.clone(),
             budget,
+            advances: RefCell::new(advances),
         }))
     }
     fn width(&self, source: &str) -> Result<f64> {
-        self.budget
-            .shape(&self.font, source, self.size, self.spacing)
+        if let Some(advance) = self.advances.borrow().get(source) {
+            return Ok(*advance);
+        }
+        let advance = self
+            .budget
+            .shape(&self.font, source, self.size, self.spacing)?;
+        self.advances
+            .borrow_mut()
+            .insert(source.to_owned(), advance);
+        Ok(advance)
     }
     fn measure(
         &self,
         known: Size<Option<f32>>,
         available: Size<AvailableSpace>,
     ) -> Result<Size<f32>> {
-        let maximum = self.width(&self.source)?;
+        let source = self.source.strip_suffix('\n').unwrap_or(&self.source);
+        let mut width = 0.0_f64;
+        let mut lines = 0_u32;
+        for paragraph in source.split('\n') {
+            let (paragraph_width, paragraph_lines) = self.paragraph(paragraph, known, available)?;
+            width = width.max(paragraph_width);
+            lines = lines
+                .checked_add(paragraph_lines)
+                .ok_or(crate::Error::Limit("text line count"))?;
+        }
+        let number = |value: f64| {
+            value
+                .to_f32()
+                .filter(|value| value.is_finite())
+                .ok_or_else(|| unsupported("text metric range"))
+        };
+        Ok(Size {
+            width: number(width)?,
+            height: number(self.height * f64::from(lines))?,
+        })
+    }
+    fn paragraph(
+        &self,
+        source: &str,
+        known: Size<Option<f32>>,
+        available: Size<AvailableSpace>,
+    ) -> Result<(f64, u32)> {
+        let maximum = self.width(source)?;
         let constraint = known
             .width
             .map(f64::from)
@@ -347,34 +488,62 @@ impl Run {
             } else {
                 constraint.unwrap_or(maximum)
             };
-            for word in self.source.split(' ') {
+            for word in source.split(' ') {
                 let candidate = if line.is_empty() {
                     word.to_owned()
                 } else {
                     format!("{line} {word}")
                 };
-                let advance = self.width(&candidate)?;
-                if !line.is_empty() && advance > limit {
+                if !line.is_empty() && self.width(&candidate)? > limit {
                     width = width.max(self.width(&line)?);
                     lines = lines
                         .checked_add(1)
                         .ok_or(crate::Error::Limit("text line count"))?;
-                    word.clone_into(&mut line);
+                    line.clear();
+                }
+                let emergency = self.overflow_wrap == "anywhere"
+                    || (self.overflow_wrap == "break-word" && !minimum);
+                if emergency && self.width(word)? > limit {
+                    for cluster in word.graphemes(true) {
+                        let candidate = format!("{line}{cluster}");
+                        if !line.is_empty() && self.width(&candidate)? > limit {
+                            width = width.max(self.width(&line)?);
+                            lines = lines
+                                .checked_add(1)
+                                .ok_or(crate::Error::Limit("text line count"))?;
+                            line.clear();
+                        }
+                        line.push_str(cluster);
+                    }
                 } else {
-                    line = candidate;
+                    if !line.is_empty() {
+                        line.push(' ');
+                    }
+                    line.push_str(word);
                 }
             }
             width = width.max(self.width(&line)?);
         }
-        let number = |value: f64| {
-            value
-                .to_f32()
-                .filter(|value| value.is_finite())
-                .ok_or_else(|| unsupported("text metric range"))
-        };
-        Ok(Size {
-            width: number(width)?,
-            height: number(self.height * f64::from(lines))?,
-        })
+        Ok((width, lines))
+    }
+}
+
+fn normalize(source: &str, preserve_breaks: bool) -> String {
+    let collapse = |line: &str| {
+        line.split([' ', '\t', '\n', '\r', '\u{c}'])
+            .filter(|part| !part.is_empty())
+            .collect::<Vec<_>>()
+            .join(" ")
+    };
+    if preserve_breaks {
+        source
+            .replace("\r\n", "\n")
+            .replace('\r', "\n")
+            .split('\n')
+            .map(collapse)
+            .collect::<Vec<_>>()
+            .join("\n")
+    } else {
+        collapse(source)
     }
 }

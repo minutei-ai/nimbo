@@ -16,6 +16,7 @@ fn unsupported(detail: &str) -> Error {
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) struct Context {
     size: f64,
+    zero_advance: Option<f64>,
     adjustment: crate::text_adjust::Adjustment,
     tabs: crate::tabs::Tabs,
     line_height: crate::line_height::Height,
@@ -34,6 +35,10 @@ impl Context {
     pub(crate) fn adjustment(&self) -> Result<String> {
         self.adjustment.value()
     }
+    pub(crate) fn with_zero_advance(mut self, width: f64) -> Self {
+        self.zero_advance = Some(width);
+        self
+    }
     pub(crate) fn size(&self) -> f64 {
         self.size
     }
@@ -41,6 +46,7 @@ impl Context {
         let size = f64::from(media.default_font_size);
         Self {
             size,
+            zero_advance: None,
             adjustment: crate::text_adjust::Adjustment::default(),
             tabs: crate::tabs::Tabs::default(),
             line_height: crate::line_height::Height::default(),
@@ -57,6 +63,9 @@ impl Context {
         work: &mut Work<'_>,
     ) -> Result<Self> {
         let (value, _) = declarations.value("font-size");
+        if value.contains("ch") {
+            return Err(unsupported("character unit in font-size"));
+        }
         let size = match value.as_str() {
             "" | "inherit" | "unset" => self.size,
             "initial" | "medium" => self.initial,
@@ -83,6 +92,13 @@ impl Context {
         let mut computed = Self {
             adjustment,
             size,
+            zero_advance: self.zero_advance.map(|width| {
+                if self.size > 0.0 {
+                    width * size / self.size
+                } else {
+                    0.0
+                }
+            }),
             root: if root { size } else { self.root },
             ..*self
         };
@@ -156,6 +172,9 @@ impl Context {
         let (value, unit) = value.to_unit_value();
         let basis = match unit {
             "em" => self.size,
+            "ch" => self
+                .zero_advance
+                .ok_or_else(|| unsupported("unresolved character unit"))?,
             "rem" => self.root,
             "vw" | "vi" | "svw" | "svi" | "lvw" | "lvi" | "dvw" | "dvi" => self.width / 100.0,
             "vh" | "vb" | "svh" | "svb" | "lvh" | "lvb" | "dvh" | "dvb" => self.height / 100.0,

@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, BTreeSet, HashSet},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     rc::Rc,
 };
 
@@ -14,7 +14,110 @@ const VARIABLE_LIMIT: usize = 1024;
 const CHAIN_LIMIT: usize = 128;
 
 #[derive(Clone, Default)]
-pub(crate) struct Variables(BTreeMap<String, Option<Rc<str>>>);
+pub(crate) struct Variables(Rc<BTreeMap<String, Option<Rc<str>>>>, Option<ResetMemo>);
+
+#[derive(Clone)]
+struct ResetMemo {
+    scope: Rc<()>,
+    names: Rc<BTreeSet<String>>,
+}
+
+impl Variables {
+    fn remember_resets(
+        &mut self,
+        registrations: &crate::registrations::Definitions,
+        mut reset: BTreeSet<String>,
+        changed: BTreeSet<String>,
+    ) {
+        for name in changed {
+            if registrations
+                .entries
+                .get(&name)
+                .is_some_and(|entry| !entry.inherits)
+                && self.0.contains_key(&name)
+            {
+                reset.insert(name);
+            } else {
+                reset.remove(&name);
+            }
+        }
+        self.1 = Some(ResetMemo {
+            scope: Rc::clone(&registrations.scope),
+            names: Rc::new(reset),
+        });
+    }
+
+    fn resets(
+        &self,
+        registrations: &crate::registrations::Definitions,
+        work: &mut Work<'_>,
+    ) -> Result<BTreeSet<String>> {
+        if let Some(memo) = &self.1
+            && Rc::ptr_eq(&memo.scope, &registrations.scope)
+        {
+            return Ok((*memo.names).clone());
+        }
+        let mut names = BTreeSet::new();
+        for name in self.0.keys() {
+            work.charge()?;
+            if registrations
+                .entries
+                .get(name)
+                .is_some_and(|registration| !registration.inherits)
+            {
+                names.insert(name.clone());
+            }
+        }
+        Ok(names)
+    }
+}
+
+// Hold the scope alive while its identity is cached; addresses cannot be reused
+// for another parent's variables during a scene.
+#[derive(Clone)]
+struct Scope(Rc<BTreeMap<String, Option<Rc<str>>>>, Rc<()>);
+impl PartialEq for Scope {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.0, &other.0) && Rc::ptr_eq(&self.1, &other.1)
+    }
+}
+impl Eq for Scope {}
+impl std::hash::Hash for Scope {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        Rc::as_ptr(&self.0).hash(state);
+        Rc::as_ptr(&self.1).hash(state);
+    }
+}
+#[derive(Default)]
+pub(crate) struct ComputedCache {
+    scopes: HashMap<(Declarations, Scope), (Declarations, Variables)>,
+}
+impl ComputedCache {
+    pub(crate) fn compute(
+        &mut self,
+        source: &Declarations,
+        parent: &Variables,
+        registrations: &crate::registrations::Definitions,
+        work: &mut Work<'_>,
+    ) -> Result<(Declarations, Variables)> {
+        if source.entries.is_empty() && parent.0.is_empty() && registrations.entries.is_empty() {
+            return Ok((source.clone(), parent.clone()));
+        }
+        work.charge()?;
+        let key = (
+            source.clone(),
+            Scope(Rc::clone(&parent.0), Rc::clone(&registrations.scope)),
+        );
+        if let Some(computed) = self.scopes.get(&key) {
+            return Ok(computed.clone());
+        }
+        let computed = source.compute_registered(parent, registrations, work)?;
+        if self.scopes.len() < work.node_limit() {
+            self.scopes.insert(key, computed.clone());
+        }
+        Ok(computed)
+    }
+}
 
 enum Component {
     Raw(String),
@@ -255,7 +358,8 @@ impl Resolver<'_, '_> {
             self.bytes = bytes;
             for name in &self.invalid {
                 self.local.remove(name);
-                self.values.0.insert(name.clone(), self.default(name));
+                let default = self.default(name);
+                Rc::make_mut(&mut self.values.0).insert(name.clone(), default);
             }
             for name in sources.keys() {
                 self.resolve(name, 0).map_err(engine_error)?;
@@ -313,7 +417,7 @@ impl Resolver<'_, '_> {
         if self.bytes > TOTAL_LIMIT {
             return Err(Failure::Engine(Error::Limit("CSS computed variable bytes")));
         }
-        self.values.0.insert(name.to_owned(), value.clone());
+        Rc::make_mut(&mut self.values.0).insert(name.to_owned(), value.clone());
         Ok(value)
     }
 
@@ -362,7 +466,7 @@ fn variable_bytes(
     registrations: &crate::registrations::Definitions,
 ) -> usize {
     let mut bytes = registrations.initial_bytes;
-    for (name, value) in &values.0 {
+    for (name, value) in values.0.iter() {
         bytes = bytes.saturating_sub(
             registrations
                 .entries
@@ -413,29 +517,24 @@ impl Declarations {
         let mut values = parent.clone();
         // Initial registered values stay in the immutable registration table.
         // Only explicit inherited overrides need resetting on this element.
-        let mut reset = Vec::new();
-        for name in values.0.keys() {
-            work.charge()?;
-            if inherit
-                && registrations
-                    .entries
-                    .get(name)
-                    .is_some_and(|registration| !registration.inherits)
-            {
-                reset.push(name.clone());
+        let mut reset = values.resets(registrations, work)?;
+        if inherit {
+            for name in &reset {
+                work.charge()?;
+                Rc::make_mut(&mut values.0).remove(name);
             }
-        }
-        for name in reset {
-            values.0.remove(&name);
+            reset.clear();
         }
         let defaults = values.clone();
         let mut local = BTreeMap::new();
         let mut source_bytes = 0_usize;
+        let mut changed = BTreeSet::new();
         for entry in &self.entries {
             if !entry.name.starts_with("--") {
                 continue;
             }
             work.charge()?;
+            changed.insert(entry.name.clone());
             source_bytes = source_bytes.saturating_add(entry.value.len());
             if source_bytes > TOTAL_LIMIT {
                 return Err(Error::Limit("CSS variable source bytes"));
@@ -446,14 +545,14 @@ impl Declarations {
                         .entries
                         .get(&entry.name)
                         .and_then(|registration| registration.initial.clone());
-                    values.0.insert(
+                    Rc::make_mut(&mut values.0).insert(
                         entry.name.clone(),
                         parent.0.get(&entry.name).cloned().unwrap_or(initial),
                     );
                 }
                 Some("unset") => {}
                 Some("initial") => {
-                    values.0.insert(
+                    Rc::make_mut(&mut values.0).insert(
                         entry.name.clone(),
                         registrations
                             .entries
@@ -467,13 +566,13 @@ impl Declarations {
                     ));
                 }
                 None => {
-                    values.0.remove(&entry.name);
+                    Rc::make_mut(&mut values.0).remove(&entry.name);
                     match tokens(&entry.value, work) {
                         Ok(items) => {
                             local.insert(entry.name.clone(), Rc::<[Component]>::from(items));
                         }
                         Err(Failure::Invalid) => {
-                            values.0.insert(entry.name.clone(), None);
+                            Rc::make_mut(&mut values.0).insert(entry.name.clone(), None);
                         }
                         Err(Failure::Engine(error)) => return Err(error),
                     }
@@ -511,6 +610,9 @@ impl Declarations {
         };
         resolver.settle()?;
         let declarations = resolver.declarations(self)?;
+        resolver
+            .values
+            .remember_resets(registrations, reset, changed);
         Ok((declarations, resolver.values))
     }
 }
@@ -579,8 +681,52 @@ fn engine_error(error: Failure) -> Error {
 
 #[cfg(test)]
 mod tests {
-    use super::{Declarations, Variables};
+    use super::{ComputedCache, Declarations, Variables};
     use crate::{Error, layout::Work, registrations::Definitions};
+
+    #[test]
+    fn inherited_variable_storage_preserves_registration_changes() -> crate::Result<()> {
+        let mut definitions = Definitions::default();
+        definitions.register(
+            "--size",
+            "syntax:'<length>';inherits:true;initial-value:7px",
+            &[],
+        )?;
+        let mut operations = 0;
+        let mut work = Work::new(&mut operations, 10_000, 1024);
+        let source = Declarations::parse("--size:12px;--ordinary:21px")
+            .map_err(|message| Error::Dom(message.into()))?;
+        let (_, parent) =
+            source.compute_registered(&Variables::default(), &definitions, &mut work)?;
+        let (_, child) =
+            Declarations::default().compute_registered(&parent, &definitions, &mut work)?;
+        assert!(std::rc::Rc::ptr_eq(&parent.0, &child.0));
+        let mut cache = ComputedCache::default();
+        let source = Declarations::parse("width:var(--size);height:var(--ordinary)")
+            .map_err(|message| Error::Dom(message.into()))?;
+        let (computed, _) = cache.compute(&source, &child, &definitions, &mut work)?;
+        assert_eq!(computed.value("width").0, "12px");
+        definitions.register(
+            "--size",
+            "syntax:'<length>';inherits:false;initial-value:7px",
+            &[],
+        )?;
+        let (computed, _) = cache.compute(&source, &child, &definitions, &mut work)?;
+        assert_eq!(computed.value("width").0, "7px");
+        assert_eq!(computed.value("height").0, "21px");
+        let other =
+            Declarations::parse("--ordinary:24px").map_err(|message| Error::Dom(message.into()))?;
+        let (_, other) = other.compute_registered(&child, &definitions, &mut work)?;
+        let (computed, _) = cache.compute(&source, &other, &definitions, &mut work)?;
+        assert_eq!(computed.value("height").0, "24px");
+        let (computed, _) = source.compute_keyframe(&child, &definitions, &mut work)?;
+        assert_eq!(computed.value("width").0, "12px");
+        let explicit = Declarations::parse("--size:inherit;width:var(--size)")
+            .map_err(|message| Error::Dom(message.into()))?;
+        let (computed, _) = explicit.compute_registered(&child, &definitions, &mut work)?;
+        assert_eq!(computed.value("width").0, "12px");
+        Ok(())
+    }
 
     #[test]
     fn unused_registrations_do_not_exhaust_substitution_work() -> crate::Result<()> {

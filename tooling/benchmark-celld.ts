@@ -54,7 +54,7 @@ export async function startCelld(bundleDirectory = resolve(import.meta.dir, "../
         const response = await fetch(new URL("/health", endpoint), {
           signal: AbortSignal.timeout(1000),
         });
-        if (response.ok) return { endpoint, token, version: version.trim(), stop };
+        if (response.ok) return { endpoint, token, version: version.trim(), pid: child.pid, stop };
       } catch {
         /* The listener may not yet be bound. */
       }

@@ -88,6 +88,51 @@ export async function fontFixture(path: string): Promise<Response | undefined> {
       { headers: { "content-type": "text/html" } },
     );
   }
+  if (path.startsWith("/canvas-box/")) {
+    const source = await Bun.file(
+      join(import.meta.dir, "../crates/engine/tests/fixtures/canvas-box.txt"),
+    ).text();
+    return new Response(
+      `<!doctype html><meta charset="utf-8"><body><script>globalThis.variant=${Number(path.split("/").at(-1))};${source}</script>`,
+      { headers: { "content-type": "text/html" } },
+    );
+  }
+  if (path.startsWith("/translation/")) {
+    const source = await Bun.file(
+      join(import.meta.dir, "../crates/engine/tests/fixtures/translation.txt"),
+    ).text();
+    return new Response(
+      `<!doctype html><meta charset="utf-8"><body><script>globalThis.variant=${Number(path.split("/").at(-1))};${source}</script>`,
+      { headers: { "content-type": "text/html" } },
+    );
+  }
+  if (path.startsWith("/headings/")) {
+    const source = await Bun.file(
+      join(import.meta.dir, "../crates/engine/tests/fixtures/headings.txt"),
+    ).text();
+    return new Response(
+      `<!doctype html><meta charset="utf-8"><body><script>globalThis.variant=${Number(path.split("/").at(-1))};${source}</script>`,
+      { headers: { "content-type": "text/html" } },
+    );
+  }
+  if (path.startsWith("/paragraph-wrap/")) {
+    const source = await Bun.file(
+      join(import.meta.dir, "../crates/engine/tests/fixtures/paragraph-wrap.txt"),
+    ).text();
+    return new Response(
+      `<!doctype html><meta charset="utf-8"><body><script>globalThis.variant=${Number(path.split("/").at(-1))};${source}</script>`,
+      { headers: { "content-type": "text/html" } },
+    );
+  }
+  if (path.startsWith("/explicit-grid/")) {
+    const source = await Bun.file(
+      join(import.meta.dir, "../crates/engine/tests/fixtures/explicit-grid.txt"),
+    ).text();
+    return new Response(
+      `<!doctype html><meta charset="utf-8"><body><script>globalThis.variant=${Number(path.split("/").at(-1))};${source}</script>`,
+      { headers: { "content-type": "text/html" } },
+    );
+  }
   if (path.startsWith("/logical-borders/")) {
     const source = await Bun.file(
       join(import.meta.dir, "../crates/engine/tests/fixtures/logical-borders.txt"),

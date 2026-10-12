@@ -1,0 +1,21 @@
+globalThis.comparison=(()=>{
+ const checks={},v=Number(globalThis.variant)||0,near=(a,b)=>Math.abs(a-b)<.1;
+ const sheet=document.createElement('style');sheet.textContent='html,body{margin:0;padding:0}canvas{display:block;margin:0;padding:0;border:0}';document.head.append(sheet);
+ const make=(css='',attrs={})=>{const n=document.createElement('canvas');n.style.cssText=css;for(const key of Object.keys(attrs))n.setAttribute(key,attrs[key]);document.body.append(n);return n;};
+ const test=(name,css,attrs,w,h)=>{const n=make(css,attrs),r=n.getBoundingClientRect();checks[name]=near(r.width,w)&&near(r.height,h);n.remove();};
+ test('default','',{},300,150);
+ test('attributes','',{width:'80',height:'40'},80,40);
+ test('width','width:120px',{},120,60);
+ test('height','height:30px',{},60,30);
+ test('both','width:90px;height:80px',{},90,80);
+ test('invalid','',{width:'-1',height:'invalid'},300,150);
+ test('trailing','',{width:'80tail',height:' +40'},80,40);
+ test('zero','',{width:'0',height:'40'},0,40);
+ test('maxWidth','max-width:100px',{},100,50);
+ test('minWidth','min-width:400px',{},400,200);
+ test('border','width:120px;border:4px solid red;padding:10px',{},148,88);
+ test('borderBox','box-sizing:border-box;width:120px;height:80px;border:4px solid red;padding:10px',{},120,80);
+ const n=make(),before=n.getBoundingClientRect();n.setAttribute('width',String(100+v));n.setAttribute('height','50');let r=n.getBoundingClientRect();checks.mutation=near(before.width,300)&&near(r.width,100+v)&&near(r.height,50);n.remove();
+ const parent=document.createElement('div');parent.style.cssText='width:200px;height:100px;position:relative';document.body.append(parent);const child=make('position:absolute;left:0;top:0;width:100%;height:100%');parent.append(child);r=child.getBoundingClientRect();checks.fill=near(r.width,200)&&near(r.height,100);child.style.cssText='width:50%';r=child.getBoundingClientRect();checks.percentage=near(r.width,100)&&near(r.height,50);parent.remove();
+ sheet.remove();return checks;
+})();
