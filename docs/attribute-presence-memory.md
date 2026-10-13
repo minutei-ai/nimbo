@@ -8,6 +8,12 @@ Qualified-name matching retains HTML normalization; namespace/local-name lookup
 retains exact case. Existing receiver and argument conversions stay in the owned
 JavaScript interfaces. Value-reading APIs still return their values.
 
+Native selector ID/class comparisons also inspect borrowed null-namespace
+values, preserving case sensitivity and the existing HTML-space tokenization.
+Link selectors test href presence without copying its value. A local large-class
+probe returned the same results and retained Wasm capacity in both builds;
+removing these temporary copies does not establish a retained-capacity reduction.
+
 [Independent comparison](evidence/attribute-presence-chromium.json) passed
 24 contracts across 64 Chromium and 64 Nimbo/celld pages at default limits.
 Contracts cover empty/missing/large values, HTML/XML/SVG names, namespace
@@ -15,7 +21,7 @@ exclusion, prefix retention, adoption, attached Attr changes, boolean reflection
 argument conversion, receivers and descriptors. Native HTTP and Worker regressions
 also cover these contracts and fresh-page state.
 
-Full validation passed 8,155 Bun tests and 204 native tests in each debug/release
+Full validation passed 8,156 Bun tests and 207 native tests in each debug/release
 profile, plus formatting, strict TypeScript/Rust/Wasm lint and Rust documentation.
 
 [Three-round local memory evidence](evidence/attribute-presence-memory-local.json)

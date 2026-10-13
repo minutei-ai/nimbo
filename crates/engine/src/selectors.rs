@@ -415,6 +415,20 @@ fn selector_key(selector: &selectors::parser::Selector<NativeImpl>) -> Option<Ke
 }
 #[derive(Clone, Copy, Debug)]
 struct NativeElement<'a>(NodeRef<'a>, Option<&'a View<'a>>);
+impl NativeElement<'_> {
+    fn null_attribute_matches(&self, name: &str, matches: impl FnOnce(&str) -> bool) -> bool {
+        self.0.query_or(false, |node| {
+            node.as_element()
+                .and_then(|element| {
+                    element.attrs.iter().find(|attribute| {
+                        attribute.name.ns.is_empty() && attribute.name.local.as_ref() == name
+                    })
+                })
+                .is_some_and(|attribute| matches(attribute.value.as_ref()))
+        })
+    }
+}
+
 impl Element for NativeElement<'_> {
     type Impl = NativeImpl;
     fn opaque(&self) -> OpaqueElement {
@@ -535,7 +549,7 @@ impl Element for NativeElement<'_> {
     fn is_link(&self) -> bool {
         self.is_html_element_in_html_document()
             && (self.0.has_name("a") || self.0.has_name("area"))
-            && self.0.null_attribute("href").is_some()
+            && self.0.has_null_attribute("href")
     }
     fn is_html_slot_element(&self) -> bool {
         self.is_html_element_in_html_document() && self.0.has_name("slot")
@@ -545,16 +559,14 @@ impl Element for NativeElement<'_> {
         name: &<Self::Impl as SelectorImpl>::Identifier,
         case: CaseSensitivity,
     ) -> bool {
-        self.0
-            .null_attribute("id")
-            .is_some_and(|value| case.eq(name.as_bytes(), value.as_bytes()))
+        self.null_attribute_matches("id", |value| case.eq(name.as_bytes(), value.as_bytes()))
     }
     fn has_class(
         &self,
         name: &<Self::Impl as SelectorImpl>::Identifier,
         case: CaseSensitivity,
     ) -> bool {
-        self.0.null_attribute("class").is_some_and(|value| {
+        self.null_attribute_matches("class", |value| {
             value
                 .split([' ', '\t', '\n', '\r', '\u{c}'])
                 .any(|value| case.eq(name.as_bytes(), value.as_bytes()))
