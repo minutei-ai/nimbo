@@ -3079,6 +3079,40 @@ fn initial_dom_node_limits_reject_before_scripts_and_recover_over_http() -> Test
 }
 
 #[test]
+fn input_activation_delivers_and_cancels_owned_state_over_http() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    let source = include_str!("fixtures/input-activation.txt");
+    assert_eq!(page.evaluate(&format!("(()=>{{{source};const checks=inputActivationCase(0);return {{count:Object.keys(checks).length,failed:Object.entries(checks).filter(([,passed])=>!passed).map(([name])=>name)}}}})()"))?,json!({"count":36,"failed":[]}));
+    let bounded = Browser::new(
+        &fixture.url,
+        Limits {
+            max_dom_write_bytes: 26,
+            ..Limits::default()
+        },
+    )?;
+    let page = bounded.navigate(&fixture.path("/static"))?;
+    assert_eq!(page.evaluate("(()=>{globalThis.control=document.createElement('input');control.type='checkbox';control.indeterminate=true;let events=0;control.addEventListener('click',()=>events++);let failed=false;try{control.click()}catch(e){failed=e.message.includes('resource limit: DOM write bytes')}return failed&&!control.checked&&control.indeterminate&&events===0})()")?,json!(true));
+    let fresh = bounded.navigate(&fixture.path("/static"))?;
+    assert_eq!(fresh.evaluate("typeof control")?, json!("undefined"));
+    Ok(())
+}
+
+#[test]
+fn mouse_and_pointer_events_follow_owned_constructor_contracts() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    let source = include_str!("fixtures/mouse-events.txt");
+    assert_eq!(
+        page.evaluate(&format!(
+            "(()=>{{{source};const checks=mouseEventsCase(0);return {{count:Object.keys(checks).length,failed:Object.entries(checks).filter(([,passed])=>!passed).map(([name])=>name)}}}})()"
+        ))?,
+        json!({"count":46,"failed":[]})
+    );
+    Ok(())
+}
+
+#[test]
 fn input_checkedness_owns_dirty_state_and_enforces_write_budgets() -> TestResult {
     let fixture = Fixture::new()?;
     let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
@@ -3587,6 +3621,32 @@ fn serve_z_index(request: Request) -> io::Result<()> {
         )).with_header(header("Content-Type", "text/html")?));
     }
     request.respond(Response::empty(404))
+}
+
+#[test]
+fn css_transition_sampling_accepts_completed_timelines_after_late_timer_delivery() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/empty-layout"))?;
+    let source =
+        include_str!("fixtures/transitions.txt").replace("await sleep(100);", "await sleep(700);");
+    let checks = page.evaluate(&format!(
+        "(()=>{{{source};return transitionsCase(9999)}})()"
+    ))?;
+    let checks = checks.as_object().ok_or("missing late transition checks")?;
+    assert_eq!(checks.len(), 25);
+    let failed = checks
+        .iter()
+        .filter(|(_, value)| **value != json!(true))
+        .map(|(name, _)| name)
+        .collect::<Vec<_>>();
+    assert!(
+        failed.is_empty(),
+        "{failed:?}; {}",
+        page.evaluate("globalThis.transitionDebug")?
+    );
+    Ok(())
 }
 
 #[test]

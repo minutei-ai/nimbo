@@ -438,7 +438,7 @@
   }
   const localStorage = createStorage(0);
   const sessionStorage = createStorage(1);
-  function eventState(event: Event): EventState {
+  function eventState(event: object): EventState {
     const state = events.get(event);
     if (!state) throw new TypeError("Illegal invocation");
     return state;
@@ -532,6 +532,316 @@
     get detail(): unknown {
       if (!details.has(this)) throw new TypeError("Illegal invocation");
       return details.get(this);
+    }
+  }
+  type UIState = {
+    level: number;
+    values: Record<string, unknown>;
+    coalesced?: PointerEvent[];
+    predicted?: PointerEvent[];
+  };
+  const uiEvents = new WeakMap<object, UIState>();
+  function uiState(owner: object, level: number): UIState {
+    const state = uiEvents.get(owner);
+    if (!state || state.level < level) throw new TypeError("Illegal invocation");
+    return state;
+  }
+  const mouseFields = [
+    "altKey",
+    "button",
+    "buttons",
+    "clientX",
+    "clientY",
+    "ctrlKey",
+    "metaKey",
+    "relatedTarget",
+    "screenX",
+    "screenY",
+    "shiftKey",
+  ] as const;
+  const pointerFields = [
+    "altitudeAngle",
+    "azimuthAngle",
+    "height",
+    "isPrimary",
+    "persistentDeviceId",
+    "pointerId",
+    "pointerType",
+    "pressure",
+    "tangentialPressure",
+    "tiltX",
+    "tiltY",
+    "twist",
+    "width",
+  ] as const;
+  const modifierNames = [
+    "AltGraph",
+    "CapsLock",
+    "Fn",
+    "FnLock",
+    "Hyper",
+    "NumLock",
+    "ScrollLock",
+    "Super",
+    "Symbol",
+    "SymbolLock",
+  ] as const;
+  const uiInitFields = ["bubbles", "cancelable", "composed", "detail", "view"];
+  const mouseInitFields = [
+    ...uiInitFields,
+    ...mouseFields,
+    ...modifierNames.map((name) => `modifier${name}`),
+  ].toSorted();
+  const pointerInitFields = [
+    ...mouseInitFields,
+    ...pointerFields,
+    "coalescedEvents",
+    "predictedEvents",
+  ].toSorted();
+  function uiConvert(name: string, value: unknown): unknown {
+    if (
+      [
+        "bubbles",
+        "cancelable",
+        "composed",
+        "altKey",
+        "ctrlKey",
+        "metaKey",
+        "shiftKey",
+        "isPrimary",
+      ].includes(name) ||
+      name.startsWith("modifier")
+    )
+      return Boolean(value);
+    if (name === "view") {
+      if (value !== null && value !== globalThis) throw new TypeError("Expected Window");
+      return value;
+    }
+    if (name === "relatedTarget") {
+      if (value !== null && (typeof value !== "object" || !targets.has(value)))
+        throw new TypeError("Expected EventTarget");
+      return value;
+    }
+    if (name === "pointerType") return domString(value);
+    if (name === "button") return (idlNumber(value) << 16) >> 16;
+    if (name === "buttons") return (idlNumber(value) >>> 0) & 65535;
+    if (["detail", "pointerId", "persistentDeviceId", "tiltX", "tiltY", "twist"].includes(name))
+      return idlNumber(value) | 0;
+    const number = finiteDouble(value);
+    if (name === "pressure" || name === "tangentialPressure") {
+      const single = Math.fround(number);
+      if (!Number.isFinite(single)) throw new TypeError("Expected finite float");
+      return single;
+    }
+    return number;
+  }
+  function ownedPointerEvent(value: unknown): value is PointerEvent {
+    return value !== null && typeof value === "object" && uiEvents.get(value)?.level === 3;
+  }
+  function pointerSequence(value: unknown): PointerEvent[] {
+    const source = dictionary(value);
+    if (!source) throw new TypeError("Expected pointer sequence");
+    const method: unknown = Reflect.get(source, Symbol.iterator);
+    if (typeof method !== "function") throw new TypeError("Expected pointer sequence");
+    const iteratorResult: unknown = Reflect.apply(method, source, []);
+    const iterator = dictionary(iteratorResult);
+    if (!iterator) throw new TypeError("Expected iterator object");
+    const next: unknown = Reflect.get(iterator, "next");
+    if (typeof next !== "function") throw new TypeError("Expected iterator next");
+    const pointerItems: PointerEvent[] = [];
+    for (;;) {
+      const stepResult: unknown = Reflect.apply(next, iterator, []);
+      const step = dictionary(stepResult);
+      if (!step) throw new TypeError("Expected iterator result");
+      if (Reflect.get(step, "done")) return pointerItems;
+      const event: unknown = Reflect.get(step, "value");
+      if (!ownedPointerEvent(event)) throw new TypeError("Expected PointerEvent");
+      pointerItems.push(event);
+    }
+  }
+  function pointerAngles(
+    values: Record<string, unknown>,
+    altitude: boolean,
+    azimuth: boolean,
+    tilt: boolean,
+  ): void {
+    if (!altitude && !azimuth && tilt) {
+      const x = Math.tan((Number(values.tiltX) * Math.PI) / 180),
+        y = Math.tan((Number(values.tiltY) * Math.PI) / 180);
+      values.altitudeAngle = Math.atan(1 / Math.hypot(x, y));
+      const angle = Math.atan2(y, x);
+      values.azimuthAngle = angle < 0 ? angle + 2 * Math.PI : angle;
+    } else if (!tilt && (altitude || azimuth)) {
+      const tangent = Math.tan(Number(values.altitudeAngle)),
+        angle = Number(values.azimuthAngle);
+      const x = Math.cos(angle),
+        y = Math.sin(angle);
+      values.tiltX = Math.round((Math.atan(Math.abs(x) < 1e-15 ? 0 : x / tangent) * 180) / Math.PI);
+      values.tiltY = Math.round((Math.atan(Math.abs(y) < 1e-15 ? 0 : y / tangent) * 180) / Math.PI);
+    }
+  }
+  function uiInitialization(init: unknown, level: number): UIState {
+    if (
+      init !== null &&
+      init !== undefined &&
+      typeof init !== "object" &&
+      typeof init !== "function"
+    )
+      throw new TypeError("invalid event dictionary");
+    const dictionaryValue = dictionary(init);
+    const values: Record<string, unknown> = {};
+    const names = level >= 3 ? pointerInitFields : level >= 2 ? mouseInitFields : uiInitFields;
+    let altitude = false,
+      azimuth = false,
+      tilt = false;
+    const state: UIState = { level, values };
+    for (const name of names) {
+      const member: unknown = dictionaryValue ? Reflect.get(dictionaryValue, name) : undefined;
+      if (name === "coalescedEvents") {
+        if (member !== undefined) state.coalesced = pointerSequence(member);
+        continue;
+      }
+      if (name === "predictedEvents") {
+        if (member !== undefined) state.predicted = pointerSequence(member);
+        continue;
+      }
+      altitude ||= name === "altitudeAngle" && member !== undefined;
+      azimuth ||= name === "azimuthAngle" && member !== undefined;
+      tilt ||= (name === "tiltX" || name === "tiltY") && member !== undefined;
+      const fallback =
+        name === "view" || name === "relatedTarget"
+          ? null
+          : name === "pointerType"
+            ? ""
+            : name === "width" || name === "height"
+              ? 1
+              : name === "altitudeAngle"
+                ? Math.PI / 2
+                : 0;
+      values[name] = uiConvert(name, member === undefined ? fallback : member);
+    }
+    if (level >= 3) pointerAngles(values, altitude, azimuth, tilt);
+    return state;
+  }
+  const mouseEventKey = Symbol("mouse event");
+  const pointerEventKey = Symbol("pointer event");
+  class UIEvent extends Event {
+    constructor(type: unknown, init: unknown = {}, key?: symbol) {
+      if (arguments.length === 0) throw new TypeError("UIEvent requires a type");
+      const name = domString(type);
+      const level = key === pointerEventKey ? 3 : key === mouseEventKey ? 2 : 1;
+      const state = uiInitialization(init, level);
+      super(name, {
+        bubbles: Boolean(state.values.bubbles),
+        cancelable: Boolean(state.values.cancelable),
+        composed: Boolean(state.values.composed),
+      });
+      uiEvents.set(this, state);
+    }
+    get view(): unknown {
+      return uiState(this, 1).values.view;
+    }
+    get detail(): number {
+      return Number(uiState(this, 1).values.detail);
+    }
+    get which(): number {
+      const state = uiState(this, 1);
+      return state.level >= 2 ? (Number(state.values.button) + 1) >>> 0 : 0;
+    }
+  }
+  class MouseEvent extends UIEvent {
+    constructor(type: unknown, init: unknown = {}, key?: symbol) {
+      if (arguments.length === 0) throw new TypeError("MouseEvent requires a type");
+      super(type, init, key === pointerEventKey ? pointerEventKey : mouseEventKey);
+    }
+    getModifierState(key: unknown): boolean {
+      const state = uiState(this, 2);
+      required(1, arguments.length);
+      const name = domString(key);
+      const attribute =
+        name === "Control"
+          ? "ctrlKey"
+          : ["Alt", "Shift", "Meta"].includes(name)
+            ? `${name.toLowerCase()}Key`
+            : `modifier${name}`;
+      if (
+        !["Control", "Alt", "Shift", "Meta"].includes(name) &&
+        !modifierNames.some((known) => known === name)
+      )
+        return false;
+      return Boolean(state.values[attribute]);
+    }
+  }
+  class PointerEvent extends MouseEvent {
+    constructor(type: unknown, init: unknown = {}) {
+      if (arguments.length === 0) throw new TypeError("PointerEvent requires a type");
+      super(type, init, pointerEventKey);
+    }
+    getCoalescedEvents(): PointerEvent[] {
+      return uiState(this, 3).coalesced?.slice() ?? [];
+    }
+    getPredictedEvents(): PointerEvent[] {
+      return uiState(this, 3).predicted?.slice() ?? [];
+    }
+  }
+  function mouseCoordinate(owner: object, name: string): number {
+    const state = uiState(owner, 2);
+    const axis = name.endsWith("Y") || name === "y" ? "Y" : "X";
+    const source = name.startsWith("screen") ? `screen${axis}` : `client${axis}`;
+    const number = Number(state.values[source]);
+    const fractional =
+      state.level >= 3 && !["click", "auxclick", "contextmenu"].includes(eventState(owner).type);
+    return fractional
+      ? number
+      : name.startsWith("offset")
+        ? Math.round(number)
+        : Math.floor(number);
+  }
+  for (const [constructor, level, fields] of [
+    [UIEvent, 1, ["view", "detail", "which"]],
+    [MouseEvent, 2, [...mouseFields, "pageX", "pageY", "offsetX", "offsetY", "x", "y"]],
+    [PointerEvent, 3, pointerFields],
+  ] as const) {
+    Object.defineProperty(constructor, "length", { value: 1, configurable: true });
+    Object.defineProperty(constructor.prototype, Symbol.toStringTag, {
+      value: constructor.name,
+      configurable: true,
+    });
+    for (const name of fields) {
+      const existing = Object.getOwnPropertyDescriptor(constructor.prototype, name);
+      if (existing) {
+        Object.defineProperty(constructor.prototype, name, { ...existing, enumerable: true });
+        continue;
+      }
+      Object.defineProperty(constructor.prototype, name, {
+        get(this: object) {
+          const state = uiState(this, level);
+          if (
+            [
+              "clientX",
+              "clientY",
+              "screenX",
+              "screenY",
+              "pageX",
+              "pageY",
+              "offsetX",
+              "offsetY",
+              "x",
+              "y",
+            ].includes(name)
+          )
+            return mouseCoordinate(this, name);
+          if (name === "button" && state.level === 2 && state.values.button === -1) return 0;
+          return state.values[name];
+        },
+        enumerable: true,
+        configurable: true,
+      });
+    }
+    for (const name of ["getModifierState", "getCoalescedEvents", "getPredictedEvents"]) {
+      const descriptor = Object.getOwnPropertyDescriptor(constructor.prototype, name);
+      if (descriptor)
+        Object.defineProperty(constructor.prototype, name, { ...descriptor, enumerable: true });
     }
   }
   class ErrorEvent extends Event {
@@ -690,6 +1000,44 @@
         id === call<number | null>("queryOne", 0, "html"))
     );
   }
+  type InputActivation = {
+    target: HTMLInputElement;
+    snapshot: {
+      checked: boolean;
+      indeterminate: boolean;
+      previous: number | null;
+      changed: boolean;
+    };
+  };
+  function inputTarget(target: Target): target is HTMLInputElement {
+    return textControls.get(target) === "input";
+  }
+  function startInputActivation(event: Event, state: EventState): InputActivation | null {
+    const mouse = uiEvents.get(event);
+    if (state.type !== "click" || !mouse || mouse.level < 2 || mouse.values.button !== 0)
+      return null;
+    const target = state.path.find((item) => inputTarget(item.target))?.target;
+    if (!target || !inputTarget(target)) return null;
+    const snapshot = raw<InputActivation["snapshot"] | null>(
+      "inputActivate",
+      textControlId(target, "input"),
+      "start",
+    );
+    return snapshot ? { target, snapshot } : null;
+  }
+  function finishInputActivation(activation: InputActivation, canceled: boolean): void {
+    const { target, snapshot } = activation;
+    const deliver = raw<boolean>(
+      "inputActivate",
+      textControlId(target, "input"),
+      canceled ? "cancel" : "commit",
+      JSON.stringify(snapshot),
+    );
+    if (deliver) {
+      dispatch(target, new Event("input", { bubbles: true, composed: true }), true);
+      dispatch(target, new Event("change", { bubbles: true }), true);
+    }
+  }
   function dispatch(target: Target, event: Event, trusted = false, legacy = false): boolean {
     checkTarget(target);
     const state = eventState(event);
@@ -700,6 +1048,7 @@
     state.target = legacy ? document : target;
     let finalTarget = state.target;
     let clearTarget = false;
+    let activation: InputActivation | null = null;
     try {
       const original = legacy ? document : target;
       state.path = eventPath(target, state.type, state.composed).map((current) => ({
@@ -709,6 +1058,7 @@
       }));
       finalTarget = state.path.at(-1)?.adjusted ?? finalTarget;
       clearTarget = shadowRootOf(finalTarget) !== null;
+      activation = startInputActivation(event, state);
       for (let index = state.path.length - 1; index > 0; index--) {
         const current = state.path[index];
         if (current) invoke(current, event, true, 1);
@@ -720,7 +1070,6 @@
       }
       for (const current of state.path.slice(1))
         if (state.bubbles || current.adjusted === current.target) invoke(current, event, false, 3);
-      return !state.canceled;
     } finally {
       state.target = clearTarget ? null : finalTarget;
       state.dispatching = false;
@@ -731,6 +1080,8 @@
       state.immediate = false;
       state.passive = false;
     }
+    if (activation) finishInputActivation(activation, state.canceled);
+    return !state.canceled;
   }
   class EventTarget {
     constructor() {
@@ -2919,12 +3270,32 @@
     value: "SVGElement",
     configurable: true,
   });
+  const clicking = new WeakSet<object>();
   class HTMLElement extends Element {
     constructor(key?: symbol, id?: number) {
       if (key !== internal || id === undefined) return constructHTML(new.target);
       super(internal, id);
       htmlElements.add(this);
       return this;
+    }
+    click(): void {
+      const id = htmlId(this);
+      if (clicking.has(this) || call<boolean>("clickDisabled", id)) return;
+      clicking.add(this);
+      try {
+        dispatch(
+          this,
+          new PointerEvent("click", {
+            bubbles: true,
+            cancelable: true,
+            composed: true,
+            view: globalThis,
+            pointerId: -1,
+          }),
+        );
+      } finally {
+        clicking.delete(this);
+      }
     }
     get offsetParent(): Element | null {
       const id = call<number | null>("geometry", htmlId(this), "offsetParent");
@@ -3020,6 +3391,9 @@
     if (descriptor)
       Object.defineProperty(prototype, "dataset", { ...descriptor, enumerable: true });
   }
+  const clickDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "click");
+  if (clickDescriptor)
+    Object.defineProperty(HTMLElement.prototype, "click", { ...clickDescriptor, enumerable: true });
   const textControls = new WeakMap<object, "input" | "textarea">();
   function textControlId(owner: object, kind: "input" | "textarea"): number {
     if (textControls.get(owner) !== kind) throw new TypeError("Illegal invocation");
@@ -7082,6 +7456,9 @@
       toString: () => href,
     }),
     Event,
+    UIEvent,
+    MouseEvent,
+    PointerEvent,
     CustomEvent,
     ErrorEvent,
     EventTarget,

@@ -54,8 +54,8 @@ async function transitionsCase(variant) {
   const elapsed = performance.now() - start;
   const expected = 100 + 400 * Math.min(1,elapsed/600);
   globalThis.transitionDebug = {elapsed, expected, linear:width(linear), important:width(important)};
-  checks.linearRealClock = close(width(linear),expected,20) && width(linear)>100 && width(linear)<500;
-  checks.importantTransitionWins = close(width(important),expected,20) && width(important)<500;
+  checks.linearRealClock = close(width(linear),expected,20) && width(linear)>100 && (elapsed>=600 || width(linear)<500);
+  checks.importantTransitionWins = close(width(important),expected,20) && (elapsed>=600 || width(important)<500);
   checks.delayRealClock = close(width(delay),100+400*Math.min(1,Math.max(0,(elapsed-400)/600)),20);
   checks.stepRealClock = close(width(step),100 + 100*Math.min(4,Math.floor(elapsed/150)),10);
   checks.zeroDurationDelayFinishes = close(width(zero),500);
@@ -64,12 +64,15 @@ async function transitionsCase(variant) {
   const beforeRetarget = width(retarget);
   retarget.style.width = '700px';
   checks.retargetContinuous = close(width(retarget),beforeRetarget,10);
+  const retargetStart = performance.now();
   const beforeReverse = width(reverse);
   reverse.style.width = '100px';
   checks.reverseContinuous = close(width(reverse),beforeReverse,10);
   const reverseDuration = Math.min(600,Math.max(0,(beforeReverse-100)*600/400));
   await sleep(100);
-  checks.retargetAdvances = width(retarget)>beforeRetarget && width(retarget)<700;
+  const retargetElapsed = performance.now() - retargetStart;
+  const retargetExpected = beforeRetarget + (700-beforeRetarget)*Math.min(1,retargetElapsed/600);
+  checks.retargetAdvances = width(retarget)>beforeRetarget && close(width(retarget),retargetExpected,20);
   await sleep(Math.max(60,reverseDuration-100+50));
   checks.reverseShortens = close(width(reverse),100);
   await sleep(850);

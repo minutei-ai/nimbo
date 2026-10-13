@@ -192,6 +192,50 @@ test("invalid DOM budgets fail before origin HTTP", async () => {
   );
 });
 
+test("native input activation preserves event state, rollback and page isolation", async () => {
+  const source = await Bun.file(
+    join(root, "crates/engine/tests/fixtures/input-activation.txt"),
+  ).text();
+  await fixture(
+    () => html("<!doctype html><body><input id=control type=checkbox>"),
+    async (worker) => {
+      const response = await scrape(
+        worker,
+        `(()=>{${source};const checks=inputActivationCase(0);return {count:Object.keys(checks).length,failed:Object.entries(checks).filter(([,passed])=>!passed).map(([name])=>name)}})()`,
+      );
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({ value: { count: 36, failed: [] } });
+      const changed = await scrape(
+        worker,
+        "(()=>{globalThis.current=document.getElementById('control');current.click();return current.checked})()",
+      );
+      expect(changed.status).toBe(200);
+      expect(await json(changed)).toMatchObject({ value: true });
+      const fresh = await scrape(
+        worker,
+        "({checked:document.getElementById('control').checked,previous:typeof current})",
+      );
+      expect(fresh.status).toBe(200);
+      expect(await json(fresh)).toMatchObject({ value: { checked: false, previous: "undefined" } });
+    },
+  );
+});
+
+test("native UI mouse and pointer event constructors preserve owned contracts", async () => {
+  const source = await Bun.file(join(root, "crates/engine/tests/fixtures/mouse-events.txt")).text();
+  await fixture(
+    () => html("<!doctype html><body>"),
+    async (worker) => {
+      const response = await scrape(
+        worker,
+        `(()=>{${source};return Object.values(mouseEventsCase(0)).every(Boolean)})()`,
+      );
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({ value: true });
+    },
+  );
+});
+
 test("native input checkedness owns dirty state and fresh-page isolation", async () => {
   const source = await Bun.file(
     join(root, "crates/engine/tests/fixtures/input-checkedness.txt"),

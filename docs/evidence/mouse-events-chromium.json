@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-13",
+  "fixture": "crates/engine/tests/fixtures/mouse-events.txt",
+  "scope": "64 fresh HTTP pages; owned UI/mouse/pointer event constructors, fields, brands, coercion, sequences and receivers; default budgets",
+  "fixture_sha256": "964b4ce7f23f85c8265b267a360f21285e13aa5d45d6ec063deae469a4d6a4e9",
+  "runtimes": [
+    {
+      "runtime": "Google Chrome 155.0.8059.39",
+      "pages": 64,
+      "checks_per_page": 46,
+      "all_passed": true
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "pages": 64,
+      "checks_per_page": 46,
+      "all_passed": true
+    }
+  ]
+}

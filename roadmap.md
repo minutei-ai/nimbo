@@ -63,8 +63,11 @@ Default/default-on input values and type transitions reuse native attributes,
 with 44 additional independent comparison contracts. Numeric/date/range/color/file
 values, select/options, wider form ownership/reset/submission,
 selection and validity remain open. Native checkedness, dirty defaults,
-indeterminate state and radio groups add 50 independent contracts. Click
-activation, reset and CSS state selectors still remain open.
+indeterminate state and radio groups add 50 independent contracts.
+[Owned synthetic activation](docs/input-activation.md) adds mouse/pointer
+interfaces and bounded click/cancel delivery, with 46 event and 36 activation
+contracts verified independently. Reset, label forwarding, focus/pickers, form
+submission, anchor navigation and CSS state selectors still remain open.
 
 ## 0.4 — Scripts and page readiness
 

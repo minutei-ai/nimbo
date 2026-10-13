@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-13",
+  "fixture": "crates/engine/tests/fixtures/transitions.txt",
+  "scope": "64 fresh pages per runtime over real HTTP; 25 supplemental contracts per page; default limits; no mocks; separate from original WPT",
+  "fixture_sha256": "9bb2cadcafe04740afeaf2c593acebc927132d94b8ff928834d1041c96efd4e7",
+  "runtimes": [
+    {
+      "runtime": "Google Chrome 155.0.8059.39",
+      "pages": 64,
+      "checks_per_page": 25,
+      "all_passed": true
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "pages": 64,
+      "checks_per_page": 25,
+      "all_passed": true
+    }
+  ]
+}

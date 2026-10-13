@@ -71,8 +71,12 @@ profile, plus strict formatting, TypeScript/Rust/Wasm lint and Rust documentatio
 checks. A native storage test checks 2,000 clean groups, repeated reads and
 group merges without eager native handles or duplicate retained group names.
 
-Click activation, reset, constraint validation, checked/indeterminate CSS
-pseudo-classes and parser-specific malformed form associations remain open.
+[Owned synthetic activation](input-activation.md) adds mouse/pointer event
+interfaces, click pre-activation and cancellation, native disabled-fieldset
+checks and ordered input/change events, with 46 event and 36 activation
+contracts verified independently. Reset, constraint validation,
+checked/indeterminate CSS pseudo-classes and parser-specific malformed form
+associations remain open.
 
 This is the implemented control subset of roadmap 0.3. Number/date/range/color/file values,
 select/options, wider form ownership/reset/submission,

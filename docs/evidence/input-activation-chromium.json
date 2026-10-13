@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-13",
+  "fixture": "crates/engine/tests/fixtures/input-activation.txt",
+  "scope": "64 fresh HTTP pages; owned control click activation, rollback, radio groups, disabled fieldsets and event delivery; default budgets",
+  "fixture_sha256": "de311cf57193ea54f5898c3bf316567599c9699196554afd9525b69f2067e79c",
+  "runtimes": [
+    {
+      "runtime": "Google Chrome 155.0.8059.39",
+      "pages": 64,
+      "checks_per_page": 36,
+      "all_passed": true
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "pages": 64,
+      "checks_per_page": 36,
+      "all_passed": true
+    }
+  ]
+}

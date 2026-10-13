@@ -32,11 +32,39 @@ fn html_element(node: NodeRef<'_>, name: &str) -> bool {
 fn input(node: NodeRef<'_>) -> bool {
     html_element(node, "input")
 }
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ActivationKind {
+    Checkbox,
+    Radio,
+}
+
+fn activation_kind(node: NodeRef<'_>) -> Option<ActivationKind> {
+    node.query_or(None, |data| {
+        let element = data.as_element()?;
+        if element.name.ns.as_ref() != "http://www.w3.org/1999/xhtml"
+            || element.name.local.as_ref() != "input"
+        {
+            return None;
+        }
+        let kind = element
+            .attrs
+            .iter()
+            .find(|attribute| {
+                attribute.name.ns.is_empty() && attribute.name.local.as_ref() == "type"
+            })?
+            .value
+            .as_ref();
+        if kind.eq_ignore_ascii_case("checkbox") {
+            Some(ActivationKind::Checkbox)
+        } else if kind.eq_ignore_ascii_case("radio") {
+            Some(ActivationKind::Radio)
+        } else {
+            None
+        }
+    })
+}
 fn radio(node: NodeRef<'_>) -> bool {
-    input(node)
-        && node
-            .null_attribute("type")
-            .is_some_and(|kind| kind.eq_ignore_ascii_case("radio"))
+    activation_kind(node) == Some(ActivationKind::Radio)
 }
 
 #[derive(Default)]
@@ -46,6 +74,14 @@ pub(super) struct Arena {
     groups: HashMap<Rc<Group>, NodeId>,
     memberships: HashMap<NodeId, Rc<Group>>,
     external_forms: bool,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct Activation {
+    checked: bool,
+    indeterminate: bool,
+    previous: Option<usize>,
+    changed: bool,
 }
 
 impl Dom {
@@ -113,6 +149,162 @@ impl Dom {
             && !self.checkedness.radios.is_empty()
         {
             self.checkedness_refresh()?;
+        }
+        Ok(())
+    }
+
+    pub(super) fn click_disabled(&mut self, handle: usize) -> Result<Value> {
+        let document = Rc::clone(&self.document);
+        let id = self.node_id(handle)?;
+        let node = document
+            .tree
+            .get(&id)
+            .ok_or_else(|| Error::Dom("invalid click receiver".into()))?;
+        if ![
+            "input", "button", "select", "textarea", "fieldset", "option", "optgroup",
+        ]
+        .iter()
+        .any(|name| html_element(node, name))
+        {
+            return Ok(json!(false));
+        }
+        if node.null_attribute("disabled").is_some() {
+            return Ok(json!(true));
+        }
+        for ancestor in node.ancestors_it(None) {
+            self.checkedness_work()?;
+            if !html_element(ancestor, "fieldset") || ancestor.null_attribute("disabled").is_none()
+            {
+                continue;
+            }
+            let mut legend = None;
+            for child in ancestor.children_it(false) {
+                self.checkedness_work()?;
+                if html_element(child, "legend") {
+                    legend = Some(child.id);
+                    break;
+                }
+            }
+            let mut exempt = false;
+            if let Some(legend) = legend {
+                for parent in node.ancestors_it(None) {
+                    self.checkedness_work()?;
+                    if parent.id == legend {
+                        exempt = true;
+                        break;
+                    }
+                    if parent.id == ancestor.id {
+                        break;
+                    }
+                }
+            }
+            if !exempt {
+                return Ok(json!(true));
+            }
+        }
+        Ok(json!(false))
+    }
+
+    fn activation_type(&self, handle: usize) -> Result<Option<ActivationKind>> {
+        Ok(activation_kind(self.node(handle)?))
+    }
+
+    pub(super) fn input_activation(
+        &mut self,
+        handle: usize,
+        operation: &str,
+        value: &str,
+    ) -> Result<Value> {
+        if operation == "start" {
+            return self.start_input_activation(handle);
+        }
+        let snapshot: Activation = serde_json::from_str(value)?;
+        let kind = self.activation_type(handle)?;
+        if operation == "commit" {
+            let root = self.tree_root(self.node_id(handle)?, true)?;
+            let connected = self
+                .document
+                .tree
+                .get(&root)
+                .is_some_and(|node| node.is_document());
+            return Ok(json!(snapshot.changed && kind.is_some() && connected));
+        }
+        if operation != "cancel" {
+            return Err(Error::Dom("unsupported activation operation".into()));
+        }
+        if kind == Some(ActivationKind::Checkbox) {
+            self.charge_write(2)?;
+            let id = self.node_id(handle)?;
+            let state = self.checkedness.states.entry(id).or_default();
+            state.checked = Some(snapshot.checked);
+            state.indeterminate = snapshot.indeterminate;
+        } else if kind == Some(ActivationKind::Radio) {
+            self.cancel_radio_activation(handle, &snapshot)?;
+        }
+        Ok(json!(false))
+    }
+
+    fn start_input_activation(&mut self, handle: usize) -> Result<Value> {
+        let Some(kind) = self.activation_type(handle)? else {
+            return Ok(Value::Null);
+        };
+        let id = self.node_id(handle)?;
+        let checked = self.checkedness_current(id);
+        let indeterminate = self
+            .checkedness
+            .states
+            .get(&id)
+            .is_some_and(|state| state.indeterminate);
+        let previous = if kind == ActivationKind::Radio {
+            if checked {
+                Some(id)
+            } else if let Some(group) = self.checkedness_group(id)? {
+                self.checkedness.groups.get(&group).copied()
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        self.charge_write(if kind == ActivationKind::Checkbox {
+            2
+        } else {
+            1
+        })?;
+        let state = self.checkedness.states.entry(id).or_default();
+        state.checked = Some(kind == ActivationKind::Radio || !checked);
+        state.dirty = true;
+        if kind == ActivationKind::Checkbox {
+            state.indeterminate = false;
+        }
+        self.checkedness_radio(id)?;
+        Ok(serde_json::to_value(Activation {
+            checked,
+            indeterminate,
+            previous: previous.map(|id| self.handle(id)),
+            changed: kind == ActivationKind::Checkbox || !checked,
+        })?)
+    }
+
+    fn cancel_radio_activation(&mut self, handle: usize, snapshot: &Activation) -> Result<()> {
+        let id = self.node_id(handle)?;
+        if let Some(previous) = snapshot.previous {
+            let previous_id = self.node_id(previous)?;
+            let same_group = if previous_id == id {
+                true
+            } else if radio(self.node(previous)?) {
+                let current = self.checkedness_group(id)?;
+                current.is_some() && current == self.checkedness_group(previous_id)?
+            } else {
+                false
+            };
+            if same_group {
+                self.checkedness_call(previous, "checked", Some(true))?;
+            }
+            // A prior selection moved out of the group leaves the clicked selection intact,
+            // matching the independently tested browser behavior.
+        } else {
+            self.checkedness_call(handle, "checked", Some(false))?;
         }
         Ok(())
     }

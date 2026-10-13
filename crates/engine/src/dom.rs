@@ -311,6 +311,8 @@ impl Dom {
         let fallback_slots = self.fallback_slot_targets(operation, handle, arg, value);
         let inserted_controls = self.checkedness_inserting(operation, handle, value)?;
         let result = match operation {
+            "clickDisabled" => self.click_disabled(handle)?,
+            "inputActivate" => self.input_activation(handle, arg, value)?,
             "inputState" => self.checkedness_call(handle, arg, None)?,
             "setInputState" => self.checkedness_call(handle, arg, Some(value == "true"))?,
             "controlValue" | "setControlValue" | "controlDefault" => {

@@ -1,0 +1,36 @@
+function mouseEventsCase(variant) {
+ const checks={};if(typeof UIEvent==='undefined'||typeof MouseEvent==='undefined'||typeof PointerEvent==='undefined')return {interfaces:false};
+ const ui=new UIEvent('probe'),mouse=new MouseEvent('click'),pointer=new PointerEvent('pointermove');
+ checks.interfaces=ui instanceof Event&&mouse instanceof UIEvent&&pointer instanceof MouseEvent;
+ checks.brands=Object.prototype.toString.call(ui)==='[object UIEvent]'&&Object.prototype.toString.call(mouse)==='[object MouseEvent]'&&Object.prototype.toString.call(pointer)==='[object PointerEvent]';
+ checks.constructorArity=UIEvent.length===1&&MouseEvent.length===1&&PointerEvent.length===1;
+ checks.uiDefaults=ui.view===null&&ui.detail===0&&ui.which===0;
+ checks.mouseDefaults=mouse.clientX===0&&mouse.clientY===0&&mouse.screenX===0&&mouse.screenY===0&&mouse.button===0&&mouse.buttons===0&&mouse.relatedTarget===null&&mouse.which===1;
+ checks.pointerDefaults=pointer.pointerId===0&&pointer.width===1&&pointer.height===1&&pointer.pressure===0&&pointer.tangentialPressure===0&&pointer.tiltX===0&&pointer.tiltY===0&&pointer.twist===0&&pointer.pointerType===''&&!pointer.isPrimary&&pointer.persistentDeviceId===0;
+ checks.defaultAngles=pointer.altitudeAngle===Math.PI/2&&pointer.azimuthAngle===0;
+ checks.baseFlags=!pointer.bubbles&&!pointer.cancelable&&!pointer.composed&&!pointer.isTrusted;
+ const flags=new MouseEvent('probe',{bubbles:1,cancelable:'yes',composed:{},view:window,detail:2.9});checks.baseConversion=flags.bubbles&&flags.cancelable&&flags.composed&&flags.view===window&&flags.detail===2;
+ const coords=new MouseEvent('click',{clientX:1.5,clientY:-2.8,screenX:4.9,screenY:-1.25});checks.mouseCoordinates=coords.clientX===1&&coords.clientY===-3&&coords.screenX===4&&coords.screenY===-2;checks.mouseAliases=coords.x===coords.clientX&&coords.y===coords.clientY&&coords.pageX===1&&coords.pageY===-3&&coords.offsetX===2&&coords.offsetY===-3;
+ const fractional=new PointerEvent('pointermove',{clientX:1.5,clientY:-2.8,screenX:4.9});checks.pointerCoordinates=fractional.clientX===1.5&&fractional.clientY===-2.8&&fractional.screenX===4.9&&fractional.offsetX===1.5;
+ const legacyPointer=new PointerEvent('click',{clientX:1.5,clientY:-2.8});checks.pointerLegacy=legacyPointer.clientX===1&&legacyPointer.clientY===-3&&legacyPointer.offsetX===2;
+ const buttons=new MouseEvent('probe',{button:65535,buttons:65537});checks.mouseButtons=buttons.button===0&&buttons.buttons===1&&buttons.which===0;
+ const pbuttons=new PointerEvent('probe',{button:65535,buttons:65537});checks.pointerButtons=pbuttons.button===-1&&pbuttons.buttons===1&&pbuttons.which===0;
+ const modifiers=new MouseEvent('probe',{ctrlKey:'yes',shiftKey:1,altKey:true,metaKey:{},modifierAltGraph:true,modifierCapsLock:true});checks.modifierFlags=modifiers.ctrlKey&&modifiers.shiftKey&&modifiers.altKey&&modifiers.metaKey;checks.modifierLookup=['Control','Shift','Alt','Meta','AltGraph','CapsLock'].every(k=>modifiers.getModifierState(k));checks.unknownModifier=!modifiers.getModifierState('unknown-'+variant);
+ const related=document.createElement('div');checks.relatedTarget=new MouseEvent('probe',{relatedTarget:related}).relatedTarget===related;
+ let rejected=false;try{new UIEvent()}catch(e){rejected=e instanceof TypeError}checks.requiredType=rejected;
+ for(const [label,fn] of [['badView',()=>new UIEvent('probe',{view:{}})],['badRelated',()=>new MouseEvent('probe',{relatedTarget:{}})],['infinite',()=>new MouseEvent('probe',{clientX:Infinity})],['bigint',()=>new PointerEvent('probe',{pointerId:1n})],['badDictionary',()=>new MouseEvent('probe',1)],['symbolType',()=>new UIEvent(Symbol())],['modifierRequired',()=>mouse.getModifierState()]]){rejected=false;try{fn()}catch(e){rejected=e instanceof TypeError}checks[label]=rejected;}
+ checks.nullDictionary=new PointerEvent('probe',null).width===1;
+ const signed=new PointerEvent('probe',{pointerId:4294967295,width:1.75,height:2.5,pressure:.4,tangentialPressure:-.3,tiltX:30,twist:361,pointerType:'pen',isPrimary:'yes'});checks.pointerNumbers=signed.pointerId===-1&&signed.width===1.75&&signed.height===2.5&&signed.pressure===Math.fround(.4)&&signed.tangentialPressure===Math.fround(-.3)&&signed.tiltX===30&&signed.twist===361;checks.pointerIdentity=signed.pointerType==='pen'&&signed.isPrimary;
+ checks.tiltAngles=Math.abs(signed.altitudeAngle-Math.PI/3)<1e-12&&signed.azimuthAngle===0;
+ const angles=new PointerEvent('probe',{altitudeAngle:Math.PI/4,azimuthAngle:Math.PI/2});checks.angleTilts=angles.tiltX===0&&angles.tiltY===45&&angles.altitudeAngle===Math.PI/4&&angles.azimuthAngle===Math.PI/2;
+ const coalesced=new PointerEvent('pointermove'),predicted=new PointerEvent('pointermove');const source=[coalesced];const sequence=new PointerEvent('pointermove',{coalescedEvents:source,predictedEvents:[predicted]});source.length=0;checks.sequenceOwnership=sequence.getCoalescedEvents().length===1&&sequence.getCoalescedEvents()[0]===coalesced&&sequence.getPredictedEvents()[0]===predicted;const returned=sequence.getCoalescedEvents();returned.length=0;checks.sequenceCopies=sequence.getCoalescedEvents().length===1;checks.emptySequences=pointer.getCoalescedEvents().length===0&&pointer.getPredictedEvents().length===0;
+ for(const [label,prototype,name,receiver] of [['uiReceiver',UIEvent.prototype,'detail',new Event('x')],['mouseReceiver',MouseEvent.prototype,'clientX',ui],['pointerReceiver',PointerEvent.prototype,'pointerId',mouse]]){const get=Object.getOwnPropertyDescriptor(prototype,name).get;rejected=false;try{get.call(receiver)}catch(e){rejected=e instanceof TypeError}checks[label]=rejected;}
+ const descriptor=Object.getOwnPropertyDescriptor(MouseEvent.prototype,'clientX');checks.descriptors=descriptor.enumerable&&descriptor.configurable&&typeof descriptor.get==='function'&&descriptor.set===undefined&&!Object.hasOwn(mouse,'clientX');
+ checks.constructorIdentity=pointer.constructor===PointerEvent&&Object.getPrototypeOf(PointerEvent.prototype)===MouseEvent.prototype&&Object.getPrototypeOf(MouseEvent.prototype)===UIEvent.prototype;
+ const whichGet=Object.getOwnPropertyDescriptor(UIEvent.prototype,'which').get;checks.inheritedWhich=!Object.hasOwn(MouseEvent.prototype,'which')&&whichGet.call(mouse)===1&&whichGet.call(pointer)===1;
+ checks.persistentId=new PointerEvent('probe',{persistentDeviceId:27}).persistentDeviceId===27;
+ let iteratorReads=0;const onceSequence={get [Symbol.iterator](){iteratorReads++;return ()=>[coalesced][Symbol.iterator]()}};new PointerEvent('probe',{coalescedEvents:onceSequence});checks.iteratorReadOnce=iteratorReads===1;
+ let closed=0;const invalidSequence={[Symbol.iterator](){return {next(){return {done:false,value:new Event('bad')}},return(){closed++;return {}}}}};rejected=false;try{new PointerEvent('probe',{coalescedEvents:invalidSequence})}catch(e){rejected=e instanceof TypeError}checks.sequenceFailure=rejected&&closed===0;
+ for(const [label,C] of [['reflectUI',UIEvent],['reflectMouse',MouseEvent]]){const reflected=Reflect.construct(C,['click'],PointerEvent);rejected=false;try{Object.getOwnPropertyDescriptor(PointerEvent.prototype,'pointerId').get.call(reflected)}catch(e){rejected=e instanceof TypeError}checks[label]=rejected;}
+ return checks;
+}
