@@ -1,0 +1,8 @@
+import {h,hydrate,render,Component} from '/frameworks/preact.mjs';
+export {h};
+export const lifecycle={mounted:0,unmounted:0};
+let app;
+export function mount(view,state,root){class App extends Component{constructor(){super();this.state=state;app=this;}render(){return view(this.state);}componentDidMount(){lifecycle.mounted++;}componentWillUnmount(){lifecycle.unmounted++;}}hydrate(h(App),root);}
+export function update(state){app.setState(state);}
+export async function flush(){await Promise.resolve();await Promise.resolve();}
+export function unmount(root){render(null,root);}

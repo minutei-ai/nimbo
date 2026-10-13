@@ -1,0 +1,8 @@
+import {h,createSSRApp,shallowRef,nextTick,onMounted,onUnmounted} from '/frameworks/vue.mjs';
+export {h};
+export const lifecycle={mounted:0,unmounted:0};
+let app,state;
+export function mount(view,initial,root){state=shallowRef(initial);app=createSSRApp({setup(){onMounted(()=>lifecycle.mounted++);onUnmounted(()=>lifecycle.unmounted++);return()=>view(state.value);}});app.mount(root);}
+export function update(value){state.value=value;}
+export async function flush(){await nextTick();}
+export function unmount(){app.unmount();}

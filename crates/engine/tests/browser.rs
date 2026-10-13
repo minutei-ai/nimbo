@@ -275,6 +275,46 @@ fn serve_variant(request: Request, source: &str) -> io::Result<()> {
     respond(request, body, 200, "text/html", Vec::new())
 }
 
+fn serve_framework(request: Request) -> io::Result<()> {
+    let path = request.url();
+    let module = match path {
+        "/frameworks/preact.mjs" => Some(include_str!("fixtures/frameworks/preact-10.29.8.txt")),
+        "/frameworks/vue.mjs" => Some(include_str!("fixtures/frameworks/vue-3.5.22.txt")),
+        "/frameworks/preact/adapter.mjs" => {
+            Some(include_str!("fixtures/frameworks/preact-adapter.txt"))
+        }
+        "/frameworks/vue/adapter.mjs" => Some(include_str!("fixtures/frameworks/vue-adapter.txt")),
+        _ => None,
+    };
+    if let Some(module) = module {
+        return respond(request, module.into(), 200, "text/javascript", Vec::new());
+    }
+    let mut parts = path.split('/').skip(2);
+    let framework = parts.next().unwrap_or_default();
+    let variant = parts
+        .next()
+        .unwrap_or_default()
+        .parse::<u32>()
+        .map_err(io::Error::other)?;
+    if framework == "data" {
+        let body = json!({"message": format!("loaded-{variant}")}).to_string();
+        return respond(request, body, 200, "application/json", Vec::new());
+    }
+    let body = if framework == "dom-primitives" {
+        let source = include_str!("fixtures/frameworks/dom-primitives.txt");
+        format!("<!doctype html><body><script>const variant={variant};{source}</script>")
+    } else {
+        let source = include_str!("fixtures/frameworks/app.txt").replace(
+            "'/frameworks/adapter.mjs'",
+            &format!("'/frameworks/{framework}/adapter.mjs'"),
+        );
+        format!(
+            r#"<!doctype html><div id="app"><main><p id="count">Count: {variant}</p><button id="increment">Increment</button><ul><li data-key="1">1</li><li data-key="2">2</li><li data-key="3">3</li></ul><p id="message">server</p></main></div><script type="module">const variant={variant};{source}</script>"#
+        )
+    };
+    respond(request, body, 200, "text/html", Vec::new())
+}
+
 fn variant_source(url: &str) -> Option<&'static str> {
     match url.split('/').nth(1) {
         Some("shadow-dom") => Some(include_str!("fixtures/shadow-dom.txt")),
@@ -283,7 +323,10 @@ fn variant_source(url: &str) -> Option<&'static str> {
     }
 }
 
-fn serve(mut request: Request) -> io::Result<()> {
+fn serve(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/frameworks/") {
+        return serve_framework(request);
+    }
     if let Some(source) = variant_source(request.url()) {
         return serve_variant(request, source);
     }
@@ -294,6 +337,10 @@ fn serve(mut request: Request) -> io::Result<()> {
         return serve_resource(request);
     }
 
+    serve_page(request)
+}
+
+fn serve_page(mut request: Request) -> io::Result<()> {
     let mut content_type = "text/html; charset=utf-8";
     let mut status = 200;
     let mut headers = Vec::new();
@@ -4367,6 +4414,26 @@ fn mutation_observer_records_and_microtasks_use_real_http() -> TestResult {
             checks.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
+    }
+    Ok(())
+}
+
+#[test]
+fn framework_hydration_state_and_keyed_updates_use_real_http() -> TestResult {
+    let fixture = Fixture::new()?;
+    for (framework, expected) in [("preact", 14), ("vue", 14), ("dom-primitives", 24)] {
+        for variant in 0..64 {
+            let page = fixture
+                .browser()?
+                .navigate(&fixture.path(&format!("/frameworks/{framework}/{variant}")))?;
+            let result = page.evaluate("comparison")?;
+            let checks = result.as_object().ok_or("missing framework contracts")?;
+            assert_eq!(checks.len(), expected);
+            assert!(
+                checks.values().all(|value| *value == json!(true)),
+                "{framework} variant {variant}: {result}"
+            );
+        }
     }
     Ok(())
 }

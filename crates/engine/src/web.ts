@@ -1285,6 +1285,9 @@
       if (call<number>("get", id, "nodeType") === 2) return this;
       return node(call<number>("rootNode", id, options?.composed ? "composed" : ""));
     }
+    hasChildNodes(): boolean {
+      return raw<number | null>("relativeNode", idOf(this), "first") !== null;
+    }
     contains(other: Node | null): boolean {
       return other !== null && call("contains", idOf(this), String(idOf(other)));
     }
@@ -4408,39 +4411,74 @@
     if (descriptor)
       Object.defineProperty(ShadowRoot.prototype, key, { ...descriptor, enumerable: true });
   }
-  type SlotHandler = (this: Target, event: Event) => unknown;
-  const slotHandlers = new WeakMap<object, SlotHandler>();
-  const slotHandlerListeners = new WeakMap<object, SlotHandler>();
-  for (const prototype of [ShadowRoot.prototype, HTMLSlotElement.prototype]) {
-    Object.defineProperty(prototype, "onslotchange", {
-      enumerable: true,
-      configurable: true,
-      get(this: ShadowRoot | HTMLSlotElement) {
-        if (prototype === ShadowRoot.prototype) shadowState(this);
-        else slotId(this);
-        return slotHandlers.get(this) ?? null;
-      },
-      set(this: ShadowRoot | HTMLSlotElement, value: unknown) {
-        if (prototype === ShadowRoot.prototype) shadowState(this);
-        else slotId(this);
-        if (typeof value !== "function") {
-          slotHandlers.delete(this);
-          const listener = slotHandlerListeners.get(this);
-          if (listener) this.removeEventListener("slotchange", listener);
-          slotHandlerListeners.delete(this);
+  type HandlerEntry = { value: object; listener: Listener };
+  const handlerEntries = new WeakMap<object, Map<string, HandlerEntry>>();
+  // Internal handler registration must not call page-overridden listener methods.
+  // oxlint-disable-next-line typescript/unbound-method
+  const addHandlerListener = EventTarget.prototype.addEventListener;
+  // oxlint-disable-next-line typescript/unbound-method
+  const removeHandlerListener = EventTarget.prototype.removeEventListener;
+  function defineEventHandlers(
+    prototype: object,
+    guard: (target: Target) => void,
+    types: readonly string[],
+  ): void {
+    for (const type of types) {
+      const get = function (this: Target): object | null {
+        guard(this);
+        return handlerEntries.get(this)?.get(type)?.value ?? null;
+      };
+      const set = function (this: Target, value: unknown) {
+        guard(this);
+        const entries = handlerEntries.get(this) ?? new Map<string, HandlerEntry>();
+        const entry = entries.get(type);
+        if (value === null || (typeof value !== "object" && typeof value !== "function")) {
+          if (entry) removeHandlerListener.call(this, type, entry.listener);
+          entries.delete(type);
           return;
         }
-        // Web IDL's callable event handler executes only in the page realm.
-        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-        slotHandlers.set(this, value as SlotHandler);
-        if (!slotHandlerListeners.has(this)) {
-          const listener: SlotHandler = (event) => slotHandlers.get(this)?.call(this, event);
-          slotHandlerListeners.set(this, listener);
-          this.addEventListener("slotchange", listener);
+        if (entry) {
+          entry.value = value;
+          return;
         }
-      },
-    });
+        const listener = (event: Event): void => {
+          const callback = entries.get(type)?.value;
+          if (typeof callback !== "function") return;
+          const result: unknown = callback.call(this, event);
+          const state = eventState(event);
+          if (result === false && state.cancelable && !state.passive) state.canceled = true;
+        };
+        entries.set(type, { value, listener });
+        handlerEntries.set(this, entries);
+        addHandlerListener.call(this, type, listener);
+      };
+      for (const [kind, accessor] of [
+        ["get", get],
+        ["set", set],
+      ] as const)
+        Object.defineProperty(accessor, "name", { value: `${kind} on${type}`, configurable: true });
+      Object.defineProperty(prototype, "on" + type, {
+        get,
+        set,
+        enumerable: true,
+        configurable: true,
+      });
+    }
   }
+  defineEventHandlers(
+    ShadowRoot.prototype,
+    (target) => {
+      shadowState(target);
+    },
+    ["slotchange"],
+  );
+  defineEventHandlers(
+    HTMLSlotElement.prototype,
+    (target) => {
+      slotId(target);
+    },
+    ["slotchange"],
+  );
   function element(id: number): Element {
     const result = node(id);
     if (!(result instanceof Element)) throw new TypeError("expected Element");
@@ -4761,7 +4799,7 @@
   }
   const document = new Document(internal, 0);
   for (const [prototype, keys] of [
-    [Node.prototype, ["getRootNode"]],
+    [Node.prototype, ["getRootNode", "hasChildNodes"]],
     [
       Element.prototype,
       [
@@ -6415,6 +6453,57 @@
     enumerable: true,
     configurable: true,
   });
+  const handlerTypes = [
+    "click",
+    "dblclick",
+    "contextmenu",
+    "mousedown",
+    "mouseup",
+    "mousemove",
+    "mouseover",
+    "mouseout",
+    "mouseenter",
+    "mouseleave",
+    "pointerdown",
+    "pointerup",
+    "pointermove",
+    "pointerover",
+    "pointerout",
+    "pointerenter",
+    "pointerleave",
+    "pointercancel",
+    "gotpointercapture",
+    "lostpointercapture",
+    "input",
+    "beforeinput",
+    "change",
+    "submit",
+    "reset",
+    "focus",
+    "blur",
+    "keydown",
+    "keyup",
+    "keypress",
+    "load",
+    "scroll",
+    "scrollend",
+  ];
+  for (const prototype of [HTMLElement.prototype, SVGElement.prototype, Document.prototype])
+    defineEventHandlers(
+      prototype,
+      (target) => {
+        if (!prototype.isPrototypeOf(target)) throw new TypeError("Illegal invocation");
+        idOf(target);
+      },
+      handlerTypes,
+    );
+  defineEventHandlers(
+    globalThis,
+    (target) => {
+      if (target !== globalThis) throw new TypeError("Illegal invocation");
+    },
+    handlerTypes,
+  );
   Object.assign(globalThis, {
     document,
     Storage,

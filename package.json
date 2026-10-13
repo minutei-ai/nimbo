@@ -97,7 +97,9 @@
     "bench:corpus:native": "bun run tooling/benchmark-corpus.ts native",
     "bench:corpus:worker": "bun run tooling/benchmark-corpus.ts worker",
     "compare:shadow-dom": "bun run build:worker && bun run tooling/compare-shadow-dom.ts",
-    "compare:mutation-observer": "bun run build:worker && bun run tooling/compare-mutation-observer.ts"
+    "compare:mutation-observer": "bun run build:worker && bun run tooling/compare-mutation-observer.ts",
+    "compare:frameworks": "bun run build:worker && bun run tooling/compare-frameworks.ts",
+    "compare:dom-primitives": "bun run build:worker && bun run tooling/compare-dom-primitives.ts"
   },
   "devDependencies": {
     "@effect/tsgo": "0.47.2",

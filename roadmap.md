@@ -37,7 +37,9 @@ contracts passed native HTTP, Worker/Wasm and independent Chromium comparisons.
 [Owned mutation observers](docs/mutation-observers.md) add records, filters,
 old values, detached-subtree transients and ordered microtask delivery with
 40 synthetic comparison contracts. Declarative parsing, scoped styles/flat-tree
-geometry, wider forms and representative framework applications remain open.
+geometry and wider forms remain open. [Framework extraction applications](docs/framework-applications.md)
+exercise pinned Preact and Vue hydration, state changes, keyed updates, HTTP data
+loading and unmounting. History-driven client navigation remains open.
 
 ## 0.4 — Scripts and page readiness
 
