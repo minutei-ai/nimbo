@@ -4969,3 +4969,12 @@ fn native_cancellation_interrupts_timers_javascript_and_readiness() -> TestResul
     ));
     Ok(())
 }
+
+#[test]
+fn option_metadata_uses_native_text_and_live_form_ownership() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    let source = include_str!("fixtures/option-metadata.txt");
+    assert_eq!(page.evaluate(&format!("(()=>{{{source};const checks=optionMetadataCase(0);return {{count:Object.keys(checks).length,failed:Object.entries(checks).filter(([,passed])=>!passed).map(([name])=>name)}}}})()"))?, json!({"count":45,"failed":[]}));
+    Ok(())
+}

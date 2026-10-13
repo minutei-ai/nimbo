@@ -864,3 +864,20 @@ test("Wasm heap limits and interrupted pending fetches leave the isolate usable"
     },
   );
 });
+
+test("native option metadata preserves text and live ownership", async () => {
+  const source = await Bun.file(
+    join(root, "crates/engine/tests/fixtures/option-metadata.txt"),
+  ).text();
+  await fixture(
+    () => html("<!doctype html><body>"),
+    async (worker) => {
+      const response = await scrape(
+        worker,
+        `(()=>{${source};const checks=optionMetadataCase(0);return {count:Object.keys(checks).length,failed:Object.entries(checks).filter(([,passed])=>!passed).map(([name])=>name)}})()`,
+      );
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({ value: { count: 45, failed: [] } });
+    },
+  );
+});

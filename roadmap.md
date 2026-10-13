@@ -78,7 +78,9 @@ state to one query/CSS matcher, with 44 independent contracts. Complete validati
 and transactional native reset of their existing values and checkedness.
 [Owned reset buttons](docs/reset-buttons.md) add mouse/pointer activation and
 the basic HTMLButtonElement interface with 42 independent contracts.
-Select/options, collections, submission and wider form behavior remain open.
+[Native option metadata](docs/option-metadata.md) adds text/value/label, live index
+and select-derived form ownership without descendant handles or a copied DOM.
+Select selection/reset, option collections, submission and wider form behavior remain open.
 
 ## 0.4 — Scripts and page readiness
 

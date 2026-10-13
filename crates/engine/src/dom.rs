@@ -23,6 +23,8 @@ mod forms;
 mod history;
 #[path = "dom_mutations.rs"]
 mod mutations;
+#[path = "dom_options.rs"]
+mod options;
 #[path = "dom_shadow.rs"]
 mod shadow;
 
@@ -202,6 +204,7 @@ impl Dom {
             "history" if handle == 0 => self.history_call(arg, value).map(Some),
             "history" => Err(Error::Dom("invalid history receiver".into())),
             "mutation" => self.mutation_call(handle, arg, value).map(Some),
+            "option" => self.option_call(handle, arg).map(Some),
             _ => Ok(None),
         }
     }

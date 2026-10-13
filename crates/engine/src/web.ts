@@ -3514,6 +3514,69 @@
       enumerable: true,
       configurable: true,
     });
+  const optionElements = new WeakSet<object>();
+  function optionId(owner: object): number {
+    if (!optionElements.has(owner)) throw new TypeError("Illegal invocation");
+    return htmlId(owner);
+  }
+  class HTMLOptionElement extends HTMLElement {
+    constructor(key?: symbol, id?: number) {
+      if (key !== internal || id === undefined) throw new TypeError("Illegal constructor");
+      super(internal, id);
+      optionElements.add(this);
+    }
+    get text(): string {
+      return raw("option", optionId(this), "text");
+    }
+    set text(value: unknown) {
+      call("set", optionId(this), "textContent", domString(value));
+    }
+    get index(): number {
+      return raw("option", optionId(this), "index");
+    }
+    get form(): Element | null {
+      const id = raw<number | null>("option", optionId(this), "form");
+      return id === null ? null : element(id);
+    }
+  }
+  Object.defineProperty(HTMLOptionElement, "length", { value: 0, configurable: true });
+  Object.defineProperty(HTMLOptionElement.prototype, Symbol.toStringTag, {
+    value: "HTMLOptionElement",
+    configurable: true,
+  });
+  for (const name of ["text", "index", "form"]) {
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLOptionElement.prototype, name);
+    if (descriptor)
+      Object.defineProperty(HTMLOptionElement.prototype, name, { ...descriptor, enumerable: true });
+  }
+  for (const name of ["value", "label"])
+    Object.defineProperty(HTMLOptionElement.prototype, name, {
+      get(this: object) {
+        return raw<string>("option", optionId(this), name);
+      },
+      set(this: object, value: unknown) {
+        optionId(this);
+        reflectString(this, name, value);
+      },
+      enumerable: true,
+      configurable: true,
+    });
+  for (const [name, attribute] of [
+    ["disabled", "disabled"],
+    ["defaultSelected", "selected"],
+  ] as const)
+    Object.defineProperty(HTMLOptionElement.prototype, name, {
+      get(this: object) {
+        optionId(this);
+        return hasHtmlAttribute(this, attribute);
+      },
+      set(this: object, value: unknown) {
+        optionId(this);
+        reflectBoolean(this, attribute, value);
+      },
+      enumerable: true,
+      configurable: true,
+    });
   const textControls = new WeakMap<object, "input" | "textarea">();
   function textControlId(owner: object, kind: "input" | "textarea"): number {
     if (textControls.get(owner) !== kind) throw new TypeError("Illegal invocation");
@@ -4946,6 +5009,7 @@
           if (name === "input") return new HTMLInputElement(internal, id);
           if (name === "form") return new HTMLFormElement(internal, id);
           if (name === "button") return new HTMLButtonElement(internal, id);
+          if (name === "option") return new HTMLOptionElement(internal, id);
           if (name === "textarea") return new HTMLTextAreaElement(internal, id);
           return new HTMLElement(internal, id);
         }
@@ -7608,6 +7672,7 @@
     HTMLInputElement,
     HTMLFormElement,
     HTMLButtonElement,
+    HTMLOptionElement,
     HTMLTextAreaElement,
     SVGElement,
     DOMStringMap,

@@ -114,9 +114,19 @@ impl View<'_> {
             return Ok(false);
         }
         if html_element(node, "option") {
-            return Ok(node.parent().is_some_and(|parent| {
-                html_element(parent, "optgroup") && parent.has_null_attribute("disabled")
-            }));
+            for parent in node.ancestors_it(None) {
+                self.charge()?;
+                if ["select", "hr", "datalist", "option"]
+                    .iter()
+                    .any(|name| html_element(parent, name))
+                {
+                    return Ok(false);
+                }
+                if html_element(parent, "optgroup") {
+                    return Ok(parent.has_null_attribute("disabled"));
+                }
+            }
+            return Ok(false);
         }
         for ancestor in node.ancestors_it(None) {
             self.charge()?;
@@ -175,6 +185,29 @@ impl View<'_> {
                 root = parent.id;
             }
         }
+    }
+
+    pub(super) fn option_select<'a>(&self, node: NodeRef<'a>) -> Result<Option<NodeRef<'a>>> {
+        let mut group = false;
+        for parent in node.ancestors_it(None) {
+            self.charge()?;
+            if ["datalist", "hr", "option"]
+                .iter()
+                .any(|name| html_element(parent, name))
+            {
+                return Ok(None);
+            }
+            if html_element(parent, "optgroup") {
+                if group {
+                    return Ok(None);
+                }
+                group = true;
+            }
+            if html_element(parent, "select") {
+                return Ok(Some(parent));
+            }
+        }
+        Ok(None)
     }
 
     pub(super) fn group(&self, node: NodeRef<'_>) -> Result<Option<Group>> {

@@ -1,0 +1,32 @@
+function optionMetadataCase(variant) {
+ const checks={},o=document.createElement('option'),make=tag=>document.createElement(tag),throws=fn=>{try{fn();return false}catch(e){return e instanceof TypeError}};
+ checks.brand=o instanceof HTMLOptionElement&&o instanceof HTMLElement&&Object.prototype.toString.call(o)==='[object HTMLOptionElement]';
+ checks.constructor=HTMLOptionElement.length===0&&throws(()=>new HTMLOptionElement());
+ checks.empty=o.text===''&&o.value===''&&o.label===''&&o.index===0&&o.form===null&&!o.disabled&&!o.defaultSelected;
+ o.text=' \t A\n\r\f B  ';checks.spaces=o.text==='A B'&&o.value==='A B'&&o.label==='A B'&&o.textContent===' \t A\n\r\f B  ';
+ o.text=' \u00a0 A\u000b B\u2003 ';checks.unicode=o.text==='\u00a0 A\u000b B\u2003';
+ o.text='A';const span=make('span');span.textContent=' B ';o.append(span,document.createComment('ignore'),document.createTextNode('C'));checks.descendants=o.text==='A B C';
+ const script=make('script');script.textContent=' hidden ';o.append(script,document.createTextNode(' D'));checks.script=o.text==='A B C D';
+ const svgScript=document.createElementNS('http://www.w3.org/2000/svg','script');svgScript.textContent=' hidden ';o.append(svgScript);checks.svgScript=o.text==='A B C D';
+ const foreignScript=document.createElementNS('urn:example:test','script');foreignScript.textContent=' E ';o.append(foreignScript);checks.foreignScript=o.text==='A B C D E';
+ const img=make('img');img.setAttribute('alt','ALT');img.append(document.createTextNode(' hidden '));o.append(img);checks.image=o.text==='A B C D E hidden';
+ const br=make('br');o.append(br,document.createTextNode('F'));checks.break=o.text==='A B C D E hidden F';
+ o.value=' explicit \n';checks.explicitValue=o.value===' explicit \n'&&o.text==='A B C D E hidden F';o.value='';checks.emptyValue=o.value==='';o.removeAttribute('value');checks.fallbackValue=o.value===o.text;
+ o.label=' explicit \n';checks.explicitLabel=o.label===' explicit \n';o.label='';checks.emptyLabel=o.label==='';o.removeAttribute('label');checks.fallbackLabel=o.label===o.text;
+ o.text=null;checks.nullText=o.text==='null'&&o.childNodes.length===1&&o.firstChild.nodeType===3;o.text='';checks.replaceText=o.text===''&&o.childNodes.length===0;
+ Object.defineProperty(o,'textContent',{value:'shadow',writable:true,configurable:true});o.text='native';checks.textOverride=o.text==='native'&&o.textContent==='shadow';delete o.textContent;
+ const observer=new MutationObserver(()=>{});observer.observe(o,{childList:true});const old=o.firstChild;o.text='after';const records=observer.takeRecords();checks.textMutation=records.length===1&&records[0].removedNodes[0]===old&&records[0].addedNodes[0]===o.firstChild;observer.disconnect();o.text='';
+ o.value={toString:()=>String(variant)};o.label=null;checks.conversions=o.value===String(variant)&&o.label==='null';checks.symbol=throws(()=>o.text=Symbol())&&throws(()=>o.value=Symbol())&&throws(()=>o.label=Symbol());
+ o.disabled=true;o.defaultSelected=true;checks.booleans=o.hasAttribute('disabled')&&o.hasAttribute('selected');o.disabled=0;o.defaultSelected='';checks.clearBooleans=!o.hasAttribute('disabled')&&!o.hasAttribute('selected');
+ o.setAttributeNS('urn:example:test','x:value','wrong');o.setAttributeNS('urn:example:test','x:label','wrong');o.setAttributeNS('urn:example:test','x:disabled','');o.removeAttribute('value');o.removeAttribute('label');checks.namespaces=o.value===''&&o.label===''&&!o.disabled;
+ const f=make('form'),g=make('form'),s=make('select'),a=make('option'),b=make('option'),group=make('optgroup');f.id='option-form-'+variant;g.id='option-other-'+variant;s.append(a,group);group.append(b);f.append(s);document.body.append(f,g);
+ checks.ownership=a.form===f&&b.form===f&&a.index===0&&b.index===1;a.setAttribute('form',g.id);checks.optionFormIgnored=a.form===f;s.setAttribute('form',g.id);checks.selectForm=b.form===g;s.removeAttribute('form');checks.selectFormRemoved=b.form===f;
+ s.prepend(b);checks.reorder=b.index===0&&a.index===1;g.append(s);checks.reparent=a.form===g&&b.form===g;g.remove();checks.detachedForm=a.form===g;a.remove();checks.detachedOption=a.form===null&&a.index===0;f.append(a);checks.directForm=a.form===null;
+ s.append(a);const wrapper=make('div');wrapper.append(b);group.append(wrapper);checks.deepGroup=b.form===g&&b.index===0&&a.index===1;
+ group.setAttribute('disabled','');checks.deepDisabled=b.matches(':disabled')&&!b.disabled&&a.matches(':enabled');group.removeAttribute('disabled');
+ const inner=make('optgroup');inner.append(b);group.append(inner);checks.nestedGroup=b.form===null&&b.index===0;
+ for(const tag of ['datalist','hr','option']){const barrier=make(tag);barrier.append(b);s.append(barrier);checks[tag+'Barrier']=b.form===null&&b.index===0;barrier.remove();}
+ const nested=make('select'),c=make('option');nested.append(c);s.append(nested);checks.nestedSelect=c.form===g&&c.index===0;
+ const host=make('div'),root=host.attachShadow({mode:'open'}),shadowSelect=make('select'),shadowOption=make('option');shadowSelect.append(shadowOption);root.append(shadowSelect);g.append(host);checks.shadowForm=shadowOption.form===null;
+ const d=Object.getOwnPropertyDescriptor(HTMLOptionElement.prototype,'text'),v=Object.getOwnPropertyDescriptor(HTMLOptionElement.prototype,'value');checks.descriptors=d.enumerable&&d.configurable&&v.enumerable&&v.configurable;checks.receivers=throws(()=>d.get.call({}))&&throws(()=>v.set.call(make('input'),'x'));f.remove();return checks;
+}
