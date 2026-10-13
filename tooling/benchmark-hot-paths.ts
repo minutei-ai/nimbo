@@ -5,6 +5,11 @@ import { startCelld } from "./benchmark-celld";
 import { hotPathFixture, hotPathScenarios } from "./hot-paths-fixture";
 
 const baseline = process.env.NIMBO_BENCH_BASELINE_BUNDLE;
+const selected = process.argv[2];
+const scenarios = selected
+  ? hotPathScenarios.filter((scenario) => scenario.name === selected)
+  : hotPathScenarios;
+if (scenarios.length === 0) throw new Error("Unknown hot-path scenario");
 const bundles = baseline
   ? [baseline, resolve(import.meta.dir, "../dist/worker")]
   : [resolve(import.meta.dir, "../dist/worker")];
@@ -28,7 +33,7 @@ try {
     // oxlint-disable-next-line eslint/no-await-in-loop
     hosts.push(await startCelld(bundle));
   }
-  for (const scenario of hotPathScenarios) {
+  for (const scenario of scenarios) {
     const entries = hosts.map((_, index) => ({
       runtime: baseline && index === 0 ? "baseline" : "candidate",
       scenario: scenario.name,
@@ -78,19 +83,34 @@ try {
       }
     }
   }
-  const hashes = [];
-  for (const [index, bundle] of bundles.entries()) {
-    // oxlint-disable-next-line eslint/no-await-in-loop
-    const bytes = await Bun.file(join(bundle, "nimbo_engine_bg.wasm")).arrayBuffer();
-    hashes.push({
-      runtime: baseline && index === 0 ? "baseline" : "candidate",
-      wasm_sha256: createHash("sha256").update(new Uint8Array(bytes)).digest("hex"),
-    });
-  }
+  const hashes = await Promise.all(
+    bundles.map(async (bundle, index) => {
+      const host = hosts[index];
+      if (!host) throw new Error("Missing benchmark host");
+      const [wasm, worker] = await Promise.all([
+        Bun.file(join(bundle, "nimbo_engine_bg.wasm")).arrayBuffer(),
+        Bun.file(join(bundle, "index.js")).arrayBuffer(),
+      ]);
+      return {
+        runtime: baseline && index === 0 ? "baseline" : "candidate",
+        host_version: host.version,
+        wasm_sha256: createHash("sha256").update(new Uint8Array(wasm)).digest("hex"),
+        worker_sha256: createHash("sha256").update(new Uint8Array(worker)).digest("hex"),
+      };
+    }),
+  );
   process.stdout.write(
     JSON.stringify(
       {
         date: new Date().toISOString().slice(0, 10),
+        // Keep the synthetic workload identity alongside exact artifact hashes.
+        fixture_sha256: createHash("sha256")
+          .update(
+            new Uint8Array(
+              await Bun.file(join(import.meta.dir, "hot-paths-fixture.ts")).arrayBuffer(),
+            ),
+          )
+          .digest("hex"),
         mode: "local celld; real HTTP; fresh pages; alternating builds; concurrency 1; 3 warmups + 15 measured runs; Linux process-tree RSS sampled after requests, not peak/page heap; DOM budget 100000; layout nodes 4096",
         runtimes: hashes,
         results: results.map((entry) => {

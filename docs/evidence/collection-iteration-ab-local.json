@@ -1,0 +1,59 @@
+{
+  "date": "2026-10-13",
+  "fixture_sha256": "28cea596b3a4d7e4f93d1d7f6921c0b54a61b5bda60ac272e75e706ce18698a2",
+  "mode": "local celld; real HTTP; fresh pages; alternating builds; concurrency 1; 3 warmups + 15 measured runs; Linux process-tree RSS sampled after requests, not peak/page heap; DOM budget 100000; layout nodes 4096",
+  "runtimes": [
+    {
+      "runtime": "baseline",
+      "host_version": "celld 0.6.1",
+      "wasm_sha256": "b550abe353552bc998caccb9c4561b980c9f0e726ae9b9505b444d0cf3aaed55",
+      "worker_sha256": "2580fd712adf7025e2daf96223b35e7f0f379984435697521d357ffad197459f"
+    },
+    {
+      "runtime": "candidate",
+      "host_version": "celld 0.6.1",
+      "wasm_sha256": "763dc84818572cc389155680eefdab5e116028c7c0c100c0e5e9928d0483d79b",
+      "worker_sha256": "2580fd712adf7025e2daf96223b35e7f0f379984435697521d357ffad197459f"
+    }
+  ],
+  "results": [
+    {
+      "runtime": "baseline",
+      "scenario": "live-child-iteration",
+      "valid": 18,
+      "failures": {},
+      "samples_ms": [
+        387.31295600000067, 410.242851, 407.49779299999955, 353.9075270000003, 408.91232299999956,
+        356.83315800000037, 390.7447350000002, 308.88705200000004, 395.0718770000003,
+        341.9686620000002, 344.48592199999985, 387.1488879999997, 382.8405309999998,
+        364.9277119999988, 403.99743900000067
+      ],
+      "rss_after_request_kib": [
+        469708, 471816, 471492, 472160, 472444, 472772, 474836, 474936, 475560, 475944, 476336,
+        476608, 479068, 479180, 478300
+      ],
+      "p50_ms": 387.1488879999997,
+      "p95_ms": 410.242851,
+      "max_rss_after_request_kib": 479180
+    },
+    {
+      "runtime": "candidate",
+      "scenario": "live-child-iteration",
+      "valid": 18,
+      "failures": {},
+      "samples_ms": [
+        67.47979900000018, 90.95590400000037, 99.96220699999958, 54.804565000000366,
+        53.81173800000033, 85.28851200000008, 63.14751299999989, 86.044175, 91.70952099999977,
+        85.45916099999886, 62.46094599999924, 93.40214399999968, 61.92797800000153,
+        82.47342300000128, 62.649906000000556
+      ],
+      "rss_after_request_kib": [
+        468100, 468460, 470940, 471504, 471616, 471884, 472212, 472496, 474792, 475048, 475284,
+        477136, 477432, 478240, 478268
+      ],
+      "p50_ms": 82.47342300000128,
+      "p95_ms": 99.96220699999958,
+      "max_rss_after_request_kib": 478268
+    }
+  ]
+}

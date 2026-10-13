@@ -1,0 +1,115 @@
+{
+  "version": 1,
+  "host": "celld 0.6.1; one isolate per build",
+  "baseline_commit": "8f3a060",
+  "default_budgets": true,
+  "scope": "synthetic empty sibling elements, sequential iteration; per-page snapshots, not allocation peak or total Worker memory",
+  "runs": [
+    {
+      "runtime": "baseline",
+      "rows": [
+        {
+          "nodes": 100,
+          "status": 200,
+          "correct": true,
+          "diagnostics": {
+            "javascriptAllocatedBytes": 626920,
+            "javascriptUsedBytes": 558668,
+            "javascriptObjectCount": 1800,
+            "javascriptTicksUsed": 2,
+            "microtasksExecuted": 2,
+            "domOperations": 507,
+            "domWriteBytes": 0,
+            "domHandleCount": 102
+          },
+          "error": null
+        },
+        {
+          "nodes": 500,
+          "status": 200,
+          "correct": true,
+          "diagnostics": {
+            "javascriptAllocatedBytes": 774120,
+            "javascriptUsedBytes": 581068,
+            "javascriptObjectCount": 2200,
+            "javascriptTicksUsed": 8,
+            "microtasksExecuted": 2,
+            "domOperations": 2507,
+            "domWriteBytes": 0,
+            "domHandleCount": 502
+          },
+          "error": null
+        },
+        {
+          "nodes": 1000,
+          "status": 200,
+          "correct": true,
+          "diagnostics": {
+            "javascriptAllocatedBytes": 958120,
+            "javascriptUsedBytes": 609068,
+            "javascriptObjectCount": 2700,
+            "javascriptTicksUsed": 15,
+            "microtasksExecuted": 2,
+            "domOperations": 5007,
+            "domWriteBytes": 0,
+            "domHandleCount": 1002
+          },
+          "error": null
+        }
+      ]
+    },
+    {
+      "runtime": "candidate",
+      "rows": [
+        {
+          "nodes": 100,
+          "status": 200,
+          "correct": true,
+          "diagnostics": {
+            "javascriptAllocatedBytes": 627800,
+            "javascriptUsedBytes": 559503,
+            "javascriptObjectCount": 1801,
+            "javascriptTicksUsed": 2,
+            "microtasksExecuted": 2,
+            "domOperations": 508,
+            "domWriteBytes": 0,
+            "domHandleCount": 102
+          },
+          "error": null
+        },
+        {
+          "nodes": 500,
+          "status": 200,
+          "correct": true,
+          "diagnostics": {
+            "javascriptAllocatedBytes": 775000,
+            "javascriptUsedBytes": 581903,
+            "javascriptObjectCount": 2201,
+            "javascriptTicksUsed": 8,
+            "microtasksExecuted": 2,
+            "domOperations": 2508,
+            "domWriteBytes": 0,
+            "domHandleCount": 502
+          },
+          "error": null
+        },
+        {
+          "nodes": 1000,
+          "status": 200,
+          "correct": true,
+          "diagnostics": {
+            "javascriptAllocatedBytes": 959000,
+            "javascriptUsedBytes": 609903,
+            "javascriptObjectCount": 2701,
+            "javascriptTicksUsed": 14,
+            "microtasksExecuted": 2,
+            "domOperations": 5008,
+            "domWriteBytes": 0,
+            "domHandleCount": 1002
+          },
+          "error": null
+        }
+      ]
+    }
+  ]
+}

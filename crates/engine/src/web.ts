@@ -966,7 +966,7 @@
   const internal = Symbol("native node");
   type Collection = NodeList | HTMLCollection | NamedNodeMap;
   type CollectionItems = readonly (Node | number)[];
-  type CollectionState = { resolve: () => CollectionItems };
+  type CollectionState = { resolve: () => CollectionItems; live: boolean };
   function collectionNode(value: Node | number | undefined): Node | undefined {
     return typeof value === "number" ? node(value) : value;
   }
@@ -1015,9 +1015,10 @@
   function makeCollection<T extends Collection>(
     target: T,
     resolve: () => CollectionItems,
-    named = false,
+    options: { named?: boolean; live?: boolean } = {},
   ): T {
-    const state = { resolve };
+    const { named = false, live = false } = options;
+    const state = { resolve, live };
     const visibleName = (key: string | symbol): Node | undefined =>
       named && typeof key === "string" && !Reflect.has(target, key)
         ? namedNodes(resolve()).get(key)
@@ -1151,9 +1152,10 @@
     ) {
       const state = collectionState(this);
       if (typeof callback !== "function") throw new TypeError("callback must be a function");
-      const length = state.resolve().length;
+      const resolve = iterationResolver(state);
+      const length = resolve().length;
       for (let index = 0; index < length; index++) {
-        const value = collectionNode(state.resolve()[index]);
+        const value = collectionNode(resolve()[index]);
         if (value !== undefined) callback.call(thisArg, value, index, this);
       }
     }
@@ -1163,7 +1165,8 @@
     keys(): Generator<number> {
       const state = collectionState(this);
       return (function* () {
-        for (let index = 0; index < state.resolve().length; index++) yield index;
+        const resolve = iterationResolver(state);
+        for (let index = 0; index < resolve().length; index++) yield index;
       })();
     }
     values(): Generator<Node> {
@@ -1173,9 +1176,24 @@
       return this.values();
     }
   }
+  function iterationResolver(state: CollectionState): () => CollectionItems {
+    if (!state.live) return state.resolve;
+    let version = -1;
+    let items: CollectionItems = [];
+    // Keep IDs only for this iteration; native mutation versions preserve live indices.
+    return () => {
+      const current = raw<number>("layoutVersion", 0);
+      if (version !== current) {
+        items = state.resolve();
+        version = current;
+      }
+      return items;
+    };
+  }
   function* collectionEntries(state: CollectionState): Generator<[number, Node]> {
+    const resolve = iterationResolver(state);
     for (let index = 0; ; index++) {
-      const value = collectionNode(state.resolve()[index]);
+      const value = collectionNode(resolve()[index]);
       if (value === undefined) return;
       yield [index, value];
     }
@@ -1233,8 +1251,10 @@
     get childNodes(): NodeList {
       let list = childLists.get(this);
       if (!list) {
-        list = makeCollection(new NodeList(internal), () =>
-          call<number[]>("children", idOf(this), "nodes"),
+        list = makeCollection(
+          new NodeList(internal),
+          () => call<number[]>("children", idOf(this), "nodes"),
+          { live: true },
         );
         childLists.set(this, list);
       }
@@ -1406,7 +1426,7 @@
         list = makeCollection(
           new HTMLCollection(internal),
           () => call<number[]>("children", idOf(this), "elements"),
-          true,
+          { named: true, live: true },
         );
         elementLists.set(this, list);
       }
@@ -1445,7 +1465,7 @@
               : name)
           );
         }),
-      true,
+      { named: true, live: true },
     );
   }
   const tokenElements = new WeakMap<object, { id: number; attribute: string }>();
@@ -1956,7 +1976,7 @@
         map = makeCollection(
           new NamedNodeMap(internal),
           () => raw<number[]>("attributeNode", id, "list"),
-          true,
+          { named: true, live: true },
         );
         attributeMaps.set(this, map);
         attributeMapOwners.set(map, this);
@@ -7076,7 +7096,7 @@
       collection = makeCollection(
         new HTMLCollection(internal),
         () => call<number[]>("windowNamed", 0, key),
-        true,
+        { named: true, live: true },
       );
       namedWindowCollections.set(key, collection);
     }

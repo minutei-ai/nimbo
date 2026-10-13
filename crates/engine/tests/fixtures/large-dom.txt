@@ -22,3 +22,38 @@ function largeLiveChildrenCase() {
  checks.retained=first.parentNode===parent && last===elements[4998];
  return checks;
 }
+function collectionIterationCase() {
+ const checks={},large=document.createElement('div');large.innerHTML='<i></i>'.repeat(1000);
+ let seen=0;for(const child of large.children)seen++;
+ checks.large=seen===1000;
+ let keys=0;for(const key of large.childNodes.keys())keys++;
+ checks.keys=keys===1000;
+ seen=0;large.childNodes.forEach(()=>seen++);checks.forEach=seen===1000;
+ const parent=document.createElement('div');
+ const reset=()=>{parent.innerHTML='<i id=a></i><i id=b></i><i id=c></i>';};
+ reset();const visited=[];
+ for(const child of parent.children){visited.push(child.id);if(visited.length===1)parent.insertBefore(document.createElement('i'),parent.firstChild);}
+ checks.prepend=visited.join(',')==='a,a,b,c';
+ reset();const values=[];
+ parent.childNodes.forEach((child,index)=>{values.push(child.id);if(index===0){child.remove();const next=document.createElement('i');next.id='d';parent.appendChild(next);}});
+ checks.callback=values.join(',')==='a,c,d';
+ reset();const entries=parent.childNodes.entries(),first=entries.next().value;parent.firstChild.remove();
+ const second=entries.next().value;checks.entries=first[0]===0 && first[1].id==='a' && second[0]===1 && second[1].id==='c' && entries.next().done;
+ reset();const snapshot=parent.querySelectorAll('i'),staticNames=[];
+ for(const child of snapshot){staticNames.push(child.id);child.remove();}
+ checks.snapshot=staticNames.join(',')==='a,b,c' && parent.children.length===0;
+ reset();const tagged=[];
+ for(const child of parent.getElementsByTagName('i')){tagged.push(child.id);if(tagged.length===1){const next=document.createElement('i');next.id='d';parent.appendChild(next);}}
+ checks.tags=tagged.join(',')==='a,b,c,d';
+ const attrOwner=document.createElement('i');for(const name of ['a','b','c'])attrOwner.setAttribute(name,name);
+ const attrs=attrOwner.attributes[Symbol.iterator]();attrs.next();attrOwner.removeAttribute('a');attrOwner.setAttribute('d','d');
+ checks.attributes=Array.from(attrs).map(attr=>attr.name).join(',')==='c,d';
+ const root=document.createElement('div').attachShadow({mode:'open'});root.innerHTML='<i id=a></i><i id=b></i>';
+ const shadow=root.children[Symbol.iterator]();shadow.next();root.firstChild.remove();
+ checks.shadow=shadow.next().done;
+ const other=document.implementation.createDocument(null,'root'),area=other.documentElement;
+ area.appendChild(other.createElementNS(null,'a'));area.appendChild(other.createElementNS(null,'b'));
+ const xml=area.children[Symbol.iterator]();xml.next();area.removeChild(area.firstChild);
+ checks.xml=xml.next().done;
+ return checks;
+}

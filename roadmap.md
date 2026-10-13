@@ -25,6 +25,8 @@ and a second Rust buffer; a local single-isolate probe records reduced Wasm
 linear capacity under the same synthetic byte workload and default budgets.
 [Lazy live child collections](docs/live-collection-memory.md) remove eager
 wrapper allocation for counts, preserving indexed identity and mutations.
+[Iteration-local reuse](docs/collection-iteration.md) avoids resolving every
+identifier array at every index while observing native mutation versions.
 
 ## 0.3 — DOM and application compatibility
 

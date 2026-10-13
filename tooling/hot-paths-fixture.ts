@@ -1,5 +1,11 @@
 export const hotPathScenarios = [
   {
+    name: "live-child-iteration",
+    expression:
+      "(()=>{let seen=0;for(const child of document.body.children)seen+=child.nodeType===1;return seen===1000})()",
+    rows: 1000,
+  },
+  {
     name: "named-access-after-style",
     expression:
       "(()=>{const e=document.getElementById('item0');let count=0;for(let i=0;i<48;i++){e.style.opacity=String(i/48);if(typeof missingWindowProperty==='undefined')count++;}return count===48})()",

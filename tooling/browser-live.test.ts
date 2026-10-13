@@ -5690,6 +5690,33 @@ test.each([
   },
 );
 
+test("real HTTP → workerd → Wasm: live collection iteration follows native mutations", async () => {
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url: new URL("large-dom/iteration", origin.url).href,
+      expression: "collectionIterationCase()",
+    }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
+    value: {
+      large: true,
+      keys: true,
+      forEach: true,
+      prepend: true,
+      callback: true,
+      entries: true,
+      snapshot: true,
+      tags: true,
+      attributes: true,
+      shadow: true,
+      xml: true,
+    },
+  });
+});
+
 test("real HTTP → workerd → Wasm: large live child collections at default budgets", async () => {
   const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
     method: "POST",

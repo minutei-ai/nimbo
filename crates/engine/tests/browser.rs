@@ -3035,6 +3035,21 @@ fn diagnostics_observe_owned_heap_and_counters_without_resetting_budgets() -> Te
 }
 
 #[test]
+fn live_collection_iterations_observe_native_mutation_versions() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    let page = browser.navigate(&fixture.path("/large-dom/iteration"))?;
+    let result = page.evaluate("collectionIterationCase()")?;
+    let checks = result.as_object().ok_or("missing iteration checks")?;
+    assert_eq!(checks.len(), 11);
+    assert!(
+        checks.values().all(|check| *check == json!(true)),
+        "{result}"
+    );
+    Ok(())
+}
+
+#[test]
 fn native_large_dom_js_real_http() -> TestResult {
     let fixture = Fixture::new()?;
     let browser = fixture.browser()?;
