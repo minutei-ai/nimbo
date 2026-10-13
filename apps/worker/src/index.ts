@@ -70,6 +70,7 @@ const scrape = (request: Request, environment: Environment) =>
               transport.cookies.share(),
               input.maxDomOperations,
               input.maxInitialDomNodes,
+              input.maxDomNodes,
             ),
           catch: (cause) => failure(cause),
         }),

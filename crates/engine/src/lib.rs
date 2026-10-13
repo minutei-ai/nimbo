@@ -65,6 +65,8 @@ mod z_index;
 
 use std::time::Duration;
 
+pub(crate) type BudgetCheck = std::sync::Arc<dyn Fn() -> Result<()> + Send + Sync>;
+
 pub use diagnostics::Diagnostics;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -94,6 +96,8 @@ pub struct Limits {
     pub max_response_bytes: usize,
     /// Maximum nodes allocated while parsing the initial document, including template fragments.
     pub max_initial_dom_nodes: usize,
+    /// Maximum tree nodes allocated over the whole page lifetime, including detached nodes.
+    pub max_dom_nodes: usize,
     /// Bytes máximos por stylesheet e no conjunto de stylesheets ativos/carregados.
     pub max_stylesheet_bytes: usize,
     /// Requests físicos máximos, contando redirects e subrequests.
@@ -121,6 +125,7 @@ impl Default for Limits {
             timeout: Duration::from_secs(10),
             max_response_bytes: 2 * 1024 * 1024,
             max_initial_dom_nodes: 65_536,
+            max_dom_nodes: 65_536,
             max_stylesheet_bytes: 256 * 1024,
             max_requests: 32,
             max_dom_operations: 10_000,

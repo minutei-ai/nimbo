@@ -15,7 +15,7 @@ use url::Url;
 
 use crate::{Error, Limits, MediaEnvironment, Result, dom::Dom, modules::Modules};
 
-type Check = Arc<dyn Fn() -> Result<()> + Send + Sync>;
+type Check = crate::BudgetCheck;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct Response {
@@ -194,7 +194,7 @@ impl Machine {
             limits,
             media.clone(),
             base.clone(),
-            check.as_ref(),
+            Arc::clone(&check),
         )?));
         let scripts = collect_scripts(&dom.borrow(), execute_scripts)?;
         let runtime = Runtime::new().map_err(|error| Error::JavaScript(error.to_string()))?;

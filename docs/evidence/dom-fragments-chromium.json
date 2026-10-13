@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-13",
+  "fixture": "crates/engine/tests/fixtures/dom-arena.txt",
+  "scope": "64 fresh HTTP pages; native fragment recovery, detached references, UTF-8, namespaces, templates and Shadow DOM; default budgets",
+  "fixture_sha256": "3fe6789920a39b333be08e6faca2befc04485254533658bac0bd23d3da143669",
+  "runtimes": [
+    {
+      "runtime": "Google Chrome 155.0.8059.39",
+      "pages": 64,
+      "checks_per_page": 8,
+      "all_passed": true
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "pages": 64,
+      "checks_per_page": 8,
+      "all_passed": true
+    }
+  ]
+}

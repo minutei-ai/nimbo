@@ -48,6 +48,8 @@ pub(crate) struct Dom {
     now: f64,
     style_bytes: usize,
     operations: usize,
+    allocated_nodes: std::cell::Cell<usize>,
+    check: crate::BudgetCheck,
     layout_version: usize,
     layout: Option<(usize, crate::layout::Snapshot)>,
     scroll: crate::layout::ScrollState,
@@ -68,9 +70,15 @@ impl Dom {
         limits: Limits,
         media: crate::MediaEnvironment,
         base: url::Url,
-        check: &dyn Fn() -> Result<()>,
+        check: crate::BudgetCheck,
     ) -> Result<Self> {
-        let document = crate::html_parse::document(html, limits.max_initial_dom_nodes, check)?;
+        let allocated_nodes = std::cell::Cell::new(1);
+        let document = crate::html_parse::document(
+            html,
+            limits.max_initial_dom_nodes.min(limits.max_dom_nodes),
+            check.as_ref(),
+            &allocated_nodes,
+        )?;
         let root = document.root().id;
         Ok(Self {
             document,
@@ -91,6 +99,8 @@ impl Dom {
             now: 0.0,
             style_bytes: 0,
             operations: 0,
+            allocated_nodes,
+            check,
             layout_version: 0,
             layout: None,
             scroll: crate::layout::ScrollState::new(),
@@ -107,6 +117,15 @@ impl Dom {
 
     pub(crate) fn resource_usage(&self) -> (usize, usize, usize) {
         (self.operations, self.writes, self.handles.len())
+    }
+
+    fn allocate_node(&self) -> Result<()> {
+        if self.allocated_nodes.get() >= self.limits.max_dom_nodes {
+            return Err(Error::Limit("DOM nodes"));
+        }
+        self.allocated_nodes
+            .set(self.allocated_nodes.get().saturating_add(1));
+        Ok(())
     }
 
     pub(crate) fn advance(&mut self, now: f64) {
@@ -419,6 +438,7 @@ impl Dom {
         } else {
             name.to_owned()
         };
+        self.allocate_node()?;
         let node = self.document.tree.new_element(&name);
         if !html {
             node.update(|node| {
@@ -468,6 +488,7 @@ impl Dom {
         self.may_have_links |=
             namespace == "http://www.w3.org/1999/xhtml" && local.eq_ignore_ascii_case("link");
         self.may_have_bases |= local.eq_ignore_ascii_case("base");
+        self.allocate_node()?;
         let node = self.document.tree.new_element(local);
         node.update(|node| {
             if let NodeData::Element(element) = &mut node.data {
@@ -1296,6 +1317,7 @@ impl Dom {
 
     fn create_character(&mut self, owner: usize, operation: &str, value: &str) -> Result<Value> {
         self.charge_write(value.len())?;
+        self.allocate_node()?;
         let id = if operation == "createText" {
             self.document.tree.new_text(value).id
         } else {
@@ -1530,6 +1552,27 @@ impl Dom {
         })
     }
 
+    fn replace_html(&self, parent: NodeId, value: &str) -> Result<()> {
+        if value.is_empty() {
+            let observed = self.mutation_replacing_children(parent)?;
+            self.document.tree.remove_children_of(&parent);
+            return self.mutation_replaced_children(parent, observed);
+        }
+        let fragment = crate::html_parse::fragment(
+            &self.document,
+            value,
+            self.limits.max_dom_nodes,
+            self.check.as_ref(),
+            &self.allocated_nodes,
+        )?;
+        let observed = self.mutation_replacing_children(parent)?;
+        self.document.tree.remove_children_of(&parent);
+        self.document
+            .tree
+            .reparent_children_of(&fragment, Some(parent));
+        self.mutation_replaced_children(parent, observed)
+    }
+
     fn set(&self, operation: &str, handle: usize, property: &str, value: &str) -> Result<()> {
         let node = self.node(handle)?;
         if operation == "set" && matches!(property, "textContent" | "nodeValue") {
@@ -1559,6 +1602,9 @@ impl Dom {
             && property == "textContent"
             && (node.is_element() || node.is_fragment())
         {
+            if !value.is_empty() {
+                self.allocate_node()?;
+            }
             let observed = self.mutation_replacing_children(node.id)?;
             node.remove_children();
             if !value.is_empty() {
@@ -1570,9 +1616,7 @@ impl Dom {
         }
         if operation == "set" && property == "innerHTML" && self.shadow.roots.contains_key(&node.id)
         {
-            let observed = self.mutation_replacing_children(node.id)?;
-            node.set_html(value);
-            self.mutation_replaced_children(node.id, observed)?;
+            self.replace_html(node.id, value)?;
             return Ok(());
         }
         if !node.is_element() {
@@ -1580,9 +1624,7 @@ impl Dom {
         }
         match (operation, property) {
             ("set", "innerHTML") => {
-                let observed = self.mutation_replacing_children(node.id)?;
-                node.set_html(value);
-                self.mutation_replaced_children(node.id, observed)?;
+                self.replace_html(node.id, value)?;
             }
             ("setAttr", _) => crate::dom_attributes::set_named(
                 node,

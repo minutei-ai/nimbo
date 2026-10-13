@@ -1,9 +1,9 @@
 use std::{borrow::Cow, cell::Cell};
 
-use dom_query::{Document, NodeId};
+use dom_query::{Document, NodeData, NodeId};
 use html5ever::{
     Attribute, ParseOpts, QualName,
-    tendril::{ByteTendril, StrTendril, TendrilSink},
+    tendril::{ByteTendril, StrTendril, TendrilSink, fmt},
     tree_builder::{ElementFlags, NodeOrText, QuirksMode, TreeSink},
 };
 
@@ -13,37 +13,92 @@ pub(crate) fn document(
     html: &str,
     maximum: usize,
     check: &dyn Fn() -> Result<()>,
+    nodes: &Cell<usize>,
 ) -> Result<Document> {
-    let nodes = Cell::new(1_usize);
+    let document = Document::default();
     let sink = Counted {
-        document: Document::default(),
-        nodes: &nodes,
+        root: document.get_document(),
+        document: &document,
+        nodes,
         errors: Cell::new(0),
+        initial: true,
     };
     let mut options = ParseOpts::default();
     // Match the installed Document parser's existing noscript behavior.
     options.tree_builder.scripting_enabled = false;
-    let mut parser = html5ever::parse_document(sink, options).from_utf8();
+    let parser = html5ever::parse_document(sink, options).from_utf8();
+    feed(parser, html, maximum, check, nodes, "initial DOM nodes")?;
+    Ok(document)
+}
+
+pub(crate) fn fragment(
+    document: &Document,
+    html: &str,
+    maximum: usize,
+    check: &dyn Fn() -> Result<()>,
+    nodes: &Cell<usize>,
+) -> Result<NodeId> {
+    if nodes.get() >= maximum {
+        return Err(Error::Limit("DOM nodes"));
+    }
+    nodes.set(nodes.get().saturating_add(1));
+    let root = document.tree.create_node(NodeData::Fragment);
+    let sink = Counted {
+        document,
+        root,
+        nodes,
+        errors: Cell::new(0),
+        initial: false,
+    };
+    let mut options = ParseOpts::default();
+    options.tree_builder.scripting_enabled = false;
+    options.tree_builder.drop_doctype = true;
+    let parser = html5ever::parse_fragment(
+        sink,
+        options,
+        QualName::new(None, html5ever::ns!(html), html5ever::local_name!("body")),
+        Vec::new(),
+        false,
+    )
+    .from_utf8();
+    feed(parser, html, maximum, check, nodes, "DOM nodes")?;
+    document
+        .tree
+        .first_child_of(&root)
+        .map(|node| node.id)
+        .ok_or_else(|| Error::Dom("missing native fragment root".into()))
+}
+
+fn feed(
+    mut parser: impl TendrilSink<fmt::Bytes, Output = ()>,
+    html: &str,
+    maximum: usize,
+    check: &dyn Fn() -> Result<()>,
+    nodes: &Cell<usize>,
+    label: &'static str,
+) -> Result<()> {
     for chunk in html.as_bytes().chunks(8192) {
         check()?;
         parser.process(ByteTendril::from_slice(chunk));
         if nodes.get() > maximum {
-            return Err(Error::Limit("initial DOM nodes"));
+            return Err(Error::Limit(label));
         }
     }
-    let document = parser.finish();
+    parser.finish();
     check()?;
     if nodes.get() > maximum {
-        return Err(Error::Limit("initial DOM nodes"));
+        return Err(Error::Limit(label));
     }
-    Ok(document)
+    Ok(())
 }
 
 // Delegate tree construction to Document; retain only bounded error diagnostics.
 struct Counted<'a> {
-    document: Document,
+    document: &'a Document,
+    root: NodeId,
     nodes: &'a Cell<usize>,
     errors: Cell<usize>,
+    initial: bool,
 }
 
 impl Counted<'_> {
@@ -54,23 +109,21 @@ impl Counted<'_> {
 
 impl TreeSink for Counted<'_> {
     type Handle = NodeId;
-    type Output = Document;
+    type Output = ();
     type ElemName<'a>
         = <Document as TreeSink>::ElemName<'a>
     where
         Self: 'a;
 
-    fn finish(self) -> Document {
-        self.document
-    }
+    fn finish(self) {}
     fn parse_error(&self, message: Cow<'static, str>) {
-        if self.errors.get() < 128 {
+        if self.initial && self.errors.get() < 128 {
             self.errors.set(self.errors.get().saturating_add(1));
             self.document.parse_error(message);
         }
     }
     fn get_document(&self) -> NodeId {
-        self.document.get_document()
+        self.root
     }
     fn elem_name<'a>(&'a self, target: &'a NodeId) -> Self::ElemName<'a> {
         self.document.elem_name(target)
@@ -140,7 +193,9 @@ impl TreeSink for Counted<'_> {
         self.document.same_node(left, right)
     }
     fn set_quirks_mode(&self, mode: QuirksMode) {
-        self.document.set_quirks_mode(mode);
+        if self.initial {
+            self.document.set_quirks_mode(mode);
+        }
     }
     fn add_attrs_if_missing(&self, target: &NodeId, attrs: Vec<Attribute>) {
         self.document.add_attrs_if_missing(target, attrs);
@@ -159,10 +214,17 @@ impl TreeSink for Counted<'_> {
 
 #[cfg(test)]
 mod tests {
-    use super::document;
     use crate::Error;
     use dom_query::Document;
     use std::cell::Cell;
+
+    fn document(
+        html: &str,
+        maximum: usize,
+        check: &dyn Fn() -> crate::Result<()>,
+    ) -> crate::Result<Document> {
+        super::document(html, maximum, check, &Cell::new(1))
+    }
 
     #[test]
     fn native_recovery_and_utf8_chunk_boundaries_preserve_the_document() -> crate::Result<()> {
@@ -205,6 +267,42 @@ mod tests {
         let actual = document(&html, 2000, &|| Ok(()))?;
         assert_eq!(actual.errors.borrow().len(), 128);
         assert_eq!(actual.html(), expected.html());
+        Ok(())
+    }
+
+    #[test]
+    fn fragments_in_the_owned_arena_preserve_native_serialization() -> crate::Result<()> {
+        for html in [
+            "<p>text</p><!--tail-->",
+            "<table><tr><td>x</td></tr></table>",
+            "<template><b>nested</b></template><svg><g/></svg>",
+            "",
+            "Olá 😀 &amp; tail",
+        ] {
+            let initial = "<!doctype html><main id=target><i>old</i></main>";
+            let expected = Document::from(initial);
+            expected
+                .select("#target")
+                .nodes()
+                .first()
+                .copied()
+                .ok_or_else(|| Error::Dom("missing target".into()))?
+                .set_html(html);
+            let actual = document(initial, 100, &|| Ok(()))?;
+            let target = actual
+                .select("#target")
+                .nodes()
+                .first()
+                .copied()
+                .ok_or_else(|| Error::Dom("missing target".into()))?
+                .id;
+            let nodes = Cell::new(10);
+            let root = super::fragment(&actual, html, 100, &|| Ok(()), &nodes)?;
+            actual.tree.remove_children_of(&target);
+            actual.tree.reparent_children_of(&root, Some(target));
+            assert_eq!(actual.html(), expected.html());
+            assert!(nodes.get() >= 13);
+        }
         Ok(())
     }
 

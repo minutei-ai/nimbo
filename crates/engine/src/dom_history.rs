@@ -495,7 +495,7 @@ mod tests {
             crate::Limits::default(),
             crate::MediaEnvironment::default(),
             origin,
-            &|| Ok(()),
+            std::sync::Arc::new(|| Ok(())),
         )?;
         dom.call("history", 0, "push", r#"["state","/new/page"]"#)?;
         assert_eq!(
@@ -530,7 +530,7 @@ mod tests {
             crate::Limits::default(),
             crate::MediaEnvironment::default(),
             origin,
-            &|| Ok(()),
+            std::sync::Arc::new(|| Ok(())),
         )?;
         let (link, url) = dom.next_sheet()?.ok_or("missing stylesheet")?;
         assert_eq!(url, "https://example.test/original/style.css");

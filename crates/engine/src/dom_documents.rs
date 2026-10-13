@@ -16,6 +16,7 @@ pub(super) struct Arena {
 }
 impl Dom {
     pub(super) fn create_fragment(&mut self, owner: usize) -> Result<Value> {
+        self.allocate_node()?;
         let id = self.document.tree.create_node(NodeData::Fragment);
         self.own_node(owner, id)?;
         Ok(json!(self.handle(id)))
@@ -89,6 +90,7 @@ impl Dom {
         self.document_id(owner)?;
         let (namespace, name): (String, String) = serde_json::from_str(request)?;
         self.charge_write(request.len())?;
+        self.allocate_node()?;
         let id = self.document.tree.create_node(NodeData::Document);
         let content_type = match namespace.as_str() {
             "http://www.w3.org/1999/xhtml" => "application/xhtml+xml",

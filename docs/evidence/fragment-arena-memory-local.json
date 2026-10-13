@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "host": "celld 0.6.1; one isolate per build",
+  "baseline_commit": "438a99c",
+  "candidate_dom_node_budget": 65536,
+  "scope": "Wasm linear capacity after synthetic HTML replacements; over-budget rejection expected; not allocator peak or total Worker memory",
+  "elements_per_replacement": 10000,
+  "default_other_budgets": true,
+  "runs": [
+    {
+      "runtime": "baseline",
+      "wasm_sha256": "2f61693666401b56b91c1c3023dcac9b2e444f8f3345a4ddd360d44fd1925fbb",
+      "initial_linear_bytes": 6684672,
+      "rows": [
+        {
+          "replacements": 1,
+          "status": 200,
+          "correct": true,
+          "error": null,
+          "linear_bytes": 11141120
+        },
+        {
+          "replacements": 4,
+          "status": 200,
+          "correct": true,
+          "error": null,
+          "linear_bytes": 16973824
+        },
+        {
+          "replacements": 8,
+          "status": 200,
+          "correct": true,
+          "error": null,
+          "linear_bytes": 24707072
+        },
+        {
+          "replacements": 16,
+          "status": 200,
+          "correct": true,
+          "error": null,
+          "linear_bytes": 40108032
+        },
+        {
+          "replacements": 1,
+          "status": 200,
+          "correct": true,
+          "error": null,
+          "linear_bytes": 40108032
+        }
+      ]
+    },
+    {
+      "runtime": "candidate",
+      "wasm_sha256": "b3861b9d16c534dc48f6b718b2fa41f9dd830931c60f8d821713a5df6f39ec1f",
+      "initial_linear_bytes": 6684672,
+      "rows": [
+        {
+          "replacements": 1,
+          "status": 200,
+          "correct": true,
+          "error": null,
+          "linear_bytes": 11206656
+        },
+        {
+          "replacements": 4,
+          "status": 200,
+          "correct": true,
+          "error": null,
+          "linear_bytes": 17563648
+        },
+        {
+          "replacements": 8,
+          "status": 422,
+          "correct": true,
+          "error": "resource limit: DOM nodes",
+          "linear_bytes": 30212096
+        },
+        {
+          "replacements": 16,
+          "status": 422,
+          "correct": true,
+          "error": "resource limit: DOM nodes",
+          "linear_bytes": 30212096
+        },
+        {
+          "replacements": 1,
+          "status": 200,
+          "correct": true,
+          "error": null,
+          "linear_bytes": 30212096
+        }
+      ]
+    }
+  ]
+}

@@ -32,7 +32,7 @@ Native and workerd HTTP regressions verify rejection and fresh-page recovery.
 Parser tests cover node boundaries, text merging across UTF-8 chunk boundaries,
 templates, table recovery, cancellation and bounded error storage.
 
-The new cap applies to the initial document. Script-created nodes, attributes
-and fragment writes retain their existing operation and byte budgets. A
-cumulative arena budget and additional deep-tree traversal hardening remain
-roadmap work.
+The initial cap is complemented by a [cumulative arena budget](dom-arena-budget.md)
+for tree nodes created by scripts and fragment writes. Attribute records retain
+their input/write-byte budgets. Additional deep-tree traversal and attribute
+allocation hardening remain roadmap work.

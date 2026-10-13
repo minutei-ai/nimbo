@@ -3079,6 +3079,60 @@ fn initial_dom_node_limits_reject_before_scripts_and_recover_over_http() -> Test
 }
 
 #[test]
+fn native_fragment_parsing_preserves_recovery_and_detached_references() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    let source = include_str!("fixtures/dom-arena.txt");
+    assert_eq!(
+        page.evaluate(&format!(
+            "(()=>{{{source};return Object.values(fragmentCase()).every(Boolean)}})()"
+        ))?,
+        json!(true)
+    );
+    Ok(())
+}
+
+#[test]
+fn cumulative_dom_nodes_bound_factories_and_preserve_failed_html_writes() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = Browser::new(
+        &fixture.url,
+        Limits {
+            max_dom_nodes: 64,
+            ..Limits::default()
+        },
+    )?;
+    let source = include_str!("fixtures/dom-arena.txt");
+    for mode in [
+        "element",
+        "namespace",
+        "text",
+        "comment",
+        "fragment",
+        "document",
+        "shadow",
+        "textContent",
+    ] {
+        let page = browser.navigate(&fixture.path("/static"))?;
+        assert_eq!(
+            page.evaluate(&format!(
+                "(()=>{{{source};return arenaFactoryCase('{mode}')}})()"
+            ))?,
+            json!(true),
+            "{mode}"
+        );
+    }
+    let page = browser.navigate(&fixture.path("/static"))?;
+    assert_eq!(page.evaluate("(()=>{document.body.innerHTML='<b id=kept>old</b>';const old=document.getElementById('kept');let failed=false;try{document.body.innerHTML='<p>'.repeat(1000)}catch(e){failed=e.message.includes('resource limit: DOM nodes')}const preserved=failed&&document.getElementById('kept')===old&&old.textContent==='old';document.body.innerHTML='';return preserved&&document.body.childNodes.length===0})()")?, json!(true));
+    let fresh = browser.navigate(&fixture.path("/static"))?;
+    assert_eq!(
+        fresh.evaluate("document.createElement('i').tagName")?,
+        json!("I")
+    );
+    Ok(())
+}
+
+#[test]
 fn native_large_dom_js_real_http() -> TestResult {
     let fixture = Fixture::new()?;
     let browser = fixture.browser()?;

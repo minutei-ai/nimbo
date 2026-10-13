@@ -213,6 +213,7 @@ impl Dom {
             return Err(Error::Limit("shadow root count"));
         }
         self.charge_write(1)?;
+        self.allocate_node()?;
         let document = self.node_document(host);
         let root = self.document.tree.create_node(NodeData::Fragment);
         if document != self.document.root().id {

@@ -167,7 +167,7 @@ test("initial DOM limits reject dense input and recover with fresh page state", 
   );
 });
 
-test("invalid initial DOM budgets fail before origin HTTP", async () => {
+test("invalid DOM budgets fail before origin HTTP", async () => {
   let requests = 0;
   await fixture(
     () => {
@@ -175,17 +175,74 @@ test("invalid initial DOM budgets fail before origin HTTP", async () => {
       return html("<body>fresh</body>");
     },
     async (worker) => {
-      for (const maxInitialDomNodes of [0, -1, 65537, 1.5, "5", null]) {
+      for (const [name, value] of ["maxInitialDomNodes", "maxDomNodes"].flatMap((budgetName) =>
+        [0, -1, 65537, 1.5, "5", null].map((budgetValue) => [budgetName, budgetValue] as const),
+      )) {
         // Check each rejected configuration before checking the origin counter.
         // oxlint-disable-next-line eslint/no-await-in-loop
         const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
           method: "POST",
           headers: { authorization: "Bearer test-secret" },
-          body: JSON.stringify({ url: originFor(worker), expression: "true", maxInitialDomNodes }),
+          body: JSON.stringify({ url: originFor(worker), expression: "true", [name]: value }),
         });
         expect(response.status).toBe(400);
       }
       expect(requests).toBe(0);
+    },
+  );
+});
+
+test("native fragment parsing preserves browser recovery and detached references", async () => {
+  const source = await Bun.file(join(root, "crates/engine/tests/fixtures/dom-arena.txt")).text();
+  await fixture(
+    () => html("<body>fresh</body>"),
+    async (worker) => {
+      const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+        method: "POST",
+        headers: { authorization: "Bearer test-secret" },
+        body: JSON.stringify({
+          url: originFor(worker),
+          expression: `(()=>{${source};return Object.values(fragmentCase()).every(Boolean)})()`,
+        }),
+      });
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({ value: true });
+    },
+  );
+});
+
+test("cumulative DOM quotas bound native factories and preserve failed writes", async () => {
+  const source = await Bun.file(join(root, "crates/engine/tests/fixtures/dom-arena.txt")).text();
+  await fixture(
+    () => html("<body>fresh</body>"),
+    async (worker) => {
+      const run = async (expression: string) => {
+        const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+          method: "POST",
+          headers: { authorization: "Bearer test-secret" },
+          body: JSON.stringify({ url: originFor(worker), expression, maxDomNodes: 32 }),
+        });
+        expect(response.status).toBe(200);
+        expect(await json(response)).toMatchObject({ value: true });
+      };
+      for (const mode of [
+        "element",
+        "namespace",
+        "text",
+        "comment",
+        "fragment",
+        "document",
+        "shadow",
+        "textContent",
+      ]) {
+        // Each factory starts in a fresh page with the same quota.
+        // oxlint-disable-next-line eslint/no-await-in-loop
+        await run(`(()=>{${source};return arenaFactoryCase('${mode}')})()`);
+      }
+      await run(
+        "(()=>{document.body.innerHTML='<b id=kept>old</b>';const old=document.getElementById('kept');let failed=false;try{document.body.innerHTML='<p>'.repeat(1000)}catch(e){failed=e.message.includes('resource limit: DOM nodes')}const preserved=failed&&document.getElementById('kept')===old&&old.textContent==='old';document.body.innerHTML='';return preserved&&document.body.childNodes.length===0})()",
+      );
+      await run("document.createElement('i').tagName==='I'");
     },
   );
 });

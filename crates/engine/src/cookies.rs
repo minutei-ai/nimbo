@@ -260,7 +260,7 @@ mod tests {
             crate::Limits::default(),
             crate::MediaEnvironment::default(),
             original,
-            &|| Ok(()),
+            std::sync::Arc::new(|| Ok(())),
         )?));
         let jar = Cookies::default();
         jar.set(

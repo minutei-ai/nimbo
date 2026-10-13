@@ -29,6 +29,8 @@ wrapper allocation for counts, preserving indexed identity and mutations.
 identifier array at every index while observing native mutation versions.
 [Bounded initial DOM parsing](docs/initial-dom-budget.md) stops dense initial
 trees between native parser blocks and limits stored recovery diagnostics.
+[Cumulative arena accounting](docs/dom-arena-budget.md) also bounds removed nodes,
+script factories and native HTML replacement fragments while preserving identity.
 
 ## 0.3 — DOM and application compatibility
 
