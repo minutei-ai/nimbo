@@ -552,6 +552,7 @@ evidence cannot establish it.
 | Timers, animation frames and scheduling              | Subset     | Real-clock timers and animation callback batches tested; multi-realm frames, idle and full event loop pending                                |
 | Custom elements autônomos                            | Subset     | Native upgrades, lifecycle and failed construction; scoped/built-in/form gaps                                                                |
 | Shadow DOM                                           | Subset     | Owned imperative roots, isolated queries, named slots and composed events; scoped styles, flat-tree geometry and declarative parsing pending |
+| Mutation observers                                   | Subset     | Owned records, filters, old values, subtree transients and microtask delivery; bounded capacity; see [contracts](mutation-observers.md)      |
 | Frames and independent execution worlds              | Missing    | Same/cross-origin frames, navigation, world isolation                                                                                        |
 | Fetch and HTTP navigation                            | Subset     | Real GET/POST, cookies, redirects, bodies; full headers/abort/streams                                                                        |
 | XMLHttpRequest, forms, files and binary responses    | Partial    | Binary fetch body reads verified below; uploads, XHR, files, progress and cancellation remain                                                |

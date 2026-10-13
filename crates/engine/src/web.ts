@@ -56,7 +56,7 @@
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     const result = JSON.parse(nativeDom(operation, id, arg, value)) as T;
     if (
-      shadowRoots.size > 0 &&
+      (shadowRoots.size > 0 || mutationObservers.size > 0) &&
       [
         "attachShadow",
         "set",
@@ -70,9 +70,10 @@
         "remove",
         "removeChild",
         "attributeNode",
+        "style",
       ].includes(operation)
     )
-      queueSlotChanges();
+      queueDomNotifications();
     return result;
   };
   // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
@@ -85,15 +86,29 @@
   type EventPathItem = { target: Target; adjusted: Target; closedRoots: number[] };
   const shadowRoots = new Set<number>();
   const signalSlots = new Set<Node>();
-  let slotMicrotask = false;
-  function queueSlotChanges(): void {
-    for (const id of raw<number[]>("slotChanges", 0)) signalSlots.add(node(id));
-    if (slotMicrotask || signalSlots.size === 0) return;
-    slotMicrotask = true;
+  let domMicrotask = false;
+  function queueDomNotifications(): void {
+    if (shadowRoots.size > 0)
+      for (const id of raw<number[]>("slotChanges", 0)) signalSlots.add(node(id));
+    const pending = mutationObservers.size > 0 ? raw<number[]>("mutation", 0, "pending") : [];
+    if (domMicrotask || (signalSlots.size === 0 && pending.length === 0)) return;
+    domMicrotask = true;
     queueMicrotask(() => {
-      slotMicrotask = false;
+      domMicrotask = false;
+      const observers = mutationObservers.size > 0 ? raw<number[]>("mutation", 0, "pending") : [];
       const slots = [...signalSlots];
       signalSlots.clear();
+      for (const id of observers) {
+        const observer = mutationObservers.get(id);
+        if (!observer) continue;
+        const records = mutationRecords(id, "notify");
+        if (records.length === 0) continue;
+        try {
+          mutationState(observer).callback.call(observer, records, observer);
+        } catch (error) {
+          reportListenerError(error);
+        }
+      }
       for (const slot of slots) dispatch(slot, new Event("slotchange", { bubbles: true }), true);
     });
   }
@@ -3755,6 +3770,166 @@
     customStates.set(target, { definition, status: "custom" });
     return target;
   }
+  type MutationWire = {
+    type: string;
+    target: number;
+    attributeName: string | null;
+    attributeNamespace: string | null;
+    oldValue: string | null;
+    addedNodes: number[];
+    removedNodes: number[];
+    previousSibling: number | null;
+    nextSibling: number | null;
+  };
+  type MutationData = { wire: MutationWire; added: NodeList; removed: NodeList };
+  const mutationData = new WeakMap<MutationRecord, MutationData>();
+  function mutationRecordState(record: MutationRecord): MutationData {
+    const state = mutationData.get(record);
+    if (!state) throw new TypeError("Illegal invocation");
+    return state;
+  }
+  class MutationRecord {
+    constructor(key?: symbol, wire?: MutationWire) {
+      if (key !== internal || !wire) throw new TypeError("Illegal constructor");
+      mutationData.set(this, {
+        wire,
+        added: makeCollection(new NodeList(internal), () => wire.addedNodes),
+        removed: makeCollection(new NodeList(internal), () => wire.removedNodes),
+      });
+    }
+    get type(): string {
+      return mutationRecordState(this).wire.type;
+    }
+    get target(): Node {
+      return node(mutationRecordState(this).wire.target);
+    }
+    get addedNodes(): NodeList {
+      return mutationRecordState(this).added;
+    }
+    get removedNodes(): NodeList {
+      return mutationRecordState(this).removed;
+    }
+    get previousSibling(): Node | null {
+      const id = mutationRecordState(this).wire.previousSibling;
+      return id === null ? null : node(id);
+    }
+    get nextSibling(): Node | null {
+      const id = mutationRecordState(this).wire.nextSibling;
+      return id === null ? null : node(id);
+    }
+    get attributeName(): string | null {
+      return mutationRecordState(this).wire.attributeName;
+    }
+    get attributeNamespace(): string | null {
+      return mutationRecordState(this).wire.attributeNamespace;
+    }
+    get oldValue(): string | null {
+      return mutationRecordState(this).wire.oldValue;
+    }
+  }
+  type MutationCallback = (
+    this: MutationObserver,
+    records: MutationRecord[],
+    observer: MutationObserver,
+  ) => void;
+  type MutationState = { id: number; callback: MutationCallback };
+  const mutationStates = new WeakMap<MutationObserver, MutationState>();
+  const mutationObservers = new Map<number, MutationObserver>();
+  let nextMutationObserver = 1;
+  function mutationState(observer: MutationObserver): MutationState {
+    const state = mutationStates.get(observer);
+    if (!state) throw new TypeError("Illegal invocation");
+    return state;
+  }
+  function mutationRecords(id: number, operation: string): MutationRecord[] {
+    return raw<MutationWire[]>("mutation", id, operation).map(
+      (wire) => new MutationRecord(internal, wire),
+    );
+  }
+  type MutationOptions = {
+    attributeFilter?: unknown;
+    attributeOldValue?: unknown;
+    attributes?: unknown;
+    characterData?: unknown;
+    characterDataOldValue?: unknown;
+    childList?: unknown;
+    subtree?: unknown;
+  };
+  class MutationObserver {
+    constructor(callback: MutationCallback) {
+      if (typeof callback !== "function") throw new TypeError("callback must be callable");
+      const id = nextMutationObserver++;
+      raw<null>("mutation", id, "new");
+      mutationStates.set(this, { id, callback });
+      mutationObservers.set(id, this);
+    }
+    observe(target: Node, options: MutationOptions = {}): void {
+      const { id } = mutationState(this);
+      const handle = idOf(target);
+      if (options !== null && typeof options !== "object" && typeof options !== "function")
+        throw new TypeError("options must be a dictionary");
+      const filterValue = options?.attributeFilter;
+      const attributeFilter = filterValue === undefined ? null : stringSequence(filterValue);
+      const oldAttributes = options?.attributeOldValue;
+      const attributesValue = options?.attributes;
+      const characterDataValue = options?.characterData;
+      const oldCharacters = options?.characterDataOldValue;
+      const childList = Boolean(options?.childList);
+      const subtree = Boolean(options?.subtree);
+      const attributes =
+        attributesValue === undefined
+          ? oldAttributes !== undefined || attributeFilter !== null
+          : Boolean(attributesValue);
+      const characterData =
+        characterDataValue === undefined
+          ? oldCharacters !== undefined
+          : Boolean(characterDataValue);
+      const attributeOldValue = Boolean(oldAttributes);
+      const characterDataOldValue = Boolean(oldCharacters);
+      if (
+        (!attributes && (attributeOldValue || attributeFilter !== null)) ||
+        (!characterData && characterDataOldValue) ||
+        !(attributes || characterData || childList)
+      )
+        throw new TypeError("invalid mutation observation options");
+      raw<null>(
+        "mutation",
+        id,
+        "observe",
+        JSON.stringify([
+          handle,
+          {
+            attributes,
+            characterData,
+            childList,
+            subtree,
+            attributeOldValue,
+            characterDataOldValue,
+            attributeFilter,
+          },
+        ]),
+      );
+    }
+    disconnect(): void {
+      raw<null>("mutation", mutationState(this).id, "disconnect");
+    }
+    takeRecords(): MutationRecord[] {
+      return mutationRecords(mutationState(this).id, "take");
+    }
+  }
+  for (const [prototype, tag] of [
+    [MutationRecord.prototype, "MutationRecord"],
+    [MutationObserver.prototype, "MutationObserver"],
+  ] as const) {
+    Object.defineProperty(prototype, Symbol.toStringTag, { value: tag, configurable: true });
+    for (const key of Object.getOwnPropertyNames(prototype)) {
+      if (key === "constructor") continue;
+      Object.defineProperty(prototype, key, {
+        ...Object.getOwnPropertyDescriptor(prototype, key),
+        enumerable: true,
+      });
+    }
+  }
   function stringSequence(value: unknown): string[] {
     if (value === undefined) return [];
     if (value === null || (typeof value !== "object" && typeof value !== "function"))
@@ -6303,6 +6478,8 @@
     DOMTokenList,
     DOMRect,
     DOMRectReadOnly,
+    MutationObserver,
+    MutationRecord,
     IntersectionObserver,
     IntersectionObserverEntry,
     CharacterData,

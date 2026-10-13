@@ -34,8 +34,10 @@ Implemented subset: [owned Shadow DOM](docs/shadow-dom.md) adds imperative
 open/closed roots, isolated queries, native connection/adoption, named slots,
 composed event retargeting and custom-element reactions. Its 57 synthetic
 contracts passed native HTTP, Worker/Wasm and independent Chromium comparisons.
-Declarative parsing, scoped styles/flat-tree geometry, wider form/observer
-compatibility and representative framework applications remain open.
+[Owned mutation observers](docs/mutation-observers.md) add records, filters,
+old values, detached-subtree transients and ordered microtask delivery with
+40 synthetic comparison contracts. Declarative parsing, scoped styles/flat-tree
+geometry, wider forms and representative framework applications remain open.
 
 ## 0.4 — Scripts and page readiness
 

@@ -11,6 +11,8 @@ use crate::{Error, Limits, Result};
 mod attribute_nodes;
 #[path = "dom_documents.rs"]
 mod documents;
+#[path = "dom_mutations.rs"]
+mod mutations;
 #[path = "dom_shadow.rs"]
 mod shadow;
 
@@ -35,6 +37,7 @@ pub(crate) struct Dom {
     attribute_nodes: attribute_nodes::Arena,
     documents: documents::Arena,
     shadow: shadow::Arena,
+    mutations: std::cell::RefCell<mutations::Arena>,
     styles: HashMap<NodeId, crate::styles::Declarations>,
     computed_styles: HashMap<NodeId, crate::computed_style::Computed>,
     cascade: Option<std::rc::Rc<crate::cascade::Cascade>>,
@@ -74,6 +77,7 @@ impl Dom {
             attribute_nodes: attribute_nodes::Arena::default(),
             documents: documents::Arena::default(),
             shadow: shadow::Arena::default(),
+            mutations: std::cell::RefCell::default(),
             styles: HashMap::new(),
             computed_styles: HashMap::new(),
             cascade: None,
@@ -214,6 +218,10 @@ impl Dom {
     ) -> Result<String> {
         let version = self.layout_version;
         self.begin(operation, handle, arg, value)?;
+        if operation == "mutation" {
+            let result = self.mutation_call(handle, arg, value)?;
+            return self.finish(&result, version);
+        }
         if matches!(self.handles.get(handle), Some(Handle::Attribute)) {
             let result = self.attribute_node_call(operation, handle, arg, value)?;
             return self.finish(&result, version);
@@ -294,10 +302,7 @@ impl Dom {
             }
             "append" | "insert" | "replace" => self.insert(operation, handle, arg, value)?,
             "removeChild" => self.remove_child(handle, value)?,
-            "remove" => {
-                self.node(handle)?.remove_from_parent();
-                Value::Null
-            }
+            "remove" => self.remove_node(handle)?,
             _ => {
                 return Err(Error::Dom(format!(
                     "unsupported DOM operation: {operation}"
@@ -433,6 +438,9 @@ impl Dom {
     }
 
     fn finish(&mut self, result: &Value, version: usize) -> Result<String> {
+        self.operations = self
+            .operations
+            .saturating_add(std::mem::take(&mut self.mutations.borrow_mut().work));
         if version != self.layout_version {
             self.refresh_slots()?;
             let mut work = crate::layout::Work::new(
@@ -820,10 +828,14 @@ impl Dom {
         let attribute_bytes = if operation == "setAttr" { arg.len() } else { 0 };
         self.charge_write(attribute_bytes.saturating_add(value.len()))?;
         self.invalidate_sheet(operation, handle, arg, value)?;
+        let observed = self.capture_attribute_write(operation, handle, arg)?;
         if operation == "set" && arg == "innerHTML" {
             self.may_have_links |= contains_link_tag(value);
         }
         self.set(operation, handle, arg, value)?;
+        if let Some(record) = observed {
+            self.queue_mutation(&record)?;
+        }
         if style_changed {
             let id = self.node(handle)?.id;
             if let Some(previous) = self.styles.remove(&id) {
@@ -926,9 +938,17 @@ impl Dom {
             )?;
         }
         if operation == "setAttrNS" {
+            let observed = self.capture_attribute_ns(handle, &namespace, &name, false)?;
             crate::dom_attributes::set_namespaced(self.node(handle)?, &namespace, &name, value)?;
+            if let Some(record) = observed {
+                self.queue_mutation(&record)?;
+            }
         } else {
+            let observed = self.capture_attribute_ns(handle, &namespace, &name, true)?;
             crate::dom_attributes::remove_namespaced(self.node(handle)?, &namespace, &name);
+            if let Some(record) = observed {
+                self.queue_mutation(&record)?;
+            }
         }
         if namespace.is_empty() && name == "style" {
             let id = self.node(handle)?.id;
@@ -1112,12 +1132,16 @@ impl Dom {
         }
         if operation == "text" || output.changed {
             self.charge_write("style".len().saturating_add(output.css_text.len()))?;
+            let observed = self.capture_attribute_ns(handle, "", "style", false)?;
             crate::dom_attributes::set_namespaced(
                 self.node(handle)?,
                 "",
                 "style",
                 &output.css_text,
             )?;
+            if let Some(record) = observed {
+                self.queue_mutation(&record)?;
+            }
         }
         self.styles.insert(id, state);
         self.style_bytes = bytes;
@@ -1138,6 +1162,12 @@ impl Dom {
             .and_then(|node| node.null_attribute("href"))
     }
 
+    fn remove_node(&self, handle: usize) -> Result<Value> {
+        self.mutation_removing(self.node_id(handle)?, false)?;
+        self.node(handle)?.remove_from_parent();
+        Ok(Value::Null)
+    }
+
     fn remove_child(&self, handle: usize, value: &str) -> Result<Value> {
         let child = value
             .parse::<usize>()
@@ -1147,6 +1177,7 @@ impl Dom {
         if child.parent().map(|node| node.id) != Some(parent.id) {
             return Err(not_found());
         }
+        self.mutation_removing(child.id, false)?;
         child.remove_from_parent();
         Ok(Value::Null)
     }
@@ -1206,6 +1237,15 @@ impl Dom {
             vec![child]
         };
         validate_insertion(parent, &inserted, reference, removed)?;
+        if self.mutations.borrow().active() {
+            self.mutation_inserting(
+                parent.id,
+                child.id,
+                &inserted.iter().map(|node| node.id).collect::<Vec<_>>(),
+                removed.map(|node| node.id),
+                reference.map(|node| node.id),
+            )?;
+        }
         let document = if parent.is_document() {
             parent.id
         } else {
@@ -1465,6 +1505,15 @@ impl Dom {
         let node = self.node(handle)?;
         if operation == "set" && matches!(property, "textContent" | "nodeValue") {
             if node.is_text() || node.is_comment() {
+                if self.mutations.borrow().active() {
+                    self.queue_mutation(&mutations::Record::character(
+                        node.id,
+                        self.get(handle, "nodeValue")?
+                            .as_str()
+                            .unwrap_or_default()
+                            .to_owned(),
+                    ))?;
+                }
                 node.update(|node| match &mut node.data {
                     NodeData::Text { contents } | NodeData::Comment { contents } => {
                         *contents = value.into();
@@ -1481,23 +1530,31 @@ impl Dom {
             && property == "textContent"
             && (node.is_element() || node.is_fragment())
         {
+            let observed = self.mutation_replacing_children(node.id)?;
             node.remove_children();
             if !value.is_empty() {
                 let text = self.document.tree.new_text(value);
                 node.append_child(&text.id);
             }
+            self.mutation_replaced_children(node.id, observed)?;
             return Ok(());
         }
         if operation == "set" && property == "innerHTML" && self.shadow.roots.contains_key(&node.id)
         {
+            let observed = self.mutation_replacing_children(node.id)?;
             node.set_html(value);
+            self.mutation_replaced_children(node.id, observed)?;
             return Ok(());
         }
         if !node.is_element() {
             return Err(Error::Dom("write target must be an element".into()));
         }
         match (operation, property) {
-            ("set", "innerHTML") => node.set_html(value),
+            ("set", "innerHTML") => {
+                let observed = self.mutation_replacing_children(node.id)?;
+                node.set_html(value);
+                self.mutation_replaced_children(node.id, observed)?;
+            }
             ("setAttr", _) => crate::dom_attributes::set_named(
                 node,
                 property,

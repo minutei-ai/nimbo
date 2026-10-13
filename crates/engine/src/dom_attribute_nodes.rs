@@ -281,6 +281,8 @@ impl Dom {
         if let Some(owner) = owner {
             let owner_handle = self.handle(owner);
             let local = name.local.as_ref();
+            let observed =
+                self.capture_attribute_ns(owner_handle, name.ns.as_ref(), local, false)?;
             if name.ns.is_empty() {
                 self.invalidate_sheet("setAttr", owner_handle, local, value)?;
             }
@@ -295,6 +297,9 @@ impl Dom {
             });
             self.invalidate_attribute_node(owner_handle, name.ns.as_ref(), local)?;
             self.sync_attributes(owner);
+            if let Some(record) = observed {
+                self.queue_mutation(&record)?;
+            }
         } else if let Some(record) = self.attribute_nodes.records.get_mut(&handle) {
             record.attribute.value = value.into();
         }
@@ -335,6 +340,12 @@ impl Dom {
         }
         let attribute = record.attribute.clone();
         self.charge_write(attribute.value.len())?;
+        let observed = self.capture_attribute_ns(
+            owner_handle,
+            attribute.name.ns.as_ref(),
+            attribute.name.local.as_ref(),
+            false,
+        )?;
         let attributes = self.node(owner_handle)?.attrs();
         let document = self.node_document(owner);
         let handles = self
@@ -380,6 +391,9 @@ impl Dom {
             attribute.name.ns.as_ref(),
             attribute.name.local.as_ref(),
         )?;
+        if let Some(record) = observed {
+            self.queue_mutation(&record)?;
+        }
         Ok(json!(previous))
     }
     fn remove_attribute_node(&mut self, owner_handle: usize, value: &str) -> Result<Value> {
@@ -394,6 +408,12 @@ impl Dom {
         }
         let attribute = record.attribute.clone();
         self.charge_write(0)?;
+        let observed = self.capture_attribute_ns(
+            owner_handle,
+            attribute.name.ns.as_ref(),
+            attribute.name.local.as_ref(),
+            true,
+        )?;
         if attribute.name.ns.is_empty() {
             self.invalidate_sheet(
                 "removeAttr",
@@ -413,6 +433,9 @@ impl Dom {
             attribute.name.ns.as_ref(),
             attribute.name.local.as_ref(),
         )?;
+        if let Some(record) = observed {
+            self.queue_mutation(&record)?;
+        }
         Ok(json!(handle))
     }
 }

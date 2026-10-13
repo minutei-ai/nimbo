@@ -263,7 +263,7 @@ fn serve_readiness(request: Request) -> io::Result<()> {
     respond(request, body, 200, "text/html", Vec::new())
 }
 
-fn serve_shadow(request: Request) -> io::Result<()> {
+fn serve_variant(request: Request, source: &str) -> io::Result<()> {
     let variant = request
         .url()
         .split('/')
@@ -271,16 +271,21 @@ fn serve_shadow(request: Request) -> io::Result<()> {
         .unwrap_or("0")
         .parse::<u32>()
         .map_err(io::Error::other)?;
-    let body = format!(
-        "<!doctype html><body><script>const variant={variant};{}</script>",
-        include_str!("fixtures/shadow-dom.txt")
-    );
+    let body = format!("<!doctype html><body><script>const variant={variant};{source}</script>");
     respond(request, body, 200, "text/html", Vec::new())
 }
 
+fn variant_source(url: &str) -> Option<&'static str> {
+    match url.split('/').nth(1) {
+        Some("shadow-dom") => Some(include_str!("fixtures/shadow-dom.txt")),
+        Some("mutation-observer") => Some(include_str!("fixtures/mutation-observer.txt")),
+        _ => None,
+    }
+}
+
 fn serve(mut request: Request) -> io::Result<()> {
-    if request.url().starts_with("/shadow-dom/") {
-        return serve_shadow(request);
+    if let Some(source) = variant_source(request.url()) {
+        return serve_variant(request, source);
     }
     if matches!(request.url(), "/readiness" | "/readiness-data") {
         return serve_readiness(request);
@@ -4340,6 +4345,24 @@ fn shadow_dom_roots_slots_events_and_lifecycle_use_real_http() -> TestResult {
         let result = page.evaluate("comparison")?;
         let checks = result.as_object().ok_or("missing shadow contracts")?;
         assert_eq!(checks.len(), 57);
+        assert!(
+            checks.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn mutation_observer_records_and_microtasks_use_real_http() -> TestResult {
+    let fixture = Fixture::new()?;
+    for variant in 0..64 {
+        let page = fixture
+            .browser()?
+            .navigate(&fixture.path(&format!("/mutation-observer/{variant}")))?;
+        let result = page.evaluate("comparison")?;
+        let checks = result.as_object().ok_or("missing mutation contracts")?;
+        assert_eq!(checks.len(), 40);
         assert!(
             checks.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
