@@ -59,8 +59,10 @@ machine on native and Worker hosts. Real HTTP tests cover delayed content,
 request resets, timeouts, invalid predicates, DOM limits and failure disposal.
 [Parser-time import maps](docs/import-maps.md) add bounded aliases, prefix and
 scoped resolution, blocked entries and cyclic live export coverage. Multiple/dynamic
-maps, unloaded dynamic imports, task expansion, cancellation and broader phase
-diagnostics remain open.
+maps, unloaded dynamic imports, task expansion and broader phase diagnostics
+remain open. [Worker client cancellation](docs/cancellation.md) interrupts host
+HTTP/readiness/timer waits and releases page capacity on disconnect. Native
+cancellation and broader lifecycle cases remain open.
 
 ## 0.5 — CSS and geometry
 

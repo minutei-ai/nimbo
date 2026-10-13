@@ -12,7 +12,7 @@ export default Alchemy.Stack(
     const worker = yield* Cloudflare.Worker("Engine", {
       main: join(import.meta.dir, "../../dist/worker/index.js"),
       bundle: false,
-      compatibility: { date: "2026-07-30" },
+      compatibility: { date: "2026-07-30", flags: ["enable_request_signal"] },
       env: { API_TOKEN: token, ...(Option.isSome(proxy) ? { PROXY_URL: proxy.value } : {}) },
     });
     return { url: worker.url };

@@ -167,6 +167,7 @@ export default {
           return Effect.succeed(Response.json({ error: error.reason }, { status: error.status }));
         }),
       ),
+      { signal: request.signal },
     );
   },
 };
