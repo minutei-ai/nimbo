@@ -93,7 +93,9 @@
     "compare:latin-punctuation": "bun run build:worker && bun run tooling/compare-latin-punctuation.ts",
     "compare:selector-index": "bun run build:worker && bun run tooling/compare-selector-index.ts",
     "compare:inline-block": "bun run build:worker && bun run tooling/compare-inline-block.ts",
-    "compare:static-position": "bun run build:worker && bun run tooling/compare-static-position.ts"
+    "compare:static-position": "bun run build:worker && bun run tooling/compare-static-position.ts",
+    "bench:corpus:native": "bun run tooling/benchmark-corpus.ts native",
+    "bench:corpus:worker": "bun run tooling/benchmark-corpus.ts worker"
   },
   "devDependencies": {
     "@effect/tsgo": "0.47.2",

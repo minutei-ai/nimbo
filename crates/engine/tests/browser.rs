@@ -11,7 +11,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use nimbo_engine::{Browser, Error, Limits, MediaEnvironment};
+use nimbo_engine::{Browser, Error, Limits, MediaEnvironment, Readiness, ReadyCondition};
 use serde_json::json;
 use tiny_http::{Header, Request, Response, Server};
 
@@ -243,7 +243,30 @@ fn serve_stealth(request: Request) -> io::Result<()> {
     respond(request, body, 200, "text/html; charset=utf-8", Vec::new())
 }
 
+fn request_cookie(request: &Request) -> &str {
+    request
+        .headers()
+        .iter()
+        .find(|header| header.field.equiv("Cookie"))
+        .map_or("", |header| header.value.as_str())
+}
+
+fn serve_readiness(request: Request) -> io::Result<()> {
+    let body = if request.url() == "/readiness" {
+        format!(
+            "<!doctype html><body>{}",
+            script_fixture(include_str!("fixtures/readiness.txt"))
+        )
+    } else {
+        "ready".into()
+    };
+    respond(request, body, 200, "text/html", Vec::new())
+}
+
 fn serve(mut request: Request) -> io::Result<()> {
+    if matches!(request.url(), "/readiness" | "/readiness-data") {
+        return serve_readiness(request);
+    }
     if is_resource(request.url()) {
         return serve_resource(request);
     }
@@ -295,14 +318,7 @@ fn serve(mut request: Request) -> io::Result<()> {
             )?);
             "<main>Set</main>".into()
         }
-        "/cookie" => {
-            let cookie = request
-                .headers()
-                .iter()
-                .find(|header| header.field.equiv("Cookie"))
-                .map_or("", |header| header.value.as_str());
-            format!("<main>{cookie}</main>")
-        }
+        "/cookie" => format!("<main>{}</main>", request_cookie(&request)),
         "/infinite" => "<script>while (true) {}</script>".into(),
         "/bad-js" => "<script>const = ;</script>".into(),
         "/rejected" => "<script>Promise.reject(new Error('failed'));</script>".into(),
@@ -4157,5 +4173,141 @@ fn navigator_and_stealth_contracts_use_real_native_http_and_fresh_prototypes() -
         assert_eq!(page.evaluate("fetch('/stealth-echo').then(r=>r.json()).then(r=>r.userAgent===navigator.userAgent&&httpAgent===navigator.userAgent)")?, json!(true));
         assert_eq!(page.evaluate("(()=>{Object.defineProperty(Navigator.prototype,'userAgent',{get:()=> 'poison'});return navigator.userAgent})()")?, json!("poison"));
     }
+    Ok(())
+}
+
+#[test]
+fn readiness_conditions_drive_delayed_timers_and_real_http() -> TestResult {
+    let fixture = Fixture::new()?;
+    for condition in [
+        ReadyCondition::Selector {
+            selector: "#ready".into(),
+        },
+        ReadyCondition::Predicate {
+            expression: "readinessPhase === 2".into(),
+        },
+        ReadyCondition::NetworkIdle { quiet_ms: 30 },
+    ] {
+        let page = fixture.browser()?.navigate(&fixture.path("/readiness"))?;
+        page.wait_for(&Readiness {
+            condition,
+            timeout_ms: 1000,
+            poll_interval_ms: 5,
+        })?;
+        assert_eq!(
+            page.evaluate("document.getElementById('ready').textContent")?,
+            json!("Completed")
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn readiness_network_idle_restarts_after_each_request() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/readiness"))?;
+    page.wait_for(&Readiness {
+        condition: ReadyCondition::NetworkIdle { quiet_ms: 30 },
+        timeout_ms: 1000,
+        poll_interval_ms: 5,
+    })?;
+    assert_eq!(
+        page.evaluate("readinessPhase === 2 && performance.now() - lastRequestComplete >= 30")?,
+        json!(true)
+    );
+    Ok(())
+}
+
+#[test]
+fn readiness_reports_timeout_and_invalid_predicates() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    let error = page.wait_for(&Readiness {
+        condition: ReadyCondition::Selector {
+            selector: ".missing".into(),
+        },
+        timeout_ms: 25,
+        poll_interval_ms: 5,
+    });
+    assert!(matches!(error, Err(Error::Limit("readiness deadline"))));
+    for expression in [
+        "Promise.resolve(true)",
+        "1",
+        "(() => { throw new Error('predicate failed') })()",
+    ] {
+        let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+        assert!(matches!(
+            page.wait_for(&Readiness {
+                condition: ReadyCondition::Predicate {
+                    expression: expression.into()
+                },
+                timeout_ms: 100,
+                poll_interval_ms: 5
+            }),
+            Err(Error::JavaScript(_))
+        ));
+    }
+    Ok(())
+}
+
+#[test]
+fn readiness_preserves_original_deadline_and_dom_budget() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = Browser::new(
+        &fixture.url,
+        Limits {
+            timeout: Duration::from_millis(80),
+            ..Limits::default()
+        },
+    )?;
+    let page = browser.navigate(&fixture.path("/static"))?;
+    assert!(matches!(
+        page.wait_for(&Readiness {
+            condition: ReadyCondition::NetworkIdle { quiet_ms: 200 },
+            timeout_ms: 1000,
+            poll_interval_ms: 5
+        }),
+        Err(Error::Limit("navigation deadline"))
+    ));
+    let browser = Browser::new(
+        &fixture.url,
+        Limits {
+            max_dom_operations: 8,
+            ..Limits::default()
+        },
+    )?;
+    let page = browser.navigate(&fixture.path("/static"))?;
+    assert!(
+        page.wait_for(&Readiness {
+            condition: ReadyCondition::Selector {
+                selector: ".missing".into()
+            },
+            timeout_ms: 1000,
+            poll_interval_ms: 1
+        })
+        .is_err()
+    );
+    Ok(())
+}
+
+#[test]
+fn readiness_timeout_starts_at_the_native_wait_call() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    thread::sleep(Duration::from_millis(40));
+    page.wait_for(&Readiness {
+        condition: ReadyCondition::Selector {
+            selector: "main".into(),
+        },
+        timeout_ms: 20,
+        poll_interval_ms: 5,
+    })?;
+    page.wait_for(&Readiness {
+        condition: ReadyCondition::Predicate {
+            expression: "(function(){return this === globalThis})()".into(),
+        },
+        timeout_ms: 20,
+        poll_interval_ms: 5,
+    })?;
     Ok(())
 }

@@ -1,29 +1,8 @@
-import { readFile } from "node:fs/promises";
+import { processTreeRss } from "./benchmark-memory";
 import { createHash } from "node:crypto";
 import { join, resolve } from "node:path";
 import { startCelld } from "./benchmark-celld";
 import { hotPathFixture, hotPathScenarios } from "./hot-paths-fixture";
-
-async function processTreeRss(pid: number): Promise<number | null> {
-  try {
-    const [status, children] = await Promise.all([
-      readFile(`/proc/${pid}/status`, "utf8"),
-      readFile(`/proc/${pid}/task/${pid}/children`, "utf8"),
-    ]);
-    const own = /VmRSS:\s+(\d+)\s+kB/.exec(status)?.[1];
-    if (!own) return null;
-    const descendants = await Promise.all(
-      children
-        .trim()
-        .split(/\s+/)
-        .filter(Boolean)
-        .map((child) => processTreeRss(Number(child))),
-    );
-    return Number(own) + descendants.reduce<number>((total, value) => total + (value ?? 0), 0);
-  } catch {
-    return null;
-  }
-}
 
 const baseline = process.env.NIMBO_BENCH_BASELINE_BUNDLE;
 const bundles = baseline

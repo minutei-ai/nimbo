@@ -41,6 +41,7 @@ mod outlines;
 mod page;
 mod position_math;
 mod position_value;
+mod readiness;
 mod registrations;
 mod response_encoding;
 mod response_sniff;
@@ -63,6 +64,7 @@ use std::time::Duration;
 pub use network::Browser;
 #[cfg(not(target_arch = "wasm32"))]
 pub use page::Page;
+pub use readiness::{Readiness, ReadyCondition};
 
 /// Orçamento de uma navegação, incluindo scripts, fetch e extração.
 #[derive(Clone, Copy, Debug)]

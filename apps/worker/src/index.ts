@@ -75,6 +75,7 @@ const scrape = (request: Request, environment: Environment) =>
         (loaded) => Effect.sync(() => loaded.free()),
       );
       let evaluating = false;
+      let waiting = false;
       const epoch = performance.now();
       while (true) {
         const action = yield* Effect.try({
@@ -120,6 +121,14 @@ const scrape = (request: Request, environment: Environment) =>
           case "ready":
             if (evaluating)
               return yield* new ScrapeError({ status: 500, reason: "missing evaluation result" });
+            if (input.waitFor !== undefined && !waiting) {
+              yield* Effect.try({
+                try: () => page.wait_for(JSON.stringify(input.waitFor)),
+                catch: (cause) => failure(cause),
+              });
+              waiting = true;
+              break;
+            }
             yield* Effect.try({
               try: () => page.evaluate(input.expression),
               catch: (cause) => failure(cause),

@@ -139,6 +139,17 @@ impl WasmPage {
             .evaluate(expression)
             .map_err(|error| error.to_string())
     }
+
+    /// Start a bounded readiness wait from serialized `Readiness` options.
+    ///
+    /// # Errors
+    /// Returns invalid configuration, JavaScript, state or budget errors.
+    pub fn wait_for(&mut self, readiness: &str) -> Result<(), String> {
+        serde_json::from_str(readiness)
+            .map_err(crate::Error::from)
+            .and_then(|options| self.machine.wait_for(&options))
+            .map_err(|error| error.to_string())
+    }
 }
 
 /// Limites padrão do motor, compartilhados com a camada de transporte do Worker.

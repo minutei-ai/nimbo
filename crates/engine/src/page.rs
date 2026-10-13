@@ -108,4 +108,22 @@ impl Page {
             .ok_or_else(|| Error::JavaScript("missing extraction result".into()))?;
         Ok(serde_json::from_str(&json)?)
     }
+
+    /// Wait for a selector, synchronous boolean predicate or quiet network interval.
+    /// Timers, microtasks and HTTP continue under the original page budgets.
+    ///
+    /// # Errors
+    /// Returns an error for invalid conditions, JavaScript failures or exceeded budgets.
+    pub fn wait_for(&self, readiness: &crate::Readiness) -> Result<()> {
+        self.transport.check_deadline()?;
+        {
+            let mut machine = self.machine.borrow_mut();
+            machine.advance(self.epoch.elapsed().as_secs_f64() * 1000.0)?;
+            machine.wait_for(readiness)?;
+        }
+        if self.drive()?.is_some() {
+            return Err(Error::Unsupported("unexpected readiness result".into()));
+        }
+        Ok(())
+    }
 }

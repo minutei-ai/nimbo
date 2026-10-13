@@ -76,6 +76,7 @@ enum Phase {
     Scripts,
     Lifecycle,
     Ready,
+    Waiting,
     Evaluating,
 }
 
@@ -87,6 +88,7 @@ pub(crate) struct Machine {
     resource: Option<Persistent<Function<'static>>>,
     clock: Rc<Cell<f64>>,
     evaluation: Option<Persistent<Promise<'static>>>,
+    waiting: Option<crate::readiness::Waiting>,
     active: Option<Request>,
     pending: Rc<RefCell<VecDeque<Request>>>,
     scripts: VecDeque<Script>,
@@ -210,6 +212,7 @@ impl Machine {
             clock: Rc::new(Cell::new(0.0)),
             evaluation: None,
             active: None,
+            waiting: None,
             pending: Rc::default(),
             scripts,
             modules,
@@ -397,6 +400,13 @@ impl Machine {
     }
 
     fn check_budget(&self) -> Result<()> {
+        if self
+            .waiting
+            .as_ref()
+            .is_some_and(|waiting| self.clock.get() >= waiting.deadline)
+        {
+            return Err(Error::Limit("readiness deadline"));
+        }
         if (self.check)() || self.clock.get() >= self.limits.timeout.as_secs_f64() * 1000.0 {
             return Err(Error::Limit("navigation deadline"));
         }
@@ -575,46 +585,60 @@ impl Machine {
                     }
                     return Ok(Action::Ready);
                 }
+                Phase::Waiting => {
+                    if let Some(action) = self.waiting_step()? {
+                        return Ok(action);
+                    }
+                }
                 Phase::Evaluating => {
-                    if self.intersection_step()? {
-                        continue;
+                    if let Some(action) = self.evaluation_step()? {
+                        return Ok(action);
                     }
-                    let pending = self.context.with(|ctx| -> Result<bool> {
-                        let promise = self
-                            .evaluation
-                            .as_ref()
-                            .ok_or_else(|| Error::JavaScript("missing evaluation".into()))?;
-                        Ok(js(&ctx, promise.clone().restore(&ctx))?
-                            .result::<String>()
-                            .is_none())
-                    })?;
-                    if pending && let Some(milliseconds) = self.timer_step(true)? {
-                        if milliseconds <= 0.0 {
-                            continue;
-                        }
-                        return Ok(Action::Wait { milliseconds });
-                    }
-                    let promise = self
-                        .evaluation
-                        .take()
-                        .ok_or_else(|| Error::JavaScript("missing evaluation".into()))?;
-                    let json = self.context.with(|ctx| -> Result<String> {
-                        let promise = js(&ctx, promise.restore(&ctx))?;
-                        js(
-                            &ctx,
-                            promise
-                                .result::<String>()
-                                .unwrap_or(Err(rquickjs::Error::WouldBlock)),
-                        )
-                    })?;
-                    self.phase = Phase::Ready;
-                    return Ok(Action::Result { json });
                 }
             }
         }
     }
 
+    fn evaluation_step(&mut self) -> Result<Option<Action>> {
+        if self.intersection_step()? {
+            return Ok(None);
+        }
+        let pending = self.context.with(|ctx| -> Result<bool> {
+            let promise = self
+                .evaluation
+                .as_ref()
+                .ok_or_else(|| Error::JavaScript("missing evaluation".into()))?;
+            Ok(js(&ctx, promise.clone().restore(&ctx))?
+                .result::<String>()
+                .is_none())
+        })?;
+        if pending && let Some(milliseconds) = self.timer_step(true)? {
+            if milliseconds <= 0.0 {
+                return Ok(None);
+            }
+            return Ok(Some(Action::Wait { milliseconds }));
+        }
+        let promise = self
+            .evaluation
+            .take()
+            .ok_or_else(|| Error::JavaScript("missing evaluation".into()))?;
+        let json = self.context.with(|ctx| -> Result<String> {
+            let promise = js(&ctx, promise.restore(&ctx))?;
+            js(
+                &ctx,
+                promise
+                    .result::<String>()
+                    .unwrap_or(Err(rquickjs::Error::WouldBlock)),
+            )
+        })?;
+        self.phase = Phase::Ready;
+        Ok(Some(Action::Result { json }))
+    }
+
     fn activate(&mut self, request: Request) -> Action {
+        if let Some(waiting) = &mut self.waiting {
+            waiting.idle_since = None;
+        }
         let action = Action::Request {
             url: request.url.clone(),
             method: request.method.clone(),
@@ -724,6 +748,118 @@ impl Machine {
         self.evaluation = Some(evaluation?);
         self.phase = Phase::Evaluating;
         Ok(())
+    }
+
+    pub(crate) fn wait_for(&mut self, options: &crate::Readiness) -> Result<()> {
+        self.check_budget()?;
+        if self.phase != Phase::Ready {
+            return Err(Error::Unsupported("page is not ready".into()));
+        }
+        options.validate()?;
+        let source = match &options.condition {
+            crate::ReadyCondition::Selector { selector } => {
+                format!(
+                    "document.querySelector({}) !== null",
+                    serde_json::to_string(selector)?
+                )
+            }
+            crate::ReadyCondition::Predicate { expression } => expression.clone(),
+            crate::ReadyCondition::NetworkIdle { .. } => String::new(),
+        };
+        if source.len() > self.limits.max_expression_bytes {
+            return Err(Error::Limit("readiness expression bytes"));
+        }
+        let quiet = match options.condition {
+            crate::ReadyCondition::NetworkIdle { quiet_ms } => Some(f64::from(quiet_ms)),
+            _ => None,
+        };
+        let test = if quiet.is_some() {
+            None
+        } else {
+            Some(self.context.with(|ctx| -> Result<_> {
+                let mut options = rquickjs::context::EvalOptions::default();
+                options.strict = false;
+                options.filename = Some(self.base.to_string());
+                let function = js(
+                    &ctx,
+                    ctx.eval_with_options::<Function<'_>, _>(format!("() => ({source})"), options),
+                )?;
+                Ok(Persistent::save(&ctx, function))
+            })?)
+        };
+        self.check_budget()?;
+        let now = self.clock.get();
+        self.waiting = Some(crate::readiness::Waiting {
+            test,
+            deadline: now + f64::from(options.timeout_ms),
+            next_poll: now,
+            interval: f64::from(options.poll_interval_ms),
+            quiet,
+            idle_since: None,
+        });
+        self.phase = Phase::Waiting;
+        Ok(())
+    }
+
+    fn waiting_step(&mut self) -> Result<Option<Action>> {
+        if self.intersection_step()? {
+            return Ok(None);
+        }
+        let timer = self.timer_step(true)?;
+        if timer == Some(0.0) {
+            return Ok(None);
+        }
+        let delay = self.readiness_step();
+        self.check_budget()?;
+        if let Some(milliseconds) = delay? {
+            return Ok(Some(Action::Wait {
+                milliseconds: timer.map_or(milliseconds, |timer| timer.min(milliseconds)),
+            }));
+        }
+        self.waiting = None;
+        self.phase = Phase::Ready;
+        Ok(Some(Action::Ready))
+    }
+
+    fn readiness_step(&mut self) -> Result<Option<f64>> {
+        let waiting = self
+            .waiting
+            .as_mut()
+            .ok_or_else(|| Error::Unsupported("missing readiness state".into()))?;
+        let now = self.clock.get();
+        if now >= waiting.deadline {
+            return Err(Error::Limit("readiness deadline"));
+        }
+        let delay = if let Some(quiet) = waiting.quiet {
+            let idle_since = *waiting.idle_since.get_or_insert(now);
+            let remaining = quiet - (now - idle_since);
+            if remaining <= 0.0 {
+                return Ok(None);
+            }
+            remaining
+        } else {
+            if now >= waiting.next_poll {
+                let test = waiting
+                    .test
+                    .as_ref()
+                    .ok_or_else(|| Error::Unsupported("missing readiness predicate".into()))?;
+                let satisfied = self.context.with(|ctx| -> Result<bool> {
+                    let value = js(
+                        &ctx,
+                        js(&ctx, test.clone().restore(&ctx))?.call::<_, rquickjs::Value<'_>>(()),
+                    )?;
+                    value.as_bool().ok_or_else(|| {
+                        Error::JavaScript("readiness predicate must return a boolean".into())
+                    })
+                })?;
+                if satisfied {
+                    return Ok(None);
+                }
+                waiting.next_poll = now + waiting.interval;
+            }
+            waiting.next_poll - now
+        };
+        Ok(Some(delay.min(waiting.deadline - now)))
     }
 }
 

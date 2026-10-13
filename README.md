@@ -30,6 +30,10 @@ The response contains `url`, `value` and `engine: "rust-wasm-quickjs"`. Errors r
 
 Page scripts execute by default. `"scripts":"skip"` parses received HTML and runs only the extraction expression. `maxStylesheetBytes`, `maxLayoutNodes` and `maxDomOperations` configure bounded CSS/DOM work.
 
+Optional `waitFor` waits for a selector, synchronous boolean predicate or quiet
+network interval before extraction. See [readiness options](docs/readiness.md)
+for Worker JSON, native usage and shared timeout/resource semantics.
+
 ## Scope
 
 - Navigation, redirects, cookies, page fetch and isolated page state.
@@ -69,3 +73,8 @@ bun run bench:hot-paths
 ```
 
 Set `NIMBO_BENCH_BASELINE_BUNDLE` to a saved Worker bundle for A/B timing. Set `NIMBO_COMPARE_CHROMIUM_BINARY` to ordinary Chromium for `bun run compare:stealth` and other `compare:*` commands. Obscura is an optional test comparator; Nimbo implements its own browser capabilities.
+
+The [versioned extraction corpus](docs/performance-corpus.md) adds identical
+native/Worker workloads, repeated A/B rounds, memory samples and explicit
+regression tolerances. Run `bench:corpus:native` or `bench:corpus:worker` after
+building their artifacts.

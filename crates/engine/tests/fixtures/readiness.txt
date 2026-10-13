@@ -1,0 +1,17 @@
+globalThis.readinessPhase = 0;
+globalThis.lastRequestComplete = 0;
+setTimeout(() => {
+  fetch('/readiness-data').then(response => response.text()).then(() => {
+    globalThis.readinessPhase = 1;
+    setTimeout(() => {
+      fetch('/readiness-data').then(response => response.text()).then(() => {
+        globalThis.readinessPhase = 2;
+        globalThis.lastRequestComplete = performance.now();
+        const element = document.createElement('p');
+        element.id = 'ready';
+        element.textContent = 'Completed';
+        document.body.appendChild(element);
+      });
+    }, 10);
+  });
+}, 10);

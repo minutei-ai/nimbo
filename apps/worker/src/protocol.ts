@@ -6,6 +6,18 @@ export class ScrapeError extends Data.TaggedError("ScrapeError")<{
 }> {}
 
 const Dimension = Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 16384 }));
+export const Readiness = Schema.Struct({
+  condition: Schema.Union([
+    Schema.Struct({ type: Schema.Literal("selector"), selector: Schema.String }),
+    Schema.Struct({ type: Schema.Literal("predicate"), expression: Schema.String }),
+    Schema.Struct({
+      type: Schema.Literal("networkIdle"),
+      quietMs: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 10000 })),
+    }),
+  ]),
+  timeoutMs: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 10000 })),
+  pollIntervalMs: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 1000 })),
+});
 export const Media = Schema.Struct({
   width: Schema.optional(Dimension),
   height: Schema.optional(Dimension),
@@ -30,6 +42,7 @@ export const Input = Schema.Struct({
     Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 1_000_000 })),
   ),
   scripts: Schema.optional(Schema.Literals(["execute", "skip"])),
+  waitFor: Schema.optional(Readiness),
 });
 export const Action = Schema.Union([
   Schema.Struct({

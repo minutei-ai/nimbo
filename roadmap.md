@@ -15,6 +15,12 @@ Current baseline: DOM queries and mutations, supported scripts/modules, asynchro
 
 Exit: repeated A/B runs retain correctness and original limits; reports include hardware/runtime versions, samples and noise ranges. Memory and latency regression thresholds are recorded before accepting optimizations. Worker and native results remain separate.
 
+Implemented groundwork: [corpus v1](docs/performance-corpus.md) provides 12
+shared workloads, three-round A/B reporting, artifact/corpus hashes, native peak
+RSS, Worker retained host RSS and predeclared regression tolerances. Correctness
+runs in the normal Worker suite at default limits. Controlled-runner regression
+automation, profiling and Worker peak allocation evidence remain open.
+
 ## 0.3 — DOM and application compatibility
 
 - Expand event propagation, form controls, mutation observers and live collection behavior where extraction workloads need them.
@@ -32,6 +38,12 @@ Exit: each supported application completes hydration, a state update and extract
 - Make timeout, cancellation and failed resource diagnostics identify the failing phase.
 
 Exit: delayed content, failed imports, timer loops and cancellation finish deterministically within request/time/heap budgets. Every readiness option has real HTTP success and failure tests.
+
+Implemented subset: [readiness](docs/readiness.md) for selectors, synchronous
+boolean predicates and configurable network idle runs in the shared Rust
+machine on native and Worker hosts. Real HTTP tests cover delayed content,
+request resets, timeouts, invalid predicates, DOM limits and failure disposal.
+Module/task expansion, cancellation and broader phase diagnostics remain open.
 
 ## 0.5 — CSS and geometry
 

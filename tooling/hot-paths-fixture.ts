@@ -14,7 +14,7 @@ export const hotPathScenarios = [
   {
     name: "selector-heavy-layout",
     expression:
-      "(()=>{const nodes=document.querySelectorAll('.entry');return Array.from(nodes).every(e=>e.getBoundingClientRect().width===20)})()",
+      "(()=>{const nodes=document.querySelectorAll('.entry');return nodes.length===192&&Array.from(nodes).every(e=>e.getBoundingClientRect().width===20)})()",
     rows: 192,
   },
 ] as const;

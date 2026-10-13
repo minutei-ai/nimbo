@@ -19,9 +19,10 @@ introduz regras contraditórias. `nursery` contém regras em desenvolvimento; ca
 regra habilitada foi executada contra o MVP. A versão Rust está fixada em 1.96.0.
 
 Exceções usam `#[expect(..., reason = "...")]` no ponto necessário. Uma exceção
-que deixa de ser usada falha por `unfulfilled_lint_expectations`. No momento há
-duas: diagnóstico stderr quando a própria escrita falha e falha de thread na
-limpeza das fixtures. Não há `allow` global. Os probes executam Clippy real e
+que deixa de ser usada falha por `unfulfilled_lint_expectations`. As exceções
+ficam junto à operação e explicam o contrato, como diagnóstico stderr quando a
+própria escrita falha e falha de thread na limpeza das fixtures. Não há `allow`
+global. Os probes executam Clippy real e
 comprovam rejeição de unsafe, unwrap, casts, índices, aritmética e Result ignorado.
 
 `unsafe_code = "forbid"` cobre o código Rust próprio; dependências e o código C
@@ -67,11 +68,12 @@ bun run bench:browser /caminho/nimbo-engine
 ```
 
 `tooling/benchmark.ts` usa Effect para abrir e fechar o servidor local, verifica
-a extração em cada execução e publica JSON. Cada cenário tem 5.000 elementos,
-três warmups e 21 amostras sequenciais. Os tempos incluem criar um processo,
+a extração em cada execução e publica JSON. O corpus atual desse comando usa
+16 linhas estáticas e 12 cards gerados por JavaScript, três warmups e 21 amostras
+sequenciais. Os tempos incluem criar um processo,
 cliente HTTP, runtime QuickJS, navegação, extração e encerrar o processo.
 
-Ambiente: Linux x86_64, Intel Xeon E5-2680 v4, Rust 1.96.0, Bun 1.4.2.
+Medição histórica de 2026-10-01: Linux x86_64, Intel Xeon E5-2680 v4, Rust 1.96.0, Bun 1.4.2.
 Baseline: commit `6a176a8a954f885535036ab7b4036778835901b3`, release padrão do
 Cargo. Atual: código desta alteração e perfil release acima. O relatório em
 [performance.json](performance.json) registra resultados brutos e hashes dos
@@ -88,6 +90,9 @@ máximo desempenho possível. Não mede RSS, concorrência, rede externa, DNS/TL
 Cloudflare Workers/Wasm, compatibilidade ampla ou custo por página em produção.
 Não há limiar temporal no CI: o CI valida comportamento em debug e release;
 o benchmark é explícito para evitar testes instáveis por carga do runner.
+O [corpus versionado](performance-corpus.md) agora registra native e Worker
+separadamente, com amostras, memória e limiares de regressão para A/B em runner
+controlado. Os resultados históricos acima não representam o build atual.
 
 PGO, otimização por CPU, outro allocator ou mudanças no runtime exigem corpus
 representativo e novas medições. `target-cpu=native` não foi aplicado a um

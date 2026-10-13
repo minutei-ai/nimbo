@@ -33,7 +33,8 @@ globalThis.comparison = new Promise(resolve => {
     'use strict';
     checks.strictReceiver = this === undefined;
     checks.asynchronous = !early;
-    checks.timestamp = typeof time === 'number' && Number.isFinite(time) && time > 0;
+    // The first frame may coincide with the time origin and carry timestamp zero.
+    checks.timestamp = typeof time === 'number' && Number.isFinite(time) && time >= 0;
     checks.clock = time <= performance.now();
     firstTime = time;
     order.push('first');

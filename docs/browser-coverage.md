@@ -2964,6 +2964,12 @@ handle independence, duplicate callbacks, same-batch timestamps, nested frame
 ordering, cancellation from microtasks, exceptions, DOM mutation and visibility
 getters. Separate native tests enforce shared capacity and execution budgets.
 
+The timestamp check accepts finite nonnegative values, including zero on the
+first frame. A fresh Chromium page can report zero at its time origin; requiring
+a strictly positive timestamp caused comparator failures. Same-frame equality,
+monotonic nested frames and consistency with `performance.now()` remain checked.
+See [High Resolution Time](https://www.w3.org/TR/hr-time-3/#dom-domhighrestimestamp).
+
 The [original WPT manifest](../tooling/wpt-animation-frame-sources.json) pins
 12 automated HTML files and two harness resources to the same upstream revision
 as the other WPT suites. Source bytes and assertions are unchanged; the existing

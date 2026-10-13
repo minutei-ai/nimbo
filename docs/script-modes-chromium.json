@@ -1,10 +1,10 @@
 {
-  "date": "2026-10-05",
+  "date": "2026-10-12",
   "fixture": "crates/engine/tests/fixtures/script-modes.txt",
   "scope": "64 fresh pages over real HTTP; classic inline/external scripts and extraction expressions derive strict mode from their directive prologues; modules remain strict; eval, arguments aliasing, this binding, property assignment, syntax and imports; default limits; no mocks; supplemental contracts, not the full ECMAScript conformance suite",
   "results": [
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 0,
       "status": "passed",
       "checks": {
@@ -48,7 +48,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 1,
       "status": "passed",
       "checks": {
@@ -92,7 +92,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 2,
       "status": "passed",
       "checks": {
@@ -136,7 +136,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 3,
       "status": "passed",
       "checks": {
@@ -180,7 +180,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 4,
       "status": "passed",
       "checks": {
@@ -224,7 +224,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 5,
       "status": "passed",
       "checks": {
@@ -268,7 +268,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 6,
       "status": "passed",
       "checks": {
@@ -312,7 +312,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 7,
       "status": "passed",
       "checks": {
@@ -356,7 +356,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 8,
       "status": "passed",
       "checks": {
@@ -400,7 +400,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 9,
       "status": "passed",
       "checks": {
@@ -444,7 +444,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 10,
       "status": "passed",
       "checks": {
@@ -488,7 +488,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 11,
       "status": "passed",
       "checks": {
@@ -532,7 +532,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 12,
       "status": "passed",
       "checks": {
@@ -576,7 +576,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 13,
       "status": "passed",
       "checks": {
@@ -620,7 +620,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 14,
       "status": "passed",
       "checks": {
@@ -664,7 +664,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 15,
       "status": "passed",
       "checks": {
@@ -708,7 +708,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 16,
       "status": "passed",
       "checks": {
@@ -752,7 +752,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 17,
       "status": "passed",
       "checks": {
@@ -796,7 +796,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 18,
       "status": "passed",
       "checks": {
@@ -840,7 +840,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 19,
       "status": "passed",
       "checks": {
@@ -884,7 +884,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 20,
       "status": "passed",
       "checks": {
@@ -928,7 +928,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 21,
       "status": "passed",
       "checks": {
@@ -972,7 +972,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 22,
       "status": "passed",
       "checks": {
@@ -1016,7 +1016,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 23,
       "status": "passed",
       "checks": {
@@ -1060,7 +1060,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 24,
       "status": "passed",
       "checks": {
@@ -1104,7 +1104,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 25,
       "status": "passed",
       "checks": {
@@ -1148,7 +1148,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 26,
       "status": "passed",
       "checks": {
@@ -1192,7 +1192,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 27,
       "status": "passed",
       "checks": {
@@ -1236,7 +1236,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 28,
       "status": "passed",
       "checks": {
@@ -1280,7 +1280,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 29,
       "status": "passed",
       "checks": {
@@ -1324,7 +1324,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 30,
       "status": "passed",
       "checks": {
@@ -1368,7 +1368,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 31,
       "status": "passed",
       "checks": {
@@ -1412,7 +1412,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 32,
       "status": "passed",
       "checks": {
@@ -1456,7 +1456,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 33,
       "status": "passed",
       "checks": {
@@ -1500,7 +1500,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 34,
       "status": "passed",
       "checks": {
@@ -1544,7 +1544,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 35,
       "status": "passed",
       "checks": {
@@ -1588,7 +1588,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 36,
       "status": "passed",
       "checks": {
@@ -1632,7 +1632,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 37,
       "status": "passed",
       "checks": {
@@ -1676,7 +1676,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 38,
       "status": "passed",
       "checks": {
@@ -1720,7 +1720,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 39,
       "status": "passed",
       "checks": {
@@ -1764,7 +1764,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 40,
       "status": "passed",
       "checks": {
@@ -1808,7 +1808,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 41,
       "status": "passed",
       "checks": {
@@ -1852,7 +1852,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 42,
       "status": "passed",
       "checks": {
@@ -1896,7 +1896,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 43,
       "status": "passed",
       "checks": {
@@ -1940,7 +1940,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 44,
       "status": "passed",
       "checks": {
@@ -1984,7 +1984,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 45,
       "status": "passed",
       "checks": {
@@ -2028,7 +2028,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 46,
       "status": "passed",
       "checks": {
@@ -2072,7 +2072,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 47,
       "status": "passed",
       "checks": {
@@ -2116,7 +2116,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 48,
       "status": "passed",
       "checks": {
@@ -2160,7 +2160,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 49,
       "status": "passed",
       "checks": {
@@ -2204,7 +2204,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 50,
       "status": "passed",
       "checks": {
@@ -2248,7 +2248,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 51,
       "status": "passed",
       "checks": {
@@ -2292,7 +2292,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 52,
       "status": "passed",
       "checks": {
@@ -2336,7 +2336,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 53,
       "status": "passed",
       "checks": {
@@ -2380,7 +2380,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 54,
       "status": "passed",
       "checks": {
@@ -2424,7 +2424,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 55,
       "status": "passed",
       "checks": {
@@ -2468,7 +2468,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 56,
       "status": "passed",
       "checks": {
@@ -2512,7 +2512,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 57,
       "status": "passed",
       "checks": {
@@ -2556,7 +2556,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 58,
       "status": "passed",
       "checks": {
@@ -2600,7 +2600,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 59,
       "status": "passed",
       "checks": {
@@ -2644,7 +2644,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 60,
       "status": "passed",
       "checks": {
@@ -2688,7 +2688,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 61,
       "status": "passed",
       "checks": {
@@ -2732,7 +2732,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 62,
       "status": "passed",
       "checks": {
@@ -2776,7 +2776,7 @@
       }
     },
     {
-      "runtime": "Google Chrome for Testing 153.0.8010.12",
+      "runtime": "Google Chrome 155.0.8059.39",
       "variant": 63,
       "status": "passed",
       "checks": {
