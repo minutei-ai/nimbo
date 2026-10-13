@@ -300,6 +300,7 @@ impl Dom {
             });
             self.invalidate_attribute_node(owner_handle, name.ns.as_ref(), local)?;
             self.sync_attributes(owner);
+            self.sync_control_value("setAttr", owner_handle)?;
             if name.ns.is_empty() && local == "href" {
                 self.history_base_mutation("setAttr", owner_handle, "href", value)?;
             }

@@ -9,6 +9,8 @@ use crate::{Error, Limits, Result};
 
 #[path = "dom_attribute_nodes.rs"]
 mod attribute_nodes;
+#[path = "dom_controls.rs"]
+mod controls;
 #[path = "dom_documents.rs"]
 mod documents;
 #[path = "dom_history.rs"]
@@ -49,6 +51,7 @@ pub(crate) struct Dom {
     style_bytes: usize,
     operations: usize,
     allocated_nodes: std::rc::Rc<std::cell::Cell<usize>>,
+    control_values: HashMap<NodeId, String>,
     check: crate::BudgetCheck,
     layout_version: usize,
     layout: Option<(usize, crate::layout::Snapshot)>,
@@ -111,6 +114,7 @@ impl Dom {
             style_bytes: 0,
             operations: 0,
             allocated_nodes,
+            control_values: HashMap::new(),
             check,
             layout_version: 0,
             layout: None,
@@ -239,6 +243,7 @@ impl Dom {
         if matches!(
             operation,
             "set"
+                | "setControlValue"
                 | "attachShadow"
                 | "setAttr"
                 | "removeAttr"
@@ -254,7 +259,7 @@ impl Dom {
             let names_changed = if matches!(operation, "setAttr" | "removeAttr") {
                 arg.eq_ignore_ascii_case("id") || arg.eq_ignore_ascii_case("name")
             } else {
-                operation != "style"
+                !matches!(operation, "style" | "setControlValue")
             };
             if names_changed {
                 self.named = None;
@@ -299,6 +304,9 @@ impl Dom {
         let owner = self.sync_attribute_owner(operation, handle)?;
         let fallback_slots = self.fallback_slot_targets(operation, handle, arg, value);
         let result = match operation {
+            "controlValue" | "setControlValue" | "controlDefault" => {
+                self.control_call(operation, handle, arg, value)?
+            }
             "newDocument" => self.new_document(handle, value)?,
             "attachShadow" | "shadowRoot" | "shadowInfo" | "rootNode" | "shadowContains"
             | "elementById" | "assignedSlot" | "slotNodes" | "slotChanges" => {
@@ -341,22 +349,7 @@ impl Dom {
             "relativeNode" => self.relative_node(handle, arg)?,
             "createText" | "createComment" => self.create_character(handle, operation, value)?,
             "createFragment" => self.create_fragment(handle)?,
-            "contains" => {
-                let descendant = arg
-                    .parse::<usize>()
-                    .map_err(|error| Error::Dom(error.to_string()))?;
-                if matches!(self.handles.get(descendant), Some(Handle::Attribute)) {
-                    return self.finish(&json!(false), version);
-                }
-                let parent = self.node(handle)?;
-                let descendant = self.node(descendant)?;
-                json!(
-                    parent.id == descendant.id
-                        || descendant
-                            .ancestors_it(None)
-                            .any(|ancestor| ancestor.id == parent.id)
-                )
-            }
+            "contains" => self.contains(handle, arg)?,
             "create" => self.create(handle, arg)?,
             "createNS" => self.create_ns(handle, arg, value)?,
             "get" if matches!(arg, "innerHTML" | "outerHTML") => self.serialize(handle, arg)?,
@@ -383,8 +376,26 @@ impl Dom {
             self.sync_attributes(owner);
         }
         self.history_base_mutation(operation, handle, arg, value)?;
+        self.sync_control_value(operation, handle)?;
         self.signal_fallback_slots(&fallback_slots);
         self.finish(&result, version)
+    }
+
+    fn contains(&self, handle: usize, descendant: &str) -> Result<Value> {
+        let descendant = descendant
+            .parse::<usize>()
+            .map_err(|error| Error::Dom(error.to_string()))?;
+        if matches!(self.handles.get(descendant), Some(Handle::Attribute)) {
+            return Ok(json!(false));
+        }
+        let parent = self.node(handle)?;
+        let descendant = self.node(descendant)?;
+        Ok(json!(
+            parent.id == descendant.id
+                || descendant
+                    .ancestors_it(None)
+                    .any(|node| node.id == parent.id)
+        ))
     }
 
     fn synchronize_fonts(&mut self, source: &str) -> Result<Value> {

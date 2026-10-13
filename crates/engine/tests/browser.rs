@@ -3079,6 +3079,35 @@ fn initial_dom_node_limits_reject_before_scripts_and_recover_over_http() -> Test
 }
 
 #[test]
+fn text_controls_follow_native_state_and_enforce_write_budgets() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    let page = browser.navigate(&fixture.path("/static"))?;
+    let source = include_str!("fixtures/text-controls.txt");
+    assert_eq!(
+        page.evaluate(&format!(
+            "(()=>{{{source};return Object.values(textControlsCase(0)).every(Boolean)}})()"
+        ))?,
+        json!(true)
+    );
+    let bounded = Browser::new(
+        &fixture.url,
+        Limits {
+            max_dom_write_bytes: 32,
+            ..Limits::default()
+        },
+    )?;
+    let page = bounded.navigate(&fixture.path("/static"))?;
+    assert_eq!(page.evaluate("(()=>{globalThis.input=document.createElement('input');input.value='before';let failed=false;try{input.value='x'.repeat(40)}catch(e){failed=e.message.includes('resource limit: DOM write bytes')}return {failed,value:input.value,defaultValue:input.defaultValue,attribute:input.getAttribute('value')}})()")?, json!({"failed":true,"value":"before","defaultValue":"","attribute":null}));
+    let fresh = bounded.navigate(&fixture.path("/static"))?;
+    assert_eq!(
+        fresh.evaluate("({previous:typeof input,value:document.createElement('input').value})")?,
+        json!({"previous":"undefined","value":""})
+    );
+    Ok(())
+}
+
+#[test]
 fn attribute_counts_avoid_materializing_handles_and_remain_live() -> TestResult {
     let fixture = Fixture::new()?;
     let page = fixture.browser()?.navigate(&fixture.path("/static"))?;

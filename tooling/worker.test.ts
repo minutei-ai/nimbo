@@ -192,6 +192,40 @@ test("invalid DOM budgets fail before origin HTTP", async () => {
   );
 });
 
+test("native text controls preserve dirty values, mutations and page isolation", async () => {
+  const source = await Bun.file(
+    join(root, "crates/engine/tests/fixtures/text-controls.txt"),
+  ).text();
+  await fixture(
+    () =>
+      html(
+        "<!doctype html><body><input id=initial value=fresh><textarea id=area>initial</textarea>",
+      ),
+    async (worker) => {
+      const response = await scrape(
+        worker,
+        `(()=>{${source};globalThis.kept=document.getElementById('initial');kept.value='dirty';return Object.values(textControlsCase(0)).every(Boolean)})()`,
+      );
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({ value: true });
+      const recovered = await scrape(
+        worker,
+        "({input:document.getElementById('initial').value,area:document.getElementById('area').value,previous:typeof kept})",
+      );
+      expect(recovered.status).toBe(200);
+      expect(await json(recovered)).toMatchObject({
+        value: { input: "fresh", area: "initial", previous: "undefined" },
+      });
+      const failed = await scrape(
+        worker,
+        "(()=>{const input=document.getElementById('initial');input.value='before';let failed=false;try{input.value='x'.repeat(4194304)}catch(e){failed=e.message.includes('resource limit: DOM write bytes')}return failed&&input.value==='before'&&input.defaultValue==='fresh'})()",
+      );
+      expect(failed.status).toBe(200);
+      expect(await json(failed)).toMatchObject({ value: true });
+    },
+  );
+});
+
 test("cooperative parsing preserves Unicode across host blocks", async () => {
   const prefix = "<!doctype html><body><p id=value>";
   const repeated = 8191 - prefix.length;

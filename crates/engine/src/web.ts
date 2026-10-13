@@ -3020,6 +3020,151 @@
     if (descriptor)
       Object.defineProperty(prototype, "dataset", { ...descriptor, enumerable: true });
   }
+  const textControls = new WeakMap<object, "input" | "textarea">();
+  function textControlId(owner: object, kind: "input" | "textarea"): number {
+    if (textControls.get(owner) !== kind) throw new TypeError("Illegal invocation");
+    return idOf(owner);
+  }
+  const inputTypes = new Set([
+    "hidden",
+    "text",
+    "search",
+    "tel",
+    "url",
+    "email",
+    "password",
+    "date",
+    "month",
+    "week",
+    "time",
+    "datetime-local",
+    "number",
+    "range",
+    "color",
+    "checkbox",
+    "radio",
+    "file",
+    "submit",
+    "image",
+    "reset",
+    "button",
+  ]);
+  class HTMLInputElement extends HTMLElement {
+    constructor(key?: symbol, id?: number) {
+      if (key !== internal || id === undefined) throw new TypeError("Illegal constructor");
+      super(internal, id);
+      textControls.set(this, "input");
+    }
+    get value(): string {
+      return raw("controlValue", textControlId(this, "input"), "input");
+    }
+    set value(value: unknown) {
+      call(
+        "setControlValue",
+        textControlId(this, "input"),
+        "input",
+        value === null ? "" : domString(value),
+      );
+    }
+    get defaultValue(): string {
+      textControlId(this, "input");
+      return htmlAttribute(this, "value") ?? "";
+    }
+    set defaultValue(value: unknown) {
+      textControlId(this, "input");
+      reflectString(this, "value", value);
+    }
+    get type(): string {
+      textControlId(this, "input");
+      const value = (htmlAttribute(this, "type") ?? "").replace(/[A-Z]/g, (letter) =>
+        letter.toLowerCase(),
+      );
+      return inputTypes.has(value) ? value : "text";
+    }
+    set type(value: unknown) {
+      textControlId(this, "input");
+      reflectString(this, "type", value);
+    }
+  }
+  class HTMLTextAreaElement extends HTMLElement {
+    constructor(key?: symbol, id?: number) {
+      if (key !== internal || id === undefined) throw new TypeError("Illegal constructor");
+      super(internal, id);
+      textControls.set(this, "textarea");
+    }
+    get value(): string {
+      return raw("controlValue", textControlId(this, "textarea"), "textarea");
+    }
+    set value(value: unknown) {
+      call(
+        "setControlValue",
+        textControlId(this, "textarea"),
+        "textarea",
+        value === null ? "" : domString(value),
+      );
+    }
+    get defaultValue(): string {
+      return raw("controlDefault", textControlId(this, "textarea"));
+    }
+    set defaultValue(value: unknown) {
+      textControlId(this, "textarea");
+      this.textContent = domString(value);
+    }
+    get textLength(): number {
+      textControlId(this, "textarea");
+      return this.value.length;
+    }
+    get type(): string {
+      textControlId(this, "textarea");
+      return "textarea";
+    }
+  }
+  for (const [constructor, kind] of [
+    [HTMLInputElement, "input"],
+    [HTMLTextAreaElement, "textarea"],
+  ] as const) {
+    const prototype = constructor.prototype;
+    Object.defineProperty(constructor, "length", { value: 0, configurable: true });
+    Object.defineProperty(prototype, Symbol.toStringTag, {
+      value: constructor.name,
+      configurable: true,
+    });
+    for (const name of ["value", "defaultValue", "type", "textLength"]) {
+      const descriptor = Object.getOwnPropertyDescriptor(prototype, name);
+      if (descriptor) Object.defineProperty(prototype, name, { ...descriptor, enumerable: true });
+    }
+    for (const name of ["name", "placeholder"])
+      Object.defineProperty(prototype, name, {
+        get(this: object) {
+          textControlId(this, kind);
+          return htmlAttribute(this, name) ?? "";
+        },
+        set(this: object, value: unknown) {
+          textControlId(this, kind);
+          reflectString(this, name, value);
+        },
+        enumerable: true,
+        configurable: true,
+      });
+    for (const [name, attribute] of [
+      ["disabled", "disabled"],
+      ["required", "required"],
+      ["readOnly", "readonly"],
+      ...(kind === "input" ? [["multiple", "multiple"] as const] : []),
+    ] as const)
+      Object.defineProperty(prototype, name, {
+        get(this: object) {
+          textControlId(this, kind);
+          return htmlAttribute(this, attribute) !== null;
+        },
+        set(this: object, value: unknown) {
+          textControlId(this, kind);
+          reflectBoolean(this, attribute, value);
+        },
+        enumerable: true,
+        configurable: true,
+      });
+  }
   function usvString(value: unknown): string {
     return domString(value).replace(
       /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g,
@@ -4267,6 +4412,8 @@
           if (name === "link") return new HTMLLinkElement(internal, id);
           if (name === "iframe") return new HTMLIFrameElement(internal, id);
           if (name === "slot") return new HTMLSlotElement(internal, id);
+          if (name === "input") return new HTMLInputElement(internal, id);
+          if (name === "textarea") return new HTMLTextAreaElement(internal, id);
           return new HTMLElement(internal, id);
         }
         return namespace === "http://www.w3.org/2000/svg"
@@ -6922,6 +7069,8 @@
     HTMLLinkElement,
     HTMLIFrameElement,
     HTMLSlotElement,
+    HTMLInputElement,
+    HTMLTextAreaElement,
     SVGElement,
     DOMStringMap,
     CSSStyleDeclaration,

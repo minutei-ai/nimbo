@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-13",
+  "fixture": "crates/engine/tests/fixtures/text-controls.txt",
+  "scope": "64 fresh HTTP pages; owned input/textarea values, dirty defaults, UTF-16, newline sanitization, string/boolean reflection, brands, receivers and detached identity; default budgets",
+  "fixture_sha256": "b355cbcd3a42395cbc07c1b688a014560474a8866f4d65fa80453b9120adfe23",
+  "runtimes": [
+    {
+      "runtime": "Google Chrome 155.0.8059.39",
+      "pages": 64,
+      "checks_per_page": 38,
+      "all_passed": true
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "pages": 64,
+      "checks_per_page": 38,
+      "all_passed": true
+    }
+  ]
+}

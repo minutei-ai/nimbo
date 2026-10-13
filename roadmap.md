@@ -57,6 +57,10 @@ loading, same-document routing, back/forward restoration and unmounting.
 [Owned History](docs/history.md) adds bounded entries and cloned state graphs,
 current document URLs and trusted traversal events. Broader forms, declarative
 shadow parsing, scoped geometry and the remaining application matrix stay open.
+[Owned text controls](docs/text-controls.md) add input/textarea interfaces,
+native dirty values, default-value separation, sanitization and bounded writes.
+Other value modes, checkedness, select/options, form ownership/reset/submission,
+selection and validity remain open.
 
 ## 0.4 — Scripts and page readiness
 
