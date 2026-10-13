@@ -2493,7 +2493,7 @@
     }
     hasAttribute(name: unknown): boolean {
       if (arguments.length < 1) throw new TypeError("name is required");
-      return call<string | null>("attr", attributeElement(this), domString(name)) !== null;
+      return raw("hasAttr", attributeElement(this), domString(name));
     }
     removeAttribute(name: unknown): void {
       if (arguments.length < 1) throw new TypeError("name is required");
@@ -2509,12 +2509,10 @@
     }
     hasAttributeNS(namespace: unknown, localName: unknown): boolean {
       if (arguments.length < 2) throw new TypeError("namespace and localName are required");
-      return (
-        raw<string | null>(
-          "attrNS",
-          attributeElement(this),
-          JSON.stringify([attributeNamespace(namespace), domString(localName)]),
-        ) !== null
+      return raw(
+        "hasAttrNS",
+        attributeElement(this),
+        JSON.stringify([attributeNamespace(namespace), domString(localName)]),
       );
     }
     setAttributeNS(namespace: unknown, qualifiedName: unknown, value: unknown): void {
@@ -2632,6 +2630,9 @@
   }
   function htmlAttribute(owner: object, name: string): string | null {
     return raw("attrNS", htmlId(owner), JSON.stringify(["", name]));
+  }
+  function hasHtmlAttribute(owner: object, name: string): boolean {
+    return raw("hasAttrNS", htmlId(owner), JSON.stringify(["", name]));
   }
   function reflectString(owner: object, name: string, value: unknown): void {
     htmlId(owner);
@@ -3353,7 +3354,7 @@
       reflectString(this, "dir", value);
     }
     get inert(): boolean {
-      return htmlAttribute(this, "inert") !== null;
+      return hasHtmlAttribute(this, "inert");
     }
     set inert(value: unknown) {
       reflectBoolean(this, "inert", value);
@@ -3454,7 +3455,7 @@
     }
     get defaultChecked(): boolean {
       textControlId(this, "input");
-      return htmlAttribute(this, "checked") !== null;
+      return hasHtmlAttribute(this, "checked");
     }
     set defaultChecked(value: unknown) {
       textControlId(this, "input");
@@ -3557,7 +3558,7 @@
       Object.defineProperty(prototype, name, {
         get(this: object) {
           textControlId(this, kind);
-          return htmlAttribute(this, attribute) !== null;
+          return hasHtmlAttribute(this, attribute);
         },
         set(this: object, value: unknown) {
           textControlId(this, kind);

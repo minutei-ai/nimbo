@@ -34,6 +34,9 @@ script factories and native HTML replacement fragments while preserving identity
 [Native attribute counts](docs/attribute-count-memory.md) avoid materializing
 attribute handles for `NamedNodeMap.length`, with independent comparisons and
 three-round local memory evidence.
+[Native attribute presence](docs/attribute-presence-memory.md) also avoids
+transferring entire values for DOM presence and boolean reflection, with
+independent namespace/receiver contracts and three-round Worker memory evidence.
 
 ## 0.3 — DOM and application compatibility
 

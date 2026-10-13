@@ -1,0 +1,24 @@
+function attributePresenceCase(variant) {
+ const checks={}, ns='urn:example:presence', e=document.createElement('input');e.type='checkbox';document.body.append(e);
+ const throws=(f)=>{try{f();return false}catch(error){return error instanceof TypeError}};
+ checks.absent=!e.hasAttribute('checked')&&!e.hasAttributeNS(null,'checked')&&!e.defaultChecked;
+ e.setAttribute('checked','');checks.empty=e.hasAttribute('CHECKED')&&e.hasAttributeNS('','checked')&&e.defaultChecked;
+ checks.namespaceCase=!e.hasAttributeNS(null,'CHECKED');
+ e.removeAttribute('checked');e.setAttributeNS(ns,'p:checked','foreign');checks.foreignQualified=e.hasAttribute('p:checked')&&e.hasAttributeNS(ns,'checked');checks.foreignExcluded=!e.hasAttribute('checked')&&!e.defaultChecked&&!e.checked;
+ e.setAttributeNS(ns,'q:checked','replacement');checks.prefixRetained=!e.hasAttribute('q:checked')&&e.hasAttribute('p:checked');
+ e.setAttribute('disabled','false');checks.booleanValue=e.disabled&&e.hasAttribute('disabled');e.removeAttribute('disabled');checks.booleanRemove=!e.disabled;
+ for(const name of ['required','readonly','multiple','inert'])e.setAttribute(name,'nonempty');checks.reflections=e.required&&e.readOnly&&e.multiple&&e.inert;
+ const attr=document.createAttribute('checked');attr.value='x'.repeat(65536);e.setAttributeNode(attr);checks.largeBoolean=e.defaultChecked&&e.hasAttribute('CHECKED')&&e.hasAttributeNS(undefined,'checked');attr.value='';checks.attachedValue=e.defaultChecked; e.removeAttributeNode(attr);checks.attrRemoval=!e.defaultChecked&&!e.hasAttribute('checked');
+ e.setAttribute('undefined','');e.setAttribute('null','');checks.conversion=e.hasAttribute(undefined)&&e.hasAttribute(null);
+ let order='';checks.nameConversion=e.hasAttribute({toString(){order+='n';return 'disabled'}})===false&&order==='n';
+ order='';checks.namespaceConversion=e.hasAttributeNS({toString(){order+='s';return ns}},{toString(){order+='n';return 'checked'}})&&order==='sn';
+ checks.requiredArguments=throws(()=>e.hasAttribute())&&throws(()=>e.hasAttributeNS(ns));
+ checks.receivers=throws(()=>Element.prototype.hasAttribute.call({},'checked'))&&throws(()=>Element.prototype.hasAttributeNS.call(document,'','checked'));
+ checks.symbols=throws(()=>e.hasAttribute(Symbol()))&&throws(()=>e.hasAttributeNS(Symbol(),'checked'));
+ const get=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'defaultChecked').get;checks.booleanReceiver=throws(()=>get.call({}));
+ const xml=document.implementation.createDocument(null,'Root'),x=xml.createElement('Upper');xml.documentElement.append(x);x.setAttribute('DATA-X','');checks.xmlCase=x.hasAttribute('DATA-X')&&!x.hasAttribute('data-x')&&x.hasAttributeNS(null,'DATA-X');
+ const svg=document.createElementNS('http://www.w3.org/2000/svg','g');svg.setAttribute('DATA-X','');checks.svgCase=svg.hasAttribute('DATA-X')&&!svg.hasAttribute('data-x');
+ const htmlInXml=xml.createElementNS('http://www.w3.org/1999/xhtml','div');htmlInXml.setAttributeNS(null,'UPPER','');checks.xmlHtmlCase=htmlInXml.hasAttribute('UPPER')&&!htmlInXml.hasAttribute('upper');document.body.append(htmlInXml);checks.adoption=!htmlInXml.hasAttribute('UPPER')&&!htmlInXml.hasAttribute('upper')&&htmlInXml.hasAttributeNS(null,'UPPER');
+ checks.descriptors=Element.prototype.hasAttribute.length===1&&Element.prototype.hasAttributeNS.length===2&&typeof e.hasAttribute('checked')==='boolean';
+ e.remove();htmlInXml.remove();return checks;
+}

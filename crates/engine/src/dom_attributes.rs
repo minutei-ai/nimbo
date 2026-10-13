@@ -54,6 +54,28 @@ pub(crate) fn normalized_name(node: NodeRef<'_>, name: &str, html: bool) -> Stri
 pub(crate) fn named(node: NodeRef<'_>, name: &str, html: bool) -> Option<String> {
     named_info(node, name, html).map(|(_, _, value)| value)
 }
+pub(crate) fn has_named(node: NodeRef<'_>, name: &str, html: bool) -> bool {
+    let name = normalized_name(node, name, html);
+    node.query_or(false, |node| {
+        node.as_element().is_some_and(|element| {
+            element
+                .attrs
+                .iter()
+                .any(|attribute| qualified(attribute, &name))
+        })
+    })
+}
+
+pub(crate) fn has_namespaced(node: NodeRef<'_>, namespace: &str, local: &str) -> bool {
+    node.query_or(false, |node| {
+        node.as_element().is_some_and(|element| {
+            element.attrs.iter().any(|attribute| {
+                attribute.name.ns.as_ref() == namespace && attribute.name.local.as_ref() == local
+            })
+        })
+    })
+}
+
 pub(crate) fn named_info(
     node: NodeRef<'_>,
     name: &str,

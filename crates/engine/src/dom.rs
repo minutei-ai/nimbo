@@ -405,7 +405,8 @@ impl Dom {
             "get" if matches!(arg, "innerHTML" | "outerHTML") => self.serialize(handle, arg)?,
             "get" => self.get(handle, arg)?,
             "attributes" => self.attribute_metadata(handle)?,
-            "attr" | "attrInfo" | "attrNS" | "setAttrNS" | "removeAttrNS" | "attributeNames" => {
+            "attr" | "hasAttr" | "attrInfo" | "attrNS" | "hasAttrNS" | "setAttrNS"
+            | "removeAttrNS" | "attributeNames" => {
                 self.attribute_call(operation, handle, arg, value)?
             }
             "style" => self.style(handle, arg, value)?,
@@ -1109,6 +1110,13 @@ impl Dom {
                 self.html_document(self.node_id(handle)?)
             )));
         }
+        if operation == "hasAttr" {
+            return Ok(json!(crate::dom_attributes::has_named(
+                self.node(handle)?,
+                arg,
+                self.html_document(self.node_id(handle)?)
+            )));
+        }
         if operation == "attrInfo" {
             return Ok(json!(crate::dom_attributes::named_info(
                 self.node(handle)?,
@@ -1120,6 +1128,13 @@ impl Dom {
             return Ok(json!(crate::dom_attributes::names(self.node(handle)?)));
         }
         let (namespace, name): (String, String) = serde_json::from_str(arg)?;
+        if operation == "hasAttrNS" {
+            return Ok(json!(crate::dom_attributes::has_namespaced(
+                self.node(handle)?,
+                &namespace,
+                &name
+            )));
+        }
         if operation == "attrNS" {
             return Ok(json!(crate::dom_attributes::namespaced(
                 self.node(handle)?,

@@ -3090,6 +3090,20 @@ fn control_selector_queries_and_styles_follow_owned_state() -> TestResult {
 }
 
 #[test]
+fn attribute_presence_preserves_namespace_case_and_receiver_contracts() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    let source = include_str!("fixtures/attribute-presence.txt");
+    assert_eq!(
+        page.evaluate(&format!(
+            "(()=>{{{source};const checks=attributePresenceCase(0);return {{count:Object.keys(checks).length,failed:Object.entries(checks).filter(([,passed])=>!passed).map(([name])=>name)}}}})()"
+        ))?,
+        json!({"count":24,"failed":[]})
+    );
+    Ok(())
+}
+
+#[test]
 fn input_activation_delivers_and_cancels_owned_state_over_http() -> TestResult {
     let fixture = Fixture::new()?;
     let page = fixture.browser()?.navigate(&fixture.path("/static"))?;

@@ -221,6 +221,26 @@ test("native control selectors share live state with queries and CSS", async () 
   );
 });
 
+test("native attribute presence preserves namespaces and boolean reflection", async () => {
+  const source = await Bun.file(
+    join(root, "crates/engine/tests/fixtures/attribute-presence.txt"),
+  ).text();
+  await fixture(
+    () => html("<!doctype html><body><input id=control type=checkbox>"),
+    async (worker) => {
+      const response = await scrape(
+        worker,
+        `(()=>{${source};const checks=attributePresenceCase(0);return {count:Object.keys(checks).length,failed:Object.entries(checks).filter(([,passed])=>!passed).map(([name])=>name)}})()`,
+      );
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({ value: { count: 24, failed: [] } });
+      const fresh = await scrape(worker, "document.getElementById('control').defaultChecked");
+      expect(fresh.status).toBe(200);
+      expect(await json(fresh)).toMatchObject({ value: false });
+    },
+  );
+});
+
 test("native input activation preserves event state, rollback and page isolation", async () => {
   const source = await Bun.file(
     join(root, "crates/engine/tests/fixtures/input-activation.txt"),
