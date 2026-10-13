@@ -17,6 +17,8 @@ pub(crate) mod control_selectors;
 mod controls;
 #[path = "dom_documents.rs"]
 mod documents;
+#[path = "dom_forms.rs"]
+mod forms;
 #[path = "dom_history.rs"]
 mod history;
 #[path = "dom_mutations.rs"]
@@ -285,6 +287,7 @@ impl Dom {
             "set"
                 | "setControlValue"
                 | "setInputState"
+                | "formReset"
                 | "attachShadow"
                 | "setAttr"
                 | "removeAttr"
@@ -303,7 +306,7 @@ impl Dom {
             } else {
                 !matches!(
                     operation,
-                    "style" | "setControlValue" | "setInputState" | "inputActivate"
+                    "style" | "setControlValue" | "setInputState" | "inputActivate" | "formReset"
                 )
             };
             if names_changed {
@@ -325,7 +328,7 @@ impl Dom {
                     .is_some_and(|cascade| !cascade.references_attribute(arg));
             if !(inline_style
                 || irrelevant_attribute
-                || matches!(operation, "setInputState" | "inputActivate"))
+                || matches!(operation, "setInputState" | "inputActivate" | "formReset"))
             {
                 self.cascade = None;
             }
@@ -356,6 +359,7 @@ impl Dom {
             "clickDisabled" => self.click_disabled(handle)?,
             "inputActivate" => self.input_activation(handle, arg, value)?,
             "inputState" => self.checkedness_call(handle, arg, None)?,
+            "formOwner" | "formReset" => self.form_call(operation, handle)?,
             "setInputState" => self.checkedness_call(handle, arg, Some(value == "true"))?,
             "controlValue" | "setControlValue" | "controlDefault" => {
                 self.control_call(operation, handle, arg, value)?

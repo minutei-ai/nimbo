@@ -74,6 +74,9 @@ submission and anchor navigation still remain open.
 [Live control selectors](docs/control-selectors.md) connect borrowed native
 state to one query/CSS matcher, with 44 independent contracts. Complete validation passed
 8,154 Bun tests and 203 native tests in each debug/release profile.
+[Owned form association and reset](docs/forms.md) adds input/textarea owners
+and transactional native reset of their existing values and checkedness.
+Select/options, collections, submission and wider form behavior remain open.
 
 ## 0.4 — Scripts and page readiness
 

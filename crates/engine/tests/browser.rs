@@ -3104,6 +3104,34 @@ fn attribute_presence_preserves_namespace_case_and_receiver_contracts() -> TestR
 }
 
 #[test]
+fn form_owners_follow_native_tree_and_attribute_mutations() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    let source = include_str!("fixtures/form-ownership.txt");
+    assert_eq!(
+        page.evaluate(&format!(
+            "(()=>{{{source};const checks=formOwnershipCase(0);return {{count:Object.keys(checks).length,failed:Object.entries(checks).filter(([,passed])=>!passed).map(([name])=>name)}}}})()"
+        ))?,
+        json!({"count":23,"failed":[]})
+    );
+    Ok(())
+}
+
+#[test]
+fn form_reset_restores_owned_state_after_cancellable_events() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    let source = include_str!("fixtures/form-reset.txt");
+    assert_eq!(
+        page.evaluate(&format!(
+            "(()=>{{{source};const checks=formResetCase(0);return {{count:Object.keys(checks).length,failed:Object.entries(checks).filter(([,passed])=>!passed).map(([name])=>name)}}}})()"
+        ))?,
+        json!({"count":26,"failed":[]})
+    );
+    Ok(())
+}
+
+#[test]
 fn input_activation_delivers_and_cancels_owned_state_over_http() -> TestResult {
     let fixture = Fixture::new()?;
     let page = fixture.browser()?.navigate(&fixture.path("/static"))?;

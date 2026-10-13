@@ -3395,6 +3395,36 @@
   const clickDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "click");
   if (clickDescriptor)
     Object.defineProperty(HTMLElement.prototype, "click", { ...clickDescriptor, enumerable: true });
+  const formElements = new WeakSet<object>();
+  const resettingForms = new WeakSet<object>();
+  class HTMLFormElement extends HTMLElement {
+    constructor(key?: symbol, id?: number) {
+      if (key !== internal || id === undefined) throw new TypeError("Illegal constructor");
+      super(internal, id);
+      formElements.add(this);
+    }
+    reset(): void {
+      if (!formElements.has(this)) throw new TypeError("Illegal invocation");
+      const id = htmlId(this);
+      if (resettingForms.has(this)) return;
+      resettingForms.add(this);
+      try {
+        if (dispatch(this, new Event("reset", { bubbles: true, cancelable: true }), true))
+          raw("formReset", id);
+      } finally {
+        resettingForms.delete(this);
+      }
+    }
+  }
+  Object.defineProperty(HTMLFormElement, "length", { value: 0, configurable: true });
+  Object.defineProperty(HTMLFormElement.prototype, Symbol.toStringTag, {
+    value: "HTMLFormElement",
+    configurable: true,
+  });
+  Object.defineProperty(HTMLFormElement.prototype, "reset", {
+    ...Object.getOwnPropertyDescriptor(HTMLFormElement.prototype, "reset"),
+    enumerable: true,
+  });
   const textControls = new WeakMap<object, "input" | "textarea">();
   function textControlId(owner: object, kind: "input" | "textarea"): number {
     if (textControls.get(owner) !== kind) throw new TypeError("Illegal invocation");
@@ -3429,6 +3459,10 @@
       if (key !== internal || id === undefined) throw new TypeError("Illegal constructor");
       super(internal, id);
       textControls.set(this, "input");
+    }
+    get form(): Element | null {
+      const id = raw<number | null>("formOwner", textControlId(this, "input"));
+      return id === null ? null : element(id);
     }
     get value(): string {
       return raw("controlValue", textControlId(this, "input"), "input");
@@ -3487,6 +3521,10 @@
       super(internal, id);
       textControls.set(this, "textarea");
     }
+    get form(): Element | null {
+      const id = raw<number | null>("formOwner", textControlId(this, "textarea"));
+      return id === null ? null : element(id);
+    }
     get value(): string {
       return raw("controlValue", textControlId(this, "textarea"), "textarea");
     }
@@ -3532,6 +3570,7 @@
       "checked",
       "defaultChecked",
       "indeterminate",
+      "form",
     ]) {
       const descriptor = Object.getOwnPropertyDescriptor(prototype, name);
       if (descriptor) Object.defineProperty(prototype, name, { ...descriptor, enumerable: true });
@@ -4816,6 +4855,7 @@
           if (name === "iframe") return new HTMLIFrameElement(internal, id);
           if (name === "slot") return new HTMLSlotElement(internal, id);
           if (name === "input") return new HTMLInputElement(internal, id);
+          if (name === "form") return new HTMLFormElement(internal, id);
           if (name === "textarea") return new HTMLTextAreaElement(internal, id);
           return new HTMLElement(internal, id);
         }
@@ -7476,6 +7516,7 @@
     HTMLIFrameElement,
     HTMLSlotElement,
     HTMLInputElement,
+    HTMLFormElement,
     HTMLTextAreaElement,
     SVGElement,
     DOMStringMap,

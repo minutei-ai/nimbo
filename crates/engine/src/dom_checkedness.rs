@@ -333,10 +333,14 @@ impl Dom {
             self.checkedness.radios.remove(&id);
             return Ok(());
         }
+        let group = self.checkedness_group(id)?;
+        self.checkedness_select_group(id, group);
+        Ok(())
+    }
+
+    fn checkedness_select_group(&mut self, id: NodeId, group: Option<Group>) {
         self.checkedness.radios.insert(id);
-        let Some(group) = self.checkedness_group(id)? else {
-            return Ok(());
-        };
+        let Some(group) = group else { return };
         let group = Rc::new(group);
         let group = if let Some((key, _)) = self.checkedness.groups.get_key_value(&group) {
             Rc::clone(key)
@@ -353,7 +357,26 @@ impl Dom {
             self.checkedness.radios.remove(&previous);
         }
         self.checkedness.memberships.insert(id, group);
-        Ok(())
+    }
+
+    pub(super) fn reset_controls(&mut self, controls: Vec<(NodeId, Option<Group>)>) {
+        for (id, _) in &controls {
+            self.control_values.remove(id);
+            self.checkedness_forget_group(*id);
+            self.checkedness.radios.remove(id);
+            if let Some(state) = self.checkedness.states.get_mut(id) {
+                state.checked = None;
+                state.dirty = false;
+                if !state.indeterminate {
+                    self.checkedness.states.remove(id);
+                }
+            }
+        }
+        for (id, group) in controls {
+            if self.document.tree.get(&id).is_some_and(radio) && self.checkedness_current(id) {
+                self.checkedness_select_group(id, group);
+            }
+        }
     }
 
     pub(super) fn checkedness_tree(&mut self, root: NodeId) -> Result<()> {
@@ -498,7 +521,9 @@ impl Dom {
 #[cfg(test)]
 mod tests {
     use super::Dom;
+    use crate::{Limits, MediaEnvironment};
     use std::fmt::Write as _;
+    use std::sync::Arc;
 
     #[test]
     fn clean_radio_groups_share_keys_without_handles_or_dirty_state()
@@ -509,10 +534,10 @@ mod tests {
         }
         let mut dom = Dom::new(
             &html,
-            crate::Limits::default(),
-            crate::MediaEnvironment::default(),
+            Limits::default(),
+            MediaEnvironment::default(),
             url::Url::parse("https://example.test/controls")?,
-            std::sync::Arc::new(|| Ok(())),
+            Arc::new(|| Ok(())),
         )?;
         dom.initialize_checkedness()?;
         assert_eq!(dom.handles.len(), 1);
@@ -559,6 +584,39 @@ mod tests {
                 .ok_or("missing merged group")?;
             assert_eq!(winner, id);
             assert!(std::rc::Rc::ptr_eq(key, group));
+        }
+        Ok(())
+    }
+    #[test]
+    fn repeated_reset_discards_dirty_values_without_retaining_clean_state()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let mut dom = Dom::new(
+            &format!(
+                "<form id=f>{}</form>",
+                "<input value=default><input type=checkbox>".repeat(32)
+            ),
+            Limits::default(),
+            MediaEnvironment::default(),
+            url::Url::parse("https://example.test/forms")?,
+            Arc::new(|| Ok(())),
+        )?;
+        let form: usize = serde_json::from_str(&dom.call("queryOne", 0, "#f", "")?)?;
+        let controls: Vec<usize> = serde_json::from_str(&dom.call("query", 0, "input", "")?)?;
+        for pair in controls.chunks_exact(2) {
+            let [text, checkbox] = pair else {
+                return Err("invalid control pair".into());
+            };
+            dom.call("setControlValue", *text, "input", "dirty")?;
+            dom.call("setInputState", *checkbox, "checked", "true")?;
+        }
+        assert_eq!(dom.control_values.len(), 32);
+        assert_eq!(dom.checkedness.states.len(), 32);
+        for _ in 0..5 {
+            dom.call("formReset", form, "", "")?;
+            assert!(dom.control_values.is_empty());
+            assert!(dom.checkedness.states.is_empty());
+            assert!(dom.checkedness.groups.is_empty());
+            assert!(dom.checkedness.memberships.is_empty());
         }
         Ok(())
     }

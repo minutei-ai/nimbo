@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-13",
+  "fixture": "crates/engine/tests/fixtures/form-reset.txt",
+  "scope": "64 fresh HTTP pages; owned text and checkedness reset, native radio groups, event flags/cancellation/reentrancy, listener mutations and form ownership; default budgets",
+  "fixture_sha256": "baf1d565820ad8d4c78ac19230f705a7cc57d47303d24e01000eb4e0d899d79f",
+  "runtimes": [
+    {
+      "runtime": "Google Chrome 155.0.8059.39",
+      "pages": 64,
+      "checks_per_page": 26,
+      "all_passed": true
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "pages": 64,
+      "checks_per_page": 26,
+      "all_passed": true
+    }
+  ]
+}

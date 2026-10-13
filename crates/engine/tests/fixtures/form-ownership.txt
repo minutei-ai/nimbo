@@ -1,0 +1,18 @@
+function formOwnershipCase(variant) {
+ const checks={},host=document.createElement('div'),a=document.createElement('form'),b=document.createElement('form'),input=document.createElement('input'),area=document.createElement('textarea');a.id='a-'+variant;b.id='b-'+variant;host.append(a,b);a.append(input,area);
+ checks.brand=a instanceof HTMLFormElement&&Object.prototype.toString.call(a)==='[object HTMLFormElement]';checks.detached=input.form===a&&area.form===a;
+ input.setAttribute('form',b.id);checks.detachedExplicit=input.form===a;
+ document.body.append(host);checks.connectedExplicit=input.form===b;checks.textareaAncestor=area.form===a;
+ area.setAttribute('form',b.id);checks.textareaExplicit=area.form===b;
+ input.setAttribute('form','');checks.empty=input.form===null;input.setAttribute('form','absent');checks.missing=input.form===null;input.removeAttribute('form');checks.fallback=input.form===a;
+ input.setAttributeNS('urn:example:forms','x:form',b.id);checks.namespace=input.form===a;
+ input.setAttribute('form',b.id);const blocker=document.createElement('div');blocker.id=b.id;host.prepend(blocker);checks.firstId=input.form===null;blocker.remove();checks.unblocked=input.form===b;
+ b.id='changed-'+variant;checks.idMutation=input.form===null;input.setAttribute('form',b.id);checks.attributeMutation=input.form===b;
+ const inner=document.createElement('form');a.append(inner);inner.append(input);input.removeAttribute('form');checks.nested=input.form===inner;
+ a.append(input);checks.move=input.form===a;input.remove();checks.orphan=input.form===null;
+ const shadowHost=document.createElement('div');host.append(shadowHost);const root=shadowHost.attachShadow({mode:'open'}),sf=document.createElement('form'),si=document.createElement('input');root.append(sf);sf.append(si);checks.shadowAncestor=si.form===sf;si.setAttribute('form',b.id);checks.shadowIsolation=si.form===null;shadowHost.remove();checks.shadowDetached=si.form===sf;
+ const throws=f=>{try{f();return false}catch(e){return e instanceof TypeError}};
+ const inputDescriptor=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'form'),areaDescriptor=Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'form');checks.descriptors=inputDescriptor.enumerable&&inputDescriptor.configurable&&inputDescriptor.set===undefined&&areaDescriptor.enumerable;
+ checks.receivers=throws(()=>inputDescriptor.get.call({}))&&throws(()=>areaDescriptor.get.call(input));checks.constructor=throws(()=>new HTMLFormElement())&&HTMLFormElement.length===0;
+ host.remove();return checks;
+}

@@ -260,6 +260,41 @@ test("native selector work is bounded and failed pages release Worker capacity",
   );
 });
 
+test("native form ownership follows live trees and preserves page isolation", async () => {
+  const source = await Bun.file(
+    join(root, "crates/engine/tests/fixtures/form-ownership.txt"),
+  ).text();
+  await fixture(
+    () => html("<!doctype html><body><input id=control>"),
+    async (worker) => {
+      const response = await scrape(
+        worker,
+        `(()=>{${source};const checks=formOwnershipCase(0);return {count:Object.keys(checks).length,failed:Object.entries(checks).filter(([,passed])=>!passed).map(([name])=>name)}})()`,
+      );
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({ value: { count: 23, failed: [] } });
+      const fresh = await scrape(worker, "document.getElementById('control').form===null");
+      expect(fresh.status).toBe(200);
+      expect(await json(fresh)).toMatchObject({ value: true });
+    },
+  );
+});
+
+test("native form reset restores state after cancellable events", async () => {
+  const source = await Bun.file(join(root, "crates/engine/tests/fixtures/form-reset.txt")).text();
+  await fixture(
+    () => html("<!doctype html><body>"),
+    async (worker) => {
+      const response = await scrape(
+        worker,
+        `(()=>{${source};const checks=formResetCase(0);return {count:Object.keys(checks).length,failed:Object.entries(checks).filter(([,passed])=>!passed).map(([name])=>name)}})()`,
+      );
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({ value: { count: 26, failed: [] } });
+    },
+  );
+});
+
 test("native input activation preserves event state, rollback and page isolation", async () => {
   const source = await Bun.file(
     join(root, "crates/engine/tests/fixtures/input-activation.txt"),

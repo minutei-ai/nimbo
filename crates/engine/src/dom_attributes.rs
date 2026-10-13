@@ -5,15 +5,22 @@ use crate::{Error, Result};
 pub(crate) trait NativeAttributes {
     fn null_attribute(&self, name: &str) -> Option<String>;
     fn has_null_attribute(&self, name: &str) -> bool;
+    fn null_attribute_matches(&self, name: &str, matches: impl FnOnce(&str) -> bool) -> bool;
 }
 impl NativeAttributes for NodeRef<'_> {
     fn has_null_attribute(&self, name: &str) -> bool {
+        self.null_attribute_matches(name, |_| true)
+    }
+
+    fn null_attribute_matches(&self, name: &str, matches: impl FnOnce(&str) -> bool) -> bool {
         self.query_or(false, |node| {
-            node.as_element().is_some_and(|element| {
-                element.attrs.iter().any(|attribute| {
-                    attribute.name.ns.is_empty() && attribute.name.local.as_ref() == name
+            node.as_element()
+                .and_then(|element| {
+                    element.attrs.iter().find(|attribute| {
+                        attribute.name.ns.is_empty() && attribute.name.local.as_ref() == name
+                    })
                 })
-            })
+                .is_some_and(|attribute| matches(attribute.value.as_ref()))
         })
     }
 

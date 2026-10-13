@@ -54,7 +54,7 @@ impl View<'_> {
         self.error.borrow().is_some()
     }
 
-    fn charge(&self) -> Result<()> {
+    pub(super) fn charge(&self) -> Result<()> {
         (self.check)()?;
         let work = self.work.get().saturating_add(1);
         self.work.set(work);
@@ -181,6 +181,11 @@ impl View<'_> {
         let Some(name) = node.null_attribute("name").filter(|name| !name.is_empty()) else {
             return Ok(None);
         };
+        let (root, form) = self.form_owner(node)?;
+        Ok(Some(Group { root, form, name }))
+    }
+
+    pub(super) fn form_owner(&self, node: NodeRef<'_>) -> Result<(NodeId, Option<NodeId>)> {
         let mut root = node.id;
         let mut form = None;
         for parent in node.ancestors_it(None) {
@@ -202,14 +207,14 @@ impl View<'_> {
             if !specified.is_empty() {
                 for candidate in std::iter::once(root_node).chain(root_node.descendants_it()) {
                     self.charge()?;
-                    if candidate.null_attribute("id").as_deref() == Some(&specified) {
+                    if candidate.null_attribute_matches("id", |id| id == specified) {
                         form = html_element(candidate, "form").then_some(candidate.id);
                         break;
                     }
                 }
             }
         }
-        Ok(Some(Group { root, form, name }))
+        Ok((root, form))
     }
 
     fn indeterminate(&self, node: NodeRef<'_>) -> Result<bool> {
