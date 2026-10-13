@@ -1,4 +1,4 @@
-# Owned text controls
+# Owned input and textarea controls
 
 Nimbo owns `HTMLInputElement` and `HTMLTextAreaElement` interfaces in its
 Rust/QuickJS engine. The initial value subset covers text, search, telephone,
@@ -48,8 +48,34 @@ unsupported numeric and file value behavior remains explicit.
 passed 44 contracts in 64 Chromium and 64 Nimbo/celld pages. Native and Worker
 regressions cover rejected reflected writes and fresh-page state.
 
+Inputs expose owned `checked`, `defaultChecked` and `indeterminate` state.
+Current checkedness becomes dirty on assignment and remains separate from the
+checked attribute. Programmatic state writes do not synthesize events or
+attribute records. State is sparse, native, page-local and subject to the
+existing operation and write budgets.
+
+Radio selection uses the exact nonempty name, tree root and form owner.
+Groups are isolated across documents, fragments and shadow roots. Checked
+radios are indexed by group; the two native indexes share one group key.
+The common insertion path visits the moved subtree. Explicit form references
+trigger bounded owner lookup when IDs or their trees change. Detached controls
+use ancestor form association. HTML parsing initializes selection in tree
+order before scripts, and HTML/text replacement preserves detached controls.
+
+[Independent checkedness comparison](evidence/input-checkedness-chromium.json)
+passed 50 contracts in 64 Chromium and 64 Nimbo/celld pages. The fixture covers
+attached Attr writes, receiver/descriptor behavior, type/name changes, initial
+selection, form ID changes, missing/foreign form targets and replacement.
+Validation passed 8,151 Bun tests and 197 native tests in each debug/release
+profile, plus strict formatting, TypeScript/Rust/Wasm lint and Rust documentation
+checks. A native storage test checks 2,000 clean groups, repeated reads and
+group merges without eager native handles or duplicate retained group names.
+
+Click activation, reset, constraint validation, checked/indeterminate CSS
+pseudo-classes and parser-specific malformed form associations remain open.
+
 This is the implemented control subset of roadmap 0.3. Number/date/range/color/file values,
-checkbox/radio checkedness, select/options, form ownership/reset/submission,
+select/options, wider form ownership/reset/submission,
 selection, validity and control-specific geometry remain open.
 
 The contracts follow the public [input model](https://html.spec.whatwg.org/multipage/input.html)

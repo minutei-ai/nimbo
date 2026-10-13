@@ -3066,6 +3066,26 @@
         value === null ? "" : domString(value),
       );
     }
+    get checked(): boolean {
+      return raw("inputState", textControlId(this, "input"), "checked");
+    }
+    set checked(value: unknown) {
+      call("setInputState", textControlId(this, "input"), "checked", String(Boolean(value)));
+    }
+    get indeterminate(): boolean {
+      return raw("inputState", textControlId(this, "input"), "indeterminate");
+    }
+    set indeterminate(value: unknown) {
+      call("setInputState", textControlId(this, "input"), "indeterminate", String(Boolean(value)));
+    }
+    get defaultChecked(): boolean {
+      textControlId(this, "input");
+      return htmlAttribute(this, "checked") !== null;
+    }
+    set defaultChecked(value: unknown) {
+      textControlId(this, "input");
+      reflectBoolean(this, "checked", value);
+    }
     get defaultValue(): string {
       textControlId(this, "input");
       return htmlAttribute(this, "value") ?? "";
@@ -3129,7 +3149,15 @@
       value: constructor.name,
       configurable: true,
     });
-    for (const name of ["value", "defaultValue", "type", "textLength"]) {
+    for (const name of [
+      "value",
+      "defaultValue",
+      "type",
+      "textLength",
+      "checked",
+      "defaultChecked",
+      "indeterminate",
+    ]) {
       const descriptor = Object.getOwnPropertyDescriptor(prototype, name);
       if (descriptor) Object.defineProperty(prototype, name, { ...descriptor, enumerable: true });
     }

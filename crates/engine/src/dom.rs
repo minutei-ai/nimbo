@@ -9,6 +9,8 @@ use crate::{Error, Limits, Result};
 
 #[path = "dom_attribute_nodes.rs"]
 mod attribute_nodes;
+#[path = "dom_checkedness.rs"]
+mod checkedness;
 #[path = "dom_controls.rs"]
 mod controls;
 #[path = "dom_documents.rs"]
@@ -52,6 +54,7 @@ pub(crate) struct Dom {
     operations: usize,
     allocated_nodes: std::rc::Rc<std::cell::Cell<usize>>,
     control_values: HashMap<NodeId, String>,
+    checkedness: checkedness::Arena,
     check: crate::BudgetCheck,
     layout_version: usize,
     layout: Option<(usize, crate::layout::Snapshot)>,
@@ -60,6 +63,7 @@ pub(crate) struct Dom {
     // Conservative presence guard: HTML parsing and element creation are the only name producers.
     may_have_links: bool,
     may_have_bases: bool,
+    may_have_inputs: bool,
     sheets: crate::stylesheets::Sheets,
     cssom: crate::cssom::Arena,
     writes: usize,
@@ -115,6 +119,7 @@ impl Dom {
             operations: 0,
             allocated_nodes,
             control_values: HashMap::new(),
+            checkedness: checkedness::Arena::default(),
             check,
             layout_version: 0,
             layout: None,
@@ -122,6 +127,7 @@ impl Dom {
             sheet_scan: None,
             may_have_links: parsed.links,
             may_have_bases: parsed.bases,
+            may_have_inputs: parsed.inputs,
             sheets: crate::stylesheets::Sheets::new(base, limits.max_stylesheet_bytes),
             cssom: crate::cssom::Arena::default(),
             writes: 0,
@@ -303,7 +309,10 @@ impl Dom {
         }
         let owner = self.sync_attribute_owner(operation, handle)?;
         let fallback_slots = self.fallback_slot_targets(operation, handle, arg, value);
+        let inserted_controls = self.checkedness_inserting(operation, handle, value)?;
         let result = match operation {
+            "inputState" => self.checkedness_call(handle, arg, None)?,
+            "setInputState" => self.checkedness_call(handle, arg, Some(value == "true"))?,
             "controlValue" | "setControlValue" | "controlDefault" => {
                 self.control_call(operation, handle, arg, value)?
             }
@@ -377,6 +386,12 @@ impl Dom {
         }
         self.history_base_mutation(operation, handle, arg, value)?;
         self.sync_control_value(operation, handle)?;
+        if matches!(
+            operation,
+            "append" | "insert" | "replace" | "remove" | "removeChild"
+        ) {
+            self.checkedness_moved(&inserted_controls)?;
+        }
         self.signal_fallback_slots(&fallback_slots);
         self.finish(&result, version)
     }
@@ -461,6 +476,7 @@ impl Dom {
             name.to_owned()
         };
         self.allocate_node()?;
+        self.may_have_inputs |= name == "input";
         let node = self.document.tree.new_element(&name);
         if !html {
             node.update(|node| {
@@ -511,6 +527,7 @@ impl Dom {
             namespace == "http://www.w3.org/1999/xhtml" && local.eq_ignore_ascii_case("link");
         self.may_have_bases |= local.eq_ignore_ascii_case("base");
         self.allocate_node()?;
+        self.may_have_inputs |= local == "input";
         let node = self.document.tree.new_element(local);
         node.update(|node| {
             if let NodeData::Element(element) = &mut node.data {
@@ -924,15 +941,34 @@ impl Dom {
             None
         };
         let observed = self.capture_attribute_write(operation, handle, arg)?;
+        let removed_controls = self.checkedness_replacing(operation, handle, arg)?;
         if operation == "set" && arg == "innerHTML" {
             self.may_have_links |= contains_tag(value, *b"<link");
             self.may_have_bases |= contains_tag(value, *b"<base");
+            self.may_have_inputs |= value
+                .as_bytes()
+                .windows(6)
+                .any(|tag| tag.eq_ignore_ascii_case(b"<input"));
         }
         self.set(operation, handle, arg, value)?;
+        if !removed_controls.is_empty() {
+            self.checkedness_moved(&removed_controls)?;
+        }
         if let Some(record) = observed {
             self.queue_mutation(&record)?;
         }
+        if matches!(operation, "setAttr" | "removeAttr") {
+            let name = crate::dom_attributes::normalized_name(
+                self.node(handle)?,
+                arg,
+                self.html_document(self.node_id(handle)?),
+            );
+            self.checkedness_attribute(handle, "", &name)?;
+        }
         self.control_after_type(handle, control)?;
+        if operation == "set" && arg == "innerHTML" && self.may_have_inputs {
+            self.checkedness_moved(&[self.node_id(handle)?])?;
+        }
         if style_changed {
             let id = self.node(handle)?.id;
             if let Some(previous) = self.styles.remove(&id) {
@@ -1054,6 +1090,7 @@ impl Dom {
                 self.style_bytes = self.style_bytes.saturating_sub(previous.bytes());
             }
         }
+        self.checkedness_attribute(handle, &namespace, &name)?;
         self.control_after_type(handle, control)?;
         Ok(Value::Null)
     }

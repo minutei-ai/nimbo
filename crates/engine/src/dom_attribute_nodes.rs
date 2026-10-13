@@ -309,6 +309,7 @@ impl Dom {
             if let Some(record) = observed {
                 self.queue_mutation(&record)?;
             }
+            self.checkedness_attribute(owner_handle, name.ns.as_ref(), name.local.as_ref())?;
             self.control_after_type(owner_handle, control)?;
         } else if let Some(record) = self.attribute_nodes.records.get_mut(&handle) {
             record.attribute.value = value.into();
@@ -409,6 +410,11 @@ impl Dom {
         if let Some(record) = observed {
             self.queue_mutation(&record)?;
         }
+        self.checkedness_attribute(
+            owner_handle,
+            attribute.name.ns.as_ref(),
+            attribute.name.local.as_ref(),
+        )?;
         self.control_after_type(owner_handle, control)?;
         if attribute.name.ns.is_empty() && attribute.name.local.as_ref() == "href" {
             self.history_base_mutation("setAttr", owner_handle, "href", "")?;
@@ -460,6 +466,11 @@ impl Dom {
         if let Some(record) = observed {
             self.queue_mutation(&record)?;
         }
+        self.checkedness_attribute(
+            owner_handle,
+            attribute.name.ns.as_ref(),
+            attribute.name.local.as_ref(),
+        )?;
         self.control_after_type(owner_handle, control)?;
         if attribute.name.ns.is_empty() && attribute.name.local.as_ref() == "href" {
             self.history_base_mutation("removeAttr", owner_handle, "href", "")?;

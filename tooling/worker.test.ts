@@ -192,6 +192,37 @@ test("invalid DOM budgets fail before origin HTTP", async () => {
   );
 });
 
+test("native input checkedness owns dirty state and fresh-page isolation", async () => {
+  const source = await Bun.file(
+    join(root, "crates/engine/tests/fixtures/input-checkedness.txt"),
+  ).text();
+  await fixture(
+    () => html("<!doctype html><body><input id=control type=checkbox checked>"),
+    async (worker) => {
+      const response = await scrape(
+        worker,
+        `(()=>{${source};return Object.values(inputCheckednessCase(0)).every(Boolean)})()`,
+      );
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({ value: true });
+      const changed = await scrape(
+        worker,
+        "(()=>{globalThis.current=document.getElementById('control');current.checked=false;current.indeterminate=true;current.defaultChecked=false;current.defaultChecked=true;return !current.checked&&current.indeterminate&&current.defaultChecked})()",
+      );
+      expect(changed.status).toBe(200);
+      expect(await json(changed)).toMatchObject({ value: true });
+      const fresh = await scrape(
+        worker,
+        "({checked:document.getElementById('control').checked,indeterminate:document.getElementById('control').indeterminate,previous:typeof current})",
+      );
+      expect(fresh.status).toBe(200);
+      expect(await json(fresh)).toMatchObject({
+        value: { checked: true, indeterminate: false, previous: "undefined" },
+      });
+    },
+  );
+});
+
 test("native input value modes transfer state and preserve failed reflected writes", async () => {
   const source = await Bun.file(
     join(root, "crates/engine/tests/fixtures/input-value-modes.txt"),

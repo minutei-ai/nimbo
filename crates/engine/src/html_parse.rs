@@ -30,12 +30,14 @@ pub(crate) struct ParsedDocument {
     pub nodes: Rc<Cell<usize>>,
     pub links: bool,
     pub bases: bool,
+    pub inputs: bool,
 }
 
 #[derive(Clone, Copy, Default)]
 struct Tags {
     links: bool,
     bases: bool,
+    inputs: bool,
     last_parent: Option<NodeId>,
 }
 
@@ -107,6 +109,7 @@ impl DocumentParser {
             nodes: self.nodes,
             links: tags.links,
             bases: tags.bases,
+            inputs: tags.inputs,
         })
     }
 }
@@ -223,6 +226,8 @@ impl TreeSink for Counted {
             let mut value = tags.get();
             value.links |=
                 name.ns == html5ever::ns!(html) && name.local == html5ever::local_name!("link");
+            value.inputs |=
+                name.ns == html5ever::ns!(html) && name.local == html5ever::local_name!("input");
             value.bases |=
                 name.ns == html5ever::ns!(html) && name.local == html5ever::local_name!("base");
             tags.set(value);

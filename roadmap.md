@@ -61,8 +61,10 @@ shadow parsing, scoped geometry and the remaining application matrix stay open.
 native dirty values, default-value separation, sanitization and bounded writes.
 Default/default-on input values and type transitions reuse native attributes,
 with 44 additional independent comparison contracts. Numeric/date/range/color/file
-values, checkedness, select/options, form ownership/reset/submission,
-selection and validity remain open.
+values, select/options, wider form ownership/reset/submission,
+selection and validity remain open. Native checkedness, dirty defaults,
+indeterminate state and radio groups add 50 independent contracts. Click
+activation, reset and CSS state selectors still remain open.
 
 ## 0.4 — Scripts and page readiness
 

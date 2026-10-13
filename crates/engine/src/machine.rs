@@ -195,7 +195,7 @@ impl Machine {
     }
 
     pub(crate) fn from_dom(
-        dom: Dom,
+        mut dom: Dom,
         url: &str,
         limits: Limits,
         check: Check,
@@ -203,6 +203,7 @@ impl Machine {
         session: crate::cookies::Session,
         media: MediaEnvironment,
     ) -> Result<Self> {
+        dom.initialize_checkedness()?;
         let base = dom.document_url().clone();
         let dom = Rc::new(RefCell::new(dom));
         let scripts = collect_scripts(&dom.borrow(), execute_scripts)?;

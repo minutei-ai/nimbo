@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-13",
+  "fixture": "crates/engine/tests/fixtures/input-checkedness.txt",
+  "scope": "64 fresh HTTP pages; owned checkedness, dirty flags, default reflection, radio roots/names/forms and mutation records; default budgets",
+  "fixture_sha256": "1e3b0cbebd946e33db0176e6a6b3c930d2c7d4e38f602ba5533fa611450917e8",
+  "runtimes": [
+    {
+      "runtime": "Google Chrome 155.0.8059.39",
+      "pages": 64,
+      "checks_per_page": 50,
+      "all_passed": true
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "pages": 64,
+      "checks_per_page": 50,
+      "all_passed": true
+    }
+  ]
+}
