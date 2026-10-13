@@ -913,6 +913,16 @@ impl Dom {
         let attribute_bytes = if operation == "setAttr" { arg.len() } else { 0 };
         self.charge_write(attribute_bytes.saturating_add(value.len()))?;
         self.invalidate_sheet(operation, handle, arg, value)?;
+        let control = if matches!(operation, "setAttr" | "removeAttr") {
+            let name = crate::dom_attributes::normalized_name(
+                self.node(handle)?,
+                arg,
+                self.html_document(self.node_id(handle)?),
+            );
+            self.control_before_type(handle, "", &name)?
+        } else {
+            None
+        };
         let observed = self.capture_attribute_write(operation, handle, arg)?;
         if operation == "set" && arg == "innerHTML" {
             self.may_have_links |= contains_tag(value, *b"<link");
@@ -922,6 +932,7 @@ impl Dom {
         if let Some(record) = observed {
             self.queue_mutation(&record)?;
         }
+        self.control_after_type(handle, control)?;
         if style_changed {
             let id = self.node(handle)?.id;
             if let Some(previous) = self.styles.remove(&id) {
@@ -1011,6 +1022,7 @@ impl Dom {
             )));
         }
         self.charge_write(arg.len().saturating_add(value.len()))?;
+        let control = self.control_before_type(handle, &namespace, &name)?;
         if namespace.is_empty() {
             self.invalidate_sheet(
                 if operation == "setAttrNS" {
@@ -1042,6 +1054,7 @@ impl Dom {
                 self.style_bytes = self.style_bytes.saturating_sub(previous.bytes());
             }
         }
+        self.control_after_type(handle, control)?;
         Ok(Value::Null)
     }
 

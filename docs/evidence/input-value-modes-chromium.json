@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-13",
+  "fixture": "crates/engine/tests/fixtures/input-value-modes.txt",
+  "scope": "64 fresh HTTP pages; native default/default-on values, sanitization transfers, dirty-flag reset, type attributes and mutation records; default budgets",
+  "fixture_sha256": "8b6e6d03017a705ae0db3ada97bfeba522fdc9ff038952635134ce8dbccc1515",
+  "runtimes": [
+    {
+      "runtime": "Google Chrome 155.0.8059.39",
+      "pages": 64,
+      "checks_per_page": 44,
+      "all_passed": true
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "pages": 64,
+      "checks_per_page": 44,
+      "all_passed": true
+    }
+  ]
+}

@@ -283,6 +283,8 @@ impl Dom {
         let name = record.attribute.name.clone();
         if let Some(owner) = owner {
             let owner_handle = self.handle(owner);
+            let control =
+                self.control_before_type(owner_handle, name.ns.as_ref(), name.local.as_ref())?;
             let local = name.local.as_ref();
             let observed =
                 self.capture_attribute_ns(owner_handle, name.ns.as_ref(), local, false)?;
@@ -307,6 +309,7 @@ impl Dom {
             if let Some(record) = observed {
                 self.queue_mutation(&record)?;
             }
+            self.control_after_type(owner_handle, control)?;
         } else if let Some(record) = self.attribute_nodes.records.get_mut(&handle) {
             record.attribute.value = value.into();
         }
@@ -346,6 +349,11 @@ impl Dom {
             return Ok(json!(incoming));
         }
         let attribute = record.attribute.clone();
+        let control = self.control_before_type(
+            owner_handle,
+            attribute.name.ns.as_ref(),
+            attribute.name.local.as_ref(),
+        )?;
         self.charge_write(attribute.value.len())?;
         let observed = self.capture_attribute_ns(
             owner_handle,
@@ -401,6 +409,7 @@ impl Dom {
         if let Some(record) = observed {
             self.queue_mutation(&record)?;
         }
+        self.control_after_type(owner_handle, control)?;
         if attribute.name.ns.is_empty() && attribute.name.local.as_ref() == "href" {
             self.history_base_mutation("setAttr", owner_handle, "href", "")?;
         }
@@ -417,6 +426,11 @@ impl Dom {
             return Err(super::not_found());
         }
         let attribute = record.attribute.clone();
+        let control = self.control_before_type(
+            owner_handle,
+            attribute.name.ns.as_ref(),
+            attribute.name.local.as_ref(),
+        )?;
         self.charge_write(0)?;
         let observed = self.capture_attribute_ns(
             owner_handle,
@@ -446,6 +460,7 @@ impl Dom {
         if let Some(record) = observed {
             self.queue_mutation(&record)?;
         }
+        self.control_after_type(owner_handle, control)?;
         if attribute.name.ns.is_empty() && attribute.name.local.as_ref() == "href" {
             self.history_base_mutation("removeAttr", owner_handle, "href", "")?;
         }

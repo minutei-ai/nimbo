@@ -1,0 +1,22 @@
+function inputValueModesCase(variant) {
+ const checks={},make=(type,value)=>{const x=document.createElement('input');x.type=type;if(value!==undefined)x.defaultValue=value;return x;};
+ for(const type of ['hidden','submit','image','reset','button']){
+  const x=make(type);checks[type+'Empty']=x.value==='' && x.defaultValue==='';x.value='a\r\nb-'+variant;checks[type+'Reflect']=x.value==='a\r\nb-'+variant && x.defaultValue===x.value && x.getAttribute('value')===x.value;
+  x.defaultValue='changed';checks[type+'Default']=x.value==='changed';x.value=null;checks[type+'Null']=x.value==='' && x.getAttribute('value')==='';
+ }
+ for(const type of ['checkbox','radio']){
+  const x=make(type);checks[type+'On']=x.value==='on' && x.defaultValue==='';x.value='a\nb';checks[type+'Reflect']=x.value==='a\nb' && x.getAttribute('value')==='a\nb';x.removeAttribute('value');checks[type+'Removal']=x.value==='on';x.value='';checks[type+'Empty']=x.value==='' && x.getAttribute('value')==='';
+ }
+ const dirty=make('text','default');dirty.value='current';dirty.type='hidden';checks.dirtyTransfer=dirty.value==='current' && dirty.defaultValue==='current';dirty.type='text';dirty.defaultValue='clean';checks.returnClean=dirty.value==='clean';
+ const clean=make('email',' a@b.test ');clean.type='checkbox';checks.cleanDefaultRetention=clean.value===' a@b.test ' && clean.defaultValue===' a@b.test ';
+ const empty=make('text','old');empty.value='';empty.type='checkbox';checks.emptyKeepsDefault=empty.value==='old';
+ const absent=make('text');absent.value='';absent.type='radio';checks.emptyAbsentOn=absent.value==='on';
+ const nodes=make('text','old');nodes.value='node';nodes.getAttributeNode('type').value='hidden';checks.attrNodeTransfer=nodes.value==='node' && nodes.defaultValue==='node';nodes.getAttributeNode('type').value='text';nodes.setAttribute('value','new');checks.attrNodeClean=nodes.value==='new';
+ const ns=make('text','old');ns.value='owned';ns.setAttributeNS(null,'type','button');checks.nsTransfer=ns.value==='owned' && ns.defaultValue==='owned';ns.removeAttributeNS(null,'type');ns.defaultValue='new';checks.nsClean=ns.value==='new';
+ const observer=new MutationObserver(()=>{}),watched=make('text','old');observer.observe(watched,{attributes:true,attributeOldValue:true});watched.value='dirty';watched.type='hidden';const records=observer.takeRecords();checks.transitionRecords=records.length===2 && records[0].attributeName==='type' && records[1].attributeName==='value' && records[1].oldValue==='old';observer.disconnect();
+ const unicode=make('text','old');unicode.value='😀-'+variant;unicode.type='submit';checks.unicode=unicode.value==='😀-'+variant && unicode.defaultValue===unicode.value;
+ const same=make('hidden','start');same.type='button';same.setAttribute('value','next');checks.sameMode=same.value==='next';
+ const upper=make('text','old');upper.value='upper';upper.setAttribute('TYPE','hidden');checks.caseInsensitiveType=upper.value==='upper' && upper.defaultValue==='upper';upper.removeAttribute('TYPE');upper.defaultValue='clean';checks.caseInsensitiveRemoval=upper.value==='clean';
+ const attach=make('text','old');attach.value='attached';const typeAttr=document.createAttribute('type');typeAttr.value='hidden';attach.setAttributeNode(typeAttr);checks.attachType=attach.value==='attached' && attach.defaultValue==='attached';attach.removeAttributeNode(typeAttr);attach.defaultValue='clean';checks.removeType=attach.value==='clean';
+ return checks;
+}

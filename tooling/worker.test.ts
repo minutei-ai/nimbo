@@ -192,6 +192,35 @@ test("invalid DOM budgets fail before origin HTTP", async () => {
   );
 });
 
+test("native input value modes transfer state and preserve failed reflected writes", async () => {
+  const source = await Bun.file(
+    join(root, "crates/engine/tests/fixtures/input-value-modes.txt"),
+  ).text();
+  await fixture(
+    () => html("<!doctype html><body><input id=control type=hidden value=fresh>"),
+    async (worker) => {
+      const response = await scrape(
+        worker,
+        `(()=>{${source};return Object.values(inputValueModesCase(0)).every(Boolean)})()`,
+      );
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({ value: true });
+      const failed = await scrape(
+        worker,
+        "(()=>{globalThis.current=document.getElementById('control');current.value='before';let failed=false;try{current.value='x'.repeat(4194304)}catch(e){failed=e.message.includes('resource limit: DOM write bytes')}return failed&&current.value==='before'&&current.defaultValue==='before'})()",
+      );
+      expect(failed.status).toBe(200);
+      expect(await json(failed)).toMatchObject({ value: true });
+      const fresh = await scrape(
+        worker,
+        "({value:document.getElementById('control').value,previous:typeof current})",
+      );
+      expect(fresh.status).toBe(200);
+      expect(await json(fresh)).toMatchObject({ value: { value: "fresh", previous: "undefined" } });
+    },
+  );
+});
+
 test("native text controls preserve dirty values, mutations and page isolation", async () => {
   const source = await Bun.file(
     join(root, "crates/engine/tests/fixtures/text-controls.txt"),

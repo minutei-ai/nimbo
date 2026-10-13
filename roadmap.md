@@ -59,7 +59,9 @@ current document URLs and trusted traversal events. Broader forms, declarative
 shadow parsing, scoped geometry and the remaining application matrix stay open.
 [Owned text controls](docs/text-controls.md) add input/textarea interfaces,
 native dirty values, default-value separation, sanitization and bounded writes.
-Other value modes, checkedness, select/options, form ownership/reset/submission,
+Default/default-on input values and type transitions reuse native attributes,
+with 44 additional independent comparison contracts. Numeric/date/range/color/file
+values, checkedness, select/options, form ownership/reset/submission,
 selection and validity remain open.
 
 ## 0.4 — Scripts and page readiness

@@ -3,6 +3,33 @@ use serde_json::{Value, json};
 
 use crate::{Error, Result, dom::Dom, dom_attributes::NativeAttributes};
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ValueMode {
+    Value,
+    Default,
+    DefaultOn,
+    Filename,
+}
+
+fn mode(node: NodeRef<'_>) -> ValueMode {
+    match node
+        .null_attribute("type")
+        .unwrap_or_default()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "hidden" | "submit" | "image" | "reset" | "button" => ValueMode::Default,
+        "checkbox" | "radio" => ValueMode::DefaultOn,
+        "file" => ValueMode::Filename,
+        _ => ValueMode::Value,
+    }
+}
+
+pub(super) struct TypeTransition {
+    previous: ValueMode,
+    value: Option<String>,
+}
+
 fn html_space(character: char) -> bool {
     matches!(character, '\t' | '\n' | '\r' | '\x0c' | ' ')
 }
@@ -32,6 +59,51 @@ fn sanitize(node: NodeRef<'_>, kind: &str, value: &str) -> Result<String> {
 }
 
 impl Dom {
+    pub(super) fn control_before_type(
+        &self,
+        handle: usize,
+        namespace: &str,
+        name: &str,
+    ) -> Result<Option<TypeTransition>> {
+        if !namespace.is_empty() || name != "type" {
+            return Ok(None);
+        }
+        let node = self.node(handle)?;
+        if !node.query_or(false, |data| matches!(&data.data, NodeData::Element(element) if element.name.ns.as_ref()=="http://www.w3.org/1999/xhtml" && element.name.local.as_ref()=="input")) { return Ok(None); }
+        let previous = mode(node);
+        let value = if previous == ValueMode::Value {
+            self.control_values.get(&node.id).cloned()
+        } else {
+            None
+        };
+        Ok(Some(TypeTransition { previous, value }))
+    }
+
+    pub(super) fn control_after_type(
+        &mut self,
+        handle: usize,
+        transition: Option<TypeTransition>,
+    ) -> Result<()> {
+        let Some(transition) = transition else {
+            return Ok(());
+        };
+        let node = self.node(handle)?;
+        let id = node.id;
+        let current = mode(node);
+        if transition.previous == ValueMode::Value
+            && matches!(current, ValueMode::Default | ValueMode::DefaultOn)
+        {
+            if let Some(value) = transition.value.filter(|value| !value.is_empty()) {
+                self.write_value("setAttr", handle, "value", &value)?;
+                self.sync_attributes(id);
+            }
+            self.control_values.remove(&id);
+        } else if transition.previous != ValueMode::Value && current == ValueMode::Value {
+            self.control_values.remove(&id);
+        }
+        Ok(())
+    }
+
     pub(super) fn sync_control_value(&mut self, operation: &str, handle: usize) -> Result<()> {
         if !matches!(
             operation,
@@ -91,10 +163,25 @@ impl Dom {
             return Err(Error::Dom("invalid control receiver".into()));
         }
         if let Some(value) = value {
+            if kind == "input" && matches!(mode(node), ValueMode::Default | ValueMode::DefaultOn) {
+                self.write_value("setAttr", handle, "value", value)?;
+                self.control_values.remove(&id);
+                self.sync_attributes(id);
+                return Ok(Value::Null);
+            }
             self.charge_write(value.len())?;
             let value = sanitize(node, kind, value)?;
             self.control_values.insert(id, value);
             return Ok(Value::Null);
+        }
+        if kind == "input" && matches!(mode(node), ValueMode::Default | ValueMode::DefaultOn) {
+            return Ok(json!(node.null_attribute("value").unwrap_or_else(|| {
+                if mode(node) == ValueMode::DefaultOn {
+                    "on".into()
+                } else {
+                    String::new()
+                }
+            })));
         }
         if let Some(value) = self.control_values.get(&id) {
             return Ok(json!(sanitize(node, kind, value)?));

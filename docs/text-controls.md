@@ -20,8 +20,8 @@ with that page. A fresh extraction gets fresh defaults and state.
 Both interfaces expose name, placeholder, disabled, required and readOnly
 reflection. Inputs also expose multiple and the standard type-name reflection.
 Constructors, brands, property descriptors and receiver checks are owned. Value
-assignment does not create an attribute mutation record; changing an input's
-default value does. Programmatic value assignment does not synthesize input or
+assignment in text modes does not create an attribute mutation record; changing
+an input's default value does. Programmatic value assignment does not synthesize input or
 change events.
 
 [Independent Chromium comparison](evidence/text-controls-chromium.json) passed
@@ -29,9 +29,26 @@ change events.
 Worker regressions use the same fixture and separately verify budget rejection
 and fresh-page isolation. All comparisons retain the original default limits.
 
-This is the text-control part of roadmap 0.3. Other input value modes currently
-throw `unsupported: input value state`; type-name reflection alone does not
-claim those modes are implemented. Number/date/range/color/file values,
+Hidden, submit, image, reset and button inputs implement the default value mode:
+`.value` reflects the value attribute without text sanitization. Checkbox and
+radio inputs implement default-on values, returning `on` when the attribute is
+absent. These modes reuse the owned attribute storage rather than allocating
+separate current-value state. Reflected writes produce attribute mutation
+records and use the same cumulative write budget.
+
+Changing from a dirty text value to a default/default-on mode transfers a
+nonempty current value to the attribute. A clean control retains its original
+attribute, including whitespace. Returning to a text mode resets dirty state.
+Type changes through ordinary attributes, namespaced attributes and attached
+Attr nodes follow the same transition path. Classic HTML attribute names are
+case insensitive. Transfer writes remain subject to the existing budget;
+unsupported numeric and file value behavior remains explicit.
+
+[Independent value-mode comparison](evidence/input-value-modes-chromium.json)
+passed 44 contracts in 64 Chromium and 64 Nimbo/celld pages. Native and Worker
+regressions cover rejected reflected writes and fresh-page state.
+
+This is the implemented control subset of roadmap 0.3. Number/date/range/color/file values,
 checkbox/radio checkedness, select/options, form ownership/reset/submission,
 selection, validity and control-specific geometry remain open.
 

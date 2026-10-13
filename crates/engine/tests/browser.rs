@@ -3079,6 +3079,35 @@ fn initial_dom_node_limits_reject_before_scripts_and_recover_over_http() -> Test
 }
 
 #[test]
+fn input_default_value_modes_transfer_state_and_charge_attribute_writes() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    let source = include_str!("fixtures/input-value-modes.txt");
+    assert_eq!(
+        page.evaluate(&format!(
+            "(()=>{{{source};return Object.values(inputValueModesCase(0)).every(Boolean)}})()"
+        ))?,
+        json!(true)
+    );
+    let bounded = Browser::new(
+        &fixture.url,
+        Limits {
+            max_dom_write_bytes: 32,
+            ..Limits::default()
+        },
+    )?;
+    let page = bounded.navigate(&fixture.path("/static"))?;
+    assert_eq!(page.evaluate("(()=>{globalThis.control=document.createElement('input');control.type='hidden';control.value='ok';let failed=false;try{control.value='x'.repeat(40)}catch(e){failed=e.message.includes('resource limit: DOM write bytes')}return failed&&control.value==='ok'&&control.defaultValue==='ok'&&control.getAttribute('value')==='ok'})()")?, json!(true));
+    let fresh = bounded.navigate(&fixture.path("/static"))?;
+    assert_eq!(
+        fresh
+            .evaluate("({previous:typeof control,value:document.createElement('input').value})")?,
+        json!({"previous":"undefined","value":""})
+    );
+    Ok(())
+}
+
+#[test]
 fn text_controls_follow_native_state_and_enforce_write_budgets() -> TestResult {
     let fixture = Fixture::new()?;
     let browser = fixture.browser()?;
