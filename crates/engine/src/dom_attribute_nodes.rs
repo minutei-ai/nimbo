@@ -297,6 +297,9 @@ impl Dom {
             });
             self.invalidate_attribute_node(owner_handle, name.ns.as_ref(), local)?;
             self.sync_attributes(owner);
+            if name.ns.is_empty() && local == "href" {
+                self.history_base_mutation("setAttr", owner_handle, "href", value)?;
+            }
             if let Some(record) = observed {
                 self.queue_mutation(&record)?;
             }
@@ -394,6 +397,9 @@ impl Dom {
         if let Some(record) = observed {
             self.queue_mutation(&record)?;
         }
+        if attribute.name.ns.is_empty() && attribute.name.local.as_ref() == "href" {
+            self.history_base_mutation("setAttr", owner_handle, "href", "")?;
+        }
         Ok(json!(previous))
     }
     fn remove_attribute_node(&mut self, owner_handle: usize, value: &str) -> Result<Value> {
@@ -435,6 +441,9 @@ impl Dom {
         )?;
         if let Some(record) = observed {
             self.queue_mutation(&record)?;
+        }
+        if attribute.name.ns.is_empty() && attribute.name.local.as_ref() == "href" {
+            self.history_base_mutation("removeAttr", owner_handle, "href", "")?;
         }
         Ok(json!(handle))
     }

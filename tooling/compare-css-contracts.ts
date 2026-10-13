@@ -3,7 +3,7 @@ import { startCelld } from "./benchmark-celld";
 import { startCdpBrowser } from "./benchmark-cdp";
 
 export async function compareCssContracts(
-  serve: (path: string) => Response | undefined,
+  serve: (path: string, headers?: Headers) => Response | undefined,
   route: string,
   fixturePath: string,
   expectedCount: number,
@@ -18,7 +18,8 @@ export async function compareCssContracts(
     hostname: "127.0.0.1",
     port: 0,
     fetch: (request) =>
-      serve(new URL(request.url).pathname) ?? new Response("Not found", { status: 404 }),
+      serve(new URL(request.url).pathname, request.headers) ??
+      new Response("Not found", { status: 404 }),
   });
   let browser: Awaited<ReturnType<typeof startCdpBrowser>> | undefined;
   let celld: Awaited<ReturnType<typeof startCelld>> | undefined;

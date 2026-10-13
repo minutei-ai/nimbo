@@ -554,7 +554,8 @@ evidence cannot establish it.
 | Custom elements autônomos                            | Subset     | Native upgrades, lifecycle and failed construction; scoped/built-in/form gaps                                                                |
 | Shadow DOM                                           | Subset     | Owned imperative roots, isolated queries, named slots and composed events; scoped styles, flat-tree geometry and declarative parsing pending |
 | Mutation observers                                   | Subset     | Owned records, filters, old values, subtree transients and microtask delivery; bounded capacity; see [contracts](mutation-observers.md)      |
-| Framework applications                               | Subset     | Preact/Vue hydration and updates over HTTP; navigation/forms pending; [evidence](framework-applications.md)                                  |
+| Framework applications                               | Subset     | Preact/Vue hydration and updates over HTTP; History routing; broader forms pending; [evidence](framework-applications.md)                    |
+| Same-document History                                | Subset     | Native entries, state graphs, URL rewrites and traversal events; [boundaries](history.md)                                                    |
 | Frames and independent execution worlds              | Missing    | Same/cross-origin frames, navigation, world isolation                                                                                        |
 | Fetch and HTTP navigation                            | Subset     | Real GET/POST, cookies, redirects, bodies; full headers/abort/streams                                                                        |
 | XMLHttpRequest, forms, files and binary responses    | Partial    | Binary fetch body reads verified below; uploads, XHR, files, progress and cancellation remain                                                |

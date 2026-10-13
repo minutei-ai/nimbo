@@ -250,4 +250,45 @@ mod tests {
         assert_eq!(jar.header(&secure, false), "sid=protected");
         Ok(())
     }
+    #[test]
+    fn guest_cookie_scope_retains_document_creation_url() -> TestResult {
+        use rquickjs::{Context, Runtime};
+        use std::{cell::RefCell, rc::Rc};
+        let original = Url::parse("https://example.test/original/page")?;
+        let document = Rc::new(RefCell::new(crate::dom::Dom::new(
+            "<body>",
+            crate::Limits::default(),
+            crate::MediaEnvironment::default(),
+            original,
+        )));
+        let jar = Cookies::default();
+        jar.set(
+            &Url::parse("https://example.test/next/page")?,
+            "scoped=visible; Path=/next",
+            false,
+        )?;
+        let runtime = Runtime::new()?;
+        let context = Context::full(&runtime)?;
+        context.with(|ctx| -> TestResult {
+            jar.install(&ctx, Url::parse("https://example.test/original/page")?)?;
+            assert_eq!(ctx.eval::<String, _>("nimboCookie(false,'')")?, "");
+            document
+                .borrow_mut()
+                .call("history", 0, "push", r#"["state","/next/page"]"#)?;
+            assert_eq!(ctx.eval::<String, _>("nimboCookie(false,'')")?, "");
+            ctx.eval::<String, _>("nimboCookie(true,'default=scoped')")?;
+            document
+                .borrow_mut()
+                .call("history", 0, "push", r#"["state","/elsewhere/page"]"#)?;
+            assert_eq!(
+                ctx.eval::<String, _>("nimboCookie(false,'')")?,
+                "default=scoped"
+            );
+            assert_eq!(
+                jar.header(&Url::parse("https://example.test/next/child")?, false),
+                "scoped=visible"
+            );
+            Ok(())
+        })
+    }
 }

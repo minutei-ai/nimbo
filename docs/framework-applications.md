@@ -9,13 +9,14 @@ identify the exact distributions.
 Each framework uses its public hydration API and retains the original server
 root, button and keyed list nodes. Events trigger framework state updates. The
 application then reorders, inserts and removes keyed items, fetches JSON,
-observes native mutations and unmounts through the framework's lifecycle APIs.
+observes native mutations, navigates through History, restores views on
+back/forward traversal and unmounts through the framework's lifecycle APIs.
 Adapters only connect the application to the framework's own APIs.
 
 | Application | State model                                 | Checked contracts per page |
 | ----------- | ------------------------------------------- | -------------------------- |
-| Preact      | `Component` and `setState`                  | 14                         |
-| Vue         | `createSSRApp`, `shallowRef` and `nextTick` | 14                         |
+| Preact      | `Component` and `setState`                  | 20                         |
+| Vue         | `createSSRApp`, `shallowRef` and `nextTick` | 20                         |
 
 Both applications run at the unchanged default engine limits. The
 [Chromium/Nimbo comparison](framework-applications-chromium.json) retains results
@@ -41,9 +42,10 @@ activation or inline event-handler content attributes. The
 64 fresh pages in each runtime, including native child presence, brands,
 receiver checks, cancellation and descriptor behavior.
 
-This evidence covers the declared applications. History-driven client
-navigation, wider form controls, inline handlers and arbitrary framework
-applications remain open in roadmap 0.3.
+This evidence covers the declared applications, including same-document
+History routing and relative HTTP requests after navigation. Wider form
+controls, inline handlers and arbitrary framework applications remain open
+in roadmap 0.3. See [history boundaries](history.md).
 
 Public references: [Preact hydration](https://preactjs.com/guide/v10/api-reference/#hydrate),
 [Vue application hydration](https://vuejs.org/api/application.html#createssrapp),

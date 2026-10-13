@@ -31,7 +31,7 @@ export function frameworkFixture(path: string): Response | undefined {
     );
   }
   if (framework === "data")
-    return new Response(JSON.stringify({ message: `loaded-${parts[3]}` }), {
+    return new Response(JSON.stringify({ message: `loaded-${parts[3]}`, path }), {
       headers: { "content-type": "application/json" },
     });
   const variant = Number(parts[3]);

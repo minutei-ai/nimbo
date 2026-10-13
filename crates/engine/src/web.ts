@@ -17,7 +17,8 @@
   // Values are validated by Rust before installing the page bindings.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const mediaEnvironment = JSON.parse(nimboMediaEnvironment) as { width: number; height: number };
-  const href = nimboUrl;
+  let href = nimboUrl;
+  const nativeIsProxy = nimboIsProxy;
   const now = nimboNow;
   const timerLimit = nimboTimerLimit;
   const timerTaskLimit = nimboTimerTaskLimit;
@@ -37,6 +38,7 @@
   Reflect.deleteProperty(globalThis, "nimboFontMatch");
   Reflect.deleteProperty(globalThis, "nimboMediaEnvironment");
   Reflect.deleteProperty(globalThis, "nimboUrl");
+  Reflect.deleteProperty(globalThis, "nimboIsProxy");
   Reflect.deleteProperty(globalThis, "nimboNow");
   Reflect.deleteProperty(globalThis, "nimboTimerLimit");
   Reflect.deleteProperty(globalThis, "nimboTimerTaskLimit");
@@ -137,7 +139,7 @@
     signal: object | null;
     abort: (() => void) | null;
   };
-  const events = new WeakMap<Event, EventState>();
+  const events = new WeakMap<object, EventState>();
   const listeners = new WeakMap<object, Map<string, ListenerRecord[]>>();
   const targets = new WeakSet<object>();
   const aborts = new WeakMap<
@@ -968,7 +970,7 @@
   function collectionNode(value: Node | number | undefined): Node | undefined {
     return typeof value === "number" ? node(value) : value;
   }
-  const collections = new WeakMap<Collection, CollectionState>();
+  const collections = new WeakMap<object, CollectionState>();
   const childLists = new WeakMap<Node, NodeList>();
   const elementLists = new WeakMap<ParentNode, HTMLCollection>();
   function collectionState(list: Collection): CollectionState {
@@ -1665,7 +1667,7 @@
   }
   type RectValues = { x: number; y: number; width: number; height: number };
   const rectValues = new WeakMap<DOMRectReadOnly, RectValues>();
-  function rectNumber(value: unknown): number {
+  function idlNumber(value: unknown): number {
     // Web IDL's unrestricted double conversion uses ToNumber, including its
     // rejection of BigInt and Symbol even when returned by an object coercion.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion, typescript/no-unnecessary-type-conversion
@@ -1679,10 +1681,10 @@
   class DOMRectReadOnly {
     constructor(x: unknown = 0, y: unknown = 0, width: unknown = 0, height: unknown = 0) {
       rectValues.set(this, {
-        x: rectNumber(x),
-        y: rectNumber(y),
-        width: rectNumber(width),
-        height: rectNumber(height),
+        x: idlNumber(x),
+        y: idlNumber(y),
+        width: idlNumber(width),
+        height: idlNumber(height),
       });
     }
     static fromRect(value: Partial<RectValues> | null = {}): DOMRectReadOnly {
@@ -1741,25 +1743,25 @@
       return super.x;
     }
     override set x(value: unknown) {
-      rectState(this).x = rectNumber(value);
+      rectState(this).x = idlNumber(value);
     }
     override get y(): number {
       return super.y;
     }
     override set y(value: unknown) {
-      rectState(this).y = rectNumber(value);
+      rectState(this).y = idlNumber(value);
     }
     override get width(): number {
       return super.width;
     }
     override set width(value: unknown) {
-      rectState(this).width = rectNumber(value);
+      rectState(this).width = idlNumber(value);
     }
     override get height(): number {
       return super.height;
     }
     override set height(value: unknown) {
-      rectState(this).height = rectNumber(value);
+      rectState(this).height = idlNumber(value);
     }
     override get [Symbol.toStringTag](): string {
       return "DOMRect";
@@ -2246,7 +2248,7 @@
   }
   function setElementScroll(owner: object, name: string, value: unknown): void {
     if (!(owner instanceof Element)) throw new TypeError("Illegal invocation");
-    const number = rectNumber(value);
+    const number = idlNumber(value);
     call("geometry", idOf(owner), name, String(Number.isFinite(number) ? number : 0));
   }
   const htmlElements = new WeakSet<object>();
@@ -5001,7 +5003,7 @@
     return state;
   }
   function finiteDouble(value: unknown): number {
-    const number = rectNumber(value);
+    const number = idlNumber(value);
     if (!Number.isFinite(number)) throw new TypeError("Expected finite double");
     return number;
   }
@@ -6504,6 +6506,340 @@
     },
     handlerTypes,
   );
+  type StateValue =
+    | null
+    | boolean
+    | number
+    | string
+    | { ref: number }
+    | { atom: string; text?: string };
+  type StateNode =
+    | { kind: "object" | "array"; length: number; props: [string, StateValue][] }
+    | { kind: "date"; time: StateValue }
+    | { kind: "regexp"; source: string; flags: string }
+    | { kind: "map"; entries: [StateValue, StateValue][] }
+    | { kind: "set"; values: StateValue[] };
+  type StatePacket = { root: StateValue; stateNodes: StateNode[] };
+  const stateKeys = Object.keys;
+  const stateStringify = JSON.stringify;
+  const stateParse = JSON.parse;
+  // Intrinsics are captured now and invoked later with an explicit branded receiver.
+  // oxlint-disable-next-line typescript/unbound-method
+  const stateMapHas = Map.prototype.has;
+  // Intrinsics are captured now and invoked later with an explicit branded receiver.
+  // oxlint-disable-next-line typescript/unbound-method
+  const stateMapEntries = Map.prototype.entries;
+  // Intrinsics are captured now and invoked later with an explicit branded receiver.
+  // oxlint-disable-next-line typescript/unbound-method
+  const stateSetHas = Set.prototype.has;
+  // Intrinsics are captured now and invoked later with an explicit branded receiver.
+  // oxlint-disable-next-line typescript/unbound-method
+  const stateSetValues = Set.prototype.values;
+  // Intrinsics are captured now and invoked later with an explicit branded receiver.
+  // oxlint-disable-next-line typescript/unbound-method
+  const stateDateTime = Date.prototype.getTime;
+  // Intrinsics are captured now and invoked later with an explicit branded receiver.
+  // oxlint-disable-next-line typescript/unbound-method
+  const stateRegExpSource = Object.getOwnPropertyDescriptor(RegExp.prototype, "source")?.get;
+  // Intrinsics are captured now and invoked later with an explicit branded receiver.
+  // oxlint-disable-next-line typescript/unbound-method
+  const stateRegExpFlags = Object.getOwnPropertyDescriptor(RegExp.prototype, "flags")?.get;
+  const StateDate = Date,
+    StateMap = Map,
+    StateSet = Set,
+    StateRegExp = RegExp;
+  function stateCloneError(): never {
+    throw new DOMException("unsupported history state", "DataCloneError");
+  }
+  function stateBrand(value: object, check: (this: object, arg?: unknown) => unknown): boolean {
+    try {
+      check.call(value);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function encodeHistoryState(input: unknown): string {
+    const seen = new Map<object, number>();
+    const objects: object[] = [];
+    const stateNodes: StateNode[] = [];
+    const encode = (value: unknown): StateValue => {
+      if (value === null || typeof value === "boolean" || typeof value === "string") return value;
+      if (typeof value === "number") {
+        if (Number.isNaN(value)) return { atom: "nan" };
+        if (value === Infinity) return { atom: "infinity" };
+        if (value === -Infinity) return { atom: "negativeInfinity" };
+        return Object.is(value, -0) ? { atom: "negativeZero" } : value;
+      }
+      if (typeof value === "undefined") return { atom: "undefined" };
+      if (typeof value === "bigint") return { atom: "bigint", text: value.toString() };
+      if (
+        typeof value !== "object" ||
+        nativeIsProxy(value) ||
+        ids.has(value) ||
+        targets.has(value) ||
+        events.has(value) ||
+        collections.has(value) ||
+        urlStates.has(value)
+      )
+        return stateCloneError();
+      const previous = seen.get(value);
+      if (previous !== undefined) return { ref: previous };
+      if (objects.length >= 256) return stateCloneError();
+      const ref = objects.length;
+      seen.set(value, ref);
+      objects.push(value);
+      return { ref };
+    };
+    const root = encode(input);
+    for (const value of objects) {
+      if (stateBrand(value, stateDateTime))
+        stateNodes.push({ kind: "date", time: encode(stateDateTime.call(value)) });
+      else if (stateBrand(value, stateMapHas)) {
+        const entries: [StateValue, StateValue][] = [];
+        const sourceEntries: Iterable<[unknown, unknown]> = stateMapEntries.call(value);
+        for (const [key, item] of sourceEntries) entries.push([encode(key), encode(item)]);
+        stateNodes.push({ kind: "map", entries });
+      } else if (stateBrand(value, stateSetHas)) {
+        const values: StateValue[] = [];
+        for (const item of stateSetValues.call(value)) values.push(encode(item));
+        stateNodes.push({ kind: "set", values });
+      } else if (stateRegExpSource && stateRegExpFlags && stateBrand(value, stateRegExpSource)) {
+        stateNodes.push({
+          kind: "regexp",
+          source: String(stateRegExpSource.call(value)),
+          flags: String(stateRegExpFlags.call(value)),
+        });
+      } else {
+        const prototype: unknown = Object.getPrototypeOf(value);
+        if (!Array.isArray(value) && prototype !== Object.prototype && prototype !== null)
+          return stateCloneError();
+        const props: [string, StateValue][] = [];
+        for (const key of stateKeys(value)) props.push([key, encode(Reflect.get(value, key))]);
+        stateNodes.push({
+          kind: Array.isArray(value) ? "array" : "object",
+          length: Array.isArray(value) ? value.length : 0,
+          props,
+        });
+      }
+    }
+    return stateStringify({ root, stateNodes });
+  }
+  function decodeHistoryState(wire: string): unknown {
+    if (wire === "") return null;
+    // The owned encoder produces this graph; Rust retains its opaque wire value.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const packet = stateParse(wire) as StatePacket;
+    const objects: object[] = [];
+    const decode = (value: StateValue): unknown => {
+      if (value === null || typeof value !== "object") return value;
+      if ("ref" in value) return objects[value.ref];
+      switch (value.atom) {
+        case "undefined":
+          return undefined;
+        case "nan":
+          return NaN;
+        case "infinity":
+          return Infinity;
+        case "negativeInfinity":
+          return -Infinity;
+        case "negativeZero":
+          return -0;
+        case "bigint":
+          return BigInt(value.text ?? "0");
+        default:
+          throw new TypeError("invalid history state atom");
+      }
+    };
+    for (const stateNode of packet.stateNodes) {
+      switch (stateNode.kind) {
+        case "object":
+          objects.push({});
+          break;
+        case "array":
+          const array: unknown[] = [];
+          array.length = stateNode.length;
+          objects.push(array);
+          break;
+        case "date":
+          objects.push(new StateDate(Number(decode(stateNode.time))));
+          break;
+        case "regexp":
+          objects.push(new StateRegExp(stateNode.source, stateNode.flags));
+          break;
+        case "map":
+          objects.push(new StateMap<unknown, unknown>());
+          break;
+        case "set":
+          objects.push(new StateSet<unknown>());
+          break;
+      }
+    }
+    packet.stateNodes.forEach((stateNode, index) => {
+      const object = objects[index];
+      if (!object) throw new TypeError("invalid history state object");
+      if (stateNode.kind === "object" || stateNode.kind === "array")
+        for (const [key, value] of stateNode.props)
+          Object.defineProperty(object, key, {
+            value: decode(value),
+            writable: true,
+            enumerable: true,
+            configurable: true,
+          });
+      else if (stateNode.kind === "map" && object instanceof StateMap)
+        for (const [key, value] of stateNode.entries) object.set(decode(key), decode(value));
+      else if (stateNode.kind === "set" && object instanceof StateSet)
+        for (const value of stateNode.values) object.add(decode(value));
+    });
+    return decode(packet.root);
+  }
+  type HistorySnapshot = { url: string; state: string; length: number };
+  const historyBrands = new WeakSet<object>();
+  const popStates = new WeakMap<object, unknown>();
+  const hashChanges = new WeakMap<object, { oldURL: string; newURL: string }>();
+  let currentHistoryState: unknown = null;
+  let scrollRestoration = "auto";
+  function historyBrand(value: object): void {
+    if (!historyBrands.has(value)) throw new TypeError("Illegal invocation");
+  }
+  function applyHistory(snapshot: HistorySnapshot): void {
+    href = snapshot.url;
+    currentHistoryState = decodeHistoryState(snapshot.state);
+  }
+  class History {
+    constructor(key?: symbol) {
+      if (key !== internal) throw new TypeError("Illegal constructor");
+      historyBrands.add(this);
+    }
+    get length(): number {
+      historyBrand(this);
+      return raw<number>("history", 0, "length");
+    }
+    get state(): unknown {
+      historyBrand(this);
+      return currentHistoryState;
+    }
+    get scrollRestoration(): string {
+      historyBrand(this);
+      return scrollRestoration;
+    }
+    set scrollRestoration(value: unknown) {
+      historyBrand(this);
+      const name = domString(value);
+      if (name === "auto" || name === "manual") scrollRestoration = name;
+    }
+    pushState(data: unknown, unused: unknown, url: unknown = null): void {
+      historyBrand(this);
+      if (arguments.length < 2) throw new TypeError("pushState requires two arguments");
+      domString(unused);
+      const target = url === null || url === undefined ? null : domString(url);
+      const state = encodeHistoryState(data);
+      applyHistory(raw<HistorySnapshot>("history", 0, "push", stateStringify([state, target])));
+    }
+    replaceState(data: unknown, unused: unknown, url: unknown = null): void {
+      historyBrand(this);
+      if (arguments.length < 2) throw new TypeError("replaceState requires two arguments");
+      domString(unused);
+      const target = url === null || url === undefined ? null : domString(url);
+      const state = encodeHistoryState(data);
+      applyHistory(raw<HistorySnapshot>("history", 0, "replace", stateStringify([state, target])));
+    }
+    go(delta: unknown = 0): void {
+      historyBrand(this);
+      travelHistory(delta);
+    }
+    back(): void {
+      historyBrand(this);
+      travelHistory(-1);
+    }
+    forward(): void {
+      historyBrand(this);
+      travelHistory(1);
+    }
+  }
+  function travelHistory(delta: unknown): void {
+    const offset = idlNumber(delta) >> 0;
+    if (offset === 0)
+      throw new DOMException("history reload is not implemented", "NotSupportedError");
+    setTimeout(() => {
+      const previous = href;
+      const snapshot = raw<HistorySnapshot | null>("history", 0, "travel", String(offset));
+      if (!snapshot) return;
+      applyHistory(snapshot);
+      const next = href;
+      const event = new PopStateEvent("popstate");
+      popStates.set(event, currentHistoryState);
+      dispatch(globalThis, event, true);
+      if (
+        linkValue("set", "hash", previous, "", "") === linkValue("set", "hash", next, "", "") &&
+        linkValue("get", "hash", previous, "") !== linkValue("get", "hash", next, "")
+      )
+        setTimeout(
+          () =>
+            dispatch(
+              globalThis,
+              new HashChangeEvent("hashchange", { oldURL: previous, newURL: next }),
+              true,
+            ),
+          0,
+        );
+    }, 0);
+  }
+  class PopStateEvent extends Event {
+    constructor(type: unknown, init: (EventInit & { state?: unknown }) | null = {}) {
+      if (arguments.length === 0) throw new TypeError("PopStateEvent requires a type");
+      super(type, init);
+      popStates.set(this, init?.state ?? null);
+    }
+    get state(): unknown {
+      if (!popStates.has(this)) throw new TypeError("Illegal invocation");
+      return popStates.get(this);
+    }
+  }
+  class HashChangeEvent extends Event {
+    constructor(
+      type: unknown,
+      init: (EventInit & { oldURL?: unknown; newURL?: unknown }) | null = {},
+    ) {
+      if (arguments.length === 0) throw new TypeError("HashChangeEvent requires a type");
+      super(type, init);
+      hashChanges.set(this, {
+        oldURL: domString(init?.oldURL === undefined ? "" : init.oldURL),
+        newURL: domString(init?.newURL === undefined ? "" : init.newURL),
+      });
+    }
+    get oldURL(): string {
+      const data = hashChanges.get(this);
+      if (!data) throw new TypeError("Illegal invocation");
+      return data.oldURL;
+    }
+    get newURL(): string {
+      const data = hashChanges.get(this);
+      if (!data) throw new TypeError("Illegal invocation");
+      return data.newURL;
+    }
+  }
+  for (const [prototype, tag] of [
+    [History.prototype, "History"],
+    [PopStateEvent.prototype, "PopStateEvent"],
+    [HashChangeEvent.prototype, "HashChangeEvent"],
+  ] as const) {
+    Object.defineProperty(prototype, Symbol.toStringTag, { value: tag, configurable: true });
+    for (const key of Object.getOwnPropertyNames(prototype))
+      if (key !== "constructor")
+        Object.defineProperty(prototype, key, {
+          ...Object.getOwnPropertyDescriptor(prototype, key),
+          enumerable: true,
+        });
+  }
+  const history = new History(internal);
+  defineEventHandlers(
+    globalThis,
+    (target) => {
+      if (target !== globalThis) throw new TypeError("Illegal invocation");
+    },
+    ["popstate", "hashchange"],
+  );
   Object.assign(globalThis, {
     document,
     Storage,
@@ -6516,16 +6852,38 @@
     matchMedia,
     window: globalThis,
     self: globalThis,
+    history,
+    History,
+    PopStateEvent,
+    HashChangeEvent,
     location: Object.freeze({
-      href,
-      origin: linkValue("get", "origin", href, ""),
-      protocol: linkValue("get", "protocol", href, ""),
-      host: linkValue("get", "host", href, ""),
-      hostname: linkValue("get", "hostname", href, ""),
-      port: linkValue("get", "port", href, ""),
-      pathname: linkValue("get", "pathname", href, ""),
-      search: linkValue("get", "search", href, ""),
-      hash: linkValue("get", "hash", href, ""),
+      get href() {
+        return href;
+      },
+      get origin() {
+        return linkValue("get", "origin", href, "");
+      },
+      get protocol() {
+        return linkValue("get", "protocol", href, "");
+      },
+      get host() {
+        return linkValue("get", "host", href, "");
+      },
+      get hostname() {
+        return linkValue("get", "hostname", href, "");
+      },
+      get port() {
+        return linkValue("get", "port", href, "");
+      },
+      get pathname() {
+        return linkValue("get", "pathname", href, "");
+      },
+      get search() {
+        return linkValue("get", "search", href, "");
+      },
+      get hash() {
+        return linkValue("get", "hash", href, "");
+      },
       toString: () => href,
     }),
     Event,

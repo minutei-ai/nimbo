@@ -11,6 +11,8 @@ use crate::{Error, Limits, Result};
 mod attribute_nodes;
 #[path = "dom_documents.rs"]
 mod documents;
+#[path = "dom_history.rs"]
+mod history;
 #[path = "dom_mutations.rs"]
 mod mutations;
 #[path = "dom_shadow.rs"]
@@ -37,6 +39,7 @@ pub(crate) struct Dom {
     attribute_nodes: attribute_nodes::Arena,
     documents: documents::Arena,
     shadow: shadow::Arena,
+    history: history::Arena,
     mutations: std::cell::RefCell<mutations::Arena>,
     styles: HashMap<NodeId, crate::styles::Declarations>,
     computed_styles: HashMap<NodeId, crate::computed_style::Computed>,
@@ -51,6 +54,7 @@ pub(crate) struct Dom {
     sheet_scan: Option<usize>,
     // Conservative presence guard: HTML parsing and element creation are the only name producers.
     may_have_links: bool,
+    may_have_bases: bool,
     sheets: crate::stylesheets::Sheets,
     cssom: crate::cssom::Arena,
     writes: usize,
@@ -77,6 +81,7 @@ impl Dom {
             attribute_nodes: attribute_nodes::Arena::default(),
             documents: documents::Arena::default(),
             shadow: shadow::Arena::default(),
+            history: history::Arena::new(base.clone()),
             mutations: std::cell::RefCell::default(),
             styles: HashMap::new(),
             computed_styles: HashMap::new(),
@@ -89,7 +94,8 @@ impl Dom {
             layout: None,
             scroll: crate::layout::ScrollState::new(),
             sheet_scan: None,
-            may_have_links: contains_link_tag(html),
+            may_have_links: contains_tag(html, *b"<link"),
+            may_have_bases: contains_tag(html, *b"<base"),
             sheets: crate::stylesheets::Sheets::new(base, limits.max_stylesheet_bytes),
             cssom: crate::cssom::Arena::default(),
             writes: 0,
@@ -103,6 +109,25 @@ impl Dom {
         if self.transitions.borrow().active() {
             self.layout_version = self.layout_version.saturating_add(1);
             self.computed_styles.clear();
+        }
+    }
+
+    pub(crate) fn document_url(&self) -> &url::Url {
+        self.history.url()
+    }
+
+    fn arena_call(
+        &mut self,
+        operation: &str,
+        handle: usize,
+        arg: &str,
+        value: &str,
+    ) -> Result<Option<Value>> {
+        match operation {
+            "history" if handle == 0 => self.history_call(arg, value).map(Some),
+            "history" => Err(Error::Dom("invalid history receiver".into())),
+            "mutation" => self.mutation_call(handle, arg, value).map(Some),
+            _ => Ok(None),
         }
     }
 
@@ -152,7 +177,18 @@ impl Dom {
         }
     }
 
+    fn charge_pending_work(&mut self) -> Result<()> {
+        self.operations = self
+            .operations
+            .saturating_add(self.history.work.replace(0))
+            .saturating_add(std::mem::take(&mut self.mutations.borrow_mut().work));
+        if self.operations > self.limits.max_dom_operations {
+            return Err(Error::Limit("DOM operations"));
+        }
+        Ok(())
+    }
     fn begin(&mut self, operation: &str, handle: usize, arg: &str, value: &str) -> Result<()> {
+        self.charge_pending_work()?;
         if self.operations >= self.limits.max_dom_operations {
             return Err(Error::Limit("DOM operations"));
         }
@@ -218,8 +254,7 @@ impl Dom {
     ) -> Result<String> {
         let version = self.layout_version;
         self.begin(operation, handle, arg, value)?;
-        if operation == "mutation" {
-            let result = self.mutation_call(handle, arg, value)?;
+        if let Some(result) = self.arena_call(operation, handle, arg, value)? {
             return self.finish(&result, version);
         }
         if matches!(self.handles.get(handle), Some(Handle::Attribute)) {
@@ -239,7 +274,7 @@ impl Dom {
             "styleSheet" => self.style_sheet(handle)?,
             "styleSheets" => self.style_sheets(handle)?,
             "windowNamed" => self.window_named(arg)?,
-            "baseHref" => json!(self.base_href()),
+            "baseHref" => json!(self.base_href()?),
             "fontFaces" => self.font_faces()?,
             "cssSupports" => json!(crate::supports::query(arg)?),
             "cssSupportsValue" => json!(crate::supports::value(arg, value)?),
@@ -312,6 +347,7 @@ impl Dom {
         if let Some(owner) = owner {
             self.sync_attributes(owner);
         }
+        self.history_base_mutation(operation, handle, arg, value)?;
         self.signal_fallback_slots(&fallback_slots);
         self.finish(&result, version)
     }
@@ -366,6 +402,7 @@ impl Dom {
         }
         self.charge_write(name.len())?;
         self.may_have_links |= name.eq_ignore_ascii_case("link");
+        self.may_have_bases |= name.eq_ignore_ascii_case("base");
         let document = self.document_id(owner)?;
         let html = self
             .documents
@@ -425,6 +462,7 @@ impl Dom {
         self.charge_write(name.len().saturating_add(namespace.len()))?;
         self.may_have_links |=
             namespace == "http://www.w3.org/1999/xhtml" && local.eq_ignore_ascii_case("link");
+        self.may_have_bases |= local.eq_ignore_ascii_case("base");
         let node = self.document.tree.new_element(local);
         node.update(|node| {
             if let NodeData::Element(element) = &mut node.data {
@@ -438,9 +476,7 @@ impl Dom {
     }
 
     fn finish(&mut self, result: &Value, version: usize) -> Result<String> {
-        self.operations = self
-            .operations
-            .saturating_add(std::mem::take(&mut self.mutations.borrow_mut().work));
+        self.charge_pending_work()?;
         if version != self.layout_version {
             self.refresh_slots()?;
             let mut work = crate::layout::Work::new(
@@ -454,6 +490,7 @@ impl Dom {
     }
 
     pub(crate) fn next_sheet(&mut self) -> Result<Option<(usize, String)>> {
+        self.charge_pending_work()?;
         if self.sheet_scan == Some(self.layout_version) {
             return Ok(None);
         }
@@ -461,7 +498,7 @@ impl Dom {
             self.sheet_scan = Some(self.layout_version);
             return Ok(None);
         }
-        let base = self.base_href();
+        let base = self.base_href()?;
         let mut work = crate::layout::Work::new(
             &mut self.operations,
             self.limits.max_dom_operations,
@@ -494,7 +531,7 @@ impl Dom {
         if let Some(cascade) = &self.cascade {
             return Ok(std::rc::Rc::clone(cascade));
         }
-        let base = self.base_href();
+        let base = self.base_href()?;
         let mut work = crate::layout::Work::new(
             &mut self.operations,
             self.limits.max_dom_operations,
@@ -830,7 +867,8 @@ impl Dom {
         self.invalidate_sheet(operation, handle, arg, value)?;
         let observed = self.capture_attribute_write(operation, handle, arg)?;
         if operation == "set" && arg == "innerHTML" {
-            self.may_have_links |= contains_link_tag(value);
+            self.may_have_links |= contains_tag(value, *b"<link");
+            self.may_have_bases |= contains_tag(value, *b"<base");
         }
         self.set(operation, handle, arg, value)?;
         if let Some(record) = observed {
@@ -869,7 +907,7 @@ impl Dom {
             if !crate::stylesheets::is_stylesheet(node) {
                 return Ok(Value::Null);
             }
-            let base = self.base_href();
+            let base = self.base_href()?;
             let Some((source, href, accessible)) =
                 self.sheets.associated_source(node, base.as_deref())?
             else {
@@ -1146,20 +1184,6 @@ impl Dom {
         self.styles.insert(id, state);
         self.style_bytes = bytes;
         Ok(serde_json::to_value(output)?)
-    }
-
-    pub(crate) fn base_href(&self) -> Option<String> {
-        self.document
-            .root()
-            .descendants_it()
-            .find(|node| {
-                node.query_or(false, |node| {
-                    matches!(&node.data, NodeData::Element(element)
-                if element.name.ns.as_ref() == "http://www.w3.org/1999/xhtml"
-                    && element.name.local.as_ref() == "base")
-                }) && node.null_attribute("href").is_some()
-            })
-            .and_then(|node| node.null_attribute("href"))
     }
 
     fn remove_node(&self, handle: usize) -> Result<Value> {
@@ -1680,8 +1704,8 @@ fn qualified_name(element: &dom_query::Element) -> String {
 
 // Tag names do not decode HTML character references. False positives (comments,
 // raw-text scripts, longer names) only retain the regular bounded discovery scan.
-fn contains_link_tag(html: &str) -> bool {
+fn contains_tag(html: &str, tag: [u8; 5]) -> bool {
     html.as_bytes()
         .windows(5)
-        .any(|bytes| bytes.eq_ignore_ascii_case(b"<link"))
+        .any(|bytes| bytes.eq_ignore_ascii_case(&tag))
 }

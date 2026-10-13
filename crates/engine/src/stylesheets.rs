@@ -11,6 +11,7 @@ struct Sheet {
     source: String,
     base: String,
     accessible: bool,
+    frozen: bool,
 }
 
 pub(crate) struct Sheets {
@@ -38,6 +39,16 @@ impl Sheets {
         }
     }
 
+    pub(crate) fn freeze_urls(&mut self) {
+        for sheet in self.loaded.values_mut() {
+            sheet.frozen = true;
+        }
+    }
+    pub(crate) fn unfreeze_urls(&mut self) {
+        for sheet in self.loaded.values_mut() {
+            sheet.frozen = false;
+        }
+    }
     pub(crate) fn max_bytes(&self) -> usize {
         self.max_bytes
     }
@@ -48,6 +59,9 @@ impl Sheets {
         };
         if href.trim().is_empty() || node.null_attribute("disabled").is_some() {
             return Ok(None);
+        }
+        if let Some(sheet) = self.loaded.get(&node.id).filter(|sheet| sheet.frozen) {
+            return Ok(Some(sheet.url.clone()));
         }
         let base =
             crate::links::base(base, self.origin.as_str()).unwrap_or_else(|| self.origin.clone());
@@ -221,6 +235,7 @@ impl Sheets {
                 source,
                 base,
                 accessible,
+                frozen: false,
             },
         );
         Ok(response.is_some())

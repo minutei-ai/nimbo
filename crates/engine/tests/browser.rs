@@ -275,6 +275,40 @@ fn serve_variant(request: Request, source: &str) -> io::Result<()> {
     respond(request, body, 200, "text/html", Vec::new())
 }
 
+fn serve_history(request: Request) -> io::Result<()> {
+    let path = request.url();
+    if std::path::Path::new(path)
+        .extension()
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("css"))
+    {
+        return respond(
+            request,
+            "body{color:rgb(1,2,3)}".into(),
+            200,
+            "text/css",
+            Vec::new(),
+        );
+    }
+    if std::path::Path::new(path)
+        .extension()
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("json"))
+    {
+        let body = json!({"path":path,"cookie":request_cookie(&request)}).to_string();
+        return respond(request, body, 200, "application/json", Vec::new());
+    }
+    let variant = path
+        .split('/')
+        .next_back()
+        .unwrap_or("0")
+        .parse::<u32>()
+        .map_err(io::Error::other)?;
+    let source = include_str!("fixtures/history.txt");
+    let body = format!(
+        r#"<!doctype html><head><link rel="stylesheet" href="style.css"></head><body><script>const variant={variant};{source}</script>"#
+    );
+    respond(request, body, 200, "text/html", Vec::new())
+}
+
 fn serve_framework(request: Request) -> io::Result<()> {
     let path = request.url();
     let module = match path {
@@ -297,7 +331,7 @@ fn serve_framework(request: Request) -> io::Result<()> {
         .parse::<u32>()
         .map_err(io::Error::other)?;
     if framework == "data" {
-        let body = json!({"message": format!("loaded-{variant}")}).to_string();
+        let body = json!({"message": format!("loaded-{variant}"),"path":path}).to_string();
         return respond(request, body, 200, "application/json", Vec::new());
     }
     let body = if framework == "dom-primitives" {
@@ -324,6 +358,9 @@ fn variant_source(url: &str) -> Option<&'static str> {
 }
 
 fn serve(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/history/") {
+        return serve_history(request);
+    }
     if request.url().starts_with("/frameworks/") {
         return serve_framework(request);
     }
@@ -4421,7 +4458,7 @@ fn mutation_observer_records_and_microtasks_use_real_http() -> TestResult {
 #[test]
 fn framework_hydration_state_and_keyed_updates_use_real_http() -> TestResult {
     let fixture = Fixture::new()?;
-    for (framework, expected) in [("preact", 14), ("vue", 14), ("dom-primitives", 24)] {
+    for (framework, expected) in [("preact", 20), ("vue", 20), ("dom-primitives", 24)] {
         for variant in 0..64 {
             let page = fixture
                 .browser()?
@@ -4434,6 +4471,24 @@ fn framework_hydration_state_and_keyed_updates_use_real_http() -> TestResult {
                 "{framework} variant {variant}: {result}"
             );
         }
+    }
+    Ok(())
+}
+
+#[test]
+fn same_document_history_state_events_and_url_scope_use_real_http() -> TestResult {
+    let fixture = Fixture::new()?;
+    for variant in 0..64 {
+        let page = fixture
+            .browser()?
+            .navigate(&fixture.path(&format!("/history/{variant}")))?;
+        let result = page.evaluate("comparison")?;
+        let checks = result.as_object().ok_or("missing history contracts")?;
+        assert_eq!(checks.len(), 35);
+        assert!(
+            checks.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
     }
     Ok(())
 }

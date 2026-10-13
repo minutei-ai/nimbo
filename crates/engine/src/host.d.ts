@@ -50,3 +50,5 @@ declare function nimboCanvas(input: string): string | Uint8Array;
 declare function nimboCanvasPut(input: string, bytes: Uint8Array): void;
 
 declare function nimboFontMeasure(id: number, text: string, size: number): number;
+
+declare const nimboIsProxy: (value: unknown) => boolean;

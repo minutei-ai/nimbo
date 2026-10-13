@@ -27,7 +27,7 @@ afterAll(async () => {
 const cases = (["preact", "vue", "dom-primitives"] as const).flatMap((framework) =>
   Array.from(
     { length: 64 },
-    (_, variant) => [framework, variant, framework === "dom-primitives" ? 24 : 14] as const,
+    (_, variant) => [framework, variant, framework === "dom-primitives" ? 24 : 20] as const,
   ),
 );
 test.each(cases)("%s HTTP extraction, variant %i", async (framework, variant, expected) => {

@@ -39,7 +39,10 @@ old values, detached-subtree transients and ordered microtask delivery with
 40 synthetic comparison contracts. Declarative parsing, scoped styles/flat-tree
 geometry and wider forms remain open. [Framework extraction applications](docs/framework-applications.md)
 exercise pinned Preact and Vue hydration, state changes, keyed updates, HTTP data
-loading and unmounting. History-driven client navigation remains open.
+loading, same-document routing, back/forward restoration and unmounting.
+[Owned History](docs/history.md) adds bounded entries and cloned state graphs,
+current document URLs and trusted traversal events. Broader forms, declarative
+shadow parsing, scoped geometry and the remaining application matrix stay open.
 
 ## 0.4 — Scripts and page readiness
 

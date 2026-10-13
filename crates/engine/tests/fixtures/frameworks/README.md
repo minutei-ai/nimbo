@@ -16,5 +16,6 @@ compatibility evidence.
 The HTML is a synthetic, prerendered view. Hydration must preserve the original
 root, button and keyed list node identities. The application then dispatches an
 event, updates component state, reorders/inserts/removes keyed items, fetches
-JSON over HTTP, observes mutations and unmounts through framework lifecycle APIs.
+JSON over HTTP, observes mutations, navigates through History, restores the
+component view on back/forward traversal and unmounts through framework lifecycle APIs.
 Every page receives fresh framework and application state.

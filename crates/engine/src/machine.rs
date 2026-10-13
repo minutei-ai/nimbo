@@ -324,6 +324,7 @@ impl Machine {
             js(&ctx, crate::font_faces::install(&ctx))?;
             js(&ctx, crate::font_matching::install(&ctx))?;
             js(&ctx, crate::links::install(&ctx))?;
+            install_proxy_brand(&ctx)?;
             js(&ctx, globals.set("nimboUrl", url))?;
             let callbacks = web_bindings(&ctx)?;
             Ok((
@@ -452,9 +453,11 @@ impl Machine {
             return Ok(None);
         }
         if let Some(script) = self.scripts.pop_front() {
-            let document_base =
-                crate::links::base(self.dom.borrow().base_href().as_deref(), self.base.as_str())
-                    .unwrap_or_else(|| self.base.clone());
+            let document_base = crate::links::base(
+                self.dom.borrow().base_href()?.as_deref(),
+                self.dom.borrow().document_url().as_str(),
+            )
+            .unwrap_or_else(|| self.dom.borrow().document_url().clone());
             if script.deferred && !self.parsed {
                 self.context.with(|ctx| -> Result<()> {
                     let callback = self
@@ -863,6 +866,11 @@ impl Machine {
     }
 }
 
+fn install_proxy_brand(ctx: &Ctx<'_>) -> Result<()> {
+    let predicate = Function::new(ctx.clone(), |value: rquickjs::Value<'_>| value.is_proxy());
+    js(ctx, ctx.globals().set("nimboIsProxy", js(ctx, predicate)?))
+}
+
 pub(crate) fn parse_url(value: &str) -> Result<Url> {
     let url = Url::parse(value).map_err(|error| Error::InvalidUrl(error.to_string()))?;
     if !matches!(url.scheme(), "http" | "https")
@@ -878,8 +886,8 @@ pub(crate) fn parse_url(value: &str) -> Result<Url> {
 }
 
 fn resolve_document(origin: &Url, dom: &Dom, value: &str) -> Result<Url> {
-    let base = crate::links::base(dom.base_href().as_deref(), origin.as_str())
-        .unwrap_or_else(|| origin.clone());
+    let base = crate::links::base(dom.base_href()?.as_deref(), dom.document_url().as_str())
+        .unwrap_or_else(|| dom.document_url().clone());
     let url = base
         .join(value)
         .map_err(|error| Error::InvalidUrl(error.to_string()))?;
