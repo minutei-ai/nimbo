@@ -4529,3 +4529,65 @@ fn same_document_history_state_events_and_url_scope_use_real_http() -> TestResul
     }
     Ok(())
 }
+
+#[test]
+fn native_cancellation_interrupts_timers_javascript_and_readiness() -> TestResult {
+    use nimbo_engine::CancellationToken;
+    let fixture = Fixture::new()?;
+    let browser = Browser::new(
+        &fixture.url,
+        Limits {
+            max_javascript_ticks: usize::MAX,
+            timeout: Duration::from_secs(2),
+            ..Limits::default()
+        },
+    )?;
+    for phase in ["timer", "javascript", "readiness"] {
+        let token = CancellationToken::new();
+        let page = browser.navigate_with_cancel(&fixture.path("/static"), &token)?;
+        let stop = token.clone();
+        let cancelling = thread::spawn(move || {
+            thread::sleep(Duration::from_millis(25));
+            stop.cancel();
+        });
+        let started = Instant::now();
+        let result = match phase {
+            "timer" => page
+                .evaluate(
+                    "(globalThis.marker=42,new Promise(resolve=>setTimeout(()=>resolve(1),60000)))",
+                )
+                .map(|_| ()),
+            "javascript" => page
+                .evaluate("(()=>{globalThis.marker=42;while(true){}})()")
+                .map(|_| ()),
+            _ => page.wait_for(&Readiness {
+                condition: ReadyCondition::Selector {
+                    selector: "#never".into(),
+                },
+                timeout_ms: 1000,
+                poll_interval_ms: 1000,
+            }),
+        };
+        cancelling
+            .join()
+            .map_err(|_panic| "cancelling thread panicked")?;
+        assert!(
+            matches!(result, Err(Error::Cancelled)),
+            "{phase}: {result:?}"
+        );
+        assert!(started.elapsed() < Duration::from_secs(1));
+        assert!(token.is_cancelled());
+        token.cancel();
+        assert!(matches!(page.evaluate("1"), Err(Error::Cancelled)));
+        drop(page);
+        let fresh = browser.navigate(&fixture.path("/static"))?;
+        assert_eq!(fresh.evaluate("typeof marker")?, json!("undefined"));
+    }
+    let token = CancellationToken::new();
+    token.cancel();
+    assert!(matches!(
+        browser.navigate_with_cancel(&fixture.path("/static"), &token),
+        Err(Error::Cancelled)
+    ));
+    Ok(())
+}

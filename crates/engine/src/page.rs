@@ -34,11 +34,19 @@ impl Page {
     ) -> Result<Self> {
         transport.check_deadline()?;
         let deadline = transport.deadline;
+        let cancellation = transport.cancellation.clone();
         let machine = Machine::new(
             &response.body,
             &response.url,
             transport.limits,
-            Arc::new(move || std::time::Instant::now() >= deadline),
+            Arc::new(move || {
+                cancellation.check()?;
+                if std::time::Instant::now() >= deadline {
+                    Err(Error::Limit("navigation deadline"))
+                } else {
+                    Ok(())
+                }
+            }),
             true,
             session,
             media,
@@ -77,9 +85,9 @@ impl Page {
                         .transport
                         .deadline
                         .saturating_duration_since(std::time::Instant::now());
-                    std::thread::sleep(
+                    self.transport.wait(
                         std::time::Duration::from_secs_f64(milliseconds / 1000.0).min(remaining),
-                    );
+                    )?;
                 }
                 Action::Request {
                     url,
@@ -87,8 +95,8 @@ impl Page {
                     body,
                     binary,
                 } => match self.transport.request(&base, &url, &method, &body, binary) {
-                    Ok(response) => self.machine.borrow_mut().respond(&response)?,
-                    Err(Error::Limit(limit)) => return Err(Error::Limit(limit)),
+                    Ok(response) => self.machine.borrow_mut().respond(response)?,
+                    Err(error @ (Error::Limit(_) | Error::Cancelled)) => return Err(error),
                     Err(error) => self.machine.borrow_mut().reject(&error.to_string())?,
                 },
             }

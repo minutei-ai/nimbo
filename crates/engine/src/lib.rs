@@ -8,6 +8,8 @@ mod background_size;
 mod backgrounds;
 mod borders;
 mod builtin_fonts;
+#[cfg(not(target_arch = "wasm32"))]
+mod cancellation;
 mod canvas;
 mod cascade;
 mod computed_style;
@@ -61,6 +63,8 @@ mod z_index;
 
 use std::time::Duration;
 
+#[cfg(not(target_arch = "wasm32"))]
+pub use cancellation::CancellationToken;
 #[cfg(not(target_arch = "wasm32"))]
 pub use network::Browser;
 #[cfg(not(target_arch = "wasm32"))]
@@ -124,6 +128,9 @@ impl Default for Limits {
 /// Falhas explícitas; uma falha de navegação não vira extração vazia.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    /// Explicit cancellation requested by the native caller.
+    #[error("operation cancelled")]
+    Cancelled,
     /// URL malformada, esquema não permitido ou credenciais na URL.
     #[error("invalid URL: {0}")]
     InvalidUrl(String),

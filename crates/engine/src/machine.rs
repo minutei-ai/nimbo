@@ -15,7 +15,7 @@ use url::Url;
 
 use crate::{Error, Limits, MediaEnvironment, Result, dom::Dom, modules::Modules};
 
-type Check = Arc<dyn Fn() -> bool + Send + Sync>;
+type Check = Arc<dyn Fn() -> Result<()> + Send + Sync>;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct Response {
@@ -189,7 +189,7 @@ impl Machine {
         let fuel = Arc::clone(&ticks);
         let interrupt = Arc::clone(&check);
         runtime.set_interrupt_handler(Some(Box::new(move || {
-            interrupt()
+            interrupt().is_err()
                 || fuel
                     .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |left| {
                         left.checked_sub(1)
@@ -260,8 +260,8 @@ impl Machine {
             let dom_function = Function::new(
                 ctx.clone(),
                 move |ctx: Ctx<'_>, op: String, handle: usize, arg: String, value: String| {
-                    if dom_check() {
-                        return Err(Exception::throw_message(&ctx, "navigation deadline"));
+                    if let Err(error) = dom_check() {
+                        return Err(Exception::throw_message(&ctx, &error.to_string()));
                     }
                     dom.borrow_mut()
                         .call(&op, handle, &arg, &value)
@@ -411,7 +411,8 @@ impl Machine {
         {
             return Err(Error::Limit("readiness deadline"));
         }
-        if (self.check)() || self.clock.get() >= self.limits.timeout.as_secs_f64() * 1000.0 {
+        (self.check)()?;
+        if self.clock.get() >= self.limits.timeout.as_secs_f64() * 1000.0 {
             return Err(Error::Limit("navigation deadline"));
         }
         if self.ticks.load(Ordering::Relaxed) == 0 {
@@ -655,7 +656,7 @@ impl Machine {
         action
     }
 
-    pub(crate) fn respond(&mut self, response: &Response) -> Result<()> {
+    pub(crate) fn respond(&mut self, response: Response) -> Result<()> {
         self.check_budget()?;
         let request = self
             .active
@@ -671,9 +672,9 @@ impl Machine {
             return Err(Error::Limit("response bytes"));
         }
         if let RequestPurpose::Stylesheet(handle) = request.purpose {
-            self.sheet_response(handle, request.url, Some(response))?;
+            self.sheet_response(handle, request.url, Some(&response))?;
         } else if let RequestPurpose::Module(name) = request.purpose {
-            self.modules.respond(name, response)?;
+            self.modules.respond(name, &response)?;
         } else if let RequestPurpose::Fetch(resolver) = request.purpose {
             self.context.with(|ctx| {
                 let payload = js(&ctx, rquickjs::Object::new(ctx.clone()))?;
@@ -684,8 +685,7 @@ impl Machine {
                 } else {
                     let bytes = response
                         .raw_body
-                        .clone()
-                        .unwrap_or_else(|| response.body.as_bytes().to_vec());
+                        .unwrap_or_else(|| response.body.into_bytes());
                     let body = js(&ctx, rquickjs::ArrayBuffer::new(ctx.clone(), bytes))?;
                     js(&ctx, payload.set("body", body))?;
                 }
@@ -1036,7 +1036,7 @@ mod layout_contracts {
                 max_dom_operations: operations,
                 ..Limits::default()
             },
-            Arc::new(|| false),
+            Arc::new(|| Ok(())),
             true,
             crate::cookies::Session::default(),
             MediaEnvironment::default(),
@@ -1126,7 +1126,7 @@ mod layout_contracts {
                     &html,
                     "https://example.test/",
                     Limits::default(),
-                    Arc::new(|| false),
+                    Arc::new(|| Ok(())),
                     true,
                     crate::cookies::Session::default(),
                     MediaEnvironment::default(),

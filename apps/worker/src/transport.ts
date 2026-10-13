@@ -144,7 +144,7 @@ export class Transport {
           url: url.href,
           status: response.status,
           body: binary ? "" : decode_response(result, response.headers.get("content-type") ?? ""),
-          raw_body: binary ? Array.from(result) : undefined,
+          raw_body: binary ? result : undefined,
           content_type: response.headers.get("content-type") ?? "",
         };
       } finally {

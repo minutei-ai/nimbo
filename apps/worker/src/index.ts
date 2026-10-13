@@ -103,7 +103,11 @@ const scrape = (request: Request, environment: Environment) =>
             }).pipe(
               Effect.flatMap((result) =>
                 Effect.try({
-                  try: () => page.respond(JSON.stringify(result)),
+                  try: () => {
+                    const { raw_body, ...metadata } = result;
+                    if (raw_body === undefined) page.respond(JSON.stringify(metadata));
+                    else page.respond_binary(JSON.stringify(metadata), raw_body);
+                  },
                   catch: (cause) => failure(cause),
                 }),
               ),

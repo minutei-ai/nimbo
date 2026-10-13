@@ -1,9 +1,8 @@
-use std::{cell::Cell, io::Read, rc::Rc, time::Instant};
+use std::{cell::Cell, rc::Rc, sync::Arc, time::Instant};
 
 use crate::machine::{Response, parse_url};
 use reqwest::{
-    Url,
-    blocking::Client,
+    Client, Url,
     header::{COOKIE, LOCATION, SET_COOKIE},
     redirect::Policy,
 };
@@ -14,6 +13,7 @@ use crate::{Error, Limits, MediaEnvironment, Page, Result, cookies::Session};
 #[derive(Debug)]
 pub struct Browser {
     client: Client,
+    runtime: Arc<tokio::runtime::Runtime>,
     origin: Url,
     limits: Limits,
     media: MediaEnvironment,
@@ -84,9 +84,15 @@ impl Browser {
         if let Some(proxy) = proxy {
             builder = builder.proxy(explicit_proxy(proxy)?);
         }
+        let runtime = Arc::new(
+            tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()?,
+        );
         let client = builder.build()?;
         Ok(Self {
             client,
+            runtime,
             origin,
             limits,
             media,
@@ -99,11 +105,26 @@ impl Browser {
     /// # Errors
     /// Propaga falhas de transporte, origem, limites, HTML ou JavaScript.
     pub fn navigate(&self, url: &str) -> Result<Page> {
+        self.navigate_with_cancel(url, &crate::CancellationToken::new())
+    }
+
+    /// Loads a page with a cancellation signal that also covers later evaluation and readiness.
+    ///
+    /// # Errors
+    /// Returns `Error::Cancelled` on cancellation, or the normal navigation failures.
+    pub fn navigate_with_cancel(
+        &self,
+        url: &str,
+        cancellation: &crate::CancellationToken,
+    ) -> Result<Page> {
+        cancellation.check()?;
         let deadline = Instant::now()
             .checked_add(self.limits.timeout)
             .ok_or(Error::Limit("invalid timeout"))?;
         let transport = Rc::new(Transport {
             client: self.client.clone(),
+            runtime: Arc::clone(&self.runtime),
+            cancellation: cancellation.clone(),
             origin: self.origin.clone(),
             deadline,
             limits: self.limits,
@@ -130,6 +151,8 @@ impl Browser {
 #[derive(Debug)]
 pub(crate) struct Transport {
     client: Client,
+    runtime: Arc<tokio::runtime::Runtime>,
+    pub cancellation: crate::CancellationToken,
     origin: Url,
     pub deadline: Instant,
     pub limits: Limits,
@@ -140,6 +163,7 @@ pub(crate) struct Transport {
 
 impl Transport {
     pub(crate) fn check_deadline(&self) -> Result<()> {
+        self.cancellation.check()?;
         if Instant::now() >= self.deadline {
             return Err(Error::Limit("navigation deadline"));
         }
@@ -158,6 +182,39 @@ impl Transport {
     }
 
     pub(crate) fn request(
+        &self,
+        base: &Url,
+        value: &str,
+        method: &str,
+        body: &str,
+        binary: bool,
+    ) -> Result<Response> {
+        self.run(self.request_async(base, value, method, body, binary))
+    }
+
+    fn run<T>(&self, work: impl Future<Output = Result<T>>) -> Result<T> {
+        self.check_deadline()?;
+        self.runtime.block_on(async {
+            match futures_util::future::select(
+                Box::pin(work),
+                Box::pin(self.cancellation.cancelled()),
+            )
+            .await
+            {
+                futures_util::future::Either::Left((result, _cancel)) => result,
+                futures_util::future::Either::Right(((), _work)) => Err(Error::Cancelled),
+            }
+        })
+    }
+
+    pub(crate) fn wait(&self, duration: std::time::Duration) -> Result<()> {
+        self.run(async {
+            tokio::time::sleep(duration).await;
+            self.check_deadline()
+        })
+    }
+
+    async fn request_async(
         &self,
         base: &Url,
         value: &str,
@@ -191,7 +248,7 @@ impl Transport {
             if method == reqwest::Method::POST {
                 request = request.body(body.to_owned());
             }
-            let response = request.send()?;
+            let response = request.send().await?;
             for header in response.headers().get_all(SET_COOKIE) {
                 if let Ok(value) = header.to_str() {
                     self.cookies.set(&url, value, false)?;
@@ -212,14 +269,14 @@ impl Transport {
                 }
                 continue;
             }
-            return self.read_response(response, &url, binary);
+            return self.read_response(response, &url, binary).await;
         }
         Err(Error::Limit("redirect count"))
     }
 
-    fn read_response(
+    async fn read_response(
         &self,
-        response: reqwest::blocking::Response,
+        mut response: reqwest::Response,
         url: &Url,
         binary: bool,
     ) -> Result<Response> {
@@ -235,13 +292,13 @@ impl Transport {
             .max_response_bytes
             .saturating_sub(self.bytes.get());
         let mut bytes = Vec::new();
-        response
-            .take(
-                u64::try_from(remaining)
-                    .unwrap_or(u64::MAX)
-                    .saturating_add(1),
-            )
-            .read_to_end(&mut bytes)?;
+        while let Some(chunk) = response.chunk().await? {
+            self.check_deadline()?;
+            if chunk.len() > remaining.saturating_sub(bytes.len()) {
+                return Err(Error::Limit("total response bytes"));
+            }
+            bytes.extend_from_slice(&chunk);
+        }
         self.check_deadline()?;
         if bytes.len() > remaining {
             return Err(Error::Limit("total response bytes"));

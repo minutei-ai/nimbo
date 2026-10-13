@@ -76,7 +76,7 @@ impl WasmPage {
             html,
             url,
             limits,
-            Arc::new(|| false),
+            Arc::new(|| Ok(())),
             execute_scripts.unwrap_or(true),
             crate::cookies::Session {
                 storage: std::rc::Rc::default(),
@@ -116,7 +116,24 @@ impl WasmPage {
     pub fn respond(&mut self, response: &str) -> Result<(), String> {
         serde_json::from_str(response)
             .map_err(crate::Error::from)
-            .and_then(|response| self.machine.respond(&response))
+            .and_then(|response| self.machine.respond(response))
+            .map_err(|error| error.to_string())
+    }
+
+    /// Delivers binary fetch bytes directly, without a JSON array or a second Rust buffer.
+    /// Metadata uses the ordinary response fields with an empty body and no raw body.
+    ///
+    /// # Errors
+    /// Rejects invalid metadata, origin, protocol state or response budgets.
+    pub fn respond_binary(&mut self, metadata: &str, bytes: Vec<u8>) -> Result<(), String> {
+        let mut response: crate::machine::Response =
+            serde_json::from_str(metadata).map_err(|error| error.to_string())?;
+        if !response.body.is_empty() || response.raw_body.is_some() {
+            return Err("binary response metadata must not contain a body".into());
+        }
+        response.raw_body = Some(bytes);
+        self.machine
+            .respond(response)
             .map_err(|error| error.to_string())
     }
 

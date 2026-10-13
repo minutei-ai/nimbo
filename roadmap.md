@@ -20,6 +20,9 @@ shared workloads, three-round A/B reporting, artifact/corpus hashes, native peak
 RSS, Worker retained host RSS and predeclared regression tolerances. Correctness
 runs in the normal Worker suite at default limits. Controlled-runner regression
 automation, profiling and Worker peak allocation evidence remain open.
+[Binary response ownership](docs/worker-memory.md) avoids numeric JSON arrays
+and a second Rust buffer; a local single-isolate probe records reduced Wasm
+linear capacity under the same synthetic byte workload and default budgets.
 
 ## 0.3 — DOM and application compatibility
 
@@ -62,7 +65,9 @@ scoped resolution, blocked entries and cyclic live export coverage. Multiple/dyn
 maps, unloaded dynamic imports, task expansion and broader phase diagnostics
 remain open. [Worker client cancellation](docs/cancellation.md) interrupts host
 HTTP/readiness/timer waits and releases page capacity on disconnect. Native
-cancellation and broader lifecycle cases remain open.
+cancellation now covers HTTP headers/bodies, timers, readiness and QuickJS
+execution through a shared irreversible signal. Broader phase diagnostics and
+lifecycle cases remain open.
 
 ## 0.5 — CSS and geometry
 

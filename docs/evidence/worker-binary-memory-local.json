@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "runtime": "celld 0.6.1",
+  "scope": "one local isolate; instrumented source bundle; Wasm linear capacity, not live allocation or total host memory",
+  "baseline_commit": "8010e79",
+  "payload_pattern": "index % 251",
+  "default_budgets": true,
+  "builds": [
+    {
+      "build": "baseline",
+      "wasm_sha256": "1a3e0d23e5f113f33cd6f740c31ac54af07d06eb95e37a5e981f8455787ee755",
+      "initial_linear_bytes": 6684672,
+      "rows": [
+        {
+          "bytes": 65536,
+          "status": 200,
+          "correct": true,
+          "linear_bytes": 7995392
+        },
+        {
+          "bytes": 1048576,
+          "status": 200,
+          "correct": true,
+          "linear_bytes": 15663104
+        },
+        {
+          "bytes": 1900000,
+          "status": 200,
+          "correct": true,
+          "linear_bytes": 24379392
+        },
+        {
+          "bytes": 1900000,
+          "status": 200,
+          "correct": true,
+          "linear_bytes": 24379392
+        },
+        {
+          "bytes": 65536,
+          "status": 200,
+          "correct": true,
+          "linear_bytes": 24379392
+        }
+      ]
+    },
+    {
+      "build": "candidate",
+      "wasm_sha256": "f37d70671834282df730b42caa967b1a7778846d57911c9a612605f1d2fa4820",
+      "initial_linear_bytes": 6684672,
+      "rows": [
+        {
+          "bytes": 65536,
+          "status": 200,
+          "correct": true,
+          "linear_bytes": 7733248
+        },
+        {
+          "bytes": 1048576,
+          "status": 200,
+          "correct": true,
+          "linear_bytes": 9961472
+        },
+        {
+          "bytes": 1900000,
+          "status": 200,
+          "correct": true,
+          "linear_bytes": 13762560
+        },
+        {
+          "bytes": 1900000,
+          "status": 200,
+          "correct": true,
+          "linear_bytes": 13762560
+        },
+        {
+          "bytes": 65536,
+          "status": 200,
+          "correct": true,
+          "linear_bytes": 13762560
+        }
+      ]
+    }
+  ]
+}

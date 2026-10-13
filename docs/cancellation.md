@@ -1,4 +1,4 @@
-# Worker client cancellation
+# Cancellation
 
 The Worker passes the incoming `Request.signal` to Effect's native executor.
 Interrupting the scoped extraction aborts pending HTTP operations and sleep,
@@ -24,11 +24,27 @@ budgets remain responsible for bounding that call. Cancellation does not reset
 limits or retry requests.
 
 The HTTP client has disconnected, so no successful extraction response is
-promised for the interrupted request. Explicit cancellation of native `Browser`
-and `Page` operations, cancellation diagnostics and broader resource/session
+promised for the interrupted request.
+
+Native callers can create a `CancellationToken` and pass it to
+`Browser::navigate_with_cancel`. Clones share an irreversible signal; cancelling
+from another thread also interrupts subsequent evaluation and readiness on that
+page. A cancelled operation returns `Error::Cancelled`. Normal `navigate`
+creates a fresh signal, so cancelling one page does not cancel the browser's
+next navigation. Session cookies and storage retain their ordinary semantics.
+
+The synchronous native API drives reqwest's asynchronous client on a shared
+current-thread Tokio runtime. Cancellation drops the pending HTTP future,
+including partially received bodies, and wakes timer waits. QuickJS checks the
+same signal through its interrupt handler and DOM operation checks. The tests
+observe socket closure for pending headers and partial bodies, then recover on
+the same browser; they also cover timers, infinite JavaScript, readiness and
+pre-cancelled signals. Cancellation diagnostics and broader resource/session
 lifecycle tests remain roadmap work.
 
 ```sh
 bun run build:worker
 bun test tooling/worker-cancellation.test.ts
+cargo test --locked -p nimbo-engine --test cancellation
+cargo test --locked -p nimbo-engine --test browser cancellation
 ```
