@@ -1,0 +1,170 @@
+{
+  "schema_version": 1,
+  "corpus_sha256": "6540cf02e11c1069a344a183bef40fc1cfa9bb4bec28d22f6db6e5b41d762d8c",
+  "worker_isolate_cap": 1,
+  "date": "2026-10-13T05:36:31.234Z",
+  "corpus_version": 1,
+  "scope": "bounded local host load; fresh pages; not production capacity or a controlled regression gate",
+  "host": {
+    "platform": "linux",
+    "architecture": "x64",
+    "cpus": 28,
+    "load_before": [3.25, 3.95, 3.75],
+    "load_after": [3.68, 4, 3.77]
+  },
+  "runtime": {
+    "mode": "worker",
+    "version": "celld 0.6.1",
+    "artifact_sha256": "ab57ea3ec141125845bea2780253574679a80beb84cebfb9bdc012c95430f998",
+    "artifact_bytes": 15378658,
+    "wasm_bytes": 15267840
+  },
+  "concurrency": 8,
+  "requested_seconds": 30,
+  "elapsed_ms": 30010.105928,
+  "attempted": 32548,
+  "accepted": 770,
+  "accepted_per_second": 25.658023395431446,
+  "recovery": true,
+  "latency_sample_limit_per_scenario": 10000,
+  "scenarios": [
+    {
+      "scenario": "static",
+      "attempted": 2713,
+      "accepted": 27,
+      "rejected": 2686,
+      "failures": 0,
+      "peak_native_rss_kib": null,
+      "latency_samples": 27,
+      "p50_ms": 27.865641000000323,
+      "p95_ms": 66.52470399999947
+    },
+    {
+      "scenario": "selectors-200",
+      "attempted": 2713,
+      "accepted": 32,
+      "rejected": 2681,
+      "failures": 0,
+      "peak_native_rss_kib": null,
+      "latency_samples": 32,
+      "p50_ms": 35.88546900000074,
+      "p95_ms": 71.75945700000011
+    },
+    {
+      "scenario": "dynamic-fetch",
+      "attempted": 2713,
+      "accepted": 48,
+      "rejected": 2665,
+      "failures": 0,
+      "peak_native_rss_kib": null,
+      "latency_samples": 48,
+      "p50_ms": 58.70396699999765,
+      "p95_ms": 79.44313400000101
+    },
+    {
+      "scenario": "js-dom-events",
+      "attempted": 2713,
+      "accepted": 42,
+      "rejected": 2671,
+      "failures": 0,
+      "peak_native_rss_kib": null,
+      "latency_samples": 42,
+      "p50_ms": 55.99856599999839,
+      "p95_ms": 79.00544199999968
+    },
+    {
+      "scenario": "js-modules",
+      "attempted": 2712,
+      "accepted": 94,
+      "rejected": 2618,
+      "failures": 0,
+      "peak_native_rss_kib": null,
+      "latency_samples": 94,
+      "p50_ms": 66.5431630000021,
+      "p95_ms": 86.04249199999958
+    },
+    {
+      "scenario": "js-dom-selectors-200",
+      "attempted": 2712,
+      "accepted": 141,
+      "rejected": 2571,
+      "failures": 0,
+      "peak_native_rss_kib": null,
+      "latency_samples": 141,
+      "p50_ms": 57.96869300000253,
+      "p95_ms": 74.51039500000024
+    },
+    {
+      "scenario": "static-5000",
+      "attempted": 2712,
+      "accepted": 74,
+      "rejected": 2638,
+      "failures": 0,
+      "peak_native_rss_kib": null,
+      "latency_samples": 74,
+      "p50_ms": 74.88294200000018,
+      "p95_ms": 107.82017099999939
+    },
+    {
+      "scenario": "selectors-200-5000",
+      "attempted": 2712,
+      "accepted": 62,
+      "rejected": 2650,
+      "failures": 0,
+      "peak_native_rss_kib": null,
+      "latency_samples": 62,
+      "p50_ms": 77.3551950000001,
+      "p95_ms": 115.72544600000037
+    },
+    {
+      "scenario": "named-access-after-style",
+      "attempted": 2712,
+      "accepted": 86,
+      "rejected": 2626,
+      "failures": 0,
+      "peak_native_rss_kib": null,
+      "latency_samples": 86,
+      "p50_ms": 56.62334899999951,
+      "p95_ms": 91.45499399999972
+    },
+    {
+      "scenario": "same-class-with-layout",
+      "attempted": 2712,
+      "accepted": 96,
+      "rejected": 2616,
+      "failures": 0,
+      "peak_native_rss_kib": null,
+      "latency_samples": 96,
+      "p50_ms": 51.120034999999916,
+      "p95_ms": 84.6520529999998
+    },
+    {
+      "scenario": "selector-heavy-layout",
+      "attempted": 2712,
+      "accepted": 39,
+      "rejected": 2673,
+      "failures": 0,
+      "peak_native_rss_kib": null,
+      "latency_samples": 39,
+      "p50_ms": 62.66455700000006,
+      "p95_ms": 88.33396699999957
+    },
+    {
+      "scenario": "text-wrap",
+      "attempted": 2712,
+      "accepted": 29,
+      "rejected": 2683,
+      "failures": 0,
+      "peak_native_rss_kib": null,
+      "latency_samples": 29,
+      "p50_ms": 68.96262299999944,
+      "p95_ms": 90.6500130000004
+    }
+  ],
+  "worker_host_process_tree_rss_kib": {
+    "initial": 414852,
+    "peak": 556852,
+    "final": 556424,
+    "samples": 120
+  }
+}

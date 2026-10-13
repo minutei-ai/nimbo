@@ -8,7 +8,7 @@ import { corpusVersion, extractionCorpus, extractionFixture } from "./extraction
 import { regressions, regressionPolicy, summarize } from "./benchmark-statistics";
 
 type Scenario = (typeof extractionCorpus)[number];
-type Runtime = {
+export type Runtime = {
   label: string;
   artifact_sha256: string;
   artifact_bytes: number;
@@ -30,7 +30,7 @@ async function artifact(path: string) {
   };
 }
 
-async function nativeRuntime(path: string, label: string): Promise<Runtime> {
+export async function nativeRuntime(path: string, label: string): Promise<Runtime> {
   const binary = resolve(path);
   const identity = await artifact(binary);
   return {
@@ -61,7 +61,7 @@ async function nativeRuntime(path: string, label: string): Promise<Runtime> {
   };
 }
 
-async function workerRuntime(path: string, label: string): Promise<Runtime> {
+export async function workerRuntime(path: string, label: string): Promise<Runtime> {
   const [wasm, javascript] = await Promise.all([
     Bun.file(join(path, "nimbo_engine_bg.wasm")).arrayBuffer(),
     Bun.file(join(path, "index.js")).arrayBuffer(),
@@ -106,6 +106,21 @@ async function workerRuntime(path: string, label: string): Promise<Runtime> {
     // Retained host memory is sampled separately, outside the extraction timer.
     rss: () => processTreeRss(host.pid),
   };
+}
+
+export async function corpusIdentity(): Promise<string> {
+  return (
+    await Promise.all(
+      ["extraction-corpus.ts", "benchmark-fixture.ts", "hot-paths-fixture.ts"].map((file) =>
+        readFile(join(import.meta.dir, file)),
+      ),
+    )
+  )
+    .reduce(
+      (hash, bytes) => hash.update(bytes),
+      createHash("sha256").update(JSON.stringify(extractionCorpus)),
+    )
+    .digest("hex");
 }
 
 if (import.meta.main) {
@@ -209,18 +224,7 @@ if (import.meta.main) {
     const report = {
       schema_version: 1,
       corpus_version: corpusVersion,
-      corpus_sha256: (
-        await Promise.all(
-          ["extraction-corpus.ts", "benchmark-fixture.ts", "hot-paths-fixture.ts"].map((file) =>
-            readFile(join(import.meta.dir, file)),
-          ),
-        )
-      )
-        .reduce(
-          (hash, bytes) => hash.update(bytes),
-          createHash("sha256").update(JSON.stringify(extractionCorpus)),
-        )
-        .digest("hex"),
+      corpus_sha256: await corpusIdentity(),
       date: new Date().toISOString(),
       host: mode,
       environment: {

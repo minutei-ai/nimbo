@@ -97,6 +97,12 @@ Exit: transport tests cover authenticated proxies, redirects, cancellation and b
 
 Exit: overlapping requests, session expiry and cancellation have documented semantics and isolation tests. Sustained load reports show throughput, p95, failures and memory on each supported host; local benchmarks alone do not establish production capacity.
 
+Implemented groundwork: [bounded local load tests](docs/load-testing.md) reuse
+the versioned corpus and existing native/Worker adapters, record admission
+separately from failures and validate recovery. Host isolate limits and workload
+mix are explicit. Persistent sessions, expiry/cancellation semantics, opt-in
+engine counters and sustained production-capacity evidence remain open.
+
 ## 0.9 — Release candidate
 
 - Freeze the public extraction/session API, error taxonomy, defaults and supported platform matrix.
