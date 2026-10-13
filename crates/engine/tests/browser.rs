@@ -3013,6 +3013,28 @@ fn live_children_counts_and_mutations_fit_default_budgets() -> TestResult {
 }
 
 #[test]
+fn diagnostics_observe_owned_heap_and_counters_without_resetting_budgets() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    let page = browser.navigate(&fixture.path("/static"))?;
+    let before = page.diagnostics();
+    assert_eq!(page.diagnostics(), before);
+    page.evaluate("(globalThis.kept=Array.from({length:1000},(_,i)=>({i})),document.body.setAttribute('data-marker','owned'),true)")?;
+    let after = page.diagnostics();
+    assert!(after.javascript_used_bytes > before.javascript_used_bytes);
+    assert!(after.javascript_object_count > before.javascript_object_count);
+    assert!(after.dom_operations > before.dom_operations);
+    assert!(after.dom_write_bytes > before.dom_write_bytes);
+    assert!(after.javascript_ticks_used >= before.javascript_ticks_used);
+    assert!(after.microtasks_executed > before.microtasks_executed);
+    assert_eq!(page.diagnostics(), after);
+    let fresh = browser.navigate(&fixture.path("/static"))?;
+    assert!(fresh.diagnostics().javascript_used_bytes < after.javascript_used_bytes);
+    assert_eq!(fresh.evaluate("typeof kept")?, json!("undefined"));
+    Ok(())
+}
+
+#[test]
 fn native_large_dom_js_real_http() -> TestResult {
     let fixture = Fixture::new()?;
     let browser = fixture.browser()?;

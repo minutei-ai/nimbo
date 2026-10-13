@@ -109,8 +109,12 @@ Exit: overlapping requests, session expiry and cancellation have documented sema
 Implemented groundwork: [bounded local load tests](docs/load-testing.md) reuse
 the versioned corpus and existing native/Worker adapters, record admission
 separately from failures and validate recovery. Host isolate limits and workload
-mix are explicit. Persistent sessions, expiry/cancellation semantics, opt-in
-engine counters and sustained production-capacity evidence remain open.
+mix are explicit. Persistent sessions, expiry/cancellation semantics and
+sustained production-capacity evidence remain open.
+[Optional diagnostics](docs/diagnostics.md) expose existing DOM/execution
+counters and native QuickJS heap snapshots through the owned page API and an
+explicit Worker request flag. Phase timings, transient allocation peaks,
+failure snapshots and production-capacity evidence remain open.
 
 ## 0.9 — Release candidate
 

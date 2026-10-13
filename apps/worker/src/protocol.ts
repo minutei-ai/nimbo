@@ -31,6 +31,7 @@ export const Media = Schema.Struct({
 export const Input = Schema.Struct({
   url: Schema.String,
   expression: Schema.String,
+  diagnostics: Schema.optional(Schema.Boolean),
   media: Schema.optional(Media),
   maxStylesheetBytes: Schema.optional(
     Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 2 * 1024 * 1024 })),

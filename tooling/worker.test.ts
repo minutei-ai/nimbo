@@ -68,6 +68,74 @@ const scrape = (worker: Miniflare, expression: string, url = originFor(worker)) 
 const json = async (response: Awaited<ReturnType<typeof scrape>>): Promise<unknown> =>
   response.json();
 
+function diagnosticHeap(body: unknown): number {
+  if (typeof body !== "object" || body === null) throw new Error("Missing response");
+  const counters: unknown = Reflect.get(body, "diagnostics");
+  if (typeof counters !== "object" || counters === null) throw new Error("Missing diagnostics");
+  expect(Object.keys(counters)).toHaveLength(8);
+  expect(
+    Object.values(counters).every(
+      (value: unknown) => typeof value === "number" && Number.isFinite(value) && value >= 0,
+    ),
+  ).toBe(true);
+  const used: unknown = Reflect.get(counters, "javascriptUsedBytes");
+  if (typeof used !== "number") throw new Error("Missing heap measurement");
+  return used;
+}
+
+test("optional diagnostics observe page heap growth and fresh-page isolation", async () => {
+  await fixture(
+    () => html("<body>diagnostics</body>"),
+    async (worker) => {
+      const run = async (expression: string, diagnostics?: boolean) => {
+        const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+          method: "POST",
+          headers: { authorization: "Bearer test-secret" },
+          body: JSON.stringify({ url: originFor(worker), expression, diagnostics }),
+        });
+        expect(response.status).toBe(200);
+        return json(response);
+      };
+      expect(await run("true")).not.toHaveProperty("diagnostics");
+      expect(await run("true", false)).not.toHaveProperty("diagnostics");
+      const small = diagnosticHeap(await run("true", true));
+      const large = diagnosticHeap(
+        await run(
+          "(globalThis.kept=Array.from({length:1000},(_,i)=>({i})),document.body.setAttribute('data-marker','owned'),true)",
+          true,
+        ),
+      );
+      expect(large).toBeGreaterThan(small);
+      const recovered = await run("typeof kept", true);
+      expect(recovered).toMatchObject({ value: "undefined" });
+      expect(diagnosticHeap(recovered)).toBeLessThan(large);
+    },
+  );
+});
+
+test("invalid diagnostic flags fail before origin HTTP", async () => {
+  let requests = 0;
+  await fixture(
+    () => {
+      requests++;
+      return html("<body>fresh</body>");
+    },
+    async (worker) => {
+      for (const diagnostics of [null, "true", 1, {}, []]) {
+        // Validate each rejected request before checking the origin counter.
+        // oxlint-disable-next-line eslint/no-await-in-loop
+        const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+          method: "POST",
+          headers: { authorization: "Bearer test-secret" },
+          body: JSON.stringify({ url: originFor(worker), expression: "true", diagnostics }),
+        });
+        expect(response.status).toBe(400);
+      }
+      expect(requests).toBe(0);
+    },
+  );
+});
+
 test("workerd loads Rust Wasm and executes inline JS, lifecycle and DOM selectors", async () => {
   await fixture(
     () =>

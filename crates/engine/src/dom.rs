@@ -104,6 +104,10 @@ impl Dom {
         }
     }
 
+    pub(crate) fn resource_usage(&self) -> (usize, usize, usize) {
+        (self.operations, self.writes, self.handles.len())
+    }
+
     pub(crate) fn advance(&mut self, now: f64) {
         self.now = now;
         if self.transitions.borrow().active() {

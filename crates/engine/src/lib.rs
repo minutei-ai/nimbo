@@ -16,6 +16,7 @@ mod computed_style;
 mod containers;
 mod cookies;
 mod cssom;
+mod diagnostics;
 mod display;
 mod dom;
 mod dom_attributes;
@@ -62,6 +63,8 @@ mod wasm;
 mod z_index;
 
 use std::time::Duration;
+
+pub use diagnostics::Diagnostics;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub use cancellation::CancellationToken;

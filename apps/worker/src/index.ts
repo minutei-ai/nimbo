@@ -144,7 +144,26 @@ const scrape = (request: Request, environment: Environment) =>
               try: (): unknown => JSON.parse(action.json),
               catch: (cause) => failure(cause, 500),
             });
-            return Response.json({ url: response.url, value, engine: "rust-wasm-quickjs" });
+            const diagnostics =
+              input.diagnostics === true
+                ? yield* Effect.try({
+                    try: () => page.diagnostics(),
+                    catch: (cause) => failure(cause, 500),
+                  }).pipe(
+                    Effect.flatMap(
+                      Schema.decodeEffect(
+                        Schema.fromJsonString(Schema.Record(Schema.String, Schema.Finite)),
+                      ),
+                    ),
+                    Effect.mapError((cause) => failure(cause, 500)),
+                  )
+                : undefined;
+            return Response.json({
+              url: response.url,
+              value,
+              engine: "rust-wasm-quickjs",
+              ...(diagnostics === undefined ? {} : { diagnostics }),
+            });
           }
         }
       }

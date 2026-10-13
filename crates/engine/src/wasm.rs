@@ -99,6 +99,14 @@ impl WasmPage {
             .map_err(|error| error.to_string())
     }
 
+    /// Serializes an explicit snapshot of page resource counters and `QuickJS` heap accounting.
+    ///
+    /// # Errors
+    /// Returns a failure if the snapshot cannot be serialized.
+    pub fn diagnostics(&self) -> Result<String, String> {
+        serde_json::to_string(&self.machine.diagnostics()).map_err(|error| error.to_string())
+    }
+
     /// Avança o relógio monotônico da página com tempo real decorrido do host.
     ///
     /// # Errors

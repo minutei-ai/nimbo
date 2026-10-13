@@ -157,6 +157,25 @@ fn callback<'js>(
 }
 
 impl Machine {
+    pub(crate) fn diagnostics(&self) -> crate::Diagnostics {
+        let memory = self.runtime.memory_usage();
+        let (dom_operations, dom_write_bytes, dom_handle_count) =
+            self.dom.borrow().resource_usage();
+        crate::Diagnostics {
+            javascript_allocated_bytes: memory.malloc_size,
+            javascript_used_bytes: memory.memory_used_size,
+            javascript_object_count: memory.obj_count,
+            javascript_ticks_used: self
+                .limits
+                .max_javascript_ticks
+                .saturating_sub(self.ticks.load(Ordering::Relaxed)),
+            microtasks_executed: self.jobs,
+            dom_operations,
+            dom_write_bytes,
+            dom_handle_count,
+        }
+    }
+
     pub(crate) fn new(
         html: &str,
         url: &str,

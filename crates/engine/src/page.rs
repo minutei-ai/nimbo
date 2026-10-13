@@ -69,6 +69,13 @@ impl Page {
         &self.url
     }
 
+    /// Returns an explicit snapshot of this page's resources and `QuickJS` heap accounting.
+    /// Reading counters does not execute guest JavaScript or reset page budgets.
+    #[must_use]
+    pub fn diagnostics(&self) -> crate::Diagnostics {
+        self.machine.borrow().diagnostics()
+    }
+
     fn drive(&self) -> Result<Option<String>> {
         let base = parse_url(&self.url)?;
         loop {
