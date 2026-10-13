@@ -15,6 +15,12 @@ pub(super) struct Arena {
     pub(super) owners: RefCell<HashMap<NodeId, NodeId>>,
 }
 impl Dom {
+    pub(super) fn create_fragment(&mut self, owner: usize) -> Result<Value> {
+        let id = self.document.tree.create_node(NodeData::Fragment);
+        self.own_node(owner, id)?;
+        Ok(json!(self.handle(id)))
+    }
+
     pub(super) fn node_document(&self, id: NodeId) -> NodeId {
         if self.documents.kinds.is_empty() {
             return self.document.root().id;
@@ -63,6 +69,19 @@ impl Dom {
         owners.insert(id, document);
         for descendant in node.descendants_it() {
             owners.insert(descendant.id, document);
+        }
+        for (root_id, shadow) in &self.shadow.roots {
+            if self.shadow_contains(id, shadow.host)? {
+                owners.insert(*root_id, document);
+                let root = self
+                    .document
+                    .tree
+                    .get(root_id)
+                    .ok_or_else(|| Error::Dom("invalid adopted shadow root".into()))?;
+                for descendant in root.descendants_it() {
+                    owners.insert(descendant.id, document);
+                }
+            }
         }
         Ok(())
     }

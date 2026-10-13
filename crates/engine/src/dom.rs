@@ -11,6 +11,8 @@ use crate::{Error, Limits, Result};
 mod attribute_nodes;
 #[path = "dom_documents.rs"]
 mod documents;
+#[path = "dom_shadow.rs"]
+mod shadow;
 
 #[derive(Clone, Copy)]
 enum Handle {
@@ -32,6 +34,7 @@ pub(crate) struct Dom {
     named: Option<NamedProperties>,
     attribute_nodes: attribute_nodes::Arena,
     documents: documents::Arena,
+    shadow: shadow::Arena,
     styles: HashMap<NodeId, crate::styles::Declarations>,
     computed_styles: HashMap<NodeId, crate::computed_style::Computed>,
     cascade: Option<std::rc::Rc<crate::cascade::Cascade>>,
@@ -70,6 +73,7 @@ impl Dom {
             named: None,
             attribute_nodes: attribute_nodes::Arena::default(),
             documents: documents::Arena::default(),
+            shadow: shadow::Arena::default(),
             styles: HashMap::new(),
             computed_styles: HashMap::new(),
             cascade: None,
@@ -160,6 +164,7 @@ impl Dom {
         if matches!(
             operation,
             "set"
+                | "attachShadow"
                 | "setAttr"
                 | "removeAttr"
                 | "setAttrNS"
@@ -214,8 +219,13 @@ impl Dom {
             return self.finish(&result, version);
         }
         let owner = self.sync_attribute_owner(operation, handle)?;
+        let fallback_slots = self.fallback_slot_targets(operation, handle, arg, value);
         let result = match operation {
             "newDocument" => self.new_document(handle, value)?,
+            "attachShadow" | "shadowRoot" | "shadowInfo" | "rootNode" | "shadowContains"
+            | "elementById" | "assignedSlot" | "slotNodes" | "slotChanges" => {
+                self.shadow_call(operation, handle, arg)?
+            }
             "attributeNode" => self.attribute_node_bridge(handle, arg, value)?,
             "cssom" => self.cssom_call(handle, arg, value)?,
             "styleSheet" => self.style_sheet(handle)?,
@@ -252,11 +262,7 @@ impl Dom {
             "relativeElement" => self.relative_element(handle, arg)?,
             "relativeNode" => self.relative_node(handle, arg)?,
             "createText" | "createComment" => self.create_character(handle, operation, value)?,
-            "createFragment" => {
-                let id = self.document.tree.create_node(NodeData::Fragment);
-                self.own_node(handle, id)?;
-                json!(self.handle(id))
-            }
+            "createFragment" => self.create_fragment(handle)?,
             "contains" => {
                 let descendant = arg
                     .parse::<usize>()
@@ -301,6 +307,7 @@ impl Dom {
         if let Some(owner) = owner {
             self.sync_attributes(owner);
         }
+        self.signal_fallback_slots(&fallback_slots);
         self.finish(&result, version)
     }
 
@@ -427,6 +434,7 @@ impl Dom {
 
     fn finish(&mut self, result: &Value, version: usize) -> Result<String> {
         if version != self.layout_version {
+            self.refresh_slots()?;
             let mut work = crate::layout::Work::new(
                 &mut self.operations,
                 self.limits.max_dom_operations,
@@ -501,6 +509,7 @@ impl Dom {
     }
 
     fn computed_style(&mut self, handle: usize, operation: &str, name: &str) -> Result<Value> {
+        self.shadow_style_guard(self.node_id(handle)?)?;
         let property_name = crate::styles::property_name(name);
         let name = property_name.as_str();
         let node_id = self.node_id(handle)?;
@@ -699,6 +708,17 @@ impl Dom {
     }
 
     fn ensure_layout(&mut self) -> Result<()> {
+        for root in self.shadow.roots.keys() {
+            let root = self.tree_root(*root, true)?;
+            if self
+                .document
+                .tree
+                .get(&root)
+                .is_some_and(|node| node.is_document())
+            {
+                return Err(Error::Unsupported("shadow style and geometry".into()));
+            }
+        }
         if self
             .layout
             .as_ref()
@@ -732,6 +752,7 @@ impl Dom {
     }
 
     fn bounds(&mut self, handle: usize) -> Result<Value> {
+        self.shadow_style_guard(self.node_id(handle)?)?;
         let target = self.node(handle)?;
         if !target.is_element() {
             return Err(Error::Dom("layout unsupported: non-element owner".into()));
@@ -813,6 +834,7 @@ impl Dom {
     }
 
     fn style_sheet(&mut self, handle: usize) -> Result<Value> {
+        self.shadow_style_guard(self.node_id(handle)?)?;
         let node = self.node(handle)?;
         if !(node.has_name("style") || node.has_name("link"))
             || node
@@ -1145,9 +1167,7 @@ impl Dom {
                 || child.is_fragment()
                 || child.is_doctype())
             || parent.id == child.id
-            || parent
-                .ancestors_it(None)
-                .any(|ancestor| ancestor.id == child.id)
+            || self.shadow_contains(child.id, parent.id)?
         {
             return Err(hierarchy_error());
         }
@@ -1241,22 +1261,31 @@ impl Dom {
     }
 
     fn custom_candidates(&mut self, handle: usize, name: &str) -> Result<Value> {
-        let root = self.node(handle)?;
-        let candidates: Vec<_> = std::iter::once(root)
-            .chain(root.descendants_it())
-            .filter_map(|node| {
-                node.query_or(None, |node| match &node.data {
-                    NodeData::Element(element)
-                        if element.name.ns.as_ref() == "http://www.w3.org/1999/xhtml"
-                            && element.name.local.contains('-')
-                            && (name.is_empty() || element.name.local.as_ref() == name) =>
-                    {
-                        Some(node.id)
-                    }
-                    _ => None,
-                })
+        let select = |node: NodeRef<'_>| {
+            node.query_or(None, |node| match &node.data {
+                NodeData::Element(element)
+                    if element.name.ns.as_ref() == "http://www.w3.org/1999/xhtml"
+                        && element.name.local.contains('-')
+                        && (name.is_empty() || element.name.local.as_ref() == name) =>
+                {
+                    Some(node.id)
+                }
+                _ => None,
             })
-            .collect();
+        };
+        let candidates: Vec<_> = if self.shadow.roots.is_empty() {
+            let root = self.node(handle)?;
+            std::iter::once(root)
+                .chain(root.descendants_it())
+                .filter_map(select)
+                .collect()
+        } else {
+            self.shadow_descendants(self.node_id(handle)?)?
+                .into_iter()
+                .filter_map(|id| self.document.tree.get(&id))
+                .filter_map(select)
+                .collect()
+        };
         Ok(json!(
             candidates
                 .into_iter()
@@ -1423,10 +1452,10 @@ impl Dom {
                 _ => Value::Null,
             }),
             "isConnected" => json!(
-                node.is_document()
-                    || node
-                        .ancestors_it(None)
-                        .any(|ancestor| ancestor.is_document())
+                self.document
+                    .tree
+                    .get(&self.tree_root(node.id, true)?)
+                    .is_some_and(|node| node.is_document())
             ),
             _ => return Err(Error::Dom(format!("unsupported property: {property}"))),
         })
@@ -1457,6 +1486,11 @@ impl Dom {
                 let text = self.document.tree.new_text(value);
                 node.append_child(&text.id);
             }
+            return Ok(());
+        }
+        if operation == "set" && property == "innerHTML" && self.shadow.roots.contains_key(&node.id)
+        {
+            node.set_html(value);
             return Ok(());
         }
         if !node.is_element() {

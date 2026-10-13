@@ -54,7 +54,26 @@
     )
       synchronizeLayoutFonts();
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    return JSON.parse(nativeDom(operation, id, arg, value)) as T;
+    const result = JSON.parse(nativeDom(operation, id, arg, value)) as T;
+    if (
+      shadowRoots.size > 0 &&
+      [
+        "attachShadow",
+        "set",
+        "setAttr",
+        "removeAttr",
+        "setAttrNS",
+        "removeAttrNS",
+        "append",
+        "insert",
+        "replace",
+        "remove",
+        "removeChild",
+        "attributeNode",
+      ].includes(operation)
+    )
+      queueSlotChanges();
+    return result;
   };
   // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
   const call = <T>(operation: string, id: number, arg = "", value = ""): T =>
@@ -63,6 +82,21 @@
   type Target = EventTarget | typeof globalThis;
   type Listener = ((this: Target, event: Event) => void) | { handleEvent(event: Event): void };
   type EventInit = { bubbles?: unknown; cancelable?: unknown; composed?: unknown };
+  type EventPathItem = { target: Target; adjusted: Target; closedRoots: number[] };
+  const shadowRoots = new Set<number>();
+  const signalSlots = new Set<Node>();
+  let slotMicrotask = false;
+  function queueSlotChanges(): void {
+    for (const id of raw<number[]>("slotChanges", 0)) signalSlots.add(node(id));
+    if (slotMicrotask || signalSlots.size === 0) return;
+    slotMicrotask = true;
+    queueMicrotask(() => {
+      slotMicrotask = false;
+      const slots = [...signalSlots];
+      signalSlots.clear();
+      for (const slot of slots) dispatch(slot, new Event("slotchange", { bubbles: true }), true);
+    });
+  }
   type EventState = {
     type: string;
     bubbles: boolean;
@@ -71,7 +105,7 @@
     target: Target | null;
     current: Target | null;
     phase: number;
-    path: Target[];
+    path: EventPathItem[];
     dispatching: boolean;
     stopped: boolean;
     immediate: boolean;
@@ -465,7 +499,11 @@
       state.immediate = true;
     }
     composedPath(): Target[] {
-      return [...eventState(this).path];
+      const state = eventState(this);
+      const current = state.path.find((item) => item.target === state.current);
+      return state.path
+        .filter((item) => item.closedRoots.every((root) => current?.closedRoots.includes(root)))
+        .map((item) => item.target);
     }
   }
   class CustomEvent extends Event {
@@ -520,15 +558,53 @@
     if (index !== -1) records.splice(index, 1);
     if (record.signal && record.abort) aborts.get(record.signal)?.algorithms.delete(record.abort);
   }
-  function eventPath(target: Target, type: string): Target[] {
+  function shadowRootOf(target: Target): number | null {
+    const id = ids.get(target);
+    if (shadowRoots.size === 0 || id === undefined || raw<number>("get", id, "nodeType") === 2)
+      return null;
+    const root = raw<number>("rootNode", id);
+    return raw("shadowInfo", root) === null ? null : root;
+  }
+  function shadowIncludes(root: number, target: Target | null): boolean {
+    const id = target === null ? undefined : ids.get(target);
+    return id !== undefined && raw<boolean>("shadowContains", root, String(id));
+  }
+  function retarget(original: Target, current: Target): Target {
+    let target = original;
+    for (let root = shadowRootOf(target); root !== null; root = shadowRootOf(target)) {
+      if (shadowIncludes(root, current)) break;
+      const info = raw<[number, string]>("shadowInfo", root);
+      target = node(info[0]);
+    }
+    return target;
+  }
+  function closedRootsOf(original: Target): number[] {
+    const roots: number[] = [];
+    let target = original;
+    for (let root = shadowRootOf(target); root !== null; root = shadowRootOf(target)) {
+      const info = raw<[number, string]>("shadowInfo", root);
+      if (info[1] === "closed") roots.push(root);
+      target = node(info[0]);
+    }
+    return roots;
+  }
+  function eventPath(target: Target, type: string, composed: boolean): Target[] {
     const path = [target];
-    let id = ids.get(target);
-    if (id !== undefined) {
-      let parent = call<number | null>("relativeNode", id, "parent");
-      while (parent !== null) {
+    const initialId = ids.get(target);
+    if (initialId !== undefined) {
+      let id: number = initialId;
+      const originRoot = shadowRoots.size === 0 ? null : raw<number>("rootNode", id);
+      while (true) {
+        let parent: number | null =
+          shadowRoots.size === 0 ? null : raw<number | null>("assignedSlot", id);
+        parent ??= call<number | null>("relativeNode", id, "parent");
+        if (parent === null) {
+          const shadow = shadowRoots.has(id) ? raw<[number, string]>("shadowInfo", id) : null;
+          if (!shadow || (!composed && id === originRoot)) break;
+          parent = shadow[0];
+        }
         path.push(node(parent));
         id = parent;
-        parent = call<number | null>("relativeNode", parent, "parent");
       }
       if (type !== "load" && call<number>("get", id, "nodeType") === 9) path.push(globalThis);
     }
@@ -555,11 +631,13 @@
       reporting = false;
     }
   }
-  function invoke(target: Target, event: Event, capture: boolean, phase: number) {
+  function invoke(item: EventPathItem, event: Event, capture: boolean, phase: number) {
+    const target = item.target;
     const state = eventState(event);
     if (state.stopped) return;
     state.current = target;
-    state.phase = phase;
+    state.target = item.adjusted;
+    state.phase = state.target === target ? 2 : phase;
     const records = listeners.get(target)?.get(state.type) ?? [];
     for (const record of records.slice()) {
       if (record.removed || record.capture !== capture) continue;
@@ -603,18 +681,31 @@
     state.dispatching = true;
     state.trusted = trusted;
     state.target = legacy ? document : target;
+    let finalTarget = state.target;
+    let clearTarget = false;
     try {
-      state.path = eventPath(target, state.type);
+      const original = legacy ? document : target;
+      state.path = eventPath(target, state.type, state.composed).map((current) => ({
+        target: current,
+        adjusted: retarget(original, current),
+        closedRoots: closedRootsOf(current),
+      }));
+      finalTarget = state.path.at(-1)?.adjusted ?? finalTarget;
+      clearTarget = shadowRootOf(finalTarget) !== null;
       for (let index = state.path.length - 1; index > 0; index--) {
         const current = state.path[index];
         if (current) invoke(current, event, true, 1);
       }
-      invoke(target, event, true, 2);
-      invoke(target, event, false, 2);
-      if (state.bubbles)
-        for (const current of state.path.slice(1)) invoke(current, event, false, 3);
+      const first = state.path[0];
+      if (first) {
+        invoke(first, event, true, 2);
+        invoke(first, event, false, 2);
+      }
+      for (const current of state.path.slice(1))
+        if (state.bubbles || current.adjusted === current.target) invoke(current, event, false, 3);
       return !state.canceled;
     } finally {
+      state.target = clearTarget ? null : finalTarget;
       state.dispatching = false;
       state.current = null;
       state.phase = 0;
@@ -1174,6 +1265,11 @@
     get isConnected(): boolean {
       return call("get", idOf(this), "isConnected");
     }
+    getRootNode(options: { composed?: unknown } | null = {}): Node {
+      const id = idOf(this);
+      if (call<number>("get", id, "nodeType") === 2) return this;
+      return node(call<number>("rootNode", id, options?.composed ? "composed" : ""));
+    }
     contains(other: Node | null): boolean {
       return other !== null && call("contains", idOf(this), String(idOf(other)));
     }
@@ -1274,6 +1370,16 @@
     });
   }
   class ParentNode extends Node {
+    protected relativeElement(relation: string): Element | null {
+      const id = call<number | null>("relativeElement", idOf(this), relation);
+      return id === null ? null : element(id);
+    }
+    get firstElementChild(): Element | null {
+      return this.relativeElement("first");
+    }
+    get lastElementChild(): Element | null {
+      return this.relativeElement("last");
+    }
     get children(): HTMLCollection {
       let list = elementLists.get(this);
       if (!list) {
@@ -1744,6 +1850,77 @@
     });
   }
   class Element extends ParentNode {
+    get assignedSlot(): HTMLSlotElement | null {
+      attributeElement(this);
+      return assignedSlot(this);
+    }
+    get slot(): string {
+      return this.getAttributeNS(null, "slot") ?? "";
+    }
+    set slot(value: unknown) {
+      this.setAttributeNS(null, "slot", domString(value));
+    }
+    attachShadow(init: unknown): ShadowRoot {
+      attributeElement(this);
+      const options = dictionary(init);
+      if (!options) throw new TypeError("ShadowRootInit requires a mode");
+      const mode = domString(Reflect.get(options, "mode"));
+      if (mode !== "open" && mode !== "closed") throw new TypeError("Invalid shadow root mode");
+      for (const key of ["clonable", "serializable", "delegatesFocus"])
+        if (Reflect.get(options, key))
+          throw new DOMException(`shadow ${key} is not implemented`, "NotSupportedError");
+      const assignment: unknown = Reflect.get(options, "slotAssignment");
+      if (assignment !== undefined) {
+        const converted = domString(assignment);
+        if (converted !== "named" && converted !== "manual")
+          throw new TypeError("Invalid slot assignment mode");
+        if (converted === "manual")
+          throw new DOMException("manual slot assignment is not implemented", "NotSupportedError");
+      }
+      const registry: unknown = Reflect.get(options, "customElementRegistry");
+      if (registry !== undefined && registry !== customElements)
+        throw new DOMException("scoped shadow registries are not implemented", "NotSupportedError");
+      const name = this.localName;
+      if (
+        this.namespaceURI !== "http://www.w3.org/1999/xhtml" ||
+        !(
+          validCustomName(name) ||
+          [
+            "article",
+            "aside",
+            "blockquote",
+            "body",
+            "div",
+            "footer",
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "h5",
+            "h6",
+            "header",
+            "main",
+            "nav",
+            "p",
+            "section",
+            "span",
+          ].includes(name)
+        )
+      )
+        throw new DOMException("element is not a valid shadow host", "NotSupportedError");
+      if (definitions.get(name)?.disableShadow)
+        throw new DOMException("custom element disables shadow roots", "NotSupportedError");
+      const root = node(call<number>("attachShadow", idOf(this), mode));
+      if (!(root instanceof ShadowRoot)) throw new TypeError("Expected ShadowRoot");
+      return root;
+    }
+    get shadowRoot(): ShadowRoot | null {
+      const id = call<number | null>("shadowRoot", attributeElement(this));
+      if (id === null) return null;
+      const root = node(id);
+      if (!(root instanceof ShadowRoot)) throw new TypeError("Expected ShadowRoot");
+      return root;
+    }
     insertAdjacentElement(where: unknown, value: unknown): Element | null {
       attributeElement(this);
       required(2, arguments.length);
@@ -1875,16 +2052,6 @@
     closest(selector: string): Element | null {
       const id = call<number | null>("closest", idOf(this), selector);
       return id === null ? null : element(id);
-    }
-    private relativeElement(relation: string): Element | null {
-      const id = call<number | null>("relativeElement", idOf(this), relation);
-      return id === null ? null : element(id);
-    }
-    get firstElementChild(): Element | null {
-      return this.relativeElement("first");
-    }
-    get lastElementChild(): Element | null {
-      return this.relativeElement("last");
     }
     get nextElementSibling(): Element | null {
       return this.relativeElement("next");
@@ -3458,6 +3625,7 @@
     constructor: CustomConstructor;
     prototype: object;
     observed: string[];
+    disableShadow: boolean;
     callbacks: Map<string, CustomCallback>;
     stack: { element: HTMLElement; consumed: boolean }[];
   };
@@ -3637,6 +3805,7 @@
       let prototype: object;
       const callbacks = new Map<string, CustomCallback>();
       let observed: string[];
+      let disableShadow: boolean;
       try {
         const candidate: unknown = constructor.prototype;
         if (
@@ -3664,7 +3833,9 @@
         observed = callbacks.has("attributeChangedCallback")
           ? stringSequence(Reflect.get(constructor, "observedAttributes"))
           : [];
-        stringSequence(Reflect.get(constructor, "disabledFeatures"));
+        disableShadow = stringSequence(Reflect.get(constructor, "disabledFeatures")).includes(
+          "shadow",
+        );
         if (Reflect.get(constructor, "formAssociated"))
           throw new DOMException(
             "form-associated custom elements are not implemented",
@@ -3682,6 +3853,7 @@
         prototype,
         callbacks,
         observed,
+        disableShadow,
         stack: [],
       };
       reactions(() => {
@@ -3806,11 +3978,15 @@
           raw<boolean>("get", idOf(target), "isConnected") &&
           customStates.get(target)?.status === "custom",
       );
+      const previousDocuments = new Map(before.map((target) => [target, target.ownerDocument]));
       const result = raw<T>(operation, id, arg, value);
       for (const target of connected) customCallback(target, "disconnectedCallback");
       const after = replacedContents ? customTree(id, false) : before;
       for (const target of after) {
         if (customStates.get(target)?.status === "custom") {
+          const previousDocument = previousDocuments.get(target);
+          if (previousDocument && previousDocument !== target.ownerDocument)
+            customCallback(target, "adoptedCallback", [previousDocument, target.ownerDocument]);
           if (raw<boolean>("get", idOf(target), "isConnected"))
             customCallback(target, "connectedCallback");
         } else if (replacedContents || raw<boolean>("get", idOf(target), "isConnected"))
@@ -3859,6 +4035,10 @@
     }
   }
   class Text extends CharacterData {
+    get assignedSlot(): HTMLSlotElement | null {
+      idOf(this);
+      return assignedSlot(this);
+    }
     constructor(data: string | number | null = "", key?: symbol, id?: number) {
       super(
         internal,
@@ -3886,6 +4066,7 @@
           if (name === "a") return new HTMLAnchorElement(internal, id);
           if (name === "link") return new HTMLLinkElement(internal, id);
           if (name === "iframe") return new HTMLIFrameElement(internal, id);
+          if (name === "slot") return new HTMLSlotElement(internal, id);
           return new HTMLElement(internal, id);
         }
         return namespace === "http://www.w3.org/2000/svg"
@@ -3903,6 +4084,7 @@
       case 10:
         return new DocumentType(internal, id);
       case 11:
+        if (raw("shadowInfo", id) !== null) return new ShadowRoot(internal, id);
         return new DocumentFragment(internal, id);
       default:
         return new Node(internal, id);
@@ -3910,6 +4092,13 @@
   }
 
   class DocumentFragment extends ParentNode {
+    getElementById(value: unknown): Element | null {
+      if (!(this instanceof DocumentFragment)) throw new TypeError("Illegal invocation");
+      if (arguments.length === 0) throw new TypeError("id is required");
+      const id = domString(value);
+      const result = call<number | null>("elementById", idOf(this), id);
+      return result === null ? null : element(result);
+    }
     append(...values: unknown[]): void {
       if (!(this instanceof DocumentFragment)) throw new TypeError("Illegal invocation");
       parentOperation(this, false, values);
@@ -3922,6 +4111,160 @@
     constructor(key?: symbol, id?: number) {
       super(internal, key === internal && id !== undefined ? id : call("createFragment", 0));
     }
+  }
+  function shadowState(root: object): [number, string] {
+    const info = raw<[number, string] | null>("shadowInfo", idOf(root));
+    if (!info) throw new TypeError("Illegal invocation");
+    return info;
+  }
+  function assignedSlot(target: Node): HTMLSlotElement | null {
+    const id = idOf(target);
+    const slot = shadowRoots.size === 0 ? null : raw<number | null>("assignedSlot", id, "open");
+    if (slot === null) return null;
+    const result = node(slot);
+    if (!(result instanceof HTMLSlotElement)) throw new TypeError("Expected HTMLSlotElement");
+    return result;
+  }
+  function slotId(target: object): number {
+    const id = attributeElement(target);
+    if (
+      raw<string>("get", id, "localName") !== "slot" ||
+      raw<string>("get", id, "namespaceURI") !== "http://www.w3.org/1999/xhtml"
+    )
+      throw new TypeError("Illegal invocation");
+    return id;
+  }
+  class HTMLSlotElement extends HTMLElement {
+    get name(): string {
+      return raw<string | null>("attrNS", slotId(this), JSON.stringify(["", "name"])) ?? "";
+    }
+    set name(value: unknown) {
+      slotId(this);
+      this.setAttributeNS(null, "name", domString(value));
+    }
+    assignedNodes(options: { flatten?: unknown } | null = {}): Node[] {
+      const id = slotId(this);
+      return raw<number[]>("slotNodes", id, options?.flatten ? "flatten" : "").map(node);
+    }
+    assignedElements(options: { flatten?: unknown } | null = {}): Element[] {
+      return raw<number[]>("slotNodes", slotId(this), options?.flatten ? "flatten" : "")
+        .filter((id) => raw<number>("get", id, "nodeType") === 1)
+        .map(element);
+    }
+    assign(): never {
+      slotId(this);
+      throw new DOMException("manual slot assignment is not implemented", "NotSupportedError");
+    }
+  }
+  Object.defineProperty(HTMLSlotElement.prototype, Symbol.toStringTag, {
+    value: "HTMLSlotElement",
+    configurable: true,
+  });
+  class ShadowRoot extends DocumentFragment {
+    constructor(key: symbol, id: number) {
+      if (key !== internal) throw new TypeError("Illegal constructor");
+      super(internal, id);
+      shadowRoots.add(id);
+    }
+    get host(): Element {
+      return element(shadowState(this)[0]);
+    }
+    get mode(): string {
+      return shadowState(this)[1];
+    }
+    get delegatesFocus(): boolean {
+      shadowState(this);
+      return false;
+    }
+    get clonable(): boolean {
+      shadowState(this);
+      return false;
+    }
+    get serializable(): boolean {
+      shadowState(this);
+      return false;
+    }
+    get slotAssignment(): string {
+      shadowState(this);
+      return "named";
+    }
+    get customElementRegistry(): CustomElementRegistry {
+      shadowState(this);
+      return customElements;
+    }
+    get innerHTML(): string {
+      shadowState(this);
+      return call("get", idOf(this), "innerHTML");
+    }
+    set innerHTML(value: unknown) {
+      shadowState(this);
+      call("set", idOf(this), "innerHTML", value === null ? "" : domString(value));
+    }
+    get adoptedStyleSheets(): never {
+      shadowState(this);
+      throw new DOMException("shadow stylesheets are not implemented", "NotSupportedError");
+    }
+    set adoptedStyleSheets(_value: unknown) {
+      shadowState(this);
+      throw new DOMException("shadow stylesheets are not implemented", "NotSupportedError");
+    }
+    get styleSheets(): never {
+      shadowState(this);
+      throw new DOMException("shadow stylesheets are not implemented", "NotSupportedError");
+    }
+  }
+  Object.defineProperty(ShadowRoot.prototype, Symbol.toStringTag, {
+    value: "ShadowRoot",
+    configurable: true,
+  });
+  for (const key of [
+    "host",
+    "mode",
+    "delegatesFocus",
+    "clonable",
+    "serializable",
+    "slotAssignment",
+    "customElementRegistry",
+    "innerHTML",
+    "adoptedStyleSheets",
+    "styleSheets",
+  ]) {
+    const descriptor = Object.getOwnPropertyDescriptor(ShadowRoot.prototype, key);
+    if (descriptor)
+      Object.defineProperty(ShadowRoot.prototype, key, { ...descriptor, enumerable: true });
+  }
+  type SlotHandler = (this: Target, event: Event) => unknown;
+  const slotHandlers = new WeakMap<object, SlotHandler>();
+  const slotHandlerListeners = new WeakMap<object, SlotHandler>();
+  for (const prototype of [ShadowRoot.prototype, HTMLSlotElement.prototype]) {
+    Object.defineProperty(prototype, "onslotchange", {
+      enumerable: true,
+      configurable: true,
+      get(this: ShadowRoot | HTMLSlotElement) {
+        if (prototype === ShadowRoot.prototype) shadowState(this);
+        else slotId(this);
+        return slotHandlers.get(this) ?? null;
+      },
+      set(this: ShadowRoot | HTMLSlotElement, value: unknown) {
+        if (prototype === ShadowRoot.prototype) shadowState(this);
+        else slotId(this);
+        if (typeof value !== "function") {
+          slotHandlers.delete(this);
+          const listener = slotHandlerListeners.get(this);
+          if (listener) this.removeEventListener("slotchange", listener);
+          slotHandlerListeners.delete(this);
+          return;
+        }
+        // Web IDL's callable event handler executes only in the page realm.
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        slotHandlers.set(this, value as SlotHandler);
+        if (!slotHandlerListeners.has(this)) {
+          const listener: SlotHandler = (event) => slotHandlers.get(this)?.call(this, event);
+          slotHandlerListeners.set(this, listener);
+          this.addEventListener("slotchange", listener);
+        }
+      },
+    });
   }
   function element(id: number): Element {
     const result = node(id);
@@ -4242,6 +4585,31 @@
       Object.defineProperty(Document.prototype, key, { ...descriptor, enumerable: true });
   }
   const document = new Document(internal, 0);
+  for (const [prototype, keys] of [
+    [Node.prototype, ["getRootNode"]],
+    [
+      Element.prototype,
+      [
+        "attachShadow",
+        "shadowRoot",
+        "assignedSlot",
+        "slot",
+        "firstElementChild",
+        "lastElementChild",
+      ],
+    ],
+    [Text.prototype, ["assignedSlot"]],
+    [DocumentFragment.prototype, ["getElementById", "firstElementChild", "lastElementChild"]],
+    [Document.prototype, ["firstElementChild", "lastElementChild"]],
+    [HTMLSlotElement.prototype, ["name", "assignedNodes", "assignedElements", "assign"]],
+  ] as const) {
+    for (const key of keys) {
+      const descriptor =
+        Object.getOwnPropertyDescriptor(prototype, key) ??
+        Object.getOwnPropertyDescriptor(ParentNode.prototype, key);
+      if (descriptor) Object.defineProperty(prototype, key, { ...descriptor, enumerable: true });
+    }
+  }
   nodes.set(0, document);
   targets.add(globalThis);
 
@@ -5911,6 +6279,7 @@
     HTMLStyleElement,
     HTMLLinkElement,
     HTMLIFrameElement,
+    HTMLSlotElement,
     SVGElement,
     DOMStringMap,
     CSSStyleDeclaration,
@@ -5927,6 +6296,7 @@
     XMLDocument,
     DOMImplementation,
     DocumentFragment,
+    ShadowRoot,
     DocumentType,
     NodeList,
     HTMLCollection,

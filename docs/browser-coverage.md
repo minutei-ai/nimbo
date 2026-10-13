@@ -551,7 +551,7 @@ evidence cannot establish it.
 | Modules, import maps, JSON modules, dynamic import   | Subset     | Native graphs tested; import maps, JSON and new dynamic fetching missing                                                                     |
 | Timers, animation frames and scheduling              | Subset     | Real-clock timers and animation callback batches tested; multi-realm frames, idle and full event loop pending                                |
 | Custom elements autônomos                            | Subset     | Native upgrades, lifecycle and failed construction; scoped/built-in/form gaps                                                                |
-| Shadow DOM                                           | Missing    | Slots, composed paths, shadow boundaries and isolation                                                                                       |
+| Shadow DOM                                           | Subset     | Owned imperative roots, isolated queries, named slots and composed events; scoped styles, flat-tree geometry and declarative parsing pending |
 | Frames and independent execution worlds              | Missing    | Same/cross-origin frames, navigation, world isolation                                                                                        |
 | Fetch and HTTP navigation                            | Subset     | Real GET/POST, cookies, redirects, bodies; full headers/abort/streams                                                                        |
 | XMLHttpRequest, forms, files and binary responses    | Partial    | Binary fetch body reads verified below; uploads, XHR, files, progress and cancellation remain                                                |

@@ -39,6 +39,7 @@ for Worker JSON, native usage and shared timeout/resource semantics.
 - Navigation, redirects, cookies, page fetch and isolated page state.
 - Classic scripts, supported modules, Promises, timers and animation callbacks.
 - DOM queries, mutations, events, storage and selected browser interfaces.
+- Bounded imperative [Shadow DOM extraction](docs/shadow-dom.md), named slots and composed events.
 - CSS cascade, computed styles, block/flex/grid geometry, translations and bounded text layout.
 - Software OffscreenCanvas operations and native font metrics.
 

@@ -30,6 +30,13 @@ automation, profiling and Worker peak allocation evidence remain open.
 
 Exit: each supported application completes hydration, a state update and extraction through real HTTP. New contracts have independent Chromium comparisons; unsupported APIs produce documented failures.
 
+Implemented subset: [owned Shadow DOM](docs/shadow-dom.md) adds imperative
+open/closed roots, isolated queries, native connection/adoption, named slots,
+composed event retargeting and custom-element reactions. Its 57 synthetic
+contracts passed native HTTP, Worker/Wasm and independent Chromium comparisons.
+Declarative parsing, scoped styles/flat-tree geometry, wider form/observer
+compatibility and representative framework applications remain open.
+
 ## 0.4 — Scripts and page readiness
 
 - Extend module resolution/loading and cyclic module coverage without exposing host modules.

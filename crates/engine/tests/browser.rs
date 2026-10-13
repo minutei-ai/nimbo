@@ -263,7 +263,25 @@ fn serve_readiness(request: Request) -> io::Result<()> {
     respond(request, body, 200, "text/html", Vec::new())
 }
 
+fn serve_shadow(request: Request) -> io::Result<()> {
+    let variant = request
+        .url()
+        .split('/')
+        .next_back()
+        .unwrap_or("0")
+        .parse::<u32>()
+        .map_err(io::Error::other)?;
+    let body = format!(
+        "<!doctype html><body><script>const variant={variant};{}</script>",
+        include_str!("fixtures/shadow-dom.txt")
+    );
+    respond(request, body, 200, "text/html", Vec::new())
+}
+
 fn serve(mut request: Request) -> io::Result<()> {
+    if request.url().starts_with("/shadow-dom/") {
+        return serve_shadow(request);
+    }
     if matches!(request.url(), "/readiness" | "/readiness-data") {
         return serve_readiness(request);
     }
@@ -4309,5 +4327,23 @@ fn readiness_timeout_starts_at_the_native_wait_call() -> TestResult {
         timeout_ms: 20,
         poll_interval_ms: 5,
     })?;
+    Ok(())
+}
+
+#[test]
+fn shadow_dom_roots_slots_events_and_lifecycle_use_real_http() -> TestResult {
+    let fixture = Fixture::new()?;
+    for variant in 0..64 {
+        let page = fixture
+            .browser()?
+            .navigate(&fixture.path(&format!("/shadow-dom/{variant}")))?;
+        let result = page.evaluate("comparison")?;
+        let checks = result.as_object().ok_or("missing shadow contracts")?;
+        assert_eq!(checks.len(), 57);
+        assert!(
+            checks.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
     Ok(())
 }
