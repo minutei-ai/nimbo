@@ -192,6 +192,27 @@ test("invalid DOM budgets fail before origin HTTP", async () => {
   );
 });
 
+test("large attribute counts remain live under default Worker budgets", async () => {
+  const source = await Bun.file(
+    join(root, "crates/engine/tests/fixtures/attribute-count.txt"),
+  ).text();
+  await fixture(
+    () => html("<body>fresh</body>"),
+    async (worker) => {
+      const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+        method: "POST",
+        headers: { authorization: "Bearer test-secret" },
+        body: JSON.stringify({
+          url: originFor(worker),
+          expression: `(()=>{${source};const map=attributeCountSetup(16000).attributes;for(let i=0;i<512;i++)if(map.length!==16000)return false;return Object.values(attributeCountCase(0)).every(Boolean)})()`,
+        }),
+      });
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({ value: true });
+    },
+  );
+});
+
 test("native fragment parsing preserves browser recovery and detached references", async () => {
   const source = await Bun.file(join(root, "crates/engine/tests/fixtures/dom-arena.txt")).text();
   await fixture(

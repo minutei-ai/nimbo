@@ -3079,6 +3079,34 @@ fn initial_dom_node_limits_reject_before_scripts_and_recover_over_http() -> Test
 }
 
 #[test]
+fn attribute_counts_avoid_materializing_handles_and_remain_live() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    let source = include_str!("fixtures/attribute-count.txt");
+    assert_eq!(
+        page.evaluate(&format!(
+            "(()=>{{{source};globalThis.countedAttributes=attributeCountSetup(4000).attributes;return true}})()"
+        ))?,
+        json!(true)
+    );
+    let before = page.diagnostics();
+    assert_eq!(
+        page.evaluate("(()=>{for(let i=0;i<512;i++)if(countedAttributes.length!==4000)return false;return true})()")?,
+        json!(true)
+    );
+    let after = page.diagnostics();
+    assert_eq!(after.dom_handle_count, before.dom_handle_count);
+    assert_eq!(after.dom_write_bytes, before.dom_write_bytes);
+    assert_eq!(
+        page.evaluate(&format!(
+            "(()=>{{{source};return Object.values(attributeCountCase(0)).every(Boolean)}})()"
+        ))?,
+        json!(true)
+    );
+    Ok(())
+}
+
+#[test]
 fn native_fragment_parsing_preserves_recovery_and_detached_references() -> TestResult {
     let fixture = Fixture::new()?;
     let page = fixture.browser()?.navigate(&fixture.path("/static"))?;

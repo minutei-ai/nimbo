@@ -144,6 +144,9 @@ impl Dom {
     ) -> Result<Value> {
         match operation {
             "new" | "newNS" => self.create_attribute_node(handle, operation, value),
+            "length" => Ok(json!(self.node(handle)?.query_or(0, |node| {
+                node.as_element().map_or(0, |element| element.attrs.len())
+            }))),
             "list" | "named" | "ns" => self.attribute_node_lookup(handle, operation, value),
             "attach" => self.attach_attribute_node(handle, value),
             "remove" => self.remove_attribute_node(handle, value),

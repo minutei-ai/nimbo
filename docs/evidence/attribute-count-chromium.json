@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-13",
+  "fixture": "crates/engine/tests/fixtures/attribute-count.txt",
+  "scope": "64 fresh HTTP pages; live NamedNodeMap counts, attribute identity, removal, attachment, replacement and receiver checks; default budgets",
+  "fixture_sha256": "fbbae139ec9bb7e202746b2a1a80ac7faef437f112074107dbb353bc02b1eb4d",
+  "runtimes": [
+    {
+      "runtime": "Google Chrome 155.0.8059.39",
+      "pages": 64,
+      "checks_per_page": 6,
+      "all_passed": true
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "pages": 64,
+      "checks_per_page": 6,
+      "all_passed": true
+    }
+  ]
+}

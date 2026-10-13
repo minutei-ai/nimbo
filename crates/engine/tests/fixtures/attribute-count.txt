@@ -1,0 +1,20 @@
+function attributeCountSetup(count) {
+ const parent=document.createElement('div');
+ parent.innerHTML='<i '+Array.from({length:count},(_,i)=>'a'+i+'="'+i+'"').join(' ')+'></i>';
+ return parent.firstChild;
+}
+function attributeCountCase(variant) {
+ const count=256+variant,d=attributeCountSetup(count),map=d.attributes,checks={};
+ checks.count=map.length===count && d.attributes===map;
+ const first=d.getAttributeNode('a0');
+ checks.identity=map.length===count && map.item(0)===first && map.getNamedItem('a0')===first;
+ d.removeAttributeNode(first);
+ checks.removal=map.length===count-1 && first.ownerElement===null && first.value==='0';
+ d.setAttributeNode(first);d.setAttribute('new','x');
+ checks.attachment=map.length===count+1 && first.ownerElement===d && map.getNamedItem('a0')===first;
+ d.setAttribute('new','y');
+ checks.replacement=map.length===count+1 && d.getAttribute('new')==='y';
+ let rejected=false;try{Object.getOwnPropertyDescriptor(NamedNodeMap.prototype,'length').get.call({});}catch(e){rejected=e instanceof TypeError;}
+ checks.receiver=rejected;
+ return checks;
+}

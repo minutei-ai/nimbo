@@ -31,6 +31,9 @@ identifier array at every index while observing native mutation versions.
 trees between native parser blocks and limits stored recovery diagnostics.
 [Cumulative arena accounting](docs/dom-arena-budget.md) also bounds removed nodes,
 script factories and native HTML replacement fragments while preserving identity.
+[Native attribute counts](docs/attribute-count-memory.md) avoid materializing
+attribute handles for `NamedNodeMap.length`, with independent comparisons and
+three-round local memory evidence.
 
 ## 0.3 — DOM and application compatibility
 

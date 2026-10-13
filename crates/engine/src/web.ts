@@ -1094,7 +1094,7 @@
       if (key !== internal) throw new TypeError("Illegal constructor");
     }
     get length(): number {
-      return collectionState(this).resolve().length;
+      return raw<number>("attributeNode", attributeElement(mapOwner(this)), "length");
     }
     item(index: number): Attr | null {
       required(1, arguments.length);

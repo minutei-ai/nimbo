@@ -1,0 +1,231 @@
+{
+  "version": 1,
+  "host": "celld 0.6.1; one isolate per build per round",
+  "baseline_commit": "92c6f27",
+  "scope": "Local three-round A/B, unchanged synthetic HTML and default limits; linear capacity, not allocator peak or total Worker memory; latency includes HTTP and parsing",
+  "hardware": {
+    "platform": "linux",
+    "arch": "x64",
+    "cpu": "Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz",
+    "logical_cpus": 28
+  },
+  "runs": [
+    {
+      "runtime": "baseline",
+      "round": 0,
+      "wasm_sha256": "b3861b9d16c534dc48f6b718b2fa41f9dd830931c60f8d821713a5df6f39ec1f",
+      "initial_linear_bytes": 6684672,
+      "rows": [
+        {
+          "attributes": 1000,
+          "status": 200,
+          "correct": true,
+          "elapsed_ms": 186.205375,
+          "linear_bytes": 7995392
+        },
+        {
+          "attributes": 4000,
+          "status": 200,
+          "correct": true,
+          "elapsed_ms": 286.68208000000004,
+          "linear_bytes": 9109504
+        },
+        {
+          "attributes": 16000,
+          "status": 200,
+          "correct": true,
+          "elapsed_ms": 4019.342755,
+          "linear_bytes": 13893632
+        },
+        {
+          "attributes": 1000,
+          "status": 200,
+          "correct": true,
+          "elapsed_ms": 52.84097800000018,
+          "linear_bytes": 13893632
+        }
+      ]
+    },
+    {
+      "runtime": "candidate",
+      "round": 0,
+      "wasm_sha256": "85a0c506730872df6856de155dfa69cd6a2572f29989bfb4440373d8148e38c1",
+      "initial_linear_bytes": 6684672,
+      "rows": [
+        {
+          "attributes": 1000,
+          "status": 200,
+          "correct": true,
+          "elapsed_ms": 117.83920399999988,
+          "linear_bytes": 7602176
+        },
+        {
+          "attributes": 4000,
+          "status": 200,
+          "correct": true,
+          "elapsed_ms": 102.74626699999953,
+          "linear_bytes": 7995392
+        },
+        {
+          "attributes": 16000,
+          "status": 200,
+          "correct": true,
+          "elapsed_ms": 610.8655690000005,
+          "linear_bytes": 9764864
+        },
+        {
+          "attributes": 1000,
+          "status": 200,
+          "correct": true,
+          "elapsed_ms": 28.925838000000113,
+          "linear_bytes": 9764864
+        }
+      ]
+    },
+    {
+      "runtime": "baseline",
+      "round": 1,
+      "wasm_sha256": "b3861b9d16c534dc48f6b718b2fa41f9dd830931c60f8d821713a5df6f39ec1f",
+      "initial_linear_bytes": 6684672,
+      "rows": [
+        {
+          "attributes": 1000,
+          "status": 200,
+          "correct": true,
+          "elapsed_ms": 151.02096100000017,
+          "linear_bytes": 7995392
+        },
+        {
+          "attributes": 4000,
+          "status": 200,
+          "correct": true,
+          "elapsed_ms": 308.9685609999997,
+          "linear_bytes": 9109504
+        },
+        {
+          "attributes": 16000,
+          "status": 200,
+          "correct": true,
+          "elapsed_ms": 4047.5847360000007,
+          "linear_bytes": 13893632
+        },
+        {
+          "attributes": 1000,
+          "status": 200,
+          "correct": true,
+          "elapsed_ms": 44.8487980000009,
+          "linear_bytes": 13893632
+        }
+      ]
+    },
+    {
+      "runtime": "candidate",
+      "round": 1,
+      "wasm_sha256": "85a0c506730872df6856de155dfa69cd6a2572f29989bfb4440373d8148e38c1",
+      "initial_linear_bytes": 6684672,
+      "rows": [
+        {
+          "attributes": 1000,
+          "status": 200,
+          "correct": true,
+          "elapsed_ms": 173.968264000001,
+          "linear_bytes": 7602176
+        },
+        {
+          "attributes": 4000,
+          "status": 200,
+          "correct": true,
+          "elapsed_ms": 61.63747700000022,
+          "linear_bytes": 7995392
+        },
+        {
+          "attributes": 16000,
+          "status": 200,
+          "correct": true,
+          "elapsed_ms": 601.0546080000004,
+          "linear_bytes": 9764864
+        },
+        {
+          "attributes": 1000,
+          "status": 200,
+          "correct": true,
+          "elapsed_ms": 15.043231999999989,
+          "linear_bytes": 9764864
+        }
+      ]
+    },
+    {
+      "runtime": "baseline",
+      "round": 2,
+      "wasm_sha256": "b3861b9d16c534dc48f6b718b2fa41f9dd830931c60f8d821713a5df6f39ec1f",
+      "initial_linear_bytes": 6684672,
+      "rows": [
+        {
+          "attributes": 1000,
+          "status": 200,
+          "correct": true,
+          "elapsed_ms": 134.50025399999868,
+          "linear_bytes": 7995392
+        },
+        {
+          "attributes": 4000,
+          "status": 200,
+          "correct": true,
+          "elapsed_ms": 298.5822769999977,
+          "linear_bytes": 9109504
+        },
+        {
+          "attributes": 16000,
+          "status": 200,
+          "correct": true,
+          "elapsed_ms": 3798.711900000002,
+          "linear_bytes": 13893632
+        },
+        {
+          "attributes": 1000,
+          "status": 200,
+          "correct": true,
+          "elapsed_ms": 52.04983899999934,
+          "linear_bytes": 13893632
+        }
+      ]
+    },
+    {
+      "runtime": "candidate",
+      "round": 2,
+      "wasm_sha256": "85a0c506730872df6856de155dfa69cd6a2572f29989bfb4440373d8148e38c1",
+      "initial_linear_bytes": 6684672,
+      "rows": [
+        {
+          "attributes": 1000,
+          "status": 200,
+          "correct": true,
+          "elapsed_ms": 161.42286599999716,
+          "linear_bytes": 7602176
+        },
+        {
+          "attributes": 4000,
+          "status": 200,
+          "correct": true,
+          "elapsed_ms": 87.44169899999906,
+          "linear_bytes": 7995392
+        },
+        {
+          "attributes": 16000,
+          "status": 200,
+          "correct": true,
+          "elapsed_ms": 672.9547209999982,
+          "linear_bytes": 9764864
+        },
+        {
+          "attributes": 1000,
+          "status": 200,
+          "correct": true,
+          "elapsed_ms": 29.115955000001122,
+          "linear_bytes": 9764864
+        }
+      ]
+    }
+  ],
+  "fixture": "One div with id=target and a0=x through aN=x; expression tests attributes.length against N+1"
+}
