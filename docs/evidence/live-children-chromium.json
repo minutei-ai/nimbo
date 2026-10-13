@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-13",
+  "fixture": "crates/engine/tests/fixtures/large-dom.txt",
+  "fixture_sha256": "5a258dfa725938f2d7dc027113266b2e873d6a7ba6e7133b77399dfe1dacba7c",
+  "scope": "64 fresh 5000-element HTTP pages; live child counts, lazy indexed identity and text/element mutations; default budgets",
+  "results": [
+    {
+      "runtime": "Google Chrome 155.0.8059.39",
+      "passed": 64,
+      "failed": 0,
+      "checks": 512
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "passed": 64,
+      "failed": 0,
+      "checks": 512
+    }
+  ]
+}

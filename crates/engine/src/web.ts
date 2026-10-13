@@ -1234,7 +1234,7 @@
       let list = childLists.get(this);
       if (!list) {
         list = makeCollection(new NodeList(internal), () =>
-          call<number[]>("children", idOf(this), "nodes").map(node),
+          call<number[]>("children", idOf(this), "nodes"),
         );
         childLists.set(this, list);
       }
@@ -1405,7 +1405,7 @@
       if (!list) {
         list = makeCollection(
           new HTMLCollection(internal),
-          () => call<number[]>("children", idOf(this), "elements").map(element),
+          () => call<number[]>("children", idOf(this), "elements"),
           true,
         );
         elementLists.set(this, list);

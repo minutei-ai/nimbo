@@ -5690,6 +5690,30 @@ test.each([
   },
 );
 
+test("real HTTP → workerd → Wasm: large live child collections at default budgets", async () => {
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url: new URL("large-dom/live-children", origin.url).href,
+      expression: "largeLiveChildrenCase()",
+    }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
+    value: {
+      counts: true,
+      collections: true,
+      first: true,
+      last: true,
+      removal: true,
+      text: true,
+      insertion: true,
+      retained: true,
+    },
+  });
+});
+
 test.each(Array.from({ length: 64 }, (_, variant) => variant))(
   "real HTTP → workerd → Wasm: 5000-row DOM and JavaScript variant %i",
   async (variant) => {

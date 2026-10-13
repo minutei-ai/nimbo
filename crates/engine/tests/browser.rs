@@ -2998,6 +2998,21 @@ fn native_adopted_stylesheets_real_http() -> TestResult {
 }
 
 #[test]
+fn live_children_counts_and_mutations_fit_default_budgets() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    let page = browser.navigate(&fixture.path("/large-dom/live-children"))?;
+    let result = page.evaluate("largeLiveChildrenCase()")?;
+    let checks = result.as_object().ok_or("missing collection checks")?;
+    assert_eq!(checks.len(), 8);
+    assert!(
+        checks.values().all(|check| *check == json!(true)),
+        "{result}"
+    );
+    Ok(())
+}
+
+#[test]
 fn native_large_dom_js_real_http() -> TestResult {
     let fixture = Fixture::new()?;
     let browser = fixture.browser()?;

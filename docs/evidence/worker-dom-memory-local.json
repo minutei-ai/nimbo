@@ -1,0 +1,137 @@
+{
+  "version": 1,
+  "runtime": "celld 0.6.1",
+  "scope": "one local isolate per workload; Wasm linear capacity, not allocator peak or total Worker memory",
+  "baseline_commit": "c813494",
+  "baseline_wasm_sha256": "f37d70671834282df730b42caa967b1a7778846d57911c9a612605f1d2fa4820",
+  "candidate_wasm_sha256": "108f068a2b8a0152fd0ea2490ab71bae4f94e33774596e43ad5d02b7b7d2314e",
+  "html": "<!doctype html><body> followed by repeated <i></i>",
+  "parse_expression": "document.body.nodeName===\"BODY\"",
+  "query_expression": "document.body.children.length === node_count",
+  "default_budgets": true,
+  "reports": [
+    {
+      "workload": "parse_baseline",
+      "initial_linear_bytes": 6684672,
+      "rows": [
+        {
+          "nodes": 5000,
+          "status": 200,
+          "correct": true,
+          "error": null,
+          "linear_bytes": 9240576
+        },
+        {
+          "nodes": 20000,
+          "status": 200,
+          "correct": true,
+          "error": null,
+          "linear_bytes": 14090240
+        },
+        {
+          "nodes": 50000,
+          "status": 200,
+          "correct": true,
+          "error": null,
+          "linear_bytes": 20447232
+        },
+        {
+          "nodes": 50000,
+          "status": 200,
+          "correct": true,
+          "error": null,
+          "linear_bytes": 20447232
+        },
+        {
+          "nodes": 5000,
+          "status": 200,
+          "correct": true,
+          "error": null,
+          "linear_bytes": 20447232
+        }
+      ]
+    },
+    {
+      "workload": "query_baseline",
+      "initial_linear_bytes": 6684672,
+      "rows": [
+        {
+          "nodes": 5000,
+          "status": 422,
+          "correct": false,
+          "error": "DOM operation limit",
+          "linear_bytes": 10682368
+        },
+        {
+          "nodes": 20000,
+          "status": 422,
+          "correct": false,
+          "error": "DOM operation limit",
+          "linear_bytes": 15663104
+        },
+        {
+          "nodes": 50000,
+          "status": 422,
+          "correct": false,
+          "error": "DOM operation limit",
+          "linear_bytes": 22282240
+        },
+        {
+          "nodes": 50000,
+          "status": 422,
+          "correct": false,
+          "error": "DOM operation limit",
+          "linear_bytes": 22282240
+        },
+        {
+          "nodes": 5000,
+          "status": 422,
+          "correct": false,
+          "error": "DOM operation limit",
+          "linear_bytes": 22282240
+        }
+      ]
+    },
+    {
+      "workload": "query_candidate",
+      "initial_linear_bytes": 6684672,
+      "rows": [
+        {
+          "nodes": 5000,
+          "status": 200,
+          "correct": true,
+          "error": null,
+          "linear_bytes": 9306112
+        },
+        {
+          "nodes": 20000,
+          "status": 200,
+          "correct": true,
+          "error": null,
+          "linear_bytes": 14680064
+        },
+        {
+          "nodes": 50000,
+          "status": 200,
+          "correct": true,
+          "error": null,
+          "linear_bytes": 21889024
+        },
+        {
+          "nodes": 50000,
+          "status": 200,
+          "correct": true,
+          "error": null,
+          "linear_bytes": 21889024
+        },
+        {
+          "nodes": 5000,
+          "status": 200,
+          "correct": true,
+          "error": null,
+          "linear_bytes": 21889024
+        }
+      ]
+    }
+  ]
+}

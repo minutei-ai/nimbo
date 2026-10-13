@@ -6,3 +6,19 @@ function largeDomCase(v) {
  first.remove();
  return {value,changed,count:snapshot.length,keys,retained:snapshot[0]===first,remaining:document.querySelectorAll('.entry').length,last:last.textContent};
 }
+function largeLiveChildrenCase() {
+ const parent=document.querySelector('ul'),elements=parent.children,children=parent.childNodes;
+ const checks={counts:elements.length===5000 && children.length===5000,
+  collections:parent.children===elements && parent.childNodes===children};
+ const first=elements[0],last=elements.item(4999);
+ checks.first=first===parent.firstElementChild && first===children.item(0);
+ checks.last=last===parent.lastElementChild && last===children[4999];
+ first.remove();
+ checks.removal=elements.length===4999 && children.length===4999 && elements[0]===children[0];
+ parent.appendChild(document.createTextNode('tail'));
+ checks.text=elements.length===4999 && children.length===5000 && children[4999].nodeType===3;
+ parent.appendChild(first);
+ checks.insertion=elements.length===5000 && children.length===5001 && elements[4999]===first && children[5000]===first;
+ checks.retained=first.parentNode===parent && last===elements[4998];
+ return checks;
+}

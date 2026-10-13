@@ -23,6 +23,8 @@ automation, profiling and Worker peak allocation evidence remain open.
 [Binary response ownership](docs/worker-memory.md) avoids numeric JSON arrays
 and a second Rust buffer; a local single-isolate probe records reduced Wasm
 linear capacity under the same synthetic byte workload and default budgets.
+[Lazy live child collections](docs/live-collection-memory.md) remove eager
+wrapper allocation for counts, preserving indexed identity and mutations.
 
 ## 0.3 — DOM and application compatibility
 
