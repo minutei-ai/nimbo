@@ -32,6 +32,9 @@ export const Input = Schema.Struct({
   url: Schema.String,
   expression: Schema.String,
   diagnostics: Schema.optional(Schema.Boolean),
+  maxInitialDomNodes: Schema.optional(
+    Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 65536 })),
+  ),
   media: Schema.optional(Media),
   maxStylesheetBytes: Schema.optional(
     Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 2 * 1024 * 1024 })),

@@ -136,6 +136,60 @@ test("invalid diagnostic flags fail before origin HTTP", async () => {
   );
 });
 
+test("initial DOM limits reject dense input and recover with fresh page state", async () => {
+  await fixture(
+    (request) =>
+      html(
+        new URL(request.url).pathname === "/dense"
+          ? "<p>".repeat(100000) + "<script>globalThis.poisoned=true</script>"
+          : "<body>fresh</body>",
+      ),
+    async (worker) => {
+      const run = (path: string, maxInitialDomNodes?: number) =>
+        worker.dispatchFetch("https://nimbo.test/scrape", {
+          method: "POST",
+          headers: { authorization: "Bearer test-secret" },
+          body: JSON.stringify({
+            url: new URL(path, originFor(worker)).href,
+            expression: "typeof poisoned",
+            maxInitialDomNodes,
+          }),
+        });
+      const rejected = await run("/dense");
+      expect(rejected.status).toBe(422);
+      expect(await json(rejected)).toMatchObject({ error: "resource limit: initial DOM nodes" });
+      const configured = await run("/", 4);
+      expect(configured.status).toBe(422);
+      const recovered = await run("/", 5);
+      expect(recovered.status).toBe(200);
+      expect(await json(recovered)).toMatchObject({ value: "undefined" });
+    },
+  );
+});
+
+test("invalid initial DOM budgets fail before origin HTTP", async () => {
+  let requests = 0;
+  await fixture(
+    () => {
+      requests++;
+      return html("<body>fresh</body>");
+    },
+    async (worker) => {
+      for (const maxInitialDomNodes of [0, -1, 65537, 1.5, "5", null]) {
+        // Check each rejected configuration before checking the origin counter.
+        // oxlint-disable-next-line eslint/no-await-in-loop
+        const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+          method: "POST",
+          headers: { authorization: "Bearer test-secret" },
+          body: JSON.stringify({ url: originFor(worker), expression: "true", maxInitialDomNodes }),
+        });
+        expect(response.status).toBe(400);
+      }
+      expect(requests).toBe(0);
+    },
+  );
+});
+
 test("workerd loads Rust Wasm and executes inline JS, lifecycle and DOM selectors", async () => {
   await fixture(
     () =>

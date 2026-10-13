@@ -68,10 +68,11 @@ impl Dom {
         limits: Limits,
         media: crate::MediaEnvironment,
         base: url::Url,
-    ) -> Self {
-        let document = Document::from(html);
+        check: &dyn Fn() -> Result<()>,
+    ) -> Result<Self> {
+        let document = crate::html_parse::document(html, limits.max_initial_dom_nodes, check)?;
         let root = document.root().id;
-        Self {
+        Ok(Self {
             document,
             fonts: std::rc::Rc::default(),
             handles: vec![Handle::Node(root)],
@@ -101,7 +102,7 @@ impl Dom {
             writes: 0,
             limits,
             media,
-        }
+        })
     }
 
     pub(crate) fn resource_usage(&self) -> (usize, usize, usize) {

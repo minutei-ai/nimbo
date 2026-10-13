@@ -30,6 +30,7 @@ mod font_matching;
 mod font_settings;
 mod fonts;
 mod html_boxes;
+mod html_parse;
 mod import_maps;
 mod layers;
 mod layout;
@@ -91,6 +92,8 @@ pub struct Limits {
     pub timeout: Duration,
     /// Soma máxima dos bytes de resposta recebidos durante uma navegação.
     pub max_response_bytes: usize,
+    /// Maximum nodes allocated while parsing the initial document, including template fragments.
+    pub max_initial_dom_nodes: usize,
     /// Bytes máximos por stylesheet e no conjunto de stylesheets ativos/carregados.
     pub max_stylesheet_bytes: usize,
     /// Requests físicos máximos, contando redirects e subrequests.
@@ -117,6 +120,7 @@ impl Default for Limits {
             max_expression_bytes: 64 * 1024,
             timeout: Duration::from_secs(10),
             max_response_bytes: 2 * 1024 * 1024,
+            max_initial_dom_nodes: 65_536,
             max_stylesheet_bytes: 256 * 1024,
             max_requests: 32,
             max_dom_operations: 10_000,

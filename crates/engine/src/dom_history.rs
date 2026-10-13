@@ -495,7 +495,8 @@ mod tests {
             crate::Limits::default(),
             crate::MediaEnvironment::default(),
             origin,
-        );
+            &|| Ok(()),
+        )?;
         dom.call("history", 0, "push", r#"["state","/new/page"]"#)?;
         assert_eq!(
             dom.base_href()?.as_deref(),
@@ -529,7 +530,8 @@ mod tests {
             crate::Limits::default(),
             crate::MediaEnvironment::default(),
             origin,
-        );
+            &|| Ok(()),
+        )?;
         let (link, url) = dom.next_sheet()?.ok_or("missing stylesheet")?;
         assert_eq!(url, "https://example.test/original/style.css");
         dom.sheet_response(link, url, None)?;

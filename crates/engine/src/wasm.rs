@@ -28,6 +28,7 @@ impl WasmPage {
     /// `max_stylesheet_bytes` configura o orçamento CSS, até o teto de resposta padrão.
     /// `max_layout_nodes` configura visitas por coleta CSS/layout, de 1 até 4096.
     /// `max_dom_operations` configures shared DOM/CSS work, from 1 through 1,000,000.
+    /// `max_initial_dom_nodes` can lower the initial parser's 65,536-node budget.
     ///
     /// # Errors
     /// Retorna falha de URL, HTML, scripts, alocação ou inicialização do motor.
@@ -45,6 +46,7 @@ impl WasmPage {
         max_layout_nodes: Option<usize>,
         cookies: Option<WasmCookies>,
         max_dom_operations: Option<usize>,
+        max_initial_dom_nodes: Option<usize>,
     ) -> Result<Self, String> {
         let media: MediaEnvironment = media
             .map_or_else(
@@ -54,6 +56,12 @@ impl WasmPage {
             .map_err(|error| error.to_string())?;
         media.validate().map_err(|error| error.to_string())?;
         let mut limits = Limits::default();
+        if let Some(nodes) = max_initial_dom_nodes {
+            if nodes == 0 || nodes > limits.max_initial_dom_nodes {
+                return Err("resource limit: invalid initial DOM node configuration".into());
+            }
+            limits.max_initial_dom_nodes = nodes;
+        }
         if let Some(bytes) = max_stylesheet_bytes {
             if bytes == 0 || bytes > limits.max_response_bytes {
                 return Err("resource limit: invalid stylesheet byte configuration".into());

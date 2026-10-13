@@ -16,6 +16,7 @@ cookie_store = { version = "=0.22.1", default-features = false }
 psl = "=2.1.239"
 cssparser = "=0.37.0"
 dom_query = { version = "=0.28.0", default-features = false }
+html5ever = "=0.39.0"
 encoding_rs = "=0.8.42"
 icu_casemap = "=2.3.0"
 icu_properties = "=2.3.0"

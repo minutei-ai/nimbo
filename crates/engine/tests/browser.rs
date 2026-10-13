@@ -3050,6 +3050,35 @@ fn live_collection_iterations_observe_native_mutation_versions() -> TestResult {
 }
 
 #[test]
+fn initial_dom_node_limits_reject_before_scripts_and_recover_over_http() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = Browser::new(
+        &fixture.url,
+        Limits {
+            max_initial_dom_nodes: 5000,
+            ..Limits::default()
+        },
+    )?;
+    assert!(matches!(
+        browser.navigate(&fixture.path("/large-dom/limited")),
+        Err(Error::Limit("initial DOM nodes"))
+    ));
+    let fresh = browser.navigate(&fixture.path("/static"))?;
+    assert_eq!(fresh.evaluate("typeof largeDomCase")?, json!("undefined"));
+    assert!(matches!(
+        Browser::new(
+            &fixture.url,
+            Limits {
+                max_initial_dom_nodes: 0,
+                ..Limits::default()
+            }
+        ),
+        Err(Error::Limit("invalid configuration"))
+    ));
+    Ok(())
+}
+
+#[test]
 fn native_large_dom_js_real_http() -> TestResult {
     let fixture = Fixture::new()?;
     let browser = fixture.browser()?;

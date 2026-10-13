@@ -260,7 +260,8 @@ mod tests {
             crate::Limits::default(),
             crate::MediaEnvironment::default(),
             original,
-        )));
+            &|| Ok(()),
+        )?));
         let jar = Cookies::default();
         jar.set(
             &Url::parse("https://example.test/next/page")?,

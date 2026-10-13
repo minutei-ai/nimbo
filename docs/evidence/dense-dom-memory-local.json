@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "host": "celld 0.6.1; one isolate per build",
+  "baseline_commit": "e4130f7",
+  "candidate_initial_dom_node_budget": 65536,
+  "scope": "Wasm linear capacity after each synthetic HTTP extraction; candidate over-budget rejection is expected; not allocator peak or total Worker memory",
+  "fixture": "<!doctype html><body> followed by repeated <p> start tags",
+  "default_other_budgets": true,
+  "runs": [
+    {
+      "runtime": "baseline",
+      "wasm_sha256": "763dc84818572cc389155680eefdab5e116028c7c0c100c0e5e9928d0483d79b",
+      "initial_linear_bytes": 6684672,
+      "rows": [
+        {
+          "nodes": 50000,
+          "status": 200,
+          "correct": true,
+          "error": null,
+          "linear_bytes": 21495808
+        },
+        {
+          "nodes": 100000,
+          "status": 200,
+          "correct": true,
+          "error": null,
+          "linear_bytes": 32964608
+        },
+        {
+          "nodes": 200000,
+          "status": 200,
+          "correct": true,
+          "error": null,
+          "linear_bytes": 72548352
+        },
+        {
+          "nodes": 300000,
+          "status": 200,
+          "correct": true,
+          "error": null,
+          "linear_bytes": 125435904
+        },
+        {
+          "nodes": 50000,
+          "status": 200,
+          "correct": true,
+          "error": null,
+          "linear_bytes": 125435904
+        }
+      ]
+    },
+    {
+      "runtime": "candidate",
+      "wasm_sha256": "ec780475160880bc7fd63a505d411f80e95a55de76ffb37855072f287d4a66d3",
+      "initial_linear_bytes": 6684672,
+      "rows": [
+        {
+          "nodes": 50000,
+          "status": 200,
+          "correct": true,
+          "error": null,
+          "linear_bytes": 21233664
+        },
+        {
+          "nodes": 100000,
+          "status": 422,
+          "correct": true,
+          "error": "resource limit: initial DOM nodes",
+          "linear_bytes": 21233664
+        },
+        {
+          "nodes": 200000,
+          "status": 422,
+          "correct": true,
+          "error": "resource limit: initial DOM nodes",
+          "linear_bytes": 33882112
+        },
+        {
+          "nodes": 300000,
+          "status": 422,
+          "correct": true,
+          "error": "resource limit: initial DOM nodes",
+          "linear_bytes": 33882112
+        },
+        {
+          "nodes": 50000,
+          "status": 200,
+          "correct": true,
+          "error": null,
+          "linear_bytes": 33882112
+        }
+      ]
+    }
+  ]
+}

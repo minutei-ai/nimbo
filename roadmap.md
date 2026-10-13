@@ -27,6 +27,8 @@ linear capacity under the same synthetic byte workload and default budgets.
 wrapper allocation for counts, preserving indexed identity and mutations.
 [Iteration-local reuse](docs/collection-iteration.md) avoids resolving every
 identifier array at every index while observing native mutation versions.
+[Bounded initial DOM parsing](docs/initial-dom-budget.md) stops dense initial
+trees between native parser blocks and limits stored recovery diagnostics.
 
 ## 0.3 — DOM and application compatibility
 
