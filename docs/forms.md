@@ -44,8 +44,12 @@ TypeScript/Rust/Wasm lint and Rust documentation.
 This is the existing text/checkedness control subset. A form containing an
 associated select currently fails reset explicitly before changing any controls.
 Select/options, other value states, form collections and named properties,
-submission, reset-button activation, form-associated custom elements and
+submission, form-associated custom elements and
 parser-specific historical ownership remain roadmap work.
 
 The behavior follows the public [form association](https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#association-of-controls-and-forms)
 and [reset algorithms](https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#resetting-a-form).
+
+[Owned reset-button activation](reset-buttons.md) now connects mouse/pointer
+click delivery to the same private reset algorithm and adds the basic button
+interface. Wider button commands, labels, validity and submission remain open.

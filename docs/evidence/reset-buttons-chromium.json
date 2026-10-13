@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-13",
+  "fixture": "crates/engine/tests/fixtures/reset-buttons.txt",
+  "scope": "64 fresh HTTP pages; native reset activation, buttons and reset inputs, disabled/cancelled dispatch, listener mutations, nested paths, event cleanup and button interface contracts; default budgets",
+  "fixture_sha256": "a8c88970481994a04931dab1a309829be0884ab203c7e2f792f908901906cbed",
+  "runtimes": [
+    {
+      "runtime": "Google Chrome 155.0.8059.39",
+      "pages": 64,
+      "checks_per_page": 42,
+      "all_passed": true
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "pages": 64,
+      "checks_per_page": 42,
+      "all_passed": true
+    }
+  ]
+}

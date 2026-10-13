@@ -3132,6 +3132,20 @@ fn form_reset_restores_owned_state_after_cancellable_events() -> TestResult {
 }
 
 #[test]
+fn reset_buttons_activate_owned_form_algorithms_after_click_delivery() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    let source = include_str!("fixtures/reset-buttons.txt");
+    assert_eq!(
+        page.evaluate(&format!(
+            "(()=>{{{source};const checks=resetButtonsCase(0);return {{count:Object.keys(checks).length,failed:Object.entries(checks).filter(([,passed])=>!passed).map(([name])=>name)}}}})()"
+        ))?,
+        json!({"count":42,"failed":[]})
+    );
+    Ok(())
+}
+
+#[test]
 fn input_activation_delivers_and_cancels_owned_state_over_http() -> TestResult {
     let fixture = Fixture::new()?;
     let page = fixture.browser()?.navigate(&fixture.path("/static"))?;

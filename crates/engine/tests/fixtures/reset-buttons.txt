@@ -1,0 +1,27 @@
+function resetButtonsCase(variant) {
+ const checks={};
+ for(const tag of ['button','input']) {
+  const f=document.createElement('form'),g=document.createElement('form'),text=document.createElement('input'),control=document.createElement(tag);text.defaultValue='default';control.type='reset';f.id='reset-target-'+variant;f.append(text,control);document.body.append(f,g);let resets=0;f.addEventListener('reset',()=>resets++);
+  const dirty=()=>text.value='dirty';const click=()=>control.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true}));
+  dirty();control.click();checks[tag+'Click']=text.value==='default'&&resets===1;
+  dirty();click();checks[tag+'Mouse']=text.value==='default'&&resets===2;
+  dirty();control.dispatchEvent(new MouseEvent('click',{button:1,bubbles:true,cancelable:true}));checks[tag+'Secondary']=text.value==='default'&&resets===3;
+  dirty();control.dispatchEvent(new Event('click',{bubbles:true,cancelable:true}));checks[tag+'Plain']=text.value==='dirty'&&resets===3;
+  control.disabled=true;control.click();click();checks[tag+'Disabled']=text.value==='dirty'&&resets===3;control.disabled=false;
+  const cancel=e=>e.preventDefault();control.addEventListener('click',cancel);control.click();checks[tag+'Cancel']=text.value==='dirty'&&resets===3;control.removeEventListener('click',cancel);
+  const change=()=>control.type='button';control.addEventListener('click',change);control.click();checks[tag+'TypeChange']=text.value==='dirty'&&resets===3;control.removeEventListener('click',change);
+  const enable=()=>control.type='reset';control.addEventListener('click',enable);control.click();checks[tag+'TypeEnable']=text.value==='default'&&resets===4;control.removeEventListener('click',enable);
+  dirty();const move=()=>g.append(control);control.addEventListener('click',move);control.click();checks[tag+'Move']=text.value==='dirty'&&resets===4;control.removeEventListener('click',move);f.append(control);
+  let override=0;f.reset=()=>override++;control.click();checks[tag+'MethodOverride']=text.value==='default'&&resets===5&&override===0;delete f.reset;
+  dirty();const prevent=e=>e.preventDefault();f.addEventListener('reset',prevent);control.click();checks[tag+'ResetCancel']=text.value==='dirty'&&resets===6;f.removeEventListener('reset',prevent);
+  let event;control.addEventListener('click',e=>event=e,{once:true});let cleaned=false;const inspect=()=>cleaned=event.eventPhase===0&&event.currentTarget===null&&event.composedPath().length===0;f.addEventListener('reset',inspect);control.click();checks[tag+'Cleanup']=cleaned&&text.value==='default';f.removeEventListener('reset',inspect);
+  dirty();f.remove();control.click();checks[tag+'Detached']=text.value==='default';g.remove();
+ }
+ const f=document.createElement('form'),text=document.createElement('input'),button=document.createElement('button');text.defaultValue='default';text.value='dirty';button.type='reset';f.append(text,button);document.body.append(f);
+ const span=document.createElement('span');button.append(span);span.dispatchEvent(new MouseEvent('click',{bubbles:true}));checks.descendant=text.value==='default';text.value='dirty';const nested=document.createElement('button');nested.type='button';button.append(nested);nested.dispatchEvent(new MouseEvent('click',{bubbles:true}));checks.nestedNoop=text.value==='default';nested.remove();text.value='dirty';const anchor=document.createElement('a');anchor.href='#';button.append(anchor);anchor.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true}));checks.anchorBarrier=text.value==='dirty';anchor.remove();
+ const fieldset=document.createElement('fieldset'),legend=document.createElement('legend');fieldset.disabled=true;fieldset.setAttribute('disabled','');fieldset.append(legend,button);f.append(fieldset);button.click();checks.fieldset=text.value==='dirty';legend.append(button);button.click();checks.firstLegend=text.value==='default';
+ checks.brand=button instanceof HTMLButtonElement&&Object.prototype.toString.call(button)==='[object HTMLButtonElement]';checks.form=button.form===f;button.removeAttribute('type');checks.defaultType=button.type==='submit';button.type='RESET';checks.normalizedType=button.type==='reset'&&button.getAttribute('type')==='RESET';button.type='unknown';checks.invalidType=button.type==='submit';
+ button.name='name';button.value=null;checks.strings=button.name==='name'&&button.value==='null'&&button.getAttribute('value')==='null';button.formNoValidate=true;checks.boolean=button.formNoValidate&&button.hasAttribute('formnovalidate');button.formNoValidate=false;checks.booleanRemove=!button.formNoValidate&&!button.hasAttribute('formnovalidate');
+ const d=Object.getOwnPropertyDescriptor(HTMLButtonElement.prototype,'form'),v=Object.getOwnPropertyDescriptor(HTMLButtonElement.prototype,'value');checks.descriptors=d.enumerable&&d.configurable&&d.set===undefined&&v.enumerable&&v.configurable;
+ const throws=fn=>{try{fn();return false}catch(e){return e instanceof TypeError}};checks.receivers=throws(()=>d.get.call({}))&&throws(()=>v.set.call(document.createElement('input'),'x'));checks.constructor=throws(()=>new HTMLButtonElement())&&HTMLButtonElement.length===0;f.remove();return checks;
+}

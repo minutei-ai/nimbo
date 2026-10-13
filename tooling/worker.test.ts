@@ -295,6 +295,23 @@ test("native form reset restores state after cancellable events", async () => {
   );
 });
 
+test("native reset buttons activate form state after click delivery", async () => {
+  const source = await Bun.file(
+    join(root, "crates/engine/tests/fixtures/reset-buttons.txt"),
+  ).text();
+  await fixture(
+    () => html("<!doctype html><body>"),
+    async (worker) => {
+      const response = await scrape(
+        worker,
+        `(()=>{${source};const checks=resetButtonsCase(0);return {count:Object.keys(checks).length,failed:Object.entries(checks).filter(([,passed])=>!passed).map(([name])=>name)}})()`,
+      );
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({ value: { count: 42, failed: [] } });
+    },
+  );
+});
+
 test("native input activation preserves event state, rollback and page isolation", async () => {
   const source = await Bun.file(
     join(root, "crates/engine/tests/fixtures/input-activation.txt"),

@@ -359,7 +359,7 @@ impl Dom {
             "clickDisabled" => self.click_disabled(handle)?,
             "inputActivate" => self.input_activation(handle, arg, value)?,
             "inputState" => self.checkedness_call(handle, arg, None)?,
-            "formOwner" | "formReset" => self.form_call(operation, handle)?,
+            "formOwner" | "formReset" | "formControl" => self.form_call(operation, handle, arg)?,
             "setInputState" => self.checkedness_call(handle, arg, Some(value == "true"))?,
             "controlValue" | "setControlValue" | "controlDefault" => {
                 self.control_call(operation, handle, arg, value)?

@@ -7,20 +7,65 @@ use super::{
 use crate::{Error, Result, dom_attributes::NativeAttributes};
 
 impl Dom {
-    pub(super) fn form_call(&mut self, operation: &str, handle: usize) -> Result<Value> {
+    pub(super) fn form_call(&mut self, operation: &str, handle: usize, arg: &str) -> Result<Value> {
         match operation {
             "formOwner" => self.form_owner_call(handle),
             "formReset" => self.reset_form(handle),
+            "formControl" => self.form_control(handle, arg),
             _ => Err(Error::Dom("unsupported form operation".into())),
         }
     }
 
     fn form_owner_call(&mut self, handle: usize) -> Result<Value> {
         let node = self.node(handle)?;
-        if !html_element(node, "input") && !html_element(node, "textarea") {
+        if !["input", "textarea", "button"]
+            .iter()
+            .any(|kind| html_element(node, kind))
+        {
             return Err(Error::Dom("invalid form-associated receiver".into()));
         }
         let (_, form) = self.control_view().form_owner(node)?;
+        Ok(json!(form.map(|id| self.handle(id))))
+    }
+
+    fn form_control(&mut self, handle: usize, operation: &str) -> Result<Value> {
+        let node = self.node(handle)?;
+        let control = html_element(node, "input") || html_element(node, "button");
+        if operation == "type" {
+            return Ok(json!(if node
+                .null_attribute_matches("type", |kind| kind.eq_ignore_ascii_case("reset"))
+            {
+                "reset"
+            } else if node
+                .null_attribute_matches("type", |kind| kind.eq_ignore_ascii_case("button"))
+            {
+                "button"
+            } else {
+                "submit"
+            }));
+        }
+        if operation == "candidate" {
+            return Ok(json!(if control {
+                1
+            } else if (html_element(node, "a") || html_element(node, "area"))
+                && node.has_null_attribute("href")
+            {
+                2
+            } else {
+                0
+            }));
+        }
+        if operation != "reset" {
+            return Err(Error::Dom("unsupported form control operation".into()));
+        }
+        let view = self.control_view();
+        if !control
+            || !node.null_attribute_matches("type", |kind| kind.eq_ignore_ascii_case("reset"))
+            || view.matches(node, ":disabled").unwrap_or(false)
+        {
+            return Ok(Value::Null);
+        }
+        let (_, form) = view.form_owner(node)?;
         Ok(json!(form.map(|id| self.handle(id))))
     }
 

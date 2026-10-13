@@ -1049,6 +1049,7 @@
     let finalTarget = state.target;
     let clearTarget = false;
     let activation: InputActivation | null = null;
+    let resetCandidates: number[] = [];
     try {
       const original = legacy ? document : target;
       state.path = eventPath(target, state.type, state.composed).map((current) => ({
@@ -1058,6 +1059,7 @@
       }));
       finalTarget = state.path.at(-1)?.adjusted ?? finalTarget;
       clearTarget = shadowRootOf(finalTarget) !== null;
+      resetCandidates = formResetCandidates(event, state);
       activation = startInputActivation(event, state);
       for (let index = state.path.length - 1; index > 0; index--) {
         const current = state.path[index];
@@ -1081,6 +1083,15 @@
       state.passive = false;
     }
     if (activation) finishInputActivation(activation, state.canceled);
+    if (!state.canceled) {
+      for (const candidate of resetCandidates) {
+        const owner = raw<number | null>("formControl", candidate, "reset");
+        if (owner !== null) {
+          resetForm(node(owner));
+          break;
+        }
+      }
+    }
     return !state.canceled;
   }
   class EventTarget {
@@ -3397,6 +3408,31 @@
     Object.defineProperty(HTMLElement.prototype, "click", { ...clickDescriptor, enumerable: true });
   const formElements = new WeakSet<object>();
   const resettingForms = new WeakSet<object>();
+  function formResetCandidates(event: Event, state: EventState): number[] {
+    const mouse = uiEvents.get(event);
+    if (state.type !== "click" || !mouse || mouse.level < 2) return [];
+    const candidates: number[] = [];
+    for (const item of state.path) {
+      if (!htmlElements.has(item.target)) continue;
+      const id = htmlId(item.target);
+      const kind = raw<number>("formControl", id, "candidate");
+      if (kind === 2) break;
+      if (kind === 1) candidates.push(id);
+    }
+    return candidates;
+  }
+  function resetForm(target: Node): void {
+    if (!formElements.has(target)) throw new TypeError("Illegal invocation");
+    const id = htmlId(target);
+    if (resettingForms.has(target)) return;
+    resettingForms.add(target);
+    try {
+      if (dispatch(target, new Event("reset", { bubbles: true, cancelable: true }), true))
+        raw("formReset", id);
+    } finally {
+      resettingForms.delete(target);
+    }
+  }
   class HTMLFormElement extends HTMLElement {
     constructor(key?: symbol, id?: number) {
       if (key !== internal || id === undefined) throw new TypeError("Illegal constructor");
@@ -3404,16 +3440,7 @@
       formElements.add(this);
     }
     reset(): void {
-      if (!formElements.has(this)) throw new TypeError("Illegal invocation");
-      const id = htmlId(this);
-      if (resettingForms.has(this)) return;
-      resettingForms.add(this);
-      try {
-        if (dispatch(this, new Event("reset", { bubbles: true, cancelable: true }), true))
-          raw("formReset", id);
-      } finally {
-        resettingForms.delete(this);
-      }
+      resetForm(this);
     }
   }
   Object.defineProperty(HTMLFormElement, "length", { value: 0, configurable: true });
@@ -3425,6 +3452,68 @@
     ...Object.getOwnPropertyDescriptor(HTMLFormElement.prototype, "reset"),
     enumerable: true,
   });
+  const buttonElements = new WeakSet<object>();
+  function buttonId(owner: object): number {
+    if (!buttonElements.has(owner)) throw new TypeError("Illegal invocation");
+    return htmlId(owner);
+  }
+  class HTMLButtonElement extends HTMLElement {
+    constructor(key?: symbol, id?: number) {
+      if (key !== internal || id === undefined) throw new TypeError("Illegal constructor");
+      super(internal, id);
+      buttonElements.add(this);
+    }
+    get form(): Element | null {
+      const id = raw<number | null>("formOwner", buttonId(this));
+      return id === null ? null : element(id);
+    }
+    get type(): string {
+      return raw("formControl", buttonId(this), "type");
+    }
+    set type(value: unknown) {
+      buttonId(this);
+      reflectString(this, "type", value);
+    }
+  }
+  Object.defineProperty(HTMLButtonElement, "length", { value: 0, configurable: true });
+  Object.defineProperty(HTMLButtonElement.prototype, Symbol.toStringTag, {
+    value: "HTMLButtonElement",
+    configurable: true,
+  });
+  for (const name of ["form", "type"]) {
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLButtonElement.prototype, name);
+    if (descriptor)
+      Object.defineProperty(HTMLButtonElement.prototype, name, { ...descriptor, enumerable: true });
+  }
+  for (const name of ["name", "value"])
+    Object.defineProperty(HTMLButtonElement.prototype, name, {
+      get(this: object) {
+        buttonId(this);
+        return htmlAttribute(this, name) ?? "";
+      },
+      set(this: object, value: unknown) {
+        buttonId(this);
+        reflectString(this, name, value);
+      },
+      enumerable: true,
+      configurable: true,
+    });
+  for (const [name, attribute] of [
+    ["disabled", "disabled"],
+    ["formNoValidate", "formnovalidate"],
+  ] as const)
+    Object.defineProperty(HTMLButtonElement.prototype, name, {
+      get(this: object) {
+        buttonId(this);
+        return hasHtmlAttribute(this, attribute);
+      },
+      set(this: object, value: unknown) {
+        buttonId(this);
+        reflectBoolean(this, attribute, value);
+      },
+      enumerable: true,
+      configurable: true,
+    });
   const textControls = new WeakMap<object, "input" | "textarea">();
   function textControlId(owner: object, kind: "input" | "textarea"): number {
     if (textControls.get(owner) !== kind) throw new TypeError("Illegal invocation");
@@ -4856,6 +4945,7 @@
           if (name === "slot") return new HTMLSlotElement(internal, id);
           if (name === "input") return new HTMLInputElement(internal, id);
           if (name === "form") return new HTMLFormElement(internal, id);
+          if (name === "button") return new HTMLButtonElement(internal, id);
           if (name === "textarea") return new HTMLTextAreaElement(internal, id);
           return new HTMLElement(internal, id);
         }
@@ -7517,6 +7607,7 @@
     HTMLSlotElement,
     HTMLInputElement,
     HTMLFormElement,
+    HTMLButtonElement,
     HTMLTextAreaElement,
     SVGElement,
     DOMStringMap,

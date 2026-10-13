@@ -76,6 +76,8 @@ state to one query/CSS matcher, with 44 independent contracts. Complete validati
 8,154 Bun tests and 203 native tests in each debug/release profile.
 [Owned form association and reset](docs/forms.md) adds input/textarea owners
 and transactional native reset of their existing values and checkedness.
+[Owned reset buttons](docs/reset-buttons.md) add mouse/pointer activation and
+the basic HTMLButtonElement interface with 42 independent contracts.
 Select/options, collections, submission and wider form behavior remain open.
 
 ## 0.4 — Scripts and page readiness
