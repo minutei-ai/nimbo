@@ -58,6 +58,7 @@ pub(crate) struct Dom {
     control_values: HashMap<NodeId, String>,
     checkedness: checkedness::Arena,
     selector_work: std::cell::Cell<usize>,
+    selector_steps: std::cell::Cell<usize>,
     selector_error: std::cell::RefCell<Option<Error>>,
     check: crate::BudgetCheck,
     layout_version: usize,
@@ -125,6 +126,7 @@ impl Dom {
             control_values: HashMap::new(),
             checkedness: checkedness::Arena::default(),
             selector_work: std::cell::Cell::new(0),
+            selector_steps: std::cell::Cell::new(0),
             selector_error: std::cell::RefCell::new(None),
             check,
             layout_version: 0,
@@ -148,6 +150,7 @@ impl Dom {
             document: &self.document,
             shadow: &self.shadow,
             work: &self.selector_work,
+            steps: &self.selector_steps,
             error: &self.selector_error,
             limit: self
                 .limits
@@ -726,6 +729,7 @@ impl Dom {
                         document: &self.document,
                         shadow: &self.shadow,
                         work: &self.selector_work,
+                        steps: &self.selector_steps,
                         error: &self.selector_error,
                         limit: self.limits.max_dom_operations,
                         check: &self.check,
@@ -762,6 +766,7 @@ impl Dom {
                         document: &self.document,
                         shadow: &self.shadow,
                         work: &self.selector_work,
+                        steps: &self.selector_steps,
                         error: &self.selector_error,
                         limit: self.limits.max_dom_operations,
                         check: &self.check,
@@ -919,6 +924,7 @@ impl Dom {
                     document: &self.document,
                     shadow: &self.shadow,
                     work: &self.selector_work,
+                    steps: &self.selector_steps,
                     error: &self.selector_error,
                     limit: self.limits.max_dom_operations,
                     check: &self.check,
@@ -1183,11 +1189,11 @@ impl Dom {
     fn closest(&mut self, handle: usize, arg: &str) -> Result<Value> {
         let matcher = self.matcher(arg)?;
         let node = self.node(handle)?;
+        let view = self.control_view();
         let id = std::iter::once(node)
             .chain(node.ancestors_it(None))
-            .find(|candidate| {
-                candidate.is_element() && matcher.matches(*candidate, Some(&self.control_view()))
-            })
+            .take_while(|_| view.checkpoint())
+            .find(|candidate| candidate.is_element() && matcher.matches(*candidate, Some(&view)))
             .map(|candidate| candidate.id);
         Ok(json!(id.map(|id| self.handle(id))))
     }
@@ -1557,6 +1563,7 @@ impl Dom {
             document: &self.document,
             shadow: &self.shadow,
             work: &self.selector_work,
+            steps: &self.selector_steps,
             error: &self.selector_error,
             limit: self
                 .limits

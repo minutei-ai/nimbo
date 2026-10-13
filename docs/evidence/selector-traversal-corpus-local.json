@@ -1,0 +1,160 @@
+{
+  "scope": "Summary of two local three-round Worker corpus A/B runs; reversed swaps labels for the same artifacts; no stable latency attribution or performance-gate acceptance; complete samples stay in local runner reports",
+  "baseline_commit": "f1ac127",
+  "runs": [
+    {
+      "direction": "original",
+      "report_sha256": "553e5384a11e7ab3ad08906da30ab7daad0e4800e8b403d5607ee18b88c5716f",
+      "corpus_version": 1,
+      "corpus_sha256": "adf445447c9d31eef503863f214375c257ed1756ec607b84c5166b94dbc5c51b",
+      "runtimes": [
+        {
+          "label": "baseline",
+          "artifact_sha256": "cf0a1a0095d388a9e3c186eaae23e5c565a1cbdac311216d41a25d8ba6ab86bd",
+          "artifact_bytes": 15602974,
+          "wasm_bytes": 15488889,
+          "host_version": "celld 0.6.1",
+          "startup_ms": 1025.695213
+        },
+        {
+          "label": "candidate",
+          "artifact_sha256": "92f79cad98c46be2757569e918f05a0072968ca98ec9f03a59af67ef90c6be54",
+          "artifact_bytes": 15604779,
+          "wasm_bytes": 15490694,
+          "host_version": "celld 0.6.1",
+          "startup_ms": 1039.832499
+        }
+      ],
+      "extractions": 1404,
+      "failures": 0,
+      "all_memory_samples_present": true,
+      "flagged_comparisons": [
+        {
+          "scenario": "js-modules",
+          "round": 1,
+          "regressions": ["p95_ms"],
+          "missing_memory_samples": false
+        },
+        {
+          "scenario": "named-access-after-style",
+          "round": 1,
+          "regressions": ["p50_ms", "p95_ms"],
+          "missing_memory_samples": false
+        },
+        {
+          "scenario": "dynamic-fetch",
+          "round": 2,
+          "regressions": ["p95_ms"],
+          "missing_memory_samples": false
+        },
+        {
+          "scenario": "named-access-after-style",
+          "round": 2,
+          "regressions": ["p95_ms"],
+          "missing_memory_samples": false
+        }
+      ]
+    },
+    {
+      "direction": "reversed",
+      "report_sha256": "07fc31c3570f36d9ab1704a976a17d1ae611ec62043101a86c41c36a8116a975",
+      "corpus_version": 1,
+      "corpus_sha256": "adf445447c9d31eef503863f214375c257ed1756ec607b84c5166b94dbc5c51b",
+      "runtimes": [
+        {
+          "label": "baseline",
+          "artifact_sha256": "92f79cad98c46be2757569e918f05a0072968ca98ec9f03a59af67ef90c6be54",
+          "artifact_bytes": 15604779,
+          "wasm_bytes": 15490694,
+          "host_version": "celld 0.6.1",
+          "startup_ms": 1095.145101
+        },
+        {
+          "label": "candidate",
+          "artifact_sha256": "cf0a1a0095d388a9e3c186eaae23e5c565a1cbdac311216d41a25d8ba6ab86bd",
+          "artifact_bytes": 15602974,
+          "wasm_bytes": 15488889,
+          "host_version": "celld 0.6.1",
+          "startup_ms": 986.629398
+        }
+      ],
+      "extractions": 1404,
+      "failures": 0,
+      "all_memory_samples_present": true,
+      "flagged_comparisons": [
+        {
+          "scenario": "static",
+          "round": 0,
+          "regressions": ["p95_ms"],
+          "missing_memory_samples": false
+        },
+        {
+          "scenario": "js-modules",
+          "round": 0,
+          "regressions": ["p95_ms"],
+          "missing_memory_samples": false
+        },
+        {
+          "scenario": "static-5000",
+          "round": 0,
+          "regressions": ["p50_ms"],
+          "missing_memory_samples": false
+        },
+        {
+          "scenario": "named-access-after-style",
+          "round": 0,
+          "regressions": ["p95_ms"],
+          "missing_memory_samples": false
+        },
+        {
+          "scenario": "same-class-with-layout",
+          "round": 0,
+          "regressions": ["p95_ms"],
+          "missing_memory_samples": false
+        },
+        {
+          "scenario": "js-dom-events",
+          "round": 1,
+          "regressions": ["p95_ms"],
+          "missing_memory_samples": false
+        },
+        {
+          "scenario": "live-child-iteration",
+          "round": 1,
+          "regressions": ["p95_ms"],
+          "missing_memory_samples": false
+        },
+        {
+          "scenario": "static",
+          "round": 2,
+          "regressions": ["p95_ms"],
+          "missing_memory_samples": false
+        },
+        {
+          "scenario": "selectors-200",
+          "round": 2,
+          "regressions": ["p95_ms"],
+          "missing_memory_samples": false
+        },
+        {
+          "scenario": "js-modules",
+          "round": 2,
+          "regressions": ["p95_ms"],
+          "missing_memory_samples": false
+        },
+        {
+          "scenario": "selectors-200-5000",
+          "round": 2,
+          "regressions": ["p50_ms"],
+          "missing_memory_samples": false
+        },
+        {
+          "scenario": "same-class-with-layout",
+          "round": 2,
+          "regressions": ["p95_ms"],
+          "missing_memory_samples": false
+        }
+      ]
+    }
+  ]
+}

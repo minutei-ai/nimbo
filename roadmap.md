@@ -15,7 +15,7 @@ Current baseline: DOM queries and mutations, supported scripts/modules, asynchro
 
 Exit: repeated A/B runs retain correctness and original limits; reports include hardware/runtime versions, samples and noise ranges. Memory and latency regression thresholds are recorded before accepting optimizations. Worker and native results remain separate.
 
-Implemented groundwork: [corpus v1](docs/performance-corpus.md) provides 12
+Implemented groundwork: [corpus v1](docs/performance-corpus.md) provides 13
 shared workloads, three-round A/B reporting, artifact/corpus hashes, native peak
 RSS, Worker retained host RSS and predeclared regression tolerances. Correctness
 runs in the normal Worker suite at default limits. Controlled-runner regression
@@ -98,8 +98,10 @@ execution through a shared irreversible signal. Broader phase diagnostics and
 lifecycle cases remain open.
 [Cooperative initial parsing](docs/cooperative-parsing.md) retains the owned
 native parser across bounded host calls so Worker deadlines and disconnections
-can release a partially constructed document. Long individual native operations
-and synchronous fragment parsing remain separate hardening work.
+can release a partially constructed document. [Native selector traversal](docs/selector-traversal-budget.md) now checks
+cancellation during matching walks and caps cumulative page work on both hosts.
+Other long native operations and synchronous fragment parsing remain separate
+hardening work.
 
 ## 0.5 — CSS and geometry
 

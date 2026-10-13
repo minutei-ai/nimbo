@@ -8,11 +8,14 @@ use super::{
 };
 use crate::{BudgetCheck, Error, Result, dom_attributes::NativeAttributes};
 
+const MAX_SELECTOR_STEPS: usize = 1_000_000;
+
 pub(crate) struct View<'a> {
     pub(super) arena: &'a Arena,
     pub(super) document: &'a Document,
     pub(super) shadow: &'a shadow::Arena,
     pub(super) work: &'a Cell<usize>,
+    pub(super) steps: &'a Cell<usize>,
     pub(super) error: &'a RefCell<Option<Error>>,
     pub(super) limit: usize,
     pub(super) check: &'a BudgetCheck,
@@ -28,6 +31,29 @@ impl std::fmt::Debug for View<'_> {
 }
 
 impl View<'_> {
+    pub(crate) fn checkpoint(&self) -> bool {
+        if self.failed() {
+            return false;
+        }
+        let steps = self.steps.get().saturating_add(1);
+        self.steps.set(steps);
+        if steps > MAX_SELECTOR_STEPS {
+            *self.error.borrow_mut() = Some(Error::Limit("selector steps"));
+            return false;
+        }
+        match (self.check)() {
+            Ok(()) => true,
+            Err(error) => {
+                *self.error.borrow_mut() = Some(error);
+                false
+            }
+        }
+    }
+
+    pub(crate) fn failed(&self) -> bool {
+        self.error.borrow().is_some()
+    }
+
     fn charge(&self) -> Result<()> {
         (self.check)()?;
         let work = self.work.get().saturating_add(1);
@@ -207,7 +233,7 @@ mod tests {
     use crate::{Error, Limits, MediaEnvironment, dom::Dom};
     use std::sync::{
         Arc,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     };
 
     #[test]
@@ -260,6 +286,125 @@ mod tests {
             dom.call("matches", handle, ":enabled", ""),
             Err(Error::Cancelled)
         ));
+        Ok(())
+    }
+
+    #[test]
+    fn ordinary_queries_check_cancellation_during_native_traversal()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let armed = Arc::new(AtomicBool::new(false));
+        let checks = Arc::new(AtomicUsize::new(0));
+        let signal = Arc::clone(&armed);
+        let calls = Arc::clone(&checks);
+        let mut dom = Dom::new(
+            &format!("<main>{}</main>", "<div></div>".repeat(2000)),
+            Limits::default(),
+            MediaEnvironment::default(),
+            url::Url::parse("https://example.test/selectors")?,
+            Arc::new(move || {
+                if signal.load(Ordering::Relaxed) && calls.fetch_add(1, Ordering::Relaxed) >= 3 {
+                    Err(Error::Cancelled)
+                } else {
+                    Ok(())
+                }
+            }),
+        )?;
+        armed.store(true, Ordering::Relaxed);
+        assert!(matches!(
+            dom.call("queryOne", 0, ".absent", ""),
+            Err(Error::Cancelled)
+        ));
+        assert_eq!(checks.load(Ordering::Relaxed), 4);
+        assert!(dom.handles.len() <= 2);
+        Ok(())
+    }
+
+    #[test]
+    fn relational_queries_bound_page_steps_without_changing_dom_operation_counts()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let mut dom = Dom::new(
+            &format!("<main>{}</main>", "<div></div>".repeat(2000)),
+            Limits::default(),
+            MediaEnvironment::default(),
+            url::Url::parse("https://example.test/selectors")?,
+            Arc::new(|| Ok(())),
+        )?;
+        assert!(matches!(
+            dom.call("query", 0, "div:has(~ .absent)", ""),
+            Err(Error::Limit("selector steps"))
+        ));
+        assert!(dom.handles.len() <= 2);
+        assert_eq!(dom.operations, 1);
+        assert!(matches!(
+            dom.call("queryOne", 0, "html", ""),
+            Err(Error::Limit("selector steps"))
+        ));
+        assert_eq!(dom.operations, 2);
+        Ok(())
+    }
+
+    #[test]
+    fn structural_matches_and_closest_stop_inside_parent_sibling_and_child_walks()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let deep = format!(
+            "<main>{}<button id=target></button>{}</main>",
+            "<div>".repeat(2000),
+            "</div>".repeat(2000)
+        );
+        let comments = "<!--ignored-->".repeat(2000);
+        for (operation, selector, html) in [
+            ("matches", ".absent #target", deep.clone()),
+            ("closest", ".absent", deep),
+            (
+                "matches",
+                "main:has(> .absent)",
+                format!("<main id=target>{comments}</main>"),
+            ),
+            (
+                "matches",
+                "button + #target",
+                format!("<button></button>{comments}<button id=target></button>"),
+            ),
+            (
+                "matches",
+                "#target:has(+ button)",
+                format!("<button id=target></button>{comments}<button></button>"),
+            ),
+            (
+                "matches",
+                ":empty",
+                format!("<main id=target>{comments}</main>"),
+            ),
+        ] {
+            let armed = Arc::new(AtomicBool::new(false));
+            let checks = Arc::new(AtomicUsize::new(0));
+            let signal = Arc::clone(&armed);
+            let calls = Arc::clone(&checks);
+            let mut dom = Dom::new(
+                &html,
+                Limits::default(),
+                MediaEnvironment::default(),
+                url::Url::parse("https://example.test/selectors")?,
+                Arc::new(move || {
+                    if signal.load(Ordering::Relaxed) && calls.fetch_add(1, Ordering::Relaxed) >= 3
+                    {
+                        Err(Error::Cancelled)
+                    } else {
+                        Ok(())
+                    }
+                }),
+            )?;
+            let handle: usize = serde_json::from_str(&dom.call("queryOne", 0, "#target", "")?)?;
+            armed.store(true, Ordering::Relaxed);
+            assert!(
+                matches!(
+                    dom.call(operation, handle, selector, ""),
+                    Err(Error::Cancelled)
+                ),
+                "{operation}: {selector}"
+            );
+            assert_eq!(checks.load(Ordering::Relaxed), 4);
+        }
         Ok(())
     }
 }

@@ -12,9 +12,9 @@ client disconnects to the incoming signal. See the
 
 The regression uses the actual workerd HTTP listener. It confirms entry through
 an origin HTTP marker before disconnecting the client, then checks that another
-extraction succeeds within two seconds with fresh page state. The four cases
+extraction succeeds within two seconds with fresh page state. The five cases
 cover a guest timer, pending HTTP response, partial response body and readiness
-predicate. Before the fix, the recovered extraction returned 429 because the
+predicate, plus incremental initial parsing. Before the fix, the recovered extraction returned 429 because the
 abandoned extraction still occupied the semaphore.
 
 The shared DOM, JavaScript fuel, request, byte and deadline limits continue to
@@ -41,6 +41,11 @@ observe socket closure for pending headers and partial bodies, then recover on
 the same browser; they also cover timers, infinite JavaScript, readiness and
 pre-cancelled signals. Cancellation diagnostics and broader resource/session
 lifecycle tests remain roadmap work.
+
+[Native selector traversal](selector-traversal-budget.md) checks the native
+signal during query and structural matching walks. A separate page-scoped
+checkpoint budget bounds selector execution on both native and Worker hosts,
+including hosts that cannot observe an external abort inside a synchronous call.
 
 ```sh
 bun run build:worker

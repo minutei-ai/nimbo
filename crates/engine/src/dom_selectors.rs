@@ -24,6 +24,7 @@ impl Matcher {
     ) -> impl Iterator<Item = NodeRef<'a>> + 'a {
         let mut caches = SelectorCaches::default();
         root.descendants_it()
+            .take_while(move |_| view.is_none_or(View::checkpoint))
             .filter(NodeRef::is_element)
             .filter(move |node| self.0.matches_with_caches(*node, view, &mut caches))
     }

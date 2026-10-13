@@ -241,6 +241,25 @@ test("native attribute presence preserves namespaces and boolean reflection", as
   );
 });
 
+test("native selector work is bounded and failed pages release Worker capacity", async () => {
+  await fixture(
+    () => html(`<!doctype html><body><main>${"<div></div>".repeat(2000)}</main>`),
+    async (worker) => {
+      const rejected = await scrape(
+        worker,
+        "document.querySelectorAll('div:has(~ .absent)').length",
+      );
+      expect(rejected.status).toBe(422);
+      const body = await json(rejected);
+      if (typeof body !== "object" || body === null) throw new Error("Missing failure response");
+      expect(Reflect.get(body, "error")).toContain("selector steps");
+      const fresh = await scrape(worker, "document.querySelectorAll('div').length");
+      expect(fresh.status).toBe(200);
+      expect(await json(fresh)).toMatchObject({ value: 2000 });
+    },
+  );
+});
+
 test("native input activation preserves event state, rollback and page isolation", async () => {
   const source = await Bun.file(
     join(root, "crates/engine/tests/fixtures/input-activation.txt"),

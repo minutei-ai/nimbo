@@ -1,6 +1,6 @@
 # Extraction corpus v1
 
-`tooling/extraction-corpus.ts` defines 12 synthetic extraction workloads shared by
+`tooling/extraction-corpus.ts` defines 13 synthetic extraction workloads shared by
 native and Worker measurements: small pages, repeated selectors, asynchronous
 fetch, event-driven DOM updates, modules, 5,000-node documents, repeated style
 and class assignments, selector-heavy layout and paragraph wrapping. Every

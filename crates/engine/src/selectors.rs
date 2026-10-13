@@ -248,6 +248,9 @@ impl Matcher {
         view: Option<&View<'_>>,
         caches: &mut SelectorCaches,
     ) -> bool {
+        if view.is_some_and(|view| !view.checkpoint()) {
+            return false;
+        }
         let mut context = MatchingContext::new(
             MatchingMode::Normal,
             None,
@@ -256,7 +259,8 @@ impl Matcher {
             NeedsSelectorFlags::No,
             MatchingForInvalidation::No,
         );
-        matches_selector_list(&self.list, &NativeElement(node, view), &mut context)
+        let matched = matches_selector_list(&self.list, &NativeElement(node, view), &mut context);
+        matched && view.is_none_or(|view| !view.failed())
     }
 }
 fn attribute_dependencies(
@@ -420,6 +424,7 @@ impl Element for NativeElement<'_> {
     fn parent_element(&self) -> Option<Self> {
         self.0
             .ancestors_it(None)
+            .take_while(|_| self.1.is_none_or(View::checkpoint))
             .find(NodeRef::is_element)
             .map(|node| Self(node, self.1))
     }
@@ -433,10 +438,16 @@ impl Element for NativeElement<'_> {
         false
     }
     fn prev_sibling_element(&self) -> Option<Self> {
-        self.0.prev_element_sibling().map(|node| Self(node, self.1))
+        std::iter::successors(self.0.prev_sibling(), NodeRef::prev_sibling)
+            .take_while(|_| self.1.is_none_or(View::checkpoint))
+            .find(NodeRef::is_element)
+            .map(|node| Self(node, self.1))
     }
     fn next_sibling_element(&self) -> Option<Self> {
-        self.0.next_element_sibling().map(|node| Self(node, self.1))
+        std::iter::successors(self.0.next_sibling(), NodeRef::next_sibling)
+            .take_while(|_| self.1.is_none_or(View::checkpoint))
+            .find(NodeRef::is_element)
+            .map(|node| Self(node, self.1))
     }
     fn is_html_element_in_html_document(&self) -> bool {
         self.0
@@ -511,6 +522,7 @@ impl Element for NativeElement<'_> {
     fn first_element_child(&self) -> Option<Self> {
         self.0
             .children_it(false)
+            .take_while(|_| self.1.is_none_or(View::checkpoint))
             .find(NodeRef::is_element)
             .map(|node| Self(node, self.1))
     }
@@ -558,7 +570,18 @@ impl Element for NativeElement<'_> {
         false
     }
     fn is_empty(&self) -> bool {
-        self.0.is_empty_element()
+        self.0.is_element()
+            && !self
+                .0
+                .children_it(false)
+                .take_while(|_| self.1.is_none_or(View::checkpoint))
+                .any(|child| {
+                    child.query_or(false, |node| match &node.data {
+                        NodeData::Element(_) => true,
+                        NodeData::Text { contents } => !contents.trim().is_empty(),
+                        _ => false,
+                    })
+                })
     }
     fn is_root(&self) -> bool {
         self.0.parent().is_some_and(|node| node.is_document())
