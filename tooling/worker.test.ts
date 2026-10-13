@@ -192,6 +192,55 @@ test("invalid DOM budgets fail before origin HTTP", async () => {
   );
 });
 
+test("cooperative parsing preserves Unicode across host blocks", async () => {
+  const prefix = "<!doctype html><body><p id=value>";
+  const repeated = 8191 - prefix.length;
+  await fixture(
+    () => html(`${prefix}${"x".repeat(repeated)}😀${"Ā".repeat(9000)}&amp;tail</p>`),
+    async (worker) => {
+      const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+        method: "POST",
+        headers: { authorization: "Bearer test-secret" },
+        body: JSON.stringify({
+          url: originFor(worker),
+          expression: `document.getElementById('value').textContent==='x'.repeat(${repeated})+'😀'+'Ā'.repeat(9000)+'&tail'`,
+        }),
+      });
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({ value: true });
+    },
+  );
+});
+
+test("cooperative document parsing enforces deadline and releases capacity", async () => {
+  await fixture(
+    (request) =>
+      html(
+        new URL(request.url).pathname === "/deep"
+          ? `<!doctype html><body>${"<div>".repeat(60000)}x${"</div>".repeat(60000)}<script>globalThis.poisoned=true</script>`
+          : "<!doctype html><body>fresh</body>",
+      ),
+    async (worker) => {
+      const run = (path: string) =>
+        worker.dispatchFetch("https://nimbo.test/scrape", {
+          method: "POST",
+          headers: { authorization: "Bearer test-secret" },
+          body: JSON.stringify({
+            url: new URL(path, originFor(worker)).href,
+            expression: "typeof poisoned",
+          }),
+        });
+      const started = performance.now();
+      const rejected = await run("/deep");
+      expect(rejected.status).toBe(504);
+      expect(performance.now() - started).toBeLessThan(14000);
+      const recovered = await run("/");
+      expect(recovered.status).toBe(200);
+      expect(await json(recovered)).toMatchObject({ value: "undefined" });
+    },
+  );
+}, 15000);
+
 test("large attribute counts remain live under default Worker budgets", async () => {
   const source = await Bun.file(
     join(root, "crates/engine/tests/fixtures/attribute-count.txt"),

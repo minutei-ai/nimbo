@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "baseline_commit": "bf26047",
+  "scope": "single local celld isolate per build; original default budgets; Wasm linear capacity, not allocator peak or total Worker memory",
+  "fixture": "doctype/body/main id=target; repeated nested div elements enclosing x; expression checks textContent",
+  "deadline_ms": 10000,
+  "runs": [
+    {
+      "runtime": "baseline",
+      "wasm_sha256": "85a0c506730872df6856de155dfa69cd6a2572f29989bfb4440373d8148e38c1",
+      "initial_linear_bytes": 6684672,
+      "rows": [
+        {
+          "depth": 128,
+          "status": 200,
+          "error": null,
+          "elapsed_ms": 164.191595,
+          "linear_bytes": 7536640,
+          "deadline_rejection": false,
+          "expected_result_matched": true,
+          "deadline_contract_passed": true
+        },
+        {
+          "depth": 8192,
+          "status": 200,
+          "error": null,
+          "elapsed_ms": 929.1561909999998,
+          "linear_bytes": 10092544,
+          "deadline_rejection": false,
+          "expected_result_matched": true,
+          "deadline_contract_passed": true
+        },
+        {
+          "depth": 32768,
+          "status": 200,
+          "error": null,
+          "elapsed_ms": 15050.752944,
+          "linear_bytes": 19660800,
+          "deadline_rejection": false,
+          "expected_result_matched": true,
+          "deadline_contract_passed": false
+        },
+        {
+          "depth": 128,
+          "status": 200,
+          "error": null,
+          "elapsed_ms": 23.483110000001034,
+          "linear_bytes": 19660800,
+          "deadline_rejection": false,
+          "expected_result_matched": true,
+          "deadline_contract_passed": true
+        }
+      ]
+    },
+    {
+      "runtime": "candidate",
+      "wasm_sha256": "4dddb22f8d32ddf3a702f5dccc632ae43a1a17b747d24875865dc66ff310ca76",
+      "initial_linear_bytes": 6684672,
+      "rows": [
+        {
+          "depth": 128,
+          "status": 200,
+          "error": null,
+          "elapsed_ms": 131.71808499999997,
+          "linear_bytes": 7536640,
+          "deadline_rejection": false,
+          "expected_result_matched": true,
+          "deadline_contract_passed": true
+        },
+        {
+          "depth": 8192,
+          "status": 200,
+          "error": null,
+          "elapsed_ms": 1190.121489,
+          "linear_bytes": 10747904,
+          "deadline_rejection": false,
+          "expected_result_matched": true,
+          "deadline_contract_passed": true
+        },
+        {
+          "depth": 32768,
+          "status": 504,
+          "error": "scrape deadline or invalid input",
+          "elapsed_ms": 11210.763993,
+          "linear_bytes": 13959168,
+          "deadline_rejection": true,
+          "expected_result_matched": true,
+          "deadline_contract_passed": true
+        },
+        {
+          "depth": 128,
+          "status": 200,
+          "error": null,
+          "elapsed_ms": 20.833631999999852,
+          "linear_bytes": 13959168,
+          "deadline_rejection": false,
+          "expected_result_matched": true,
+          "deadline_contract_passed": true
+        }
+      ]
+    }
+  ]
+}

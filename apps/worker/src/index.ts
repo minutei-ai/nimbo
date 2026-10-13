@@ -2,7 +2,7 @@ import { Effect, Schema, Semaphore } from "effect";
 import wasm from "nimbo:wasm";
 import {
   initSync,
-  WasmPage,
+  WasmPageLoader,
   engine_limits,
   engine_version,
 } from "../../../dist/wasm/nimbo_engine.js";
@@ -57,11 +57,10 @@ const scrape = (request: Request, environment: Environment) =>
         });
       if (!response.content_type.toLowerCase().startsWith("text/html"))
         return yield* new ScrapeError({ status: 422, reason: "navigation requires text/html" });
-      const page = yield* Effect.acquireRelease(
+      const loader = yield* Effect.acquireRelease(
         Effect.try({
           try: () =>
-            new WasmPage(
-              response.body,
+            new WasmPageLoader(
               response.url,
               input.scripts !== "skip",
               input.media === undefined ? undefined : JSON.stringify(input.media),
@@ -72,6 +71,33 @@ const scrape = (request: Request, environment: Environment) =>
               input.maxInitialDomNodes,
               input.maxDomNodes,
             ),
+          catch: (cause) => failure(cause),
+        }),
+        (loaded) => Effect.sync(() => loaded.free()),
+      );
+      const encoder = new TextEncoder();
+      const bytes = new Uint8Array(8192);
+      let offset = 0;
+      let blocks = 0;
+      while (offset < response.body.length) {
+        let end = Math.min(offset + 8192, response.body.length);
+        const last = response.body.charCodeAt(end - 1);
+        // Keep a trailing high surrogate with its following code unit.
+        if (end < response.body.length && last >= 0xd800 && last <= 0xdbff) end--;
+        const { read, written } = encoder.encodeInto(response.body.slice(offset, end), bytes);
+        const deep = yield* Effect.try({
+          try: () => loader.feed(bytes.subarray(0, written)),
+          catch: (cause) => failure(cause),
+        });
+        offset += read;
+        blocks++;
+        // Deep trees yield every block; shallow input yields after at most 128 KiB.
+        if (deep || blocks % 16 === 0 || (offset === response.body.length && blocks > 1))
+          yield* Effect.yieldNow;
+      }
+      const page = yield* Effect.acquireRelease(
+        Effect.try({
+          try: () => loader.finish(),
           catch: (cause) => failure(cause),
         }),
         (loaded) => Effect.sync(() => loaded.free()),

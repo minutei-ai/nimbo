@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cell::Cell};
+use std::{borrow::Cow, cell::Cell, rc::Rc};
 
 use dom_query::{Document, NodeData, NodeId};
 use html5ever::{
@@ -9,34 +9,114 @@ use html5ever::{
 
 use crate::{Error, Result};
 
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn document(
     html: &str,
     maximum: usize,
     check: &dyn Fn() -> Result<()>,
-    nodes: &Cell<usize>,
-) -> Result<Document> {
-    let document = Document::default();
-    let sink = Counted {
-        root: document.get_document(),
-        document: &document,
-        nodes,
-        errors: Cell::new(0),
-        initial: true,
-    };
-    let mut options = ParseOpts::default();
-    // Match the installed Document parser's existing noscript behavior.
-    options.tree_builder.scripting_enabled = false;
-    let parser = html5ever::parse_document(sink, options).from_utf8();
-    feed(parser, html, maximum, check, nodes, "initial DOM nodes")?;
-    Ok(document)
+) -> Result<ParsedDocument> {
+    let mut parser = DocumentParser::new(maximum);
+    for chunk in html.as_bytes().chunks(8192) {
+        check()?;
+        parser.process(chunk)?;
+    }
+    let parsed = parser.finish()?;
+    check()?;
+    Ok(parsed)
+}
+
+pub(crate) struct ParsedDocument {
+    pub document: Rc<Document>,
+    pub nodes: Rc<Cell<usize>>,
+    pub links: bool,
+    pub bases: bool,
+}
+
+#[derive(Clone, Copy, Default)]
+struct Tags {
+    links: bool,
+    bases: bool,
+    last_parent: Option<NodeId>,
+}
+
+pub(crate) struct DocumentParser {
+    document: Rc<Document>,
+    nodes: Rc<Cell<usize>>,
+    tags: Rc<Cell<Tags>>,
+    maximum: usize,
+    parser: OwnedParser,
+}
+
+type OwnedParser = html5ever::tendril::stream::Utf8LossyDecoder<html5ever::Parser<Counted>>;
+
+impl DocumentParser {
+    pub(crate) fn new(maximum: usize) -> Self {
+        let document = Rc::new(Document::default());
+        let nodes = Rc::new(Cell::new(1));
+        let tags = Rc::new(Cell::new(Tags::default()));
+        let sink = Counted {
+            root: document.get_document(),
+            document: Rc::clone(&document),
+            nodes: Rc::clone(&nodes),
+            errors: Cell::new(0),
+            initial: true,
+            tags: Some(Rc::clone(&tags)),
+        };
+        let mut options = ParseOpts::default();
+        // Match the installed Document parser's existing noscript behavior.
+        options.tree_builder.scripting_enabled = false;
+        let parser = html5ever::parse_document(sink, options).from_utf8();
+        Self {
+            document,
+            nodes,
+            tags,
+            maximum,
+            parser,
+        }
+    }
+
+    pub(crate) fn process(&mut self, bytes: &[u8]) -> Result<()> {
+        self.parser.process(ByteTendril::from_slice(bytes));
+        self.validate()
+    }
+
+    fn validate(&self) -> Result<()> {
+        if self.nodes.get() > self.maximum {
+            return Err(Error::Limit("initial DOM nodes"));
+        }
+        Ok(())
+    }
+
+    #[cfg(any(target_arch = "wasm32", test))]
+    pub(crate) fn needs_yield(&self) -> bool {
+        self.tags
+            .get()
+            .last_parent
+            .and_then(|id| self.document.tree.get(&id))
+            .is_some_and(|node| node.ancestors_it(None).take(128).count() == 128)
+    }
+
+    pub(crate) fn finish(self) -> Result<ParsedDocument> {
+        self.parser.finish();
+        if self.nodes.get() > self.maximum {
+            return Err(Error::Limit("initial DOM nodes"));
+        }
+        let tags = self.tags.get();
+        Ok(ParsedDocument {
+            document: self.document,
+            nodes: self.nodes,
+            links: tags.links,
+            bases: tags.bases,
+        })
+    }
 }
 
 pub(crate) fn fragment(
-    document: &Document,
+    document: &Rc<Document>,
     html: &str,
     maximum: usize,
     check: &dyn Fn() -> Result<()>,
-    nodes: &Cell<usize>,
+    nodes: &Rc<Cell<usize>>,
 ) -> Result<NodeId> {
     if nodes.get() >= maximum {
         return Err(Error::Limit("DOM nodes"));
@@ -44,11 +124,12 @@ pub(crate) fn fragment(
     nodes.set(nodes.get().saturating_add(1));
     let root = document.tree.create_node(NodeData::Fragment);
     let sink = Counted {
-        document,
+        document: Rc::clone(document),
         root,
-        nodes,
+        nodes: Rc::clone(nodes),
         errors: Cell::new(0),
         initial: false,
+        tags: None,
     };
     let mut options = ParseOpts::default();
     options.tree_builder.scripting_enabled = false;
@@ -93,21 +174,30 @@ fn feed(
 }
 
 // Delegate tree construction to Document; retain only bounded error diagnostics.
-struct Counted<'a> {
-    document: &'a Document,
+struct Counted {
+    document: Rc<Document>,
     root: NodeId,
-    nodes: &'a Cell<usize>,
+    nodes: Rc<Cell<usize>>,
     errors: Cell<usize>,
     initial: bool,
+    tags: Option<Rc<Cell<Tags>>>,
 }
 
-impl Counted<'_> {
+impl Counted {
     fn allocate(&self, count: usize) {
         self.nodes.set(self.nodes.get().saturating_add(count));
     }
+
+    fn parent(&self, parent: NodeId) {
+        if let Some(tags) = &self.tags {
+            let mut value = tags.get();
+            value.last_parent = Some(parent);
+            tags.set(value);
+        }
+    }
 }
 
-impl TreeSink for Counted<'_> {
+impl TreeSink for Counted {
     type Handle = NodeId;
     type Output = ();
     type ElemName<'a>
@@ -129,6 +219,14 @@ impl TreeSink for Counted<'_> {
         self.document.elem_name(target)
     }
     fn create_element(&self, name: QualName, attrs: Vec<Attribute>, flags: ElementFlags) -> NodeId {
+        if let Some(tags) = &self.tags {
+            let mut value = tags.get();
+            value.links |=
+                name.ns == html5ever::ns!(html) && name.local == html5ever::local_name!("link");
+            value.bases |=
+                name.ns == html5ever::ns!(html) && name.local == html5ever::local_name!("base");
+            tags.set(value);
+        }
         self.allocate(if flags.template { 2 } else { 1 });
         self.document.create_element(name, attrs, flags)
     }
@@ -141,6 +239,7 @@ impl TreeSink for Counted<'_> {
         self.document.create_pi(target, data)
     }
     fn append(&self, parent: &NodeId, child: NodeOrText<NodeId>) {
+        self.parent(*parent);
         if matches!(&child, NodeOrText::AppendText(_))
             && !self
                 .document
@@ -153,6 +252,9 @@ impl TreeSink for Counted<'_> {
         self.document.append(parent, child);
     }
     fn append_before_sibling(&self, sibling: &NodeId, child: NodeOrText<NodeId>) {
+        if let Some(parent) = self.document.tree.parent_of(sibling) {
+            self.parent(parent.id);
+        }
         if matches!(&child, NodeOrText::AppendText(_))
             && !self
                 .document
@@ -216,14 +318,56 @@ impl TreeSink for Counted<'_> {
 mod tests {
     use crate::Error;
     use dom_query::Document;
-    use std::cell::Cell;
+    use std::{cell::Cell, rc::Rc};
+
+    #[test]
+    fn incremental_blocks_preserve_utf8_recovery_and_native_tags() -> crate::Result<()> {
+        let html = format!(
+            "<!doctype html><base href=/next/><link rel=stylesheet href=/style.css><p>{}😀&amp;tail</p><table>before<tr><td>x</table>",
+            "x".repeat(8200)
+        );
+        let expected = Document::from(html.as_str());
+        for size in [1, 7, 8192] {
+            let mut parser = super::DocumentParser::new(100);
+            for bytes in html.as_bytes().chunks(size) {
+                parser.process(bytes)?;
+            }
+            let parsed = parser.finish()?;
+            assert_eq!(parsed.document.html(), expected.html());
+            assert!(parsed.links && parsed.bases);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn dropping_failed_incremental_parser_releases_its_document() {
+        let mut parser = super::DocumentParser::new(5);
+        let retained = Rc::downgrade(&parser.document);
+        assert!(matches!(
+            parser.process(b"<p><p>"),
+            Err(Error::Limit("initial DOM nodes"))
+        ));
+        drop(parser);
+        assert!(retained.upgrade().is_none());
+    }
+
+    #[test]
+    fn yielding_tracks_native_ancestry_without_per_node_state() -> crate::Result<()> {
+        let mut shallow = super::DocumentParser::new(1000);
+        shallow.process("<p>x</p>".repeat(250).as_bytes())?;
+        assert!(!shallow.needs_yield());
+        let mut deep = super::DocumentParser::new(1000);
+        deep.process("<div>".repeat(256).as_bytes())?;
+        assert!(deep.needs_yield());
+        Ok(())
+    }
 
     fn document(
         html: &str,
         maximum: usize,
         check: &dyn Fn() -> crate::Result<()>,
-    ) -> crate::Result<Document> {
-        super::document(html, maximum, check, &Cell::new(1))
+    ) -> crate::Result<Rc<Document>> {
+        super::document(html, maximum, check).map(|parsed| parsed.document)
     }
 
     #[test]
@@ -296,7 +440,7 @@ mod tests {
                 .copied()
                 .ok_or_else(|| Error::Dom("missing target".into()))?
                 .id;
-            let nodes = Cell::new(10);
+            let nodes = Rc::new(Cell::new(10));
             let root = super::fragment(&actual, html, 100, &|| Ok(()), &nodes)?;
             actual.tree.remove_children_of(&target);
             actual.tree.reparent_children_of(&root, Some(target));

@@ -176,6 +176,7 @@ impl Machine {
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn new(
         html: &str,
         url: &str,
@@ -189,13 +190,21 @@ impl Machine {
             return Err(Error::Limit("HTML bytes"));
         }
         let base = parse_url(url)?;
-        let dom = Rc::new(RefCell::new(Dom::new(
-            html,
-            limits,
-            media.clone(),
-            base.clone(),
-            Arc::clone(&check),
-        )?));
+        let dom = Dom::new(html, limits, media.clone(), base, Arc::clone(&check))?;
+        Self::from_dom(dom, url, limits, check, execute_scripts, session, media)
+    }
+
+    pub(crate) fn from_dom(
+        dom: Dom,
+        url: &str,
+        limits: Limits,
+        check: Check,
+        execute_scripts: bool,
+        session: crate::cookies::Session,
+        media: MediaEnvironment,
+    ) -> Result<Self> {
+        let base = dom.document_url().clone();
+        let dom = Rc::new(RefCell::new(dom));
         let scripts = collect_scripts(&dom.borrow(), execute_scripts)?;
         let runtime = Runtime::new().map_err(|error| Error::JavaScript(error.to_string()))?;
         let modules = Modules::new(

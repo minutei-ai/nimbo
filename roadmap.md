@@ -79,6 +79,10 @@ HTTP/readiness/timer waits and releases page capacity on disconnect. Native
 cancellation now covers HTTP headers/bodies, timers, readiness and QuickJS
 execution through a shared irreversible signal. Broader phase diagnostics and
 lifecycle cases remain open.
+[Cooperative initial parsing](docs/cooperative-parsing.md) retains the owned
+native parser across bounded host calls so Worker deadlines and disconnections
+can release a partially constructed document. Long individual native operations
+and synchronous fragment parsing remain separate hardening work.
 
 ## 0.5 — CSS and geometry
 

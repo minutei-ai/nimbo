@@ -29,7 +29,7 @@ struct NamedProperties {
 }
 
 pub(crate) struct Dom {
-    pub document: Document,
+    pub document: std::rc::Rc<Document>,
     pub fonts: std::rc::Rc<std::cell::RefCell<crate::font_data::Arena>>,
     handles: Vec<Handle>,
     ids: HashMap<NodeId, usize>,
@@ -48,7 +48,7 @@ pub(crate) struct Dom {
     now: f64,
     style_bytes: usize,
     operations: usize,
-    allocated_nodes: std::cell::Cell<usize>,
+    allocated_nodes: std::rc::Rc<std::cell::Cell<usize>>,
     check: crate::BudgetCheck,
     layout_version: usize,
     layout: Option<(usize, crate::layout::Snapshot)>,
@@ -65,6 +65,7 @@ pub(crate) struct Dom {
 }
 
 impl Dom {
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn new(
         html: &str,
         limits: Limits,
@@ -72,15 +73,25 @@ impl Dom {
         base: url::Url,
         check: crate::BudgetCheck,
     ) -> Result<Self> {
-        let allocated_nodes = std::cell::Cell::new(1);
-        let document = crate::html_parse::document(
+        let parsed = crate::html_parse::document(
             html,
             limits.max_initial_dom_nodes.min(limits.max_dom_nodes),
             check.as_ref(),
-            &allocated_nodes,
         )?;
+        Ok(Self::from_document(parsed, limits, media, base, check))
+    }
+
+    pub(crate) fn from_document(
+        parsed: crate::html_parse::ParsedDocument,
+        limits: Limits,
+        media: crate::MediaEnvironment,
+        base: url::Url,
+        check: crate::BudgetCheck,
+    ) -> Self {
+        let document = parsed.document;
+        let allocated_nodes = parsed.nodes;
         let root = document.root().id;
-        Ok(Self {
+        Self {
             document,
             fonts: std::rc::Rc::default(),
             handles: vec![Handle::Node(root)],
@@ -105,14 +116,14 @@ impl Dom {
             layout: None,
             scroll: crate::layout::ScrollState::new(),
             sheet_scan: None,
-            may_have_links: contains_tag(html, *b"<link"),
-            may_have_bases: contains_tag(html, *b"<base"),
+            may_have_links: parsed.links,
+            may_have_bases: parsed.bases,
             sheets: crate::stylesheets::Sheets::new(base, limits.max_stylesheet_bytes),
             cssom: crate::cssom::Arena::default(),
             writes: 0,
             limits,
             media,
-        })
+        }
     }
 
     pub(crate) fn resource_usage(&self) -> (usize, usize, usize) {

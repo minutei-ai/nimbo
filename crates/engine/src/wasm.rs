@@ -2,44 +2,43 @@ use crate::{Limits, MediaEnvironment, machine::Machine};
 use std::{fmt, sync::Arc};
 use wasm_bindgen::prelude::*;
 
-/// Versão do núcleo incorporado ao módulo Wasm.
+/// Incremental native HTML construction, disposed by the host on cancellation or failure.
 #[wasm_bindgen]
-#[must_use]
-pub fn engine_version() -> String {
-    env!("CARGO_PKG_VERSION").to_owned()
+pub struct WasmPageLoader {
+    state: Option<LoadingPage>,
 }
 
-/// Página Rust/QuickJS dentro do Wasm; o host atende HTTP e esperas do relógio.
-#[wasm_bindgen]
-pub struct WasmPage {
-    machine: Machine,
+struct LoadingPage {
+    parser: crate::html_parse::DocumentParser,
+    bytes: usize,
+    url: url::Url,
+    limits: Limits,
+    execute_scripts: bool,
+    session: crate::cookies::Session,
+    media: MediaEnvironment,
 }
 
-impl fmt::Debug for WasmPage {
+impl fmt::Debug for WasmPageLoader {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.debug_struct("WasmPage").finish_non_exhaustive()
+        formatter
+            .debug_struct("WasmPageLoader")
+            .finish_non_exhaustive()
     }
 }
 
 #[wasm_bindgen]
-impl WasmPage {
-    /// Cria uma página com os limites padrão e sem acesso direto ao runtime do Worker.
-    /// `execute_scripts` omitido executa scripts; false extrai somente o HTML recebido.
-    /// `max_stylesheet_bytes` configura o orçamento CSS, até o teto de resposta padrão.
-    /// `max_layout_nodes` configura visitas por coleta CSS/layout, de 1 até 4096.
-    /// `max_dom_operations` configures shared DOM/CSS work, from 1 through 1,000,000.
-    /// `max_initial_dom_nodes` can lower the initial parser's 65,536-node budget.
-    /// `max_dom_nodes` can lower the page arena's cumulative 65,536-node budget.
+impl WasmPageLoader {
+    /// Starts the native parser with the same optional settings as `WasmPage`.
+    /// No scripts run until `finish` transfers the parsed document into its machine.
     ///
     /// # Errors
-    /// Retorna falha de URL, HTML, scripts, alocação ou inicialização do motor.
+    /// Returns invalid URL, media or resource settings.
     #[wasm_bindgen(constructor)]
     #[expect(
         clippy::too_many_arguments,
-        reason = "Preserve the positional Wasm constructor ABI when adding optional budgets"
+        reason = "Match the existing optional Wasm page settings"
     )]
     pub fn new(
-        html: &str,
         url: &str,
         execute_scripts: Option<bool>,
         media: Option<String>,
@@ -88,20 +87,146 @@ impl WasmPage {
             }
             limits.max_dom_operations = operations;
         }
-        Machine::new(
-            html,
-            url,
-            limits,
-            Arc::new(|| Ok(())),
-            execute_scripts.unwrap_or(true),
-            crate::cookies::Session {
-                storage: std::rc::Rc::default(),
-                cookies: cookies.map_or_else(crate::cookies::Cookies::default, |jar| jar.cookies),
-            },
-            media,
+        let url = crate::machine::parse_url(url).map_err(|error| error.to_string())?;
+        Ok(Self {
+            state: Some(LoadingPage {
+                parser: crate::html_parse::DocumentParser::new(
+                    limits.max_initial_dom_nodes.min(limits.max_dom_nodes),
+                ),
+                bytes: 0,
+                url,
+                limits,
+                execute_scripts: execute_scripts.unwrap_or(true),
+                session: crate::cookies::Session {
+                    storage: std::rc::Rc::default(),
+                    cookies: cookies
+                        .map_or_else(crate::cookies::Cookies::default, |jar| jar.cookies),
+                },
+                media,
+            }),
+        })
+    }
+
+    /// Feeds at most 8 KiB of UTF-8 bytes, retaining decoder state across calls.
+    /// Returns true when deep native ancestry requests a host yield before more input.
+    ///
+    /// # Errors
+    /// Returns closed-loader, byte-budget or initial-node-budget failures.
+    /// A failure releases the partial document and permanently closes the loader.
+    pub fn feed(&mut self, bytes: &[u8]) -> Result<bool, String> {
+        let state = self.state.as_mut().ok_or("document loader is closed")?;
+        state.bytes = state.bytes.saturating_add(bytes.len());
+        let result = if bytes.len() > 8192 || state.bytes > state.limits.max_response_bytes {
+            Err("resource limit: HTML bytes".into())
+        } else {
+            state
+                .parser
+                .process(bytes)
+                .map(|()| state.parser.needs_yield())
+                .map_err(|error| error.to_string())
+        };
+        if result.is_err() {
+            self.state = None;
+        }
+        result
+    }
+
+    /// Finishes tree construction and transfers its owned arena into a page.
+    /// The loader can be freed after this call; the page owns the document.
+    ///
+    /// # Errors
+    /// Returns closed-loader, parser, script initialization or resource failures.
+    pub fn finish(&mut self) -> Result<WasmPage, String> {
+        let state = self.state.take().ok_or("document loader is closed")?;
+        let parsed = state.parser.finish().map_err(|error| error.to_string())?;
+        let check: crate::BudgetCheck = Arc::new(|| Ok(()));
+        let dom = crate::dom::Dom::from_document(
+            parsed,
+            state.limits,
+            state.media.clone(),
+            state.url.clone(),
+            Arc::clone(&check),
+        );
+        Machine::from_dom(
+            dom,
+            state.url.as_str(),
+            state.limits,
+            check,
+            state.execute_scripts,
+            state.session,
+            state.media,
         )
-        .map(|machine| Self { machine })
+        .map(|machine| WasmPage { machine })
         .map_err(|error| error.to_string())
+    }
+}
+
+/// Versão do núcleo incorporado ao módulo Wasm.
+#[wasm_bindgen]
+#[must_use]
+pub fn engine_version() -> String {
+    env!("CARGO_PKG_VERSION").to_owned()
+}
+
+/// Página Rust/QuickJS dentro do Wasm; o host atende HTTP e esperas do relógio.
+#[wasm_bindgen]
+pub struct WasmPage {
+    machine: Machine,
+}
+
+impl fmt::Debug for WasmPage {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.debug_struct("WasmPage").finish_non_exhaustive()
+    }
+}
+
+#[wasm_bindgen]
+impl WasmPage {
+    /// Cria uma página com os limites padrão e sem acesso direto ao runtime do Worker.
+    /// `execute_scripts` omitido executa scripts; false extrai somente o HTML recebido.
+    /// `max_stylesheet_bytes` configura o orçamento CSS, até o teto de resposta padrão.
+    /// `max_layout_nodes` configura visitas por coleta CSS/layout, de 1 até 4096.
+    /// `max_dom_operations` configures shared DOM/CSS work, from 1 through 1,000,000.
+    /// `max_initial_dom_nodes` can lower the initial parser's 65,536-node budget.
+    /// `max_dom_nodes` can lower the page arena's cumulative 65,536-node budget.
+    ///
+    /// # Errors
+    /// Retorna falha de URL, HTML, scripts, alocação ou inicialização do motor.
+    #[wasm_bindgen(constructor)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Preserve the positional Wasm constructor ABI when adding optional budgets"
+    )]
+    pub fn new(
+        html: &str,
+        url: &str,
+        execute_scripts: Option<bool>,
+        media: Option<String>,
+        max_stylesheet_bytes: Option<usize>,
+        max_layout_nodes: Option<usize>,
+        cookies: Option<WasmCookies>,
+        max_dom_operations: Option<usize>,
+        max_initial_dom_nodes: Option<usize>,
+        max_dom_nodes: Option<usize>,
+    ) -> Result<Self, String> {
+        if html.len() > Limits::default().max_response_bytes {
+            return Err("resource limit: HTML bytes".into());
+        }
+        let mut loader = WasmPageLoader::new(
+            url,
+            execute_scripts,
+            media,
+            max_stylesheet_bytes,
+            max_layout_nodes,
+            cookies,
+            max_dom_operations,
+            max_initial_dom_nodes,
+            max_dom_nodes,
+        )?;
+        for bytes in html.as_bytes().chunks(8192) {
+            loader.feed(bytes)?;
+        }
+        loader.finish()
     }
 
     /// Retorna request, wait, ready ou result em JSON. Scripts ficam no motor.

@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { join } from "node:path";
 import { Miniflare } from "miniflare";
 
-test.each(["timer", "http", "body", "readiness"])(
+test.each(["timer", "http", "body", "readiness", "parsing"])(
   "client disconnect interrupts %s and releases Worker capacity",
   async (phase) => {
     const entered = Promise.withResolvers<void>();
@@ -11,6 +11,11 @@ test.each(["timer", "http", "body", "readiness"])(
       port: 0,
       fetch(request) {
         const path = new URL(request.url).pathname;
+        if (path === "/parsing") {
+          const body = `<!doctype html><body>${"<div>".repeat(60000)}x${"</div>".repeat(60000)}`;
+          entered.resolve();
+          return new Response(body, { headers: { "content-type": "text/html" } });
+        }
         if (path === "/body") {
           let sent = false;
           return new Response(
@@ -67,7 +72,10 @@ test.each(["timer", "http", "body", "readiness"])(
         ...options,
         signal: client.signal,
         body: JSON.stringify({
-          url: phase === "body" ? new URL("/body", origin.url).href : origin.url.href,
+          url: new URL(
+            phase === "body" ? "/body" : phase === "parsing" ? "/parsing" : "/",
+            origin.url,
+          ).href,
           ...(phase === "readiness"
             ? {
                 waitFor: {
@@ -84,7 +92,7 @@ test.each(["timer", "http", "body", "readiness"])(
           expression:
             phase === "http"
               ? "fetch('/hang')"
-              : phase === "readiness" || phase === "body"
+              : phase === "readiness" || phase === "body" || phase === "parsing"
                 ? "1"
                 : "fetch('/entered').then(()=>new Promise(resolve=>setTimeout(()=>resolve(1),60000)))",
         }),
@@ -93,6 +101,15 @@ test.each(["timer", "http", "body", "readiness"])(
         () => 0,
       );
       await entered.promise;
+      if (phase === "parsing") {
+        // The origin has returned its complete local body; let initial parsing advance.
+        await Bun.sleep(200);
+        const busy = await fetch(endpoint, {
+          ...options,
+          body: JSON.stringify({ url: origin.url.href, expression: "1" }),
+        });
+        expect(busy.status).toBe(429);
+      }
       const started = performance.now();
       client.abort();
       expect(await pending).toBe(0);
