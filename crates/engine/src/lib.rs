@@ -27,6 +27,7 @@ mod font_matching;
 mod font_settings;
 mod fonts;
 mod html_boxes;
+mod import_maps;
 mod layers;
 mod layout;
 mod line_height;

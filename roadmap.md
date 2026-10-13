@@ -57,7 +57,10 @@ Implemented subset: [readiness](docs/readiness.md) for selectors, synchronous
 boolean predicates and configurable network idle runs in the shared Rust
 machine on native and Worker hosts. Real HTTP tests cover delayed content,
 request resets, timeouts, invalid predicates, DOM limits and failure disposal.
-Module/task expansion, cancellation and broader phase diagnostics remain open.
+[Parser-time import maps](docs/import-maps.md) add bounded aliases, prefix and
+scoped resolution, blocked entries and cyclic live export coverage. Multiple/dynamic
+maps, unloaded dynamic imports, task expansion, cancellation and broader phase
+diagnostics remain open.
 
 ## 0.5 — CSS and geometry
 

@@ -178,7 +178,10 @@ impl Machine {
         )));
         let scripts = collect_scripts(&dom.borrow(), execute_scripts)?;
         let runtime = Runtime::new().map_err(|error| Error::JavaScript(error.to_string()))?;
-        let modules = Modules::new(base.clone());
+        let modules = Modules::new(
+            base.clone(),
+            collect_import_map(&dom.borrow(), execute_scripts)?,
+        );
         modules.install(&runtime);
         runtime.set_memory_limit(limits.javascript_memory_bytes);
         runtime.set_max_stack_size(512 * 1024);
@@ -941,6 +944,37 @@ fn js<T>(ctx: &Ctx<'_>, result: rquickjs::Result<T>) -> Result<T> {
         };
         Error::JavaScript(message)
     })
+}
+
+fn collect_import_map(dom: &Dom, execute_scripts: bool) -> Result<crate::import_maps::ImportMap> {
+    let mut map = None;
+    let mut seen_script = false;
+    if execute_scripts {
+        for node in dom.document.select("script").nodes() {
+            let kind = node
+                .null_attribute("type")
+                .unwrap_or_default()
+                .trim()
+                .to_ascii_lowercase();
+            if kind == "importmap" {
+                if map.is_some() || seen_script || node.null_attribute("src").is_some() {
+                    return Err(Error::Unsupported(
+                        "multiple, late or external import maps".into(),
+                    ));
+                }
+                let base =
+                    crate::links::base(dom.base_href()?.as_deref(), dom.document_url().as_str())
+                        .unwrap_or_else(|| dom.document_url().clone());
+                map = Some(crate::import_maps::ImportMap::parse(&node.text(), &base)?);
+            } else if matches!(
+                kind.as_str(),
+                "" | "text/javascript" | "application/javascript" | "module"
+            ) {
+                seen_script = true;
+            }
+        }
+    }
+    Ok(map.unwrap_or_default())
 }
 
 fn collect_scripts(dom: &Dom, execute_scripts: bool) -> Result<VecDeque<Script>> {

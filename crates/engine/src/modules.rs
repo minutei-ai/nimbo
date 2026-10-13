@@ -21,14 +21,16 @@ pub(crate) struct Modules {
     sources: Rc<RefCell<HashMap<String, Source>>>,
     missing: Rc<RefCell<Option<String>>>,
     origin: url::Url,
+    import_map: crate::import_maps::ImportMap,
 }
 
 impl Modules {
-    pub(crate) fn new(origin: url::Url) -> Self {
+    pub(crate) fn new(origin: url::Url, import_map: crate::import_maps::ImportMap) -> Self {
         Self {
             sources: Rc::default(),
             missing: Rc::default(),
             origin,
+            import_map,
         }
     }
 
@@ -134,16 +136,6 @@ impl Resolver for Modules {
                 "import attributes are not implemented",
             ));
         }
-        if !name.starts_with('/')
-            && !name.starts_with("./")
-            && !name.starts_with("../")
-            && url::Url::parse(name).is_err()
-        {
-            return Err(Exception::throw_type(
-                ctx,
-                "bare module specifier requires an import map",
-            ));
-        }
         let source_base = self
             .sources
             .borrow()
@@ -151,8 +143,9 @@ impl Resolver for Modules {
             .map_or_else(|| base.to_owned(), |source| source.base.clone());
         let base = url::Url::parse(&source_base)
             .map_err(|error| Exception::throw_type(ctx, &error.to_string()))?;
-        let resolved = base
-            .join(name)
+        let resolved = self
+            .import_map
+            .resolve(name, &base)
             .map_err(|error| Exception::throw_type(ctx, &error.to_string()))?;
         resolve(&self.origin, resolved.as_str())
             .map(|url| url.to_string())

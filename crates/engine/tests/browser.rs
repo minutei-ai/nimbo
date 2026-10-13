@@ -436,6 +436,16 @@ fn serve_page(mut request: Request) -> io::Result<()> {
         "/cross-script" => "<script src='http://localhost:9/blocked'></script>".into(),
         "/cross-fetch" => "<script>fetch('http://localhost:9/blocked');</script>".into(),
         "/module" => "<script type='module'>export {};</script>".into(),
+        "/import-map" => r#"<script type="importmap">{"imports":{"value":"/modules/shared.js","pkg/":"/mapped/","blocked":null},"scopes":{"/mapped/":{"value":"/mapped/value.js"}}}</script><script type="module" src="/mapped/root.js"></script>"#.into(),
+        "/mapped/root.js" => {
+            content_type = "text/javascript";
+            "import {value} from 'value'; import {readA} from 'pkg/a.js'; globalThis.mapResult={value,cycle:readA()};".into()
+        }
+        "/mapped/value.js" => {content_type="text/javascript"; "export const value=73;".into()},
+        "/mapped/a.js" => {content_type="text/javascript"; "import {readB} from './b.js'; export const a=3; export function readA(){return a+readB();}".into()},
+        "/mapped/b.js" => {content_type="text/javascript"; "import {a} from './a.js'; export function readB(){return a+4;}".into()},
+        "/import-map-late" => r#"<script>globalThis.started=true</script><script type="importmap">{}</script>"#.into(),
+        "/import-map-cross" => r#"<script type="importmap">{"imports":{"value":"https://example.test/blocked.js"}}</script><script type="module">import 'value';</script>"#.into(),
         "/module-main" => "<script>globalThis.moduleLoads = 0;</script><script type='module' src='/modules/root.js'></script><script type='module' src='/modules/root.js'></script>".into(),
         "/modules/root.js" => {
             content_type = "text/javascript";
@@ -945,6 +955,33 @@ fn timer_capacity_task_budget_and_deadline_are_enforced() -> TestResult {
         Err(Error::Limit("navigation deadline"))
     ));
     assert!(start.elapsed() < Duration::from_secs(2));
+    Ok(())
+}
+
+#[test]
+fn native_import_maps_resolve_scopes_and_cyclic_live_exports() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    let page = browser.navigate(&fixture.path("/import-map"))?;
+    assert_eq!(page.evaluate("mapResult")?, json!({"value":73,"cycle":10}));
+    assert_eq!(
+        page.evaluate("import('pkg/a.js').then(ns=>ns.readA())")?,
+        json!(10)
+    );
+    assert!(page.evaluate("import('blocked')").is_err());
+    assert!(page.evaluate("import('pkg/../escape.js')").is_err());
+    assert!(browser.navigate(&fixture.path("/import-map-late")).is_err());
+    assert!(
+        browser
+            .navigate(&fixture.path("/import-map-cross"))
+            .is_err()
+    );
+    assert_eq!(
+        browser
+            .navigate(&fixture.path("/static"))?
+            .evaluate("typeof mapResult")?,
+        json!("undefined")
+    );
     Ok(())
 }
 
