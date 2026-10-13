@@ -714,6 +714,7 @@ struct Tree<'a, 'b> {
     styles: &'a HashMap<NodeId, Declarations>,
     visited: usize,
     cascade: &'a crate::cascade::Cascade,
+    controls: &'a crate::dom::control_selectors::View<'a>,
     containers: &'a crate::containers::Snapshot,
     next_containers: crate::containers::Snapshot,
     work: &'a mut Work<'b>,
@@ -757,6 +758,7 @@ impl Tree<'_, '_> {
             &Declarations::default(),
             Some(kind),
             self.containers,
+            Some(self.controls),
             self.work,
         )?;
         let (declarations, variables) = self.computed.compute(
@@ -845,9 +847,14 @@ impl Tree<'_, '_> {
             Declarations::parse(node.null_attribute("style").as_deref().unwrap_or_default())
                 .map_err(|message| Error::Dom(message.into()))?
         };
-        let declarations =
-            self.cascade
-                .resolve(node, &declarations, None, self.containers, self.work)?;
+        let declarations = self.cascade.resolve(
+            node,
+            &declarations,
+            None,
+            self.containers,
+            Some(self.controls),
+            self.work,
+        )?;
         let (declarations, variables) = self.computed.compute(
             &declarations,
             parent,
@@ -1308,6 +1315,7 @@ pub(crate) struct Sources<'a> {
     pub now: f64,
     pub inline: &'a HashMap<NodeId, Declarations>,
     pub cascade: &'a crate::cascade::Cascade,
+    pub controls: crate::dom::control_selectors::View<'a>,
     pub fonts: &'a std::cell::RefCell<crate::font_data::Arena>,
 }
 
@@ -1361,6 +1369,7 @@ fn scene<T>(
             styles: styles.inline,
             visited: 0,
             cascade,
+            controls: &styles.controls,
             containers: &containers,
             next_containers: crate::containers::Snapshot::new(),
             work,

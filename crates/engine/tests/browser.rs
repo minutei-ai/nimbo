@@ -3079,6 +3079,17 @@ fn initial_dom_node_limits_reject_before_scripts_and_recover_over_http() -> Test
 }
 
 #[test]
+fn control_selector_queries_and_styles_follow_owned_state() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/empty-layout"))?;
+    let source = include_str!("fixtures/control-selectors.txt");
+    assert_eq!(page.evaluate(&format!("(()=>{{{source};const checks=controlSelectorsCase(0);return {{count:Object.keys(checks).length,failed:Object.entries(checks).filter(([,passed])=>!passed).map(([name])=>name)}}}})()"))?,json!({"count":44,"failed":[]}));
+    Ok(())
+}
+
+#[test]
 fn input_activation_delivers_and_cancels_owned_state_over_http() -> TestResult {
     let fixture = Fixture::new()?;
     let page = fixture.browser()?.navigate(&fixture.path("/static"))?;

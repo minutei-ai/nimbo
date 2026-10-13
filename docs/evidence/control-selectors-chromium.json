@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-13",
+  "fixture": "crates/engine/tests/fixtures/control-selectors.txt",
+  "scope": "64 fresh HTTP pages; live native control selectors, CSS invalidation, radio indeterminacy, fieldsets and scoped queries; default budgets",
+  "fixture_sha256": "d4892d22facc24b473cde1636d665e63971e3c3fc55f0ef503df73ae3e07a3df",
+  "runtimes": [
+    {
+      "runtime": "Google Chrome 155.0.8059.39",
+      "pages": 64,
+      "checks_per_page": 44,
+      "all_passed": true
+    },
+    {
+      "runtime": "celld 0.6.1",
+      "pages": 64,
+      "checks_per_page": 44,
+      "all_passed": true
+    }
+  ]
+}

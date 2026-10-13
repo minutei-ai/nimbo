@@ -11,6 +11,8 @@ use crate::{Error, Limits, Result};
 mod attribute_nodes;
 #[path = "dom_checkedness.rs"]
 mod checkedness;
+#[path = "dom_control_selectors.rs"]
+pub(crate) mod control_selectors;
 #[path = "dom_controls.rs"]
 mod controls;
 #[path = "dom_documents.rs"]
@@ -55,6 +57,8 @@ pub(crate) struct Dom {
     allocated_nodes: std::rc::Rc<std::cell::Cell<usize>>,
     control_values: HashMap<NodeId, String>,
     checkedness: checkedness::Arena,
+    selector_work: std::cell::Cell<usize>,
+    selector_error: std::cell::RefCell<Option<Error>>,
     check: crate::BudgetCheck,
     layout_version: usize,
     layout: Option<(usize, crate::layout::Snapshot)>,
@@ -120,6 +124,8 @@ impl Dom {
             allocated_nodes,
             control_values: HashMap::new(),
             checkedness: checkedness::Arena::default(),
+            selector_work: std::cell::Cell::new(0),
+            selector_error: std::cell::RefCell::new(None),
             check,
             layout_version: 0,
             layout: None,
@@ -136,8 +142,27 @@ impl Dom {
         }
     }
 
+    fn control_view(&self) -> control_selectors::View<'_> {
+        control_selectors::View {
+            arena: &self.checkedness,
+            document: &self.document,
+            shadow: &self.shadow,
+            work: &self.selector_work,
+            error: &self.selector_error,
+            limit: self
+                .limits
+                .max_dom_operations
+                .saturating_sub(self.operations),
+            check: &self.check,
+        }
+    }
+
     pub(crate) fn resource_usage(&self) -> (usize, usize, usize) {
-        (self.operations, self.writes, self.handles.len())
+        (
+            self.operations.saturating_add(self.selector_work.get()),
+            self.writes,
+            self.handles.len(),
+        )
     }
 
     fn allocate_node(&self) -> Result<()> {
@@ -225,6 +250,12 @@ impl Dom {
     fn charge_pending_work(&mut self) -> Result<()> {
         self.operations = self
             .operations
+            .saturating_add(self.selector_work.replace(0));
+        if let Some(error) = self.selector_error.borrow_mut().take() {
+            return Err(error);
+        }
+        self.operations = self
+            .operations
             .saturating_add(self.history.work.replace(0))
             .saturating_add(std::mem::take(&mut self.mutations.borrow_mut().work));
         if self.operations > self.limits.max_dom_operations {
@@ -250,6 +281,7 @@ impl Dom {
             operation,
             "set"
                 | "setControlValue"
+                | "setInputState"
                 | "attachShadow"
                 | "setAttr"
                 | "removeAttr"
@@ -260,12 +292,16 @@ impl Dom {
                 | "replace"
                 | "removeChild"
                 | "remove"
-        ) || (operation == "style" && matches!(arg, "set" | "remove" | "text"))
+        ) || (operation == "inputActivate" && arg != "commit")
+            || (operation == "style" && matches!(arg, "set" | "remove" | "text"))
         {
             let names_changed = if matches!(operation, "setAttr" | "removeAttr") {
                 arg.eq_ignore_ascii_case("id") || arg.eq_ignore_ascii_case("name")
             } else {
-                !matches!(operation, "style" | "setControlValue")
+                !matches!(
+                    operation,
+                    "style" | "setControlValue" | "setInputState" | "inputActivate"
+                )
             };
             if names_changed {
                 self.named = None;
@@ -284,7 +320,10 @@ impl Dom {
                     .cascade
                     .as_ref()
                     .is_some_and(|cascade| !cascade.references_attribute(arg));
-            if !(inline_style || irrelevant_attribute) {
+            if !(inline_style
+                || irrelevant_attribute
+                || matches!(operation, "setInputState" | "inputActivate"))
+            {
                 self.cascade = None;
             }
         }
@@ -345,7 +384,7 @@ impl Dom {
             "children" => self.children(handle, arg)?,
             "matches" => {
                 let matcher = self.matcher(arg)?;
-                json!(matcher.matches(self.node(handle)?))
+                json!(matcher.matches(self.node(handle)?, Some(&self.control_view())))
             }
             "closest" => self.closest(handle, arg)?,
             "parentElement" => {
@@ -654,72 +693,92 @@ impl Dom {
                 )));
             }
             if crate::computed_style::property(name) {
-                let id = node.id;
-                let cascade = self.ensure_cascade()?;
-                let node = self
-                    .document
-                    .tree
-                    .get(&id)
-                    .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
-                if !self.computed_styles.contains_key(&id) {
-                    let mut work = crate::layout::Work::new(
-                        &mut self.operations,
-                        self.limits.max_dom_operations,
-                        self.limits.max_layout_nodes,
-                    );
-                    let values = crate::computed_style::resolve(
-                        node,
-                        &crate::layout::Sources {
-                            scroll: &self.scroll,
-                            transitions: &self.transitions,
-                            now: self.now,
-                            inline: &self.styles,
-                            cascade: &cascade,
-                            fonts: &self.fonts,
-                        },
-                        &self.media,
-                        &mut work,
-                    )?;
-                    self.computed_styles.insert(id, values);
-                }
-                if crate::layout::resolved::property(name)
-                    && self
-                        .computed_styles
-                        .get(&id)
-                        .is_some_and(|style| style.used_box.is_none())
-                {
-                    let mut work = crate::layout::Work::new(
-                        &mut self.operations,
-                        self.limits.max_dom_operations,
-                        self.limits.max_layout_nodes,
-                    );
-                    let values = crate::layout::resolved::resolve(
-                        &self.document,
-                        node,
-                        &crate::layout::Sources {
-                            scroll: &self.scroll,
-                            transitions: &self.transitions,
-                            now: self.now,
-                            inline: &self.styles,
-                            cascade: &cascade,
-                            fonts: &self.fonts,
-                        },
-                        &self.media,
-                        &mut work,
-                    )?;
-                    self.computed_styles
-                        .get_mut(&id)
-                        .ok_or_else(|| Error::Dom("missing computed style".into()))?
-                        .used_box = Some(values);
-                }
-                value = self
-                    .computed_styles
-                    .get(&id)
-                    .ok_or_else(|| Error::Dom("missing computed style".into()))?
-                    .value(name)?;
+                value = self.computed_value(node.id, name)?;
             }
         }
         Ok(Self::computed_metadata(properties, &value))
+    }
+
+    fn computed_value(&mut self, id: NodeId, name: &str) -> Result<String> {
+        let cascade = self.ensure_cascade()?;
+        let node = self
+            .document
+            .tree
+            .get(&id)
+            .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
+        if !self.computed_styles.contains_key(&id) {
+            let mut work = crate::layout::Work::new(
+                &mut self.operations,
+                self.limits.max_dom_operations,
+                self.limits.max_layout_nodes,
+            );
+            let values = crate::computed_style::resolve(
+                node,
+                &crate::layout::Sources {
+                    scroll: &self.scroll,
+                    transitions: &self.transitions,
+                    now: self.now,
+                    inline: &self.styles,
+                    cascade: &cascade,
+                    controls: control_selectors::View {
+                        arena: &self.checkedness,
+                        document: &self.document,
+                        shadow: &self.shadow,
+                        work: &self.selector_work,
+                        error: &self.selector_error,
+                        limit: self.limits.max_dom_operations,
+                        check: &self.check,
+                    },
+                    fonts: &self.fonts,
+                },
+                &self.media,
+                &mut work,
+            )?;
+            self.computed_styles.insert(id, values);
+        }
+        if crate::layout::resolved::property(name)
+            && self
+                .computed_styles
+                .get(&id)
+                .is_some_and(|style| style.used_box.is_none())
+        {
+            let mut work = crate::layout::Work::new(
+                &mut self.operations,
+                self.limits.max_dom_operations,
+                self.limits.max_layout_nodes,
+            );
+            let values = crate::layout::resolved::resolve(
+                &self.document,
+                node,
+                &crate::layout::Sources {
+                    scroll: &self.scroll,
+                    transitions: &self.transitions,
+                    now: self.now,
+                    inline: &self.styles,
+                    cascade: &cascade,
+                    controls: control_selectors::View {
+                        arena: &self.checkedness,
+                        document: &self.document,
+                        shadow: &self.shadow,
+                        work: &self.selector_work,
+                        error: &self.selector_error,
+                        limit: self.limits.max_dom_operations,
+                        check: &self.check,
+                    },
+                    fonts: &self.fonts,
+                },
+                &self.media,
+                &mut work,
+            )?;
+            self.computed_styles
+                .get_mut(&id)
+                .ok_or_else(|| Error::Dom("missing computed style".into()))?
+                .used_box = Some(values);
+        }
+        self.computed_styles
+            .get(&id)
+            .ok_or_else(|| Error::Dom("missing computed style".into()))?
+            .value(name)
     }
 
     fn computed_metadata(properties: &[&str], value: &str) -> Value {
@@ -854,6 +913,15 @@ impl Dom {
                 now: self.now,
                 inline: &self.styles,
                 cascade: &cascade,
+                controls: control_selectors::View {
+                    arena: &self.checkedness,
+                    document: &self.document,
+                    shadow: &self.shadow,
+                    work: &self.selector_work,
+                    error: &self.selector_error,
+                    limit: self.limits.max_dom_operations,
+                    check: &self.check,
+                },
                 fonts: &self.fonts,
             },
             &self.media,
@@ -1102,7 +1170,9 @@ impl Dom {
         let node = self.node(handle)?;
         let id = std::iter::once(node)
             .chain(node.ancestors_it(None))
-            .find(|candidate| candidate.is_element() && matcher.matches(*candidate))
+            .find(|candidate| {
+                candidate.is_element() && matcher.matches(*candidate, Some(&self.control_view()))
+            })
             .map(|candidate| candidate.id);
         Ok(json!(id.map(|id| self.handle(id))))
     }
@@ -1467,10 +1537,22 @@ impl Dom {
             .tree
             .get(&id)
             .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
+        let view = control_selectors::View {
+            arena: &self.checkedness,
+            document: &self.document,
+            shadow: &self.shadow,
+            work: &self.selector_work,
+            error: &self.selector_error,
+            limit: self
+                .limits
+                .max_dom_operations
+                .saturating_sub(self.operations),
+            check: &self.check,
+        };
         let handles = &mut self.handles;
         let ids = &mut self.ids;
         let result: Vec<_> = matcher
-            .select(node)
+            .select(node, Some(&view))
             .map(|node| register_handle(handles, ids, node.id))
             .collect();
         Ok(json!(result))
@@ -1514,7 +1596,10 @@ impl Dom {
     fn query_one(&mut self, handle: usize, selector: &str) -> Result<Value> {
         let matcher = self.matcher(selector)?;
         let node = self.node(handle)?;
-        let id = matcher.select(node).next().map(|node| node.id);
+        let id = matcher
+            .select(node, Some(&self.control_view()))
+            .next()
+            .map(|node| node.id);
         Ok(json!(id.map(|id| self.handle(id))))
     }
 

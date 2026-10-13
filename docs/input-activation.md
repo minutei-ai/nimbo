@@ -61,7 +61,8 @@ compares the completed value and retarget progress against elapsed time without
 increasing tolerances. A real HTTP regression injects delayed samples, and
 [25 transition contracts](evidence/transition-timing-chromium.json) passed in
 128 independent comparison pages. Label forwarding, focus/pickers, form
-submission/reset, anchor navigation and checked/indeterminate CSS selectors remain open.
+submission/reset, anchor navigation remain open. [Live control selectors](control-selectors.md) connect
+checkbox/radio state to queries and CSS; the complete validation passed 8,154 Bun tests and 203 native tests in each debug/release profile.
 
 The public contracts follow [HTML input activation](https://html.spec.whatwg.org/multipage/input.html),
 [UI Events](https://w3c.github.io/uievents/),

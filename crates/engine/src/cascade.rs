@@ -22,7 +22,7 @@ struct Selector {
     matcher: Matcher,
     specificity: u32,
     generated: Option<Generated>,
-    style_dependent: bool,
+    dynamic: bool,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -66,7 +66,7 @@ impl Index {
         for (rule_index, rule) in rules.iter().enumerate() {
             for (selector_index, selector) in rule.selectors.iter().enumerate() {
                 let position = (rule_index, selector_index);
-                if selector.style_dependent {
+                if selector.dynamic {
                     index.dynamic.push(position);
                     continue;
                 }
@@ -495,7 +495,7 @@ impl<'i> QualifiedRuleParser<'i> for Rules<'_> {
                 let matcher = Matcher::new(&origin)
                     .map_err(|_error| input.new_custom_error("stylesheet selector"))?;
                 Ok(Selector {
-                    style_dependent: matcher.references_style(),
+                    dynamic: matcher.references_dynamic(),
                     matcher,
                     specificity: selector.specificity(),
                     generated,
@@ -716,6 +716,7 @@ impl Cascade {
         &self,
         node: NodeRef<'_>,
         generated: Option<Generated>,
+        controls: Option<&crate::dom::control_selectors::View<'_>>,
         work: &mut Work<'_>,
     ) -> Result<Matches> {
         // Cascade instances are local to an immutable scene or computed-style query.
@@ -738,7 +739,7 @@ impl Cascade {
                 continue;
             }
             work.charge()?;
-            if selector.matcher.matches(node) {
+            if selector.matcher.matches(node, controls) {
                 matching
                     .entry(rule_index)
                     .and_modify(|specificity| {
@@ -758,9 +759,10 @@ impl Cascade {
         &self,
         node: NodeRef<'_>,
         generated: Option<Generated>,
+        controls: Option<&crate::dom::control_selectors::View<'_>>,
         work: &mut Work<'_>,
     ) -> Result<Matches> {
-        let stable = self.stable_matches(node, generated, work)?;
+        let stable = self.stable_matches(node, generated, controls, work)?;
         if self.index.dynamic.is_empty() {
             return Ok(stable);
         }
@@ -778,7 +780,7 @@ impl Cascade {
                 continue;
             }
             work.charge()?;
-            if selector.matcher.matches(node) {
+            if selector.matcher.matches(node, controls) {
                 matching
                     .entry(rule_index)
                     .and_modify(|specificity| {
@@ -796,10 +798,11 @@ impl Cascade {
         inline: &Declarations,
         generated: Option<Generated>,
         containers: &crate::containers::Snapshot,
+        controls: Option<&crate::dom::control_selectors::View<'_>>,
         work: &mut Work<'_>,
     ) -> Result<Declarations> {
         let mut sources = Vec::new();
-        let matched = self.selector_matches(node, generated, work)?;
+        let matched = self.selector_matches(node, generated, controls, work)?;
         let mut matching = Vec::new();
         for &(rule_index, specificity) in matched.iter() {
             let rule = self

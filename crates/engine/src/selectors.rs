@@ -1,4 +1,4 @@
-use crate::dom_attributes::NativeAttributes;
+use crate::{dom::control_selectors::View, dom_attributes::NativeAttributes};
 use cssparser::{CowRcStr, ParseError, Parser, ParserInput, SourceLocation, ToCss};
 use dom_query::{NodeData, NodeRef};
 use lightningcss::{
@@ -235,20 +235,28 @@ impl Matcher {
         }
         attributes
     }
-    pub(crate) fn references_style(&self) -> bool {
-        self.list.slice().iter().any(references_style)
+    pub(crate) fn references_dynamic(&self) -> bool {
+        self.list.slice().iter().any(references_dynamic)
     }
-    pub(crate) fn matches(&self, node: NodeRef<'_>) -> bool {
+    pub(crate) fn matches(&self, node: NodeRef<'_>, view: Option<&View<'_>>) -> bool {
         let mut caches = SelectorCaches::default();
+        self.matches_with_caches(node, view, &mut caches)
+    }
+    pub(crate) fn matches_with_caches(
+        &self,
+        node: NodeRef<'_>,
+        view: Option<&View<'_>>,
+        caches: &mut SelectorCaches,
+    ) -> bool {
         let mut context = MatchingContext::new(
             MatchingMode::Normal,
             None,
-            &mut caches,
+            caches,
             QuirksMode::NoQuirks,
             NeedsSelectorFlags::No,
             MatchingForInvalidation::No,
         );
-        matches_selector_list(&self.list, &NativeElement(node), &mut context)
+        matches_selector_list(&self.list, &NativeElement(node, view), &mut context)
     }
 }
 fn attribute_dependencies(
@@ -258,6 +266,17 @@ fn attribute_dependencies(
     use selectors::parser::Component;
     for component in selector.iter_raw_match_order() {
         match component {
+            Component::NonTSPseudoClass(pseudo)
+                if matches!(
+                    pseudo.0.as_str(),
+                    ":checked" | ":indeterminate" | ":enabled" | ":disabled"
+                ) =>
+            {
+                attributes.extend(
+                    ["checked", "type", "name", "form", "id", "disabled", "value"]
+                        .map(str::to_owned),
+                );
+            }
             Component::ID(_) => {
                 attributes.insert("id".into());
             }
@@ -306,25 +325,33 @@ fn attribute_dependencies(
     }
 }
 
-fn references_style(selector: &selectors::parser::Selector<NativeImpl>) -> bool {
+fn references_dynamic(selector: &selectors::parser::Selector<NativeImpl>) -> bool {
     use selectors::parser::Component;
     selector
         .iter_raw_match_order()
         .any(|component| match component {
+            Component::NonTSPseudoClass(pseudo)
+                if matches!(
+                    pseudo.0.as_str(),
+                    ":checked" | ":indeterminate" | ":enabled" | ":disabled"
+                ) =>
+            {
+                true
+            }
             Component::AttributeInNoNamespaceExists {
                 local_name_lower, ..
             } => local_name_lower.as_ref() == "style",
             Component::AttributeInNoNamespace { local_name, .. } => local_name.as_ref() == "style",
             Component::AttributeOther(attribute) => attribute.local_name_lower.as_ref() == "style",
             Component::Is(list) | Component::Where(list) | Component::Negation(list) => {
-                list.slice().iter().any(references_style)
+                list.slice().iter().any(references_dynamic)
             }
             Component::Has(list) => list
                 .iter()
-                .any(|relative| references_style(&relative.selector)),
-            Component::NthOf(data) => data.selectors().iter().any(references_style),
+                .any(|relative| references_dynamic(&relative.selector)),
+            Component::NthOf(data) => data.selectors().iter().any(references_dynamic),
             Component::Host(Some(selector)) | Component::Slotted(selector) => {
-                references_style(selector)
+                references_dynamic(selector)
             }
             _ => false,
         })
@@ -383,7 +410,7 @@ fn selector_key(selector: &selectors::parser::Selector<NativeImpl>) -> Option<Ke
     key
 }
 #[derive(Clone, Copy, Debug)]
-struct NativeElement<'a>(NodeRef<'a>);
+struct NativeElement<'a>(NodeRef<'a>, Option<&'a View<'a>>);
 impl Element for NativeElement<'_> {
     type Impl = NativeImpl;
     fn opaque(&self) -> OpaqueElement {
@@ -394,7 +421,7 @@ impl Element for NativeElement<'_> {
         self.0
             .ancestors_it(None)
             .find(NodeRef::is_element)
-            .map(Self)
+            .map(|node| Self(node, self.1))
     }
     fn parent_node_is_shadow_root(&self) -> bool {
         false
@@ -406,10 +433,10 @@ impl Element for NativeElement<'_> {
         false
     }
     fn prev_sibling_element(&self) -> Option<Self> {
-        self.0.prev_element_sibling().map(Self)
+        self.0.prev_element_sibling().map(|node| Self(node, self.1))
     }
     fn next_sibling_element(&self) -> Option<Self> {
-        self.0.next_element_sibling().map(Self)
+        self.0.next_element_sibling().map(|node| Self(node, self.1))
     }
     fn is_html_element_in_html_document(&self) -> bool {
         self.0
@@ -461,6 +488,11 @@ impl Element for NativeElement<'_> {
         pseudo: &BrowserPseudo,
         _context: &mut MatchingContext<'_, Self::Impl>,
     ) -> bool {
+        if let Some(view) = self.1
+            && let Some(value) = view.matches(self.0, pseudo.0.as_str())
+        {
+            return value;
+        }
         match pseudo.0.as_str() {
             ":any-link" | ":link" | ":-webkit-any-link" | ":-moz-any-link" => self.is_link(),
             // Document scenes do not yet have native user-action, media,
@@ -480,7 +512,7 @@ impl Element for NativeElement<'_> {
         self.0
             .children_it(false)
             .find(NodeRef::is_element)
-            .map(Self)
+            .map(|node| Self(node, self.1))
     }
     fn has_custom_state(&self, _name: &<Self::Impl as SelectorImpl>::Identifier) -> bool {
         false

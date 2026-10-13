@@ -67,7 +67,10 @@ indeterminate state and radio groups add 50 independent contracts.
 [Owned synthetic activation](docs/input-activation.md) adds mouse/pointer
 interfaces and bounded click/cancel delivery, with 46 event and 36 activation
 contracts verified independently. Reset, label forwarding, focus/pickers, form
-submission, anchor navigation and CSS state selectors still remain open.
+submission and anchor navigation still remain open.
+[Live control selectors](docs/control-selectors.md) connect borrowed native
+state to one query/CSS matcher, with 44 independent contracts. Complete validation passed
+8,154 Bun tests and 203 native tests in each debug/release profile.
 
 ## 0.4 — Scripts and page readiness
 

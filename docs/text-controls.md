@@ -75,8 +75,9 @@ group merges without eager native handles or duplicate retained group names.
 interfaces, click pre-activation and cancellation, native disabled-fieldset
 checks and ordered input/change events, with 46 event and 36 activation
 contracts verified independently. Reset, constraint validation,
-checked/indeterminate CSS pseudo-classes and parser-specific malformed form
-associations remain open.
+parser-specific malformed form associations remain open.
+[Live control selectors](control-selectors.md) share the native state with DOM
+queries and CSS; the complete validation passed 8,154 Bun tests and 203 native tests in each debug/release profile.
 
 This is the implemented control subset of roadmap 0.3. Number/date/range/color/file values,
 select/options, wider form ownership/reset/submission,

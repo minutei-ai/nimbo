@@ -170,6 +170,7 @@ pub(crate) fn resolve(
             &inline,
             None,
             &crate::containers::Snapshot::new(),
+            Some(&sources.controls),
             work,
         )?;
         let (declarations, next_variables) =

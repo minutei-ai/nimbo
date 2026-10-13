@@ -72,6 +72,7 @@ impl Tree<'_, '_> {
                     &Declarations::default(),
                     Some(kind),
                     self.containers,
+                    Some(self.controls),
                     self.work,
                 )?;
                 if !matches!(

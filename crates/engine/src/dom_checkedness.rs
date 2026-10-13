@@ -16,13 +16,13 @@ struct State {
 }
 
 #[derive(Hash, PartialEq, Eq)]
-struct Group {
-    root: NodeId,
-    form: Option<NodeId>,
-    name: String,
+pub(super) struct Group {
+    pub(super) root: NodeId,
+    pub(super) form: Option<NodeId>,
+    pub(super) name: String,
 }
 
-fn html_element(node: NodeRef<'_>, name: &str) -> bool {
+pub(super) fn html_element(node: NodeRef<'_>, name: &str) -> bool {
     node.query_or(false, |data| {
         matches!(&data.data, NodeData::Element(element)
         if element.name.ns.as_ref() == "http://www.w3.org/1999/xhtml"
@@ -33,12 +33,12 @@ fn input(node: NodeRef<'_>) -> bool {
     html_element(node, "input")
 }
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum ActivationKind {
+pub(super) enum ActivationKind {
     Checkbox,
     Radio,
 }
 
-fn activation_kind(node: NodeRef<'_>) -> Option<ActivationKind> {
+pub(super) fn activation_kind(node: NodeRef<'_>) -> Option<ActivationKind> {
     node.query_or(None, |data| {
         let element = data.as_element()?;
         if element.name.ns.as_ref() != "http://www.w3.org/1999/xhtml"
@@ -82,6 +82,23 @@ struct Activation {
     indeterminate: bool,
     previous: Option<usize>,
     changed: bool,
+}
+
+impl Arena {
+    pub(super) fn checked(&self, node: NodeRef<'_>) -> bool {
+        self.states
+            .get(&node.id)
+            .and_then(|state| state.checked)
+            .unwrap_or_else(|| node.null_attribute("checked").is_some())
+    }
+    pub(super) fn indeterminate(&self, id: NodeId) -> bool {
+        self.states
+            .get(&id)
+            .is_some_and(|state| state.indeterminate)
+    }
+    pub(super) fn group_selected(&self, group: &Group) -> bool {
+        self.groups.contains_key(group)
+    }
 }
 
 impl Dom {
@@ -154,55 +171,11 @@ impl Dom {
     }
 
     pub(super) fn click_disabled(&mut self, handle: usize) -> Result<Value> {
-        let document = Rc::clone(&self.document);
-        let id = self.node_id(handle)?;
-        let node = document
-            .tree
-            .get(&id)
-            .ok_or_else(|| Error::Dom("invalid click receiver".into()))?;
-        if ![
-            "input", "button", "select", "textarea", "fieldset", "option", "optgroup",
-        ]
-        .iter()
-        .any(|name| html_element(node, name))
-        {
-            return Ok(json!(false));
-        }
-        if node.null_attribute("disabled").is_some() {
-            return Ok(json!(true));
-        }
-        for ancestor in node.ancestors_it(None) {
-            self.checkedness_work()?;
-            if !html_element(ancestor, "fieldset") || ancestor.null_attribute("disabled").is_none()
-            {
-                continue;
-            }
-            let mut legend = None;
-            for child in ancestor.children_it(false) {
-                self.checkedness_work()?;
-                if html_element(child, "legend") {
-                    legend = Some(child.id);
-                    break;
-                }
-            }
-            let mut exempt = false;
-            if let Some(legend) = legend {
-                for parent in node.ancestors_it(None) {
-                    self.checkedness_work()?;
-                    if parent.id == legend {
-                        exempt = true;
-                        break;
-                    }
-                    if parent.id == ancestor.id {
-                        break;
-                    }
-                }
-            }
-            if !exempt {
-                return Ok(json!(true));
-            }
-        }
-        Ok(json!(false))
+        let view = self.control_view();
+        Ok(json!(
+            view.matches(self.node(handle)?, ":disabled")
+                .unwrap_or(false)
+        ))
     }
 
     fn activation_type(&self, handle: usize) -> Result<Option<ActivationKind>> {
@@ -337,45 +310,8 @@ impl Dom {
             .tree
             .get(&id)
             .ok_or_else(|| Error::Dom("invalid radio".into()))?;
-        let Some(name) = node.null_attribute("name").filter(|name| !name.is_empty()) else {
-            return Ok(None);
-        };
-        let mut root = id;
-        let mut ancestor_form = None;
-        for ancestor in node.ancestors_it(None) {
-            self.checkedness_work()?;
-            root = ancestor.id;
-            if ancestor_form.is_none() && html_element(ancestor, "form") {
-                ancestor_form = Some(ancestor.id);
-            }
-        }
-        let specified = node.null_attribute("form");
-        self.checkedness.external_forms |= specified.is_some();
-        let connected_root = self.tree_root(id, true)?;
-        let connected = document
-            .tree
-            .get(&connected_root)
-            .is_some_and(|node| node.is_document());
-        let form = if let Some(form_id) = specified.filter(|_| connected) {
-            let mut result = None;
-            if !form_id.is_empty() {
-                let root_node = document
-                    .tree
-                    .get(&root)
-                    .ok_or_else(|| Error::Dom("invalid radio root".into()))?;
-                for candidate in std::iter::once(root_node).chain(root_node.descendants_it()) {
-                    self.checkedness_work()?;
-                    if candidate.null_attribute("id").as_deref() == Some(&form_id) {
-                        result = html_element(candidate, "form").then_some(candidate.id);
-                        break;
-                    }
-                }
-            }
-            result
-        } else {
-            ancestor_form
-        };
-        Ok(Some(Group { root, form, name }))
+        self.checkedness.external_forms |= node.null_attribute("form").is_some();
+        self.control_view().group(node)
     }
 
     fn checkedness_forget_group(&mut self, id: NodeId) {
