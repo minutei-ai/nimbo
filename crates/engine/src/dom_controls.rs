@@ -1,5 +1,5 @@
 use dom_query::{NodeData, NodeRef};
-use serde_json::{Value, json};
+use serde_json::Value;
 
 use crate::{Error, Result, dom::Dom, dom_attributes::NativeAttributes};
 
@@ -175,23 +175,25 @@ impl Dom {
             return Ok(Value::Null);
         }
         if kind == "input" && matches!(mode(node), ValueMode::Default | ValueMode::DefaultOn) {
-            return Ok(json!(node.null_attribute("value").unwrap_or_else(|| {
-                if mode(node) == ValueMode::DefaultOn {
-                    "on".into()
-                } else {
-                    String::new()
-                }
-            })));
+            return Ok(Value::String(node.null_attribute("value").unwrap_or_else(
+                || {
+                    if mode(node) == ValueMode::DefaultOn {
+                        "on".into()
+                    } else {
+                        String::new()
+                    }
+                },
+            )));
         }
         if let Some(value) = self.control_values.get(&id) {
-            return Ok(json!(sanitize(node, kind, value)?));
+            return Ok(Value::String(sanitize(node, kind, value)?));
         }
         let value = if kind == "input" {
             node.null_attribute("value").unwrap_or_default()
         } else {
             self.control_default_text(node)?
         };
-        Ok(json!(sanitize(node, kind, &value)?))
+        Ok(Value::String(sanitize(node, kind, &value)?))
     }
 
     fn control_default_text(&mut self, node: NodeRef<'_>) -> Result<String> {
@@ -215,6 +217,6 @@ impl Dom {
             .tree
             .get(&id)
             .ok_or_else(|| Error::Dom("invalid control".into()))?;
-        Ok(json!(self.control_default_text(node)?))
+        Ok(Value::String(self.control_default_text(node)?))
     }
 }

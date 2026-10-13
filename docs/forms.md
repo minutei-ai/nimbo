@@ -41,9 +41,10 @@ retaining clean per-control state. Full validation passed 8,158 Bun tests and
 212 native tests in each debug/release profile, plus formatting, strict
 TypeScript/Rust/Wasm lint and Rust documentation.
 
-This is the existing text/checkedness control subset. A form containing an
-associated select currently fails reset explicitly before changing any controls.
-Select/options, other value states, form collections and named properties,
+The text/checkedness subset now shares transactional reset with
+[native select state](select-state.md). Associated selects restore defaults and
+clear option dirty records after the common preflight. Other value states,
+form collections and named properties,
 submission, form-associated custom elements and
 parser-specific historical ownership remain roadmap work.
 

@@ -285,6 +285,12 @@ impl Dom {
             let owner_handle = self.handle(owner);
             let control =
                 self.control_before_type(owner_handle, name.ns.as_ref(), name.local.as_ref())?;
+            let selected = self.selection_before_attribute(
+                owner_handle,
+                name.ns.as_ref(),
+                name.local.as_ref(),
+                Some(value),
+            )?;
             let local = name.local.as_ref();
             let observed =
                 self.capture_attribute_ns(owner_handle, name.ns.as_ref(), local, false)?;
@@ -311,6 +317,7 @@ impl Dom {
             }
             self.checkedness_attribute(owner_handle, name.ns.as_ref(), name.local.as_ref())?;
             self.control_after_type(owner_handle, control)?;
+            self.selection_after_attribute(selected)?;
         } else if let Some(record) = self.attribute_nodes.records.get_mut(&handle) {
             record.attribute.value = value.into();
         }
@@ -354,6 +361,12 @@ impl Dom {
             owner_handle,
             attribute.name.ns.as_ref(),
             attribute.name.local.as_ref(),
+        )?;
+        let selected = self.selection_before_attribute(
+            owner_handle,
+            attribute.name.ns.as_ref(),
+            attribute.name.local.as_ref(),
+            Some(attribute.value.as_ref()),
         )?;
         self.charge_write(attribute.value.len())?;
         let observed = self.capture_attribute_ns(
@@ -416,6 +429,7 @@ impl Dom {
             attribute.name.local.as_ref(),
         )?;
         self.control_after_type(owner_handle, control)?;
+        self.selection_after_attribute(selected)?;
         if attribute.name.ns.is_empty() && attribute.name.local.as_ref() == "href" {
             self.history_base_mutation("setAttr", owner_handle, "href", "")?;
         }
@@ -436,6 +450,12 @@ impl Dom {
             owner_handle,
             attribute.name.ns.as_ref(),
             attribute.name.local.as_ref(),
+        )?;
+        let selected = self.selection_before_attribute(
+            owner_handle,
+            attribute.name.ns.as_ref(),
+            attribute.name.local.as_ref(),
+            None,
         )?;
         self.charge_write(0)?;
         let observed = self.capture_attribute_ns(
@@ -472,6 +492,7 @@ impl Dom {
             attribute.name.local.as_ref(),
         )?;
         self.control_after_type(owner_handle, control)?;
+        self.selection_after_attribute(selected)?;
         if attribute.name.ns.is_empty() && attribute.name.local.as_ref() == "href" {
             self.history_base_mutation("removeAttr", owner_handle, "href", "")?;
         }

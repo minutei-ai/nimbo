@@ -4978,3 +4978,13 @@ fn option_metadata_uses_native_text_and_live_form_ownership() -> TestResult {
     assert_eq!(page.evaluate(&format!("(()=>{{{source};const checks=optionMetadataCase(0);return {{count:Object.keys(checks).length,failed:Object.entries(checks).filter(([,passed])=>!passed).map(([name])=>name)}}}})()"))?, json!({"count":45,"failed":[]}));
     Ok(())
 }
+
+#[test]
+fn select_state_preserves_defaults_mutations_collections_and_reset() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    let source = include_str!("fixtures/select-state.txt");
+    assert_eq!(page.evaluate(&format!("(()=>{{{source};const checks=selectStateCase(0);return {{count:Object.keys(checks).length,failed:Object.entries(checks).filter(([,passed])=>!passed).map(([name])=>name)}}}})()"))?, json!({"count":72,"failed":[]}));
+    assert_eq!(page.evaluate("(()=>{const s=document.createElement('select');s.append(new Option('A'),new Option('B'));const before=s[0],replacement=new Option('Replacement');return Reflect.defineProperty(s,'0',{value:replacement,configurable:false})===false&&s[0]===before&&Reflect.defineProperty(s.options,'0',{value:replacement,configurable:false})===false&&s[0]===before})()")?, json!(true));
+    Ok(())
+}

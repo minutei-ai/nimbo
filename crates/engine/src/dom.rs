@@ -25,6 +25,8 @@ mod history;
 mod mutations;
 #[path = "dom_options.rs"]
 mod options;
+#[path = "dom_selection.rs"]
+mod selection;
 #[path = "dom_shadow.rs"]
 mod shadow;
 
@@ -61,6 +63,7 @@ pub(crate) struct Dom {
     allocated_nodes: std::rc::Rc<std::cell::Cell<usize>>,
     control_values: HashMap<NodeId, String>,
     checkedness: checkedness::Arena,
+    selection: std::cell::RefCell<selection::Arena>,
     selector_work: std::cell::Cell<usize>,
     selector_steps: std::cell::Cell<usize>,
     selector_error: std::cell::RefCell<Option<Error>>,
@@ -72,7 +75,7 @@ pub(crate) struct Dom {
     // Conservative presence guard: HTML parsing and element creation are the only name producers.
     may_have_links: bool,
     may_have_bases: bool,
-    may_have_inputs: bool,
+    may_have_controls: crate::html_parse::ControlTags,
     sheets: crate::stylesheets::Sheets,
     cssom: crate::cssom::Arena,
     writes: usize,
@@ -129,6 +132,7 @@ impl Dom {
             allocated_nodes,
             control_values: HashMap::new(),
             checkedness: checkedness::Arena::default(),
+            selection: std::cell::RefCell::default(),
             selector_work: std::cell::Cell::new(0),
             selector_steps: std::cell::Cell::new(0),
             selector_error: std::cell::RefCell::new(None),
@@ -139,7 +143,7 @@ impl Dom {
             sheet_scan: None,
             may_have_links: parsed.links,
             may_have_bases: parsed.bases,
-            may_have_inputs: parsed.inputs,
+            may_have_controls: parsed.controls,
             sheets: crate::stylesheets::Sheets::new(base, limits.max_stylesheet_bytes),
             cssom: crate::cssom::Arena::default(),
             writes: 0,
@@ -151,6 +155,7 @@ impl Dom {
     fn control_view(&self) -> control_selectors::View<'_> {
         control_selectors::View {
             arena: &self.checkedness,
+            selection: &self.selection,
             document: &self.document,
             shadow: &self.shadow,
             work: &self.selector_work,
@@ -205,6 +210,11 @@ impl Dom {
             "history" => Err(Error::Dom("invalid history receiver".into())),
             "mutation" => self.mutation_call(handle, arg, value).map(Some),
             "option" => self.option_call(handle, arg).map(Some),
+            "selection" => self.selection_call(handle, arg, value).map(Some),
+            "clickDisabled" => self.click_disabled(handle).map(Some),
+            "formOwner" | "formReset" | "formControl" => {
+                self.form_call(operation, handle, arg).map(Some)
+            }
             _ => Ok(None),
         }
     }
@@ -303,6 +313,7 @@ impl Dom {
                 | "remove"
         ) || (operation == "inputActivate" && arg != "commit")
             || (operation == "style" && matches!(arg, "set" | "remove" | "text"))
+            || (operation == "selection" && arg.starts_with("set"))
         {
             let names_changed = if matches!(operation, "setAttr" | "removeAttr") {
                 arg.eq_ignore_ascii_case("id") || arg.eq_ignore_ascii_case("name")
@@ -358,11 +369,10 @@ impl Dom {
         let owner = self.sync_attribute_owner(operation, handle)?;
         let fallback_slots = self.fallback_slot_targets(operation, handle, arg, value);
         let inserted_controls = self.checkedness_inserting(operation, handle, value)?;
+        let selected = self.selection_before_move(operation, handle, arg, value)?;
         let result = match operation {
-            "clickDisabled" => self.click_disabled(handle)?,
             "inputActivate" => self.input_activation(handle, arg, value)?,
             "inputState" => self.checkedness_call(handle, arg, None)?,
-            "formOwner" | "formReset" | "formControl" => self.form_call(operation, handle, arg)?,
             "setInputState" => self.checkedness_call(handle, arg, Some(value == "true"))?,
             "controlValue" | "setControlValue" | "controlDefault" => {
                 self.control_call(operation, handle, arg, value)?
@@ -444,6 +454,7 @@ impl Dom {
         ) {
             self.checkedness_moved(&inserted_controls)?;
         }
+        self.selection_after_move(selected)?;
         self.signal_fallback_slots(&fallback_slots);
         self.finish(&result, version)
     }
@@ -528,7 +539,8 @@ impl Dom {
             name.to_owned()
         };
         self.allocate_node()?;
-        self.may_have_inputs |= name == "input";
+        self.may_have_controls.inputs |= name == "input";
+        self.may_have_controls.options |= name == "option";
         let node = self.document.tree.new_element(&name);
         if !html {
             node.update(|node| {
@@ -579,7 +591,8 @@ impl Dom {
             namespace == "http://www.w3.org/1999/xhtml" && local.eq_ignore_ascii_case("link");
         self.may_have_bases |= local.eq_ignore_ascii_case("base");
         self.allocate_node()?;
-        self.may_have_inputs |= local == "input";
+        self.may_have_controls.inputs |= local == "input";
+        self.may_have_controls.options |= local == "option";
         let node = self.document.tree.new_element(local);
         node.update(|node| {
             if let NodeData::Element(element) = &mut node.data {
@@ -733,6 +746,7 @@ impl Dom {
                     cascade: &cascade,
                     controls: control_selectors::View {
                         arena: &self.checkedness,
+                        selection: &self.selection,
                         document: &self.document,
                         shadow: &self.shadow,
                         work: &self.selector_work,
@@ -770,6 +784,7 @@ impl Dom {
                     cascade: &cascade,
                     controls: control_selectors::View {
                         arena: &self.checkedness,
+                        selection: &self.selection,
                         document: &self.document,
                         shadow: &self.shadow,
                         work: &self.selector_work,
@@ -928,6 +943,7 @@ impl Dom {
                 cascade: &cascade,
                 controls: control_selectors::View {
                     arena: &self.checkedness,
+                    selection: &self.selection,
                     document: &self.document,
                     shadow: &self.shadow,
                     work: &self.selector_work,
@@ -1014,22 +1030,34 @@ impl Dom {
         let attribute_bytes = if operation == "setAttr" { arg.len() } else { 0 };
         self.charge_write(attribute_bytes.saturating_add(value.len()))?;
         self.invalidate_sheet(operation, handle, arg, value)?;
-        let control = if matches!(operation, "setAttr" | "removeAttr") {
+        let (control, selected) = if matches!(operation, "setAttr" | "removeAttr") {
             let name = crate::dom_attributes::normalized_name(
                 self.node(handle)?,
                 arg,
                 self.html_document(self.node_id(handle)?),
             );
-            self.control_before_type(handle, "", &name)?
+            (
+                self.control_before_type(handle, "", &name)?,
+                self.selection_before_attribute(
+                    handle,
+                    "",
+                    &name,
+                    (operation == "setAttr").then_some(value),
+                )?,
+            )
         } else {
-            None
+            (None, None)
         };
         let observed = self.capture_attribute_write(operation, handle, arg)?;
         let removed_controls = self.checkedness_replacing(operation, handle, arg)?;
         if operation == "set" && arg == "innerHTML" {
+            self.may_have_controls.options |= value
+                .as_bytes()
+                .windows(7)
+                .any(|tag| tag.eq_ignore_ascii_case(b"<option"));
             self.may_have_links |= contains_tag(value, *b"<link");
             self.may_have_bases |= contains_tag(value, *b"<base");
-            self.may_have_inputs |= value
+            self.may_have_controls.inputs |= value
                 .as_bytes()
                 .windows(6)
                 .any(|tag| tag.eq_ignore_ascii_case(b"<input"));
@@ -1050,7 +1078,8 @@ impl Dom {
             self.checkedness_attribute(handle, "", &name)?;
         }
         self.control_after_type(handle, control)?;
-        if operation == "set" && arg == "innerHTML" && self.may_have_inputs {
+        self.selection_after_attribute(selected)?;
+        if operation == "set" && arg == "innerHTML" && self.may_have_controls.inputs {
             self.checkedness_moved(&[self.node_id(handle)?])?;
         }
         if style_changed {
@@ -1157,6 +1186,12 @@ impl Dom {
         }
         self.charge_write(arg.len().saturating_add(value.len()))?;
         let control = self.control_before_type(handle, &namespace, &name)?;
+        let selected = self.selection_before_attribute(
+            handle,
+            &namespace,
+            &name,
+            (operation == "setAttrNS").then_some(value),
+        )?;
         if namespace.is_empty() {
             self.invalidate_sheet(
                 if operation == "setAttrNS" {
@@ -1190,6 +1225,7 @@ impl Dom {
         }
         self.checkedness_attribute(handle, &namespace, &name)?;
         self.control_after_type(handle, control)?;
+        self.selection_after_attribute(selected)?;
         Ok(Value::Null)
     }
 
@@ -1567,6 +1603,7 @@ impl Dom {
             .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
         let view = control_selectors::View {
             arena: &self.checkedness,
+            selection: &self.selection,
             document: &self.document,
             shadow: &self.shadow,
             work: &self.selector_work,

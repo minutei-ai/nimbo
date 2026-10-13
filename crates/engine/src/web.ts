@@ -59,7 +59,7 @@
     const result = JSON.parse(nativeDom(operation, id, arg, value)) as T;
     if (
       (shadowRoots.size > 0 || mutationObservers.size > 0) &&
-      [
+      ([
         "attachShadow",
         "set",
         "setAttr",
@@ -73,7 +73,8 @@
         "removeChild",
         "attributeNode",
         "style",
-      ].includes(operation)
+      ].includes(operation) ||
+        (operation === "selection" && arg === "setLength"))
     )
       queueDomNotifications();
     return result;
@@ -1328,7 +1329,12 @@
   const internal = Symbol("native node");
   type Collection = NodeList | HTMLCollection | NamedNodeMap;
   type CollectionItems = readonly (Node | number)[];
-  type CollectionState = { resolve: () => CollectionItems; live: boolean };
+  type CollectionState = {
+    resolve: () => CollectionItems;
+    live: boolean;
+    count?: () => number;
+    at?: (index: number) => Node | number | undefined;
+  };
   function collectionNode(value: Node | number | undefined): Node | undefined {
     return typeof value === "number" ? node(value) : value;
   }
@@ -1377,19 +1383,36 @@
   function makeCollection<T extends Collection>(
     target: T,
     resolve: () => CollectionItems,
-    options: { named?: boolean; live?: boolean } = {},
+    options: {
+      named?: boolean;
+      live?: boolean;
+      count?: () => number;
+      at?: (index: number) => Node | number | undefined;
+      indexedSet?: (index: number, value: unknown) => boolean;
+      namedGet?: (name: string) => Node | undefined;
+    } = {},
   ): T {
-    const { named = false, live = false } = options;
-    const state = { resolve, live };
+    const { named = false, live = false, count } = options;
+    const state: CollectionState = count ? { resolve, live, count } : { resolve, live };
+    if (options.at) state.at = options.at;
     const visibleName = (key: string | symbol): Node | undefined =>
       named && typeof key === "string" && !Reflect.has(target, key)
-        ? namedNodes(resolve()).get(key)
+        ? options.namedGet
+          ? options.namedGet(key)
+          : namedNodes(resolve()).get(key)
         : undefined;
-    const proxy = new Proxy(target, {
+    const proxy: T = new Proxy(target, {
       get(object, key, receiver): unknown {
         const index = propertyIndex(key);
-        if (index !== null) return collectionNode(resolve()[index]);
+        if (index !== null)
+          return collectionNode(options.at ? options.at(index) : resolve()[index]);
         return visibleName(key) ?? Reflect.get(object, key, receiver);
+      },
+      set(object, key, value: unknown, receiver) {
+        const index = propertyIndex(key);
+        if (index !== null && options.indexedSet && receiver === proxy)
+          return options.indexedSet(index, value);
+        return Reflect.set(object, key, value, receiver);
       },
       has(object, key) {
         const index = propertyIndex(key);
@@ -1410,10 +1433,15 @@
       getOwnPropertyDescriptor(object, key) {
         const index = propertyIndex(key);
         if (index !== null) {
-          const value = collectionNode(resolve()[index]);
+          const value = collectionNode(options.at ? options.at(index) : resolve()[index]);
           return value === undefined
             ? undefined
-            : { value, writable: false, enumerable: true, configurable: true };
+            : {
+                value,
+                writable: Boolean(options.indexedSet),
+                enumerable: true,
+                configurable: true,
+              };
         }
         const value = visibleName(key);
         return value === undefined
@@ -1421,7 +1449,13 @@
           : { value, writable: false, enumerable: false, configurable: true };
       },
       defineProperty(object, key, descriptor) {
-        if (propertyIndex(key) !== null) return false;
+        const index = propertyIndex(key);
+        if (index !== null)
+          return options.indexedSet &&
+            descriptor.configurable !== false &&
+            Object.hasOwn(descriptor, "value")
+            ? options.indexedSet(index, descriptor.value)
+            : false;
         if (
           named &&
           typeof key === "string" &&
@@ -1568,11 +1602,14 @@
       if (key !== internal) throw new TypeError("Illegal constructor");
     }
     get length(): number {
-      return collectionState(this).resolve().length;
+      const state = collectionState(this);
+      return state.count?.() ?? state.resolve().length;
     }
     item(index: number): Element | null {
       if (arguments.length === 0) throw new TypeError("item requires an index");
-      const value = collectionNode(collectionState(this).resolve()[index >>> 0]);
+      const state = collectionState(this);
+      const converted = idlNumber(index) >>> 0;
+      const value = collectionNode(state.at ? state.at(converted) : state.resolve()[converted]);
       return value instanceof Element ? value : null;
     }
     namedItem(name: unknown): Element | null {
@@ -3577,6 +3614,377 @@
       enumerable: true,
       configurable: true,
     });
+  const selectElements = new WeakSet<object>();
+  const selectOptions = new WeakMap<object, HTMLOptionsCollection>();
+  const selectedOptionLists = new WeakMap<object, HTMLCollection>();
+  const optionListOwners = new WeakMap<object, HTMLSelectElement>();
+  function selectId(owner: object): number {
+    if (!selectElements.has(owner)) throw new TypeError("Illegal invocation");
+    return htmlId(owner);
+  }
+  function optionsOwner(list: object): HTMLSelectElement {
+    const owner = optionListOwners.get(list);
+    if (!owner) throw new TypeError("Illegal invocation");
+    return owner;
+  }
+  function selectItem(owner: object, value: number | string, operation = "item"): Element | null {
+    const id = raw<number | null>("selection", selectId(owner), operation, String(value));
+    return id === null ? null : element(id);
+  }
+  function resizeSelect(owner: object, value: unknown): void {
+    const id = selectId(owner);
+    call("selection", id, "setLength", String(idlNumber(value) >>> 0));
+  }
+  function setOptionIndex(owner: object, index: number, value: unknown): boolean {
+    const id = selectId(owner);
+    const old = selectItem(owner, index);
+    if (value === null || value === undefined) {
+      if (old) call("remove", idOf(old));
+      return true;
+    }
+    if (typeof value !== "object" || !optionElements.has(value))
+      throw new TypeError("Expected option");
+    if (old) {
+      const parent = raw<number>("relativeNode", idOf(old), "parent");
+      call("replace", parent, String(idOf(old)), String(idOf(value)));
+    } else {
+      if (index > raw<number>("selection", id, "length")) resizeSelect(owner, index);
+      call("append", id, "", String(idOf(value)));
+    }
+    return true;
+  }
+  const optgroupElements = new WeakSet<object>();
+  class HTMLOptGroupElement extends HTMLElement {
+    constructor(key?: symbol, id?: number) {
+      if (key !== internal || id === undefined) throw new TypeError("Illegal constructor");
+      super(internal, id);
+      optgroupElements.add(this);
+    }
+  }
+  Object.defineProperty(HTMLOptGroupElement, "length", { value: 0, configurable: true });
+  Object.defineProperty(HTMLOptGroupElement.prototype, Symbol.toStringTag, {
+    value: "HTMLOptGroupElement",
+    configurable: true,
+  });
+  for (const name of ["disabled", "label"])
+    Object.defineProperty(HTMLOptGroupElement.prototype, name, {
+      get(this: object) {
+        if (!optgroupElements.has(this)) throw new TypeError("Illegal invocation");
+        return name === "disabled"
+          ? hasHtmlAttribute(this, name)
+          : (htmlAttribute(this, name) ?? "");
+      },
+      set(this: object, value: unknown) {
+        if (!optgroupElements.has(this)) throw new TypeError("Illegal invocation");
+        if (name === "disabled") reflectBoolean(this, name, value);
+        else reflectString(this, name, value);
+      },
+      enumerable: true,
+      configurable: true,
+    });
+  function addOption(owner: object, option: unknown, before?: unknown): void {
+    const id = selectId(owner);
+    if (
+      typeof option !== "object" ||
+      option === null ||
+      (!optionElements.has(option) && !optgroupElements.has(option))
+    )
+      throw new TypeError("Expected option or optgroup");
+    const reference =
+      before === undefined || before === null
+        ? null
+        : before instanceof HTMLElement
+          ? before
+          : selectItem(owner, idlNumber(before) | 0);
+    if (reference !== null) {
+      const referenceId = idOf(reference);
+      if (referenceId === id || raw<number | null>("relativeNode", referenceId, "parent") !== id)
+        throw new DOMException("reference is outside select", "NotFoundError");
+      call("insert", id, String(referenceId), String(idOf(option)));
+    } else call("append", id, "", String(idOf(option)));
+  }
+  function removeOption(owner: object, index: unknown): void {
+    selectId(owner);
+    const item = selectItem(owner, idlNumber(index) | 0);
+    if (item) call("remove", idOf(item));
+  }
+  function selectProxy(target: HTMLSelectElement, id: number): HTMLSelectElement {
+    const proxy: HTMLSelectElement = new Proxy(target, {
+      get(object, key, receiver: HTMLSelectElement): unknown {
+        const index = propertyIndex(key);
+        return index === null
+          ? Reflect.get(object, key, receiver)
+          : (selectItem(proxy, index) ?? undefined);
+      },
+      set(object, key, value: unknown, receiver: HTMLSelectElement) {
+        const index = propertyIndex(key);
+        return index === null
+          ? Reflect.set(object, key, value, receiver)
+          : receiver === proxy
+            ? setOptionIndex(proxy, index, value)
+            : Reflect.set(object, key, value, receiver);
+      },
+      has(object, key) {
+        const index = propertyIndex(key);
+        return index === null
+          ? Reflect.has(object, key)
+          : index < raw<number>("selection", id, "length");
+      },
+      ownKeys(object) {
+        return [
+          ...Array.from({ length: raw<number>("selection", id, "length") }, (_, index) =>
+            String(index),
+          ),
+          ...Reflect.ownKeys(object),
+        ];
+      },
+      getOwnPropertyDescriptor(object, key) {
+        const index = propertyIndex(key);
+        if (index === null) return Reflect.getOwnPropertyDescriptor(object, key);
+        const value = selectItem(proxy, index);
+        return value === null
+          ? undefined
+          : { value, writable: true, enumerable: true, configurable: true };
+      },
+      defineProperty(object, key, descriptor) {
+        const index = propertyIndex(key);
+        if (index === null) return Reflect.defineProperty(object, key, descriptor);
+        return (
+          descriptor.configurable !== false &&
+          Object.hasOwn(descriptor, "value") &&
+          setOptionIndex(proxy, index, descriptor.value)
+        );
+      },
+      deleteProperty(object, key) {
+        const index = propertyIndex(key);
+        return index === null
+          ? Reflect.deleteProperty(object, key)
+          : index >= raw<number>("selection", id, "length");
+      },
+      preventExtensions() {
+        return false;
+      },
+    });
+    ids.set(proxy, id);
+    nodes.set(id, proxy);
+    htmlElements.add(proxy);
+    targets.add(proxy);
+    selectElements.add(proxy);
+    return proxy;
+  }
+  class HTMLOptionsCollection extends HTMLCollection {
+    override get length(): number {
+      return raw("selection", selectId(optionsOwner(this)), "length");
+    }
+    override set length(value: unknown) {
+      resizeSelect(optionsOwner(this), value);
+    }
+    add(option: unknown, before?: unknown): void {
+      const owner = optionsOwner(this);
+      if (arguments.length === 0) throw new TypeError("add requires an option");
+      addOption(owner, option, before);
+    }
+    remove(index: unknown): void {
+      const owner = optionsOwner(this);
+      if (arguments.length === 0) throw new TypeError("remove requires an index");
+      removeOption(owner, index);
+    }
+    override namedItem(name: unknown): Element | null {
+      const owner = optionsOwner(this);
+      if (arguments.length === 0) throw new TypeError("namedItem requires a name");
+      return selectItem(owner, domString(name), "namedItem");
+    }
+    get selectedIndex(): number {
+      return raw("selection", selectId(optionsOwner(this)), "selectedIndex");
+    }
+    set selectedIndex(value: unknown) {
+      raw(
+        "selection",
+        selectId(optionsOwner(this)),
+        "setSelectedIndex",
+        String(idlNumber(value) | 0),
+      );
+    }
+  }
+  function selectOptionList(owner: HTMLSelectElement): HTMLOptionsCollection {
+    const id = selectId(owner);
+    let list = selectOptions.get(owner);
+    if (!list) {
+      list = makeCollection(
+        new HTMLOptionsCollection(internal),
+        () => raw<number[]>("selection", id, "options"),
+        {
+          named: true,
+          live: true,
+          count: () => raw<number>("selection", id, "length"),
+          at: (index) => selectItem(owner, index) ?? undefined,
+          indexedSet: (index, value) => setOptionIndex(owner, index, value),
+          namedGet: (name) => selectItem(owner, name, "namedItem") ?? undefined,
+        },
+      );
+      optionListOwners.set(list, owner);
+      selectOptions.set(owner, list);
+    }
+    return list;
+  }
+  class HTMLSelectElement extends HTMLElement {
+    constructor(key?: symbol, id?: number) {
+      if (key !== internal || id === undefined) throw new TypeError("Illegal constructor");
+      super(internal, id);
+      selectElements.add(this);
+      return selectProxy(this, id);
+    }
+    get options(): HTMLOptionsCollection {
+      return selectOptionList(this);
+    }
+    get selectedOptions(): HTMLCollection {
+      const id = selectId(this);
+      let list = selectedOptionLists.get(this);
+      if (!list) {
+        list = makeCollection(
+          new HTMLCollection(internal),
+          () => raw<number[]>("selection", id, "selectedOptions"),
+          {
+            named: true,
+            live: true,
+            count: () => raw<number>("selection", id, "selectedLength"),
+            at: (index) => selectItem(this, index, "selectedItem") ?? undefined,
+            namedGet: (name) => selectItem(this, name, "selectedNamedItem") ?? undefined,
+          },
+        );
+        selectedOptionLists.set(this, list);
+      }
+      return list;
+    }
+    get length(): number {
+      return raw("selection", selectId(this), "length");
+    }
+    set length(value: unknown) {
+      resizeSelect(this, value);
+    }
+    get selectedIndex(): number {
+      return raw("selection", selectId(this), "selectedIndex");
+    }
+    set selectedIndex(value: unknown) {
+      raw("selection", selectId(this), "setSelectedIndex", String(idlNumber(value) | 0));
+    }
+    get value(): string {
+      return raw("selection", selectId(this), "value");
+    }
+    set value(value: unknown) {
+      raw("selection", selectId(this), "setValue", domString(value));
+    }
+    get type(): string {
+      selectId(this);
+      return hasHtmlAttribute(this, "multiple") ? "select-multiple" : "select-one";
+    }
+    get form(): Element | null {
+      const id = raw<number | null>("formOwner", selectId(this));
+      return id === null ? null : element(id);
+    }
+    get size(): number {
+      return raw("selection", selectId(this), "size");
+    }
+    set size(value: unknown) {
+      selectId(this);
+      const size = idlNumber(value) >>> 0;
+      reflectString(this, "size", String(size > 2147483647 ? 0 : size));
+    }
+    item(index: number): Element | null {
+      selectId(this);
+      if (arguments.length === 0) throw new TypeError("item requires an index");
+      return selectItem(this, idlNumber(index) >>> 0);
+    }
+    namedItem(name: unknown): Element | null {
+      selectId(this);
+      if (arguments.length === 0) throw new TypeError("namedItem requires a name");
+      return selectItem(this, domString(name), "namedItem");
+    }
+    add(option: unknown, before?: unknown): void {
+      selectId(this);
+      if (arguments.length === 0) throw new TypeError("add requires an option");
+      addOption(this, option, before);
+    }
+    override remove(index?: unknown): void {
+      const id = selectId(this);
+      if (arguments.length === 0) call("remove", id);
+      else removeOption(this, index);
+    }
+    [Symbol.iterator](): Generator<Node> {
+      selectId(this);
+      return collectionValues(collectionState(selectOptionList(this)));
+    }
+  }
+  Object.defineProperty(HTMLOptionElement.prototype, "selected", {
+    get(this: object) {
+      return raw<boolean>("selection", optionId(this), "selected");
+    },
+    set(this: object, value: unknown) {
+      raw("selection", optionId(this), "setSelected", String(Boolean(value)));
+    },
+    enumerable: true,
+    configurable: true,
+  });
+  for (const [prototype, tag] of [
+    [HTMLSelectElement.prototype, "HTMLSelectElement"],
+    [HTMLOptionsCollection.prototype, "HTMLOptionsCollection"],
+  ] as const) {
+    Object.defineProperty(prototype, Symbol.toStringTag, { value: tag, configurable: true });
+    for (const name of Object.getOwnPropertyNames(prototype)) {
+      if (name === "constructor") continue;
+      const descriptor = Object.getOwnPropertyDescriptor(prototype, name);
+      if (descriptor) Object.defineProperty(prototype, name, { ...descriptor, enumerable: true });
+    }
+  }
+  Object.defineProperty(HTMLSelectElement, "length", { value: 0, configurable: true });
+  Object.defineProperty(HTMLOptionsCollection, "length", { value: 0, configurable: true });
+  for (const name of ["multiple", "disabled", "required", "autofocus"])
+    Object.defineProperty(HTMLSelectElement.prototype, name, {
+      get(this: object) {
+        selectId(this);
+        return hasHtmlAttribute(this, name);
+      },
+      set(this: object, value: unknown) {
+        selectId(this);
+        reflectBoolean(this, name, value);
+      },
+      enumerable: true,
+      configurable: true,
+    });
+  Object.defineProperty(HTMLSelectElement.prototype, "name", {
+    get(this: object) {
+      selectId(this);
+      return htmlAttribute(this, "name") ?? "";
+    },
+    set(this: object, value: unknown) {
+      selectId(this);
+      reflectString(this, "name", value);
+    },
+    enumerable: true,
+    configurable: true,
+  });
+  function Option(
+    text: unknown = "",
+    value?: unknown,
+    defaultSelected?: unknown,
+    selected?: unknown,
+  ): HTMLOptionElement {
+    if (!new.target) throw new TypeError("Illegal constructor");
+    const content = domString(text);
+    const attribute = value === undefined ? undefined : domString(value);
+    const id = raw<number>("create", 0, "option");
+    const option = node(id);
+    if (!(option instanceof HTMLOptionElement)) throw new TypeError("Expected option");
+    if (content !== "") call("set", id, "textContent", content);
+    if (attribute !== undefined) reflectString(option, "value", attribute);
+    if (defaultSelected) reflectBoolean(option, "selected", true);
+    raw("selection", id, "setFactorySelected", String(Boolean(selected)));
+    return option;
+  }
+  Object.defineProperty(Option, "prototype", {
+    value: HTMLOptionElement.prototype,
+    writable: false,
+  });
   const textControls = new WeakMap<object, "input" | "textarea">();
   function textControlId(owner: object, kind: "input" | "textarea"): number {
     if (textControls.get(owner) !== kind) throw new TypeError("Illegal invocation");
@@ -4858,20 +5266,35 @@
   ): T {
     if (
       definitions.size === 0 ||
-      ![
-        "setAttr",
-        "removeAttr",
-        "style",
-        "set",
-        "append",
-        "insert",
-        "replace",
-        "remove",
-        "removeChild",
-      ].includes(operation)
+      !(
+        (operation === "selection" && arg === "setLength") ||
+        [
+          "setAttr",
+          "removeAttr",
+          "style",
+          "set",
+          "append",
+          "insert",
+          "replace",
+          "remove",
+          "removeChild",
+        ].includes(operation)
+      )
     )
       return raw<T>(operation, id, arg, value);
     const mutate = () => {
+      if (operation === "selection") {
+        const before = customTree(id, false).filter(
+          (target) =>
+            raw<boolean>("get", idOf(target), "isConnected") &&
+            customStates.get(target)?.status === "custom",
+        );
+        const result = raw<T>(operation, id, arg, value);
+        for (const target of before)
+          if (!raw<boolean>("get", idOf(target), "isConnected"))
+            customCallback(target, "disconnectedCallback");
+        return result;
+      }
       if (operation === "style") {
         const target = nodes.get(id);
         const old = raw<string | null>("attrNS", id, JSON.stringify(["", "style"]));
@@ -5010,6 +5433,8 @@
           if (name === "form") return new HTMLFormElement(internal, id);
           if (name === "button") return new HTMLButtonElement(internal, id);
           if (name === "option") return new HTMLOptionElement(internal, id);
+          if (name === "select") return new HTMLSelectElement(internal, id);
+          if (name === "optgroup") return new HTMLOptGroupElement(internal, id);
           if (name === "textarea") return new HTMLTextAreaElement(internal, id);
           return new HTMLElement(internal, id);
         }
@@ -7673,6 +8098,10 @@
     HTMLFormElement,
     HTMLButtonElement,
     HTMLOptionElement,
+    HTMLSelectElement,
+    HTMLOptGroupElement,
+    HTMLOptionsCollection,
+    Option,
     HTMLTextAreaElement,
     SVGElement,
     DOMStringMap,

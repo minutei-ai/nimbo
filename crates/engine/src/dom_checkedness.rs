@@ -395,7 +395,7 @@ impl Dom {
     }
 
     pub(crate) fn initialize_checkedness(&mut self) -> Result<()> {
-        if self.may_have_inputs {
+        if self.may_have_controls.inputs {
             self.checkedness_tree(self.document.root().id)?;
         }
         Ok(())
@@ -430,7 +430,7 @@ impl Dom {
         handle: usize,
         value: &str,
     ) -> Result<Vec<NodeId>> {
-        if !self.may_have_inputs
+        if !self.may_have_controls.inputs
             || !matches!(
                 operation,
                 "append" | "insert" | "replace" | "remove" | "removeChild"
@@ -474,7 +474,7 @@ impl Dom {
     }
 
     pub(super) fn checkedness_moved(&mut self, inserted: &[NodeId]) -> Result<()> {
-        if !self.may_have_inputs {
+        if !self.may_have_controls.inputs {
             return Ok(());
         }
         if !inserted.is_empty() && !self.checkedness_ids_changed(inserted)? {

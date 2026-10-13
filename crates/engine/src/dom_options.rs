@@ -81,20 +81,17 @@ fn text(node: NodeRef<'_>, view: &View<'_>) -> Result<String> {
     Ok(text)
 }
 
-fn index(node: NodeRef<'_>, view: &View<'_>) -> Result<usize> {
-    let Some(select) = view.option_select(node)? else {
-        return Ok(0);
-    };
-    let mut index: usize = 0;
+pub(super) fn visit<'a>(
+    select: NodeRef<'a>,
+    view: &View<'_>,
+    mut accept: impl FnMut(NodeRef<'a>) -> Result<bool>,
+) -> Result<()> {
     let mut cursor = select.first_child();
     while let Some(candidate) = cursor {
         view.charge()?;
-        if candidate.id == node.id {
-            return Ok(index);
-        }
         let option = html_element(candidate, "option");
-        if option {
-            index = index.saturating_add(1);
+        if option && !accept(candidate)? {
+            return Ok(());
         }
         let mut descend = !option
             && !["select", "hr", "datalist"]
@@ -114,7 +111,45 @@ fn index(node: NodeRef<'_>, view: &View<'_>) -> Result<usize> {
         }
         cursor = next(candidate, select.id, descend, view)?;
     }
-    Ok(0)
+    Ok(())
+}
+
+pub(super) fn list(select: NodeRef<'_>, view: &View<'_>) -> Result<Vec<NodeId>> {
+    let mut nodes = Vec::new();
+    visit(select, view, |option| {
+        nodes.push(option.id);
+        Ok(true)
+    })?;
+    Ok(nodes)
+}
+
+pub(super) fn value(node: NodeRef<'_>, view: &View<'_>) -> Result<String> {
+    match node.null_attribute("value") {
+        Some(value) => Ok(value),
+        None => text(node, view),
+    }
+}
+
+pub(super) fn value_matches(node: NodeRef<'_>, expected: &str, view: &View<'_>) -> Result<bool> {
+    if node.has_null_attribute("value") {
+        return Ok(node.null_attribute_matches("value", |value| value == expected));
+    }
+    Ok(text(node, view)? == expected)
+}
+
+fn index(node: NodeRef<'_>, view: &View<'_>) -> Result<usize> {
+    let Some(select) = view.option_select(node)? else {
+        return Ok(0);
+    };
+    let mut index: usize = 0;
+    visit(select, view, |candidate| {
+        if candidate.id == node.id {
+            return Ok(false);
+        }
+        index = index.saturating_add(1);
+        Ok(true)
+    })?;
+    Ok(index)
 }
 
 impl Dom {
@@ -125,8 +160,8 @@ impl Dom {
         }
         let view = self.control_view();
         match operation {
-            "text" => Ok(json!(text(node, &view)?)),
-            "value" | "label" => Ok(json!(match node.null_attribute(operation) {
+            "text" => Ok(Value::String(text(node, &view)?)),
+            "value" | "label" => Ok(Value::String(match node.null_attribute(operation) {
                 Some(value) => value,
                 None => text(node, &view)?,
             })),

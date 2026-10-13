@@ -18,7 +18,7 @@ impl Dom {
 
     fn form_owner_call(&mut self, handle: usize) -> Result<Value> {
         let node = self.node(handle)?;
-        if !["input", "textarea", "button"]
+        if !["input", "textarea", "button", "select"]
             .iter()
             .any(|kind| html_element(node, kind))
         {
@@ -71,9 +71,15 @@ impl Dom {
 
     fn reset_form(&mut self, handle: usize) -> Result<Value> {
         let controls = self.form_reset_controls(handle)?;
+        let selections = self.selection_reset_prepare(controls.iter().map(|(id, _)| *id))?;
         self.charge_pending_work()?;
-        self.charge_write(controls.len())?;
+        self.charge_write(
+            controls
+                .len()
+                .saturating_add(Self::selection_reset_bytes(&selections)),
+        )?;
         (self.check)()?;
+        self.selection_reset_apply(selections)?;
         self.reset_controls(controls);
         Ok(Value::Null)
     }
@@ -105,9 +111,6 @@ impl Dom {
             let (root, owner) = view.form_owner(candidate)?;
             if owner != Some(form.id) {
                 continue;
-            }
-            if html_element(candidate, "select") {
-                return Err(Error::Dom("unsupported: select reset".into()));
             }
             let group = if activation_kind(candidate) == Some(ActivationKind::Radio)
                 && candidate.has_null_attribute("checked")
@@ -162,11 +165,14 @@ mod tests {
     }
 
     #[test]
-    fn unsupported_select_reset_keeps_supported_control_state()
+    fn rejected_select_reset_keeps_supported_control_state()
     -> Result<(), Box<dyn std::error::Error>> {
         let mut dom = Dom::new(
             "<form id=f><input id=text value=default><select><option>value</option></select></form>",
-            Limits::default(),
+            Limits {
+                max_dom_write_bytes: 6,
+                ..Limits::default()
+            },
             MediaEnvironment::default(),
             url::Url::parse("https://example.test/forms")?,
             Arc::new(|| Ok(())),
@@ -174,9 +180,10 @@ mod tests {
         let form: usize = serde_json::from_str(&dom.call("queryOne", 0, "#f", "")?)?;
         let text: usize = serde_json::from_str(&dom.call("queryOne", 0, "#text", "")?)?;
         dom.call("setControlValue", text, "input", "dirty")?;
-        assert!(
-            matches!(dom.call("formReset", form, "", ""), Err(Error::Dom(message)) if message == "unsupported: select reset")
-        );
+        assert!(matches!(
+            dom.call("formReset", form, "", ""),
+            Err(Error::Limit("DOM write bytes"))
+        ));
         assert_eq!(dom.call("controlValue", text, "input", "")?, "\"dirty\"");
         Ok(())
     }

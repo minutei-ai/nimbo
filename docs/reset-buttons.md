@@ -35,8 +35,8 @@ profile, plus formatting, strict TypeScript/Rust/Wasm lint and Rust documentatio
 
 Submission, command/popover behavior, labels, validity, select-button inertness,
 form collections and parser-specific historical ownership remain roadmap work.
-Reset retains the [existing control-state boundaries](forms.md), including
-explicit rejection of associated selects before changing supported controls.
+Reset uses the [existing control-state algorithm](forms.md), extended by
+[native select state](select-state.md) to restore associated select defaults.
 
 The behavior follows the public [button interface and activation model](https://html.spec.whatwg.org/multipage/form-elements.html#the-button-element)
 and [form reset](https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#resetting-a-form).

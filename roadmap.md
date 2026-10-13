@@ -64,7 +64,7 @@ shadow parsing, scoped geometry and the remaining application matrix stay open.
 native dirty values, default-value separation, sanitization and bounded writes.
 Default/default-on input values and type transitions reuse native attributes,
 with 44 additional independent comparison contracts. Numeric/date/range/color/file
-values, select/options, wider form ownership/reset/submission,
+values, wider form ownership/submission,
 selection and validity remain open. Native checkedness, dirty defaults,
 indeterminate state and radio groups add 50 independent contracts.
 [Owned synthetic activation](docs/input-activation.md) adds mouse/pointer
@@ -80,7 +80,9 @@ and transactional native reset of their existing values and checkedness.
 the basic HTMLButtonElement interface with 42 independent contracts.
 [Native option metadata](docs/option-metadata.md) adds text/value/label, live index
 and select-derived form ownership without descendant handles or a copied DOM.
-Select selection/reset, option collections, submission and wider form behavior remain open.
+[Native select state](docs/select-state.md) adds sparse selectedness, dirty defaults,
+live/indexed option collections, native batch resizing and transactional select reset.
+Labels, validity, pickers, submission, complete exotic descriptors and wider forms remain open.
 
 ## 0.4 — Scripts and page readiness
 

@@ -881,3 +881,18 @@ test("native option metadata preserves text and live ownership", async () => {
     },
   );
 });
+
+test("native select state observes defaults, live options and owned reset", async () => {
+  const source = await Bun.file(join(root, "crates/engine/tests/fixtures/select-state.txt")).text();
+  await fixture(
+    () => html("<!doctype html><body>"),
+    async (worker) => {
+      const response = await scrape(
+        worker,
+        `(()=>{${source};const checks=selectStateCase(0);return {count:Object.keys(checks).length,failed:Object.entries(checks).filter(([,passed])=>!passed).map(([name])=>name)}})()`,
+      );
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({ value: { count: 72, failed: [] } });
+    },
+  );
+});

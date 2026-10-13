@@ -11,6 +11,7 @@ use crate::{BudgetCheck, Error, Result, dom_attributes::NativeAttributes};
 const MAX_SELECTOR_STEPS: usize = 1_000_000;
 
 pub(crate) struct View<'a> {
+    pub(super) selection: &'a RefCell<super::selection::Arena>,
     pub(super) arena: &'a Arena,
     pub(super) document: &'a Document,
     pub(super) shadow: &'a shadow::Arena,
@@ -75,6 +76,9 @@ impl View<'_> {
             return Some(false);
         }
         let result = self.charge().and_then(|()| match name {
+            ":checked" if html_element(node, "option") => {
+                self.selection.borrow_mut().selected(node, self)
+            }
             ":checked" => Ok(self.arena.checked(node)
                 && match activation_kind(node) {
                     Some(ActivationKind::Checkbox) => !self.arena.indeterminate(node.id),
@@ -103,7 +107,7 @@ impl View<'_> {
         .any(|name| html_element(node, name))
     }
 
-    fn disabled(&self, node: NodeRef<'_>) -> Result<bool> {
+    pub(super) fn disabled(&self, node: NodeRef<'_>) -> Result<bool> {
         if !Self::disableable(node) {
             return Ok(false);
         }

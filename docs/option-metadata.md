@@ -44,7 +44,7 @@ and receiver/conversion rules.
 Full validation passed 8,160 Bun tests and 217 native tests in each debug/release
 profile, plus formatting, strict TypeScript/Rust/Wasm lint and Rust documentation.
 
-Selection state, `selected`, `Option()` construction, select interfaces and live
-option collections remain open. Associated selects continue to reject form reset
-before changing supported input/textarea state. This implementation adds metadata
-needed by selection; it does not close the broader form milestone.
+[Native select state](select-state.md) now adds selectedness, the Option factory,
+live option collections and transactional associated-select reset. Wider forms,
+pickers, validity and submission remain open; this does not close the broader
+form milestone.
