@@ -10,6 +10,8 @@ map. Activation and selector evaluation share the same bounded radio-group and
 form-owner calculation. Checked/indeterminate/disabled/enabled predicates charge
 native operation counters, check cancellation/deadlines and publish explicit
 errors when those checks fail. Diagnostics include pending selector work.
+Native presence checks for checked/disabled/value/form/id attributes inspect
+borrowed attributes without copying their values into temporary strings.
 
 The supported state subset covers checkbox/radio checkedness, checkbox
 indeterminacy, radio groups with no selected member, progress elements without

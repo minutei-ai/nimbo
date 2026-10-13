@@ -81,7 +81,7 @@ impl View<'_> {
         if !Self::disableable(node) {
             return Ok(false);
         }
-        if node.null_attribute("disabled").is_some() {
+        if node.has_null_attribute("disabled") {
             return Ok(true);
         }
         if html_element(node, "optgroup") {
@@ -89,13 +89,12 @@ impl View<'_> {
         }
         if html_element(node, "option") {
             return Ok(node.parent().is_some_and(|parent| {
-                html_element(parent, "optgroup") && parent.null_attribute("disabled").is_some()
+                html_element(parent, "optgroup") && parent.has_null_attribute("disabled")
             }));
         }
         for ancestor in node.ancestors_it(None) {
             self.charge()?;
-            if !html_element(ancestor, "fieldset") || ancestor.null_attribute("disabled").is_none()
-            {
+            if !html_element(ancestor, "fieldset") || !ancestor.has_null_attribute("disabled") {
                 continue;
             }
             let mut legend = None;
@@ -198,7 +197,7 @@ impl View<'_> {
                     .group(node)?
                     .is_none_or(|group| !self.arena.group_selected(&group)))
             }
-            None => Ok(html_element(node, "progress") && node.null_attribute("value").is_none()),
+            None => Ok(html_element(node, "progress") && !node.has_null_attribute("value")),
         }
     }
 }

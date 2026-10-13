@@ -4,8 +4,19 @@ use crate::{Error, Result};
 
 pub(crate) trait NativeAttributes {
     fn null_attribute(&self, name: &str) -> Option<String>;
+    fn has_null_attribute(&self, name: &str) -> bool;
 }
 impl NativeAttributes for NodeRef<'_> {
+    fn has_null_attribute(&self, name: &str) -> bool {
+        self.query_or(false, |node| {
+            node.as_element().is_some_and(|element| {
+                element.attrs.iter().any(|attribute| {
+                    attribute.name.ns.is_empty() && attribute.name.local.as_ref() == name
+                })
+            })
+        })
+    }
+
     fn null_attribute(&self, name: &str) -> Option<String> {
         self.query_or(None, |node| {
             node.as_element()?

@@ -89,7 +89,7 @@ impl Arena {
         self.states
             .get(&node.id)
             .and_then(|state| state.checked)
-            .unwrap_or_else(|| node.null_attribute("checked").is_some())
+            .unwrap_or_else(|| node.has_null_attribute("checked"))
     }
     pub(super) fn indeterminate(&self, id: NodeId) -> bool {
         self.states
@@ -113,7 +113,7 @@ impl Dom {
             return Err(Error::Dom("invalid input receiver".into()));
         }
         let id = node.id;
-        let default = node.null_attribute("checked").is_some();
+        let default = node.has_null_attribute("checked");
         if let Some(value) = value {
             self.charge_write(1)?;
             if property == "indeterminate" && !value && !self.checkedness.states.contains_key(&id) {
@@ -300,7 +300,7 @@ impl Dom {
                 self.document
                     .tree
                     .get(&id)
-                    .is_some_and(|node| node.null_attribute("checked").is_some())
+                    .is_some_and(|node| node.has_null_attribute("checked"))
             })
     }
 
@@ -310,7 +310,7 @@ impl Dom {
             .tree
             .get(&id)
             .ok_or_else(|| Error::Dom("invalid radio".into()))?;
-        self.checkedness.external_forms |= node.null_attribute("form").is_some();
+        self.checkedness.external_forms |= node.has_null_attribute("form");
         self.control_view().group(node)
     }
 
@@ -442,7 +442,7 @@ impl Dom {
                 .ok_or_else(|| Error::Dom("invalid moved controls".into()))?;
             for candidate in std::iter::once(node).chain(node.descendants_it()) {
                 self.checkedness_work()?;
-                if candidate.null_attribute("id").is_some() {
+                if candidate.has_null_attribute("id") {
                     return Ok(true);
                 }
             }
