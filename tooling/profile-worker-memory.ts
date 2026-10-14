@@ -2,7 +2,7 @@ import { Effect, Schema } from "effect";
 import { createHash } from "node:crypto";
 import { arch, cpus, platform, release } from "node:os";
 import { resolve } from "node:path";
-import { processTreeRss } from "./benchmark-memory";
+import { ownedWorkerdMemory, processTreeRss } from "./benchmark-memory";
 import { Budget } from "./benchmark-protocol";
 import { startWorkerd } from "./benchmark-workerd";
 
@@ -92,6 +92,7 @@ const probe = Effect.scoped(
                     host_rss_after_request_kib: yield* Effect.promise(() =>
                       processTreeRss(host.pid),
                     ),
+                    workerd_process: yield* Effect.promise(() => ownedWorkerdMemory(host.pid)),
                     valid: true,
                   };
                 }),
@@ -115,10 +116,13 @@ const rounds = await Effect.runPromise(probe);
 process.stdout.write(
   `${JSON.stringify(
     {
-      schema_version: 1,
+      schema_version: 2,
+      kind: "worker-memory-profile",
       protocol: "three fresh single-isolate hosts; four sequential default-budget extractions",
-      measurement: "post-extraction QuickJS snapshot, retained Wasm capacity and sampled host RSS",
-      transient_peaks_measured: false,
+      measurement:
+        "QuickJS snapshot, retained Wasm capacity, sampled host RSS and workerd lifetime RSS high water",
+      peak_source: "Linux /proc status VmHWM; exactly one owned workerd process",
+      allocator_transient_peaks_measured: false,
       navigation_bytes: new TextEncoder().encode(html).byteLength,
       wasm_sha256: createHash("sha256").update(new Uint8Array(wasm)).digest("hex"),
       bundle_sha256: createHash("sha256").update(new Uint8Array(bundle)).digest("hex"),

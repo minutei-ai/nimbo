@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { resolve } from "node:path";
 import { decodeBudget } from "./benchmark-protocol";
-import { processTreeRss } from "./benchmark-memory";
+import { ownedWorkerdMemory, processTreeRss } from "./benchmark-memory";
 import { startWorkerd } from "./benchmark-workerd";
 
 test("benchmark workerd owns one isolated host with native limits and cleanup", async () => {
@@ -29,9 +29,32 @@ test("benchmark workerd owns one isolated host with native limits and cleanup", 
       value: "synthetic",
     });
     expect(await processTreeRss(host.pid)).not.toBeNull();
+    const memory = await ownedWorkerdMemory(host.pid);
+    if (memory === null || memory.rss_high_water_kib === null)
+      throw new Error("Missing owned workerd memory");
+    expect(memory.rss_kib).toBeGreaterThan(0);
+    expect(memory.rss_high_water_kib).toBeGreaterThan(0);
   } finally {
     await host.stop();
     await origin.stop(true);
   }
   expect(await processTreeRss(host.pid)).toBeNull();
+  expect(await ownedWorkerdMemory(host.pid)).toBeNull();
+}, 30000);
+
+test("memory attribution rejects multiple workerd processes under one owner", async () => {
+  const directory = resolve(import.meta.dir, "../dist/worker");
+  const first = await startWorkerd(directory);
+  try {
+    const second = await startWorkerd(directory);
+    try {
+      expect(await ownedWorkerdMemory(process.pid)).toBeNull();
+      expect(await ownedWorkerdMemory(first.pid)).not.toBeNull();
+      expect(await ownedWorkerdMemory(second.pid)).not.toBeNull();
+    } finally {
+      await second.stop();
+    }
+  } finally {
+    await first.stop();
+  }
 }, 30000);

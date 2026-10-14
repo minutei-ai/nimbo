@@ -51,6 +51,9 @@ RSS sampled after each response. RSS is nullable when the complete process tree
 cannot be read; it is neither a per-page measurement nor a peak. The report
 includes bundle/Wasm hashes, budgets and host versions. Diagnostic heap walks
 add overhead, so this profile is separate from latency acceptance benchmarks.
+Schema version 2 also records the single workerd process's current RSS and
+[kernel RSS high water](worker-rss-high-water.md), separately from the summed
+post-response host samples.
 
 [Local raw evidence](evidence/worker-memory-profile-local.json) records twelve
 successful extractions across three fresh hosts. Each round reports 630,832

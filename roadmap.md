@@ -26,6 +26,9 @@ evidence remain open.
 snapshots from retained isolate Wasm capacity, with a reproducible three-host
 default-budget profile. Navigation HTML is released after parsing. These
 snapshots do not close the transient peak allocation gate.
+[Kernel RSS high water](docs/worker-rss-high-water.md) adds the owned workerd
+process's lifetime peak, separate from post-response process-tree samples.
+Allocator peaks and controlled A/B acceptance remain open.
 [Binary response ownership](docs/worker-memory.md) avoids numeric JSON arrays
 and a second Rust buffer; a local single-isolate probe records reduced Wasm
 linear capacity under the same synthetic byte workload and default budgets.
