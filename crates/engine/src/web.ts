@@ -6640,11 +6640,22 @@
   });
   const fetch = async (url: string, options: { method?: string; body?: string } = {}) => {
     for (const key of Object.keys(options)) {
-      if (!["method", "body"].includes(key)) throw new Error(`unsupported fetch option: ${key}`);
+      if (!["method", "body"].includes(key))
+        throw new TypeError(`unsupported fetch option: ${key}`);
     }
     const method = (options.method ?? "GET").toUpperCase();
-    if (method === "GET" && options.body !== undefined) throw new Error("GET cannot have a body");
-    return new Response(responseKey, await nativeRequest(url, method, options.body ?? ""));
+    if (method === "GET" && options.body !== undefined)
+      throw new TypeError("GET cannot have a body");
+    let state: Awaited<ReturnType<typeof nativeRequest>>;
+    try {
+      state = await nativeRequest(url, method, options.body ?? "");
+    } catch (error) {
+      // Fetch reports network and policy failures as TypeError; keep the host detail.
+      throw new TypeError(error instanceof Error ? error.message : String(error), {
+        cause: error,
+      });
+    }
+    return new Response(responseKey, state);
   };
   const fontDefaults = {
     style: "normal",

@@ -70,7 +70,7 @@ class Origin(http.server.BaseHTTPRequestHandler):
             # Page fetch toward another origin must fail before reaching the proxy.
             routes[self.path] = ('text/html', '<!doctype html><body><div id="value"></div><script>'
                                  f"globalThis.result=fetch('//blocked.test:{port}/data')"
-                                 ".then(()=>'leaked',()=>'blocked:'+location.host)</script>")
+                                 ".then(()=>'leaked',e=>'blocked:'+e.name)</script>")
         if self.path in ('/start', '/escape', '/loop'):
             self.send_response(302)
             target = {'/start': '/page', '/escape': f'//blocked.test:{port}/page', '/loop': '/loop'}
@@ -345,7 +345,7 @@ def boundaries(binary, env, http, https, context):
                     assert all(path != '/page' for path, *_rest in origin_server.requests[before:])
                     counts[name] += 1
                 result = invoke(binary, env, base + '/fetch-escape', proxy_url, expression='result')
-                assert result.returncode == 0 and json.loads(result.stdout).startswith('blocked:'), result.stderr
+                assert result.returncode == 0 and json.loads(result.stdout) == 'blocked:TypeError', result.stderr
                 assert [path for path, *_rest in origin_server.requests[-1:]] == ['/fetch-escape']
                 counts['blocked-page-fetches'] += 1
             assert all(host != 'blocked.test' for host, _port in relay.targets)
