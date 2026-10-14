@@ -1,6 +1,7 @@
 """Real HTTP/TLS origins and forwarding HTTP/CONNECT/SOCKS5 test servers."""
 import base64
 import collections
+import concurrent.futures
 import gzip
 import contextlib
 import http.client
@@ -251,7 +252,7 @@ class Proxy(socketserver.StreamRequestHandler):
 
 @contextlib.contextmanager
 def running(server):
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread = threading.Thread(target=server.serve_forever, args=(0.02,), daemon=True)
     thread.start()
     try:
         yield server
@@ -261,8 +262,17 @@ def running(server):
         thread.join()
 
 
+class OriginServer(http.server.ThreadingHTTPServer):
+    # Concurrent variants exceed socketserver's default listen backlog of 5.
+    request_queue_size = 128
+
+
+class ProxyServer(socketserver.ThreadingTCPServer):
+    request_queue_size = 128
+
+
 def origin(context=None):
-    server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Origin)
+    server = OriginServer(('127.0.0.1', 0), Origin)
     server.daemon_threads = True
     server.lock, server.requests = threading.Lock(), []
     if context:
@@ -271,7 +281,7 @@ def origin(context=None):
 
 
 def proxy(mode, ports, auth=None, context=None):
-    server = socketserver.ThreadingTCPServer(('127.0.0.1', 0), Proxy)
+    server = ProxyServer(('127.0.0.1', 0), Proxy)
     server.daemon_threads = True
     server.mode, server.ports, server.auth = mode, ports, auth
     server.lock, server.targets = threading.Lock(), []
@@ -280,6 +290,7 @@ def proxy(mode, ports, auth=None, context=None):
     return server
 
 
+VARIANTS = 24
 EXTRACT = "result.then(v=>({value:v,text:document.querySelector('#value').textContent,suffix:globalThis.suffix,cookie:document.cookie}))"
 
 
@@ -372,7 +383,8 @@ def main(binary):
         counts = collections.Counter()
         with running(origin()) as http, running(origin(context)) as https:
             ports = (http.server_port, https.server_port)
-            for mode in ('http', 'http-auth', 'https-auth', 'socks5', 'socks5-auth', 'socks5h-auth'):
+            def run_mode(mode):
+                counts = collections.Counter()
                 credentials = (secrets.token_hex(8) + '@', secrets.token_hex(12) + ':/% café') if 'auth' in mode else None
                 with running(proxy(mode, ports, credentials, context if mode.startswith('https') else None)) as relay:
                     scheme = mode.split('-')[0]
@@ -380,30 +392,44 @@ def main(binary):
                     if credentials:
                         authority = ':'.join(urllib.parse.quote(value, safe='') for value in credentials) + '@' + authority
                     proxy_url = scheme + '://' + authority
-                    for variant in range(64):
+                    def extract(variant):
                         secure = variant % 2 == 1
                         host = 'localhost' if scheme == 'socks5' else 'example.test'
                         url = ('https' if secure else 'http') + '://' + host + ':' + str(ports[secure]) + '/start'
-                        result = invoke(binary, env, url, proxy_url, flag=variant % 3 == 0)
-                        if result.returncode:
-                            raise AssertionError(mode + ': extraction failed: ' + result.stderr.replace(proxy_url, '[proxy]'))
-                        assert json.loads(result.stdout) == {'value': 'through-proxy', 'text': 'through-proxy',
-                                                            'suffix': 'module', 'cookie': 'transport=retained'}
-                        counts[mode] += 1
+                        return invoke(binary, env, url, proxy_url, flag=variant % 3 == 0)
+                    # 24 variants cover each TLS x flag/environment combination four times.
+                    # They are independent CLI processes, so they run concurrently.
+                    with concurrent.futures.ThreadPoolExecutor(8) as pool:
+                        for result in pool.map(extract, range(VARIANTS)):
+                            if result.returncode:
+                                raise AssertionError(mode + ': extraction failed: ' + result.stderr.replace(proxy_url, '[proxy]'))
+                            assert json.loads(result.stdout) == {'value': 'through-proxy', 'text': 'through-proxy',
+                                                                'suffix': 'module', 'cookie': 'transport=retained'}
+                            counts[mode] += 1
                     assert relay.targets
                     if scheme == 'socks5':
                         assert all(host in ('127.0.0.1', '::1') for host, _port in relay.targets)
                     if scheme == 'socks5h':
                         assert all(host == 'example.test' for host, _port in relay.targets)
                     if credentials:
-                        before = len(http.requests)
-                        rejected = invoke(binary, env, f'http://127.0.0.1:{http.server_port}/start',
+                        # A unique path proves the rejected request never reached the origin,
+                        # even while other modes use it concurrently.
+                        marker = '/start?rejected=' + mode
+                        rejected = invoke(binary, env, f'http://127.0.0.1:{http.server_port}{marker}',
                                           scheme + '://wrong:wrong@127.0.0.1:' + str(relay.server_address[1]))
-                        assert rejected.returncode != 0 and len(http.requests) == before
+                        assert rejected.returncode != 0
+                        assert all(path != marker for path, *_rest in http.requests)
                         assert all(secret not in rejected.stderr for secret in credentials)
                         counts['authentication-rejections'] += 1
-            expected = collections.Counter({'/start': 192, '/page': 192, '/style.css': 192,
-                                            '/boot.js': 192, '/app.mjs': 192, '/dep.mjs': 192, '/data': 192})
+                return counts
+            modes = ('http', 'http-auth', 'https-auth', 'socks5', 'socks5-auth', 'socks5h-auth')
+            # Each mode has its own proxy server, so the modes run concurrently.
+            with concurrent.futures.ThreadPoolExecutor(len(modes)) as pool:
+                for mode_counts in pool.map(run_mode, modes):
+                    counts.update(mode_counts)
+            per_path = VARIANTS * 3
+            expected = collections.Counter({path: per_path for path in
+                                            ('/start', '/page', '/style.css', '/boot.js', '/app.mjs', '/dep.mjs', '/data')})
             for server in (http, https):
                 assert collections.Counter(path for path, *_rest in server.requests) == expected
                 assert all(auth is None for _path, _method, _body, _cookie, auth in server.requests)

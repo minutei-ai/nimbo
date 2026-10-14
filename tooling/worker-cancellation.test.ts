@@ -18,6 +18,8 @@ test.each([
     const origin = Bun.serve({
       hostname: "127.0.0.1",
       port: 0,
+      // Hanging routes must outlive the engine's 10 s deadline, not Bun's idle timeout.
+      idleTimeout: 0,
       fetch(request) {
         const path = new URL(request.url).pathname;
         if (path === "/parsing") {

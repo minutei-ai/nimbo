@@ -38,7 +38,7 @@ jobs:
           echo '1534d1e6ddaf3d080ec4091eb41d0a4d8cc042a48b607d3c410fc13b482a9eec  /tmp/nimbo-obscura/release.tar.gz' | sha256sum --check
           tar -xzf /tmp/nimbo-obscura/release.tar.gz -C /tmp/nimbo-obscura
           /tmp/nimbo-obscura/obscura --version
-          bun test tooling/browser-live.test.ts
+          bun test --parallel tooling/browser-live-*.test.ts
 
   secrets:
     runs-on: ubuntu-latest

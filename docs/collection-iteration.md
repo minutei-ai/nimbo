@@ -28,7 +28,7 @@ do not establish production capacity or replace the controlled regression gate.
 
 ```sh
 bun run build:worker
-bun test tooling/browser-live.test.ts --test-name-pattern 'collection iteration follows'
+bun test tooling/browser-live-*.test.ts --test-name-pattern 'collection iteration follows'
 cargo test --locked -p nimbo-engine --test browser live_collection_iterations
 NIMBO_COMPARE_CHROMIUM_BINARY=/path/to/chromium bun run tooling/compare-collection-iteration.ts
 CELLD_MAX_STATELESS_ISOLATES=1 NIMBO_BENCH_BASELINE_BUNDLE=/path/to/baseline bun run tooling/benchmark-hot-paths.ts live-child-iteration

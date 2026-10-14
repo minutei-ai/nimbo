@@ -68,6 +68,15 @@ wildcard_dependencies = "deny"
 exit = "deny"
 mem_forget = "deny"
 
+# Tests run in the dev profile. Optimized dependencies (QuickJS, layout, CSS,
+# HTML parsing) cut test time while the engine keeps debug assertions and
+# overflow checks.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
 [profile.release]
 opt-level = 3
 lto = "thin"

@@ -19,8 +19,8 @@ tests as well as integration and application tests.
 
 ## Current evidence
 
-`tooling/browser-live.test.ts` uses a real loopback HTTP origin, actual workerd,
-and the compiled Rust/Wasm engine. It installs no transport replacements,
+`tooling/browser-live-*.test.ts` (shared setup in `tooling/browser-live-setup.ts`) use a real loopback HTTP origin, actual workerd,
+and the compiled Rust/Wasm engine. They install no transport replacements,
 service mocks, browser API stubs, or canned engine results. Its 2816 data variants
 exercise external scripts, Unicode/entity decoding, selector identity,
 ancestry, removal/reparenting, attribute mutation and POST response decoding.
@@ -128,7 +128,7 @@ not covered by this implementation.
 
 To compare the same pages and expected values with an installed Obscura binary,
 set `NIMBO_COMPARE_OBSCURA_BINARY` when running
-`bun test tooling/browser-live.test.ts`. Without that variable the suite tests
+`bun test --parallel tooling/browser-live-*.test.ts`. Without that variable the suite tests
 Nimbo only. The comparison executes the validation as page script, waits for
 Obscura's `networkidle0`, and reads a completed value; it does not rely on the
 CLI awaiting a Promise returned by `--eval`. Record the binary's version
@@ -2589,7 +2589,7 @@ authentication. These are native reqwest transport capabilities, shared by all
 navigation and page subrequests; Obscura is not involved.
 
 `cargo test -p nimbo-engine --test proxy --locked` runs real isolated HTTP/TLS
-origins and forwarding sockets, with 64 fresh CLI pages in each of six proxy
+origins and forwarding sockets, with 24 fresh CLI pages in each of six proxy
 configurations: HTTP without/with authentication, HTTPS with authentication,
 SOCKS5 without/with authentication, and SOCKS5 with remote DNS/authentication.
 Half of the pages use HTTPS origins, with ephemeral certificates signed by an
@@ -2597,7 +2597,9 @@ ephemeral local test CA. Certificate validation remains enabled. The fixture
 requires Python 3 and OpenSSL; certificates and keys are generated in temporary
 storage and deleted during cleanup.
 
-The 384 successful extractions verify 2688 real origin requests: navigation,
+Each mode covers every TLS and flag/environment combination four times; the
+modes run concurrently. The 144 successful extractions verify 1008 real origin
+requests: navigation,
 redirects, CSS, classic scripts, module imports and JavaScript POST fetches. The
 checks verify extraction values, POST bodies, cookies across all subrequests,
 proxy credential isolation and remote SOCKS DNS. Additional checks reject four

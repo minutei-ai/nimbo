@@ -113,3 +113,25 @@ Drop remove callbacks persistentes e Effect libera a instância em falhas.
 Isso não equivale a uma medição de memória prolongada ou CPU faturada. Os
 benchmarks acima são do adaptador nativo anterior a esta separação; ainda não
 foram repetidos para o novo núcleo nem representam performance Wasm.
+
+## Tempo dos testes
+
+O perfil `dev`, usado pelos testes, otimiza as dependências (`opt-level = 3`)
+e o próprio crate (`opt-level = 1`), mantendo debug assertions e overflow
+checks. Os fixtures de 64 variantes rodam em threads com um `Browser` por
+thread. Um semáforo global limita as páginas simultâneas ao número de CPUs,
+para que deadlines reais não sofram com sobrecarga. Os contratos sintéticos de
+layout rodam um fixture por thread, e o fixture de proxy executa os modos em
+paralelo com 24 variantes cada, cobrindo cada combinação quatro vezes. A suíte
+live do Worker fica dividida em `tooling/browser-live-*.test.ts` e roda com
+`bun test --parallel`.
+
+Medição local em 2026-10-14 (28 CPUs):
+
+| Suíte                          |      Antes |   Depois |
+| ------------------------------ | ---------: | -------: |
+| Testes de lib (`nimbo-engine`) |      109 s |    2,5 s |
+| `tests/browser.rs`             |   73–912 s |  17–19 s |
+| `tests/proxy.rs`               |    38–77 s |    3,5 s |
+| Bun (8200 testes)              | 595–1075 s |    110 s |
+| `bun run test` completo        | ~20–25 min | ~2,5 min |

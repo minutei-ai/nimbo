@@ -60,6 +60,78 @@ impl Fixture {
     }
 }
 
+/// Caps concurrent variant pages across all tests at the CPU count, so parallel
+/// tests do not oversubscribe the host and skew real-time deadlines.
+struct PagePermit;
+
+static PAGES: (std::sync::Mutex<usize>, std::sync::Condvar) =
+    (std::sync::Mutex::new(0), std::sync::Condvar::new());
+
+impl PagePermit {
+    fn acquire() -> Self {
+        let limit = thread::available_parallelism().map_or(4, std::num::NonZero::get);
+        let mut active = PAGES
+            .0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        while *active >= limit {
+            active = PAGES
+                .1
+                .wait(active)
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+        }
+        *active = active.saturating_add(1);
+        drop(active);
+        Self
+    }
+}
+
+impl Drop for PagePermit {
+    fn drop(&mut self) {
+        {
+            let mut active = PAGES
+                .0
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            *active = active.saturating_sub(1);
+        }
+        PAGES.1.notify_one();
+    }
+}
+
+/// Runs `check` for all 64 variants across worker threads, each with its own
+/// browser because `Browser` is neither `Send` nor `Sync`.
+fn each_variant(
+    fixture: &Fixture,
+    check: impl Fn(&Browser, usize) -> TestResult + Sync,
+) -> TestResult {
+    let workers = thread::available_parallelism()
+        .map_or(4, std::num::NonZero::get)
+        .min(8);
+    thread::scope(|scope| {
+        let handles: Vec<_> = (0..workers)
+            .map(|worker| {
+                let check = &check;
+                scope.spawn(move || -> Result<(), String> {
+                    let browser = fixture.browser().map_err(|error| error.to_string())?;
+                    for variant in (worker..64).step_by(workers) {
+                        let _permit = PagePermit::acquire();
+                        check(&browser, variant)
+                            .map_err(|error| format!("variant {variant}: {error}"))?;
+                    }
+                    Ok(())
+                })
+            })
+            .collect();
+        for handle in handles {
+            handle
+                .join()
+                .map_err(|_panic| "variant worker panicked")??;
+        }
+        Ok(())
+    })
+}
+
 impl Drop for Fixture {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Relaxed);
@@ -1824,8 +1896,7 @@ fn serve_binary(request: Request) -> io::Result<()> {
 #[test]
 fn binary_fetch_preserves_bytes_and_body_consumption() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path("/empty-layout"))?;
         let result = page.evaluate(&format!(
             "(()=>{{globalThis.variant={variant};return {};}})()",
@@ -1837,8 +1908,8 @@ fn binary_fetch_preserves_bytes_and_body_consumption() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
@@ -1869,8 +1940,7 @@ fn binary_response_limits_preserve_fresh_navigation() -> TestResult {
 #[test]
 fn binary_font_data_parses_real_bytes_and_tracks_status() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path("/empty-layout"))?;
         let result = page.evaluate(&format!(
             "(()=>{{globalThis.variant={variant};return {};}})()",
@@ -1882,8 +1952,8 @@ fn binary_font_data_parses_real_bytes_and_tracks_status() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 fn is_resource(path: &str) -> bool {
@@ -2277,8 +2347,7 @@ fn serve_font_response(request: Request, path: &str) -> io::Result<()> {
 #[test]
 fn css_fonts_register_and_load_through_real_http() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/font-loading/{variant}")))?;
         let result = page.evaluate(&format!("fontCase({variant})"))?;
         let fields = result.as_object().ok_or("missing font result")?;
@@ -2287,15 +2356,14 @@ fn css_fonts_register_and_load_through_real_http() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn font_matching_selects_and_loads_real_http_fonts() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/font-matching/{variant}")))?;
         let result = page.evaluate(&format!("fontMatchCase({variant})"))?;
         let fields = result.as_object().ok_or("missing font matching result")?;
@@ -2304,8 +2372,8 @@ fn font_matching_selects_and_loads_real_http_fonts() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 fn serve_css_budget(request: Request) -> io::Result<()> {
@@ -2414,8 +2482,7 @@ fn serve_borders(request: Request) -> io::Result<()> {
 #[test]
 fn physical_borders_compute_real_http_box_geometry() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/borders/{variant}")))?;
         let result = page.evaluate(&format!("borderCase({variant})"))?;
         let fields = result.as_object().ok_or("missing border result")?;
@@ -2424,8 +2491,8 @@ fn physical_borders_compute_real_http_box_geometry() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 fn serve_canvas(request: Request) -> io::Result<()> {
@@ -2440,8 +2507,7 @@ fn serve_canvas(request: Request) -> io::Result<()> {
 #[test]
 fn software_canvas_rasterizes_real_http_pixels() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/canvas/{variant}")))?;
         let result = page.evaluate(&format!("canvasCase({variant})"))?;
         let fields = result.as_object().ok_or("missing canvas result")?;
@@ -2450,15 +2516,14 @@ fn software_canvas_rasterizes_real_http_pixels() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn software_canvas_uploads_real_http_pixels() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/canvas/{variant}")))?;
         let result = page.evaluate(&format!("canvasUploadCase({variant})"))?;
         let fields = result.as_object().ok_or("missing canvas upload result")?;
@@ -2467,15 +2532,14 @@ fn software_canvas_uploads_real_http_pixels() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn software_canvas_composites_real_http_pixels() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/canvas/{variant}")))?;
         let result = page.evaluate(&format!("canvasCompositingCase({variant})"))?;
         let fields = result
@@ -2487,8 +2551,8 @@ fn software_canvas_composites_real_http_pixels() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 fn serve_layout_budget(request: Request) -> io::Result<()> {
@@ -2538,8 +2602,7 @@ fn configured_layout_node_budget_measures_large_real_http_trees() -> TestResult 
 #[test]
 fn logical_dimensions_cascade_real_http_boxes() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/logical-size/{variant}")))?;
         let result = page.evaluate(&format!("logicalSizeCase({variant})"))?;
         let fields = result
@@ -2550,15 +2613,14 @@ fn logical_dimensions_cascade_real_http_boxes() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn computed_outlines_real_http_live_styles() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/outlines/{variant}")))?;
         let result = page.evaluate(&format!("outlineCase({variant})"))?;
         let fields = result
@@ -2569,8 +2631,8 @@ fn computed_outlines_real_http_live_styles() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 fn serve_outlines(request: Request) -> io::Result<()> {
@@ -2596,8 +2658,7 @@ fn serve_outlines(request: Request) -> io::Result<()> {
 #[test]
 fn text_adjustment_real_http_cascade_and_aliases() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/text-adjust/{variant}")))?;
         let result = page.evaluate(&format!("textAdjustCase({variant})"))?;
         let fields = result.as_object().ok_or("missing text adjustment result")?;
@@ -2606,8 +2667,8 @@ fn text_adjustment_real_http_cascade_and_aliases() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 fn serve_text_adjust(request: Request) -> io::Result<()> {
@@ -2632,8 +2693,7 @@ fn serve_text_adjust(request: Request) -> io::Result<()> {
 #[test]
 fn native_tabs_real_http_computed_lengths() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/tabs/{variant}")))?;
         let result = page.evaluate(&format!("tabsCase({variant})"))?;
         let fields = result.as_object().ok_or("missing computed tabs result")?;
@@ -2642,8 +2702,8 @@ fn native_tabs_real_http_computed_lengths() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 fn serve_tabs(request: Request) -> io::Result<()> {
     if let Some(value) = request.url().strip_prefix("/tabs-assets/") {
@@ -2667,8 +2727,7 @@ fn serve_tabs(request: Request) -> io::Result<()> {
 #[test]
 fn native_line_height_real_http_inheritance() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/line-height/{variant}")))?;
         let result = page.evaluate(&format!("lineHeightCase({variant})"))?;
         let fields = result.as_object().ok_or("missing line height result")?;
@@ -2677,8 +2736,8 @@ fn native_line_height_real_http_inheritance() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 fn serve_line_height(request: Request) -> io::Result<()> {
     if let Some(value) = request.url().strip_prefix("/line-height-assets/") {
@@ -2702,8 +2761,7 @@ fn serve_line_height(request: Request) -> io::Result<()> {
 #[test]
 fn native_background_image_layers_real_http() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/background-images/{variant}")))?;
         let result = page.evaluate(&format!("backgroundImagesCase({variant})"))?;
         let fields = result
@@ -2714,8 +2772,8 @@ fn native_background_image_layers_real_http() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 fn serve_background_images(request: Request) -> io::Result<()> {
@@ -2743,8 +2801,7 @@ fn serve_background_images(request: Request) -> io::Result<()> {
 #[test]
 fn native_background_position_real_http() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/background-position/{variant}")))?;
         let result = page.evaluate(&format!("backgroundPositionCase({variant})"))?;
         let fields = result
@@ -2755,8 +2812,8 @@ fn native_background_position_real_http() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 fn serve_background_position(request: Request) -> io::Result<()> {
@@ -2784,8 +2841,7 @@ fn serve_background_position(request: Request) -> io::Result<()> {
 #[test]
 fn native_background_repeat_real_http() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/background-repeat/{variant}")))?;
         let result = page.evaluate(&format!("backgroundRepeatCase({variant})"))?;
         let fields = result
@@ -2796,8 +2852,8 @@ fn native_background_repeat_real_http() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 fn serve_background_repeat(request: Request) -> io::Result<()> {
@@ -2829,8 +2885,7 @@ fn serve_background_repeat(request: Request) -> io::Result<()> {
 #[test]
 fn native_background_size_real_http() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/background-size/{variant}")))?;
         let result = page.evaluate(&format!("backgroundSizeCase({variant})"))?;
         let fields = result.as_object().ok_or("missing background size result")?;
@@ -2839,8 +2894,8 @@ fn native_background_size_real_http() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 fn serve_background_size(request: Request) -> io::Result<()> {
@@ -2868,8 +2923,7 @@ fn serve_background_size(request: Request) -> io::Result<()> {
 #[test]
 fn native_background_layers_real_http() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/background-layers/{variant}")))?;
         let result = page.evaluate(&format!("backgroundLayersCase({variant})"))?;
         let fields = result
@@ -2880,8 +2934,8 @@ fn native_background_layers_real_http() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 fn serve_background_layers(request: Request) -> io::Result<()> {
@@ -2903,8 +2957,7 @@ fn serve_background_layers(request: Request) -> io::Result<()> {
 #[test]
 fn native_font_family_real_http() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/font-family/{variant}")))?;
         let result = page.evaluate(&format!("fontFamilyCase({variant})"))?;
         let fields = result.as_object().ok_or("missing font family result")?;
@@ -2913,8 +2966,8 @@ fn native_font_family_real_http() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 fn serve_font_family(request: Request) -> io::Result<()> {
     if let Some(value) = request.url().strip_prefix("/font-family-assets/") {
@@ -2937,8 +2990,7 @@ fn serve_font_family(request: Request) -> io::Result<()> {
 #[test]
 fn native_display_real_http() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/display/{variant}")))?;
         let result = page.evaluate(&format!("displayCase({variant})"))?;
         let fields = result.as_object().ok_or("missing display result")?;
@@ -2947,8 +2999,8 @@ fn native_display_real_http() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 fn serve_display(request: Request) -> io::Result<()> {
     if let Some(value) = request.url().strip_prefix("/display-assets/") {
@@ -2976,8 +3028,7 @@ fn serve_display(request: Request) -> io::Result<()> {
 #[test]
 fn native_html_boxes_real_http() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         for group in 0..4 {
             let page = browser.navigate(&fixture.path(&format!("/html-boxes/{variant}")))?;
             let result = page.evaluate(&format!("htmlBoxesCase({variant},{group})"))?;
@@ -2988,8 +3039,8 @@ fn native_html_boxes_real_http() -> TestResult {
                 "variant {variant}, group {group}: {result}"
             );
         }
-    }
-    Ok(())
+        Ok(())
+    })
 }
 fn serve_html_boxes(request: Request) -> io::Result<()> {
     if let Some(value) = request.url().strip_prefix("/html-boxes-assets/") {
@@ -3014,8 +3065,7 @@ fn serve_html_boxes(request: Request) -> io::Result<()> {
 #[test]
 fn native_constructed_stylesheets_real_http() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/constructed-sheets/{variant}")))?;
         let result = page.evaluate(&format!("constructedSheetsCase({variant})"))?;
         let checks = result.as_object().ok_or("missing CSSOM checks")?;
@@ -3026,15 +3076,14 @@ fn native_constructed_stylesheets_real_http() -> TestResult {
                 .all(|(name, check)| *check == json!(name != "nonconfigIndexDefine")),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn native_adopted_stylesheets_real_http() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/adopted-sheets/{variant}")))?;
         let result = page.evaluate(&format!("adoptedSheetsCase({variant})"))?;
         let checks = result.as_object().ok_or("missing adoption checks")?;
@@ -3043,8 +3092,8 @@ fn native_adopted_stylesheets_real_http() -> TestResult {
             checks.values().all(|check| *check == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
@@ -3404,16 +3453,15 @@ fn cumulative_dom_nodes_bound_factories_and_preserve_failed_html_writes() -> Tes
 #[test]
 fn native_large_dom_js_real_http() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/large-dom/{variant}")))?;
         let expression = format!("largeDomCase({variant})");
         assert_eq!(
             page.evaluate(&expression)?,
             json!({"value":"row","changed":format!("updated-{variant}"),"count":5000,"keys":5000,"retained":true,"remaining":4999,"last":"row"})
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
@@ -3535,8 +3583,7 @@ fn serve_dom_resources(request: Request) -> io::Result<()> {
 #[test]
 fn custom_elements_and_contents_use_real_box_tree() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/custom-boxes/{variant}")))?;
         let result = page.evaluate(&format!("customBoxesCase({variant})"))?;
         let checks = result.as_object().ok_or("missing checks")?;
@@ -3545,15 +3592,14 @@ fn custom_elements_and_contents_use_real_box_tree() -> TestResult {
             checks.values().all(|value| value == &json!(true)),
             "{result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn positioned_boxes_use_containing_blocks_and_viewport() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/positioned-boxes/{variant}")))?;
         let result = page.evaluate(&format!("positionedBoxesCase({variant})"))?;
         let checks = result.as_object().ok_or("missing checks")?;
@@ -3562,15 +3608,14 @@ fn positioned_boxes_use_containing_blocks_and_viewport() -> TestResult {
             checks.values().all(|value| value == &json!(true)),
             "{result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn namespaced_elements_preserve_native_names_and_interfaces() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/namespaced-elements/{variant}")))?;
         let result = page.evaluate(&format!("namespacedElementsCase({variant})"))?;
         let checks = result.as_object().ok_or("missing namespace checks")?;
@@ -3579,8 +3624,8 @@ fn namespaced_elements_preserve_native_names_and_interfaces() -> TestResult {
             checks.values().all(|value| value == &json!(true)),
             "{result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[derive(serde::Deserialize)]
@@ -3614,8 +3659,7 @@ fn response_encodings_decode_before_dom_and_javascript() -> TestResult {
 #[test]
 fn url_objects_and_live_queries_use_native_url_parser() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/urls/{variant}")))?;
         let result = page.evaluate(&format!("urlsCase({variant})"))?;
         let checks = result.as_object().ok_or("missing URL checks")?;
@@ -3624,8 +3668,8 @@ fn url_objects_and_live_queries_use_native_url_parser() -> TestResult {
             checks.values().all(|value| value == &json!(true)),
             "{result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
@@ -3694,8 +3738,7 @@ fn document_cookies_expire_with_real_time_and_recover_from_budgets() -> TestResu
 #[test]
 fn sticky_geometry_tracks_scroll_and_containing_blocks() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/sticky-geometry/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let checks = result.as_object().ok_or("missing sticky checks")?;
@@ -3704,15 +3747,14 @@ fn sticky_geometry_tracks_scroll_and_containing_blocks() -> TestResult {
             checks.values().all(|value| value == &json!(true)),
             "{result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn z_index_computes_cascade_without_changing_geometry() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/z-index/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let checks = result.as_object().ok_or("missing z-index checks")?;
@@ -3721,8 +3763,8 @@ fn z_index_computes_cascade_without_changing_geometry() -> TestResult {
             checks.values().all(|value| value == &json!(true)),
             "{result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 fn serve_z_index(request: Request) -> io::Result<()> {
@@ -3771,8 +3813,7 @@ fn css_transition_sampling_accepts_completed_timelines_after_late_timer_delivery
 #[test]
 fn css_transitions_advance_with_real_timers() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/transitions/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let checks = result.as_object().ok_or("missing transition checks")?;
@@ -3782,8 +3823,8 @@ fn css_transitions_advance_with_real_timers() -> TestResult {
             "{result}; {}",
             page.evaluate("globalThis.transitionDebug")?
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 fn serve_transitions(request: Request) -> io::Result<()> {
@@ -3826,9 +3867,8 @@ fn serve_logical_spacing(request: Request) -> io::Result<()> {
 #[test]
 fn logical_spacing_maps_cascade_to_real_geometry() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
     for (route, count) in [("logical-spacing", 45), ("logical-spacing-transitions", 11)] {
-        for variant in 0..64 {
+        each_variant(&fixture, |browser, variant| {
             let page = browser.navigate(&fixture.path(&format!("/{route}/{variant}")))?;
             let result = page.evaluate("globalThis.comparison")?;
             let checks = result.as_object().ok_or("missing logical spacing checks")?;
@@ -3837,7 +3877,8 @@ fn logical_spacing_maps_cascade_to_real_geometry() -> TestResult {
                 checks.values().all(|value| value == &json!(true)),
                 "{result}"
             );
-        }
+            Ok(())
+        })?;
     }
     Ok(())
 }
@@ -3869,8 +3910,7 @@ fn serve_contextual_box_lengths(request: Request) -> io::Result<()> {
 #[test]
 fn contextual_box_lengths_resolve_native_fonts_and_viewport() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page =
             browser.navigate(&fixture.path(&format!("/contextual-box-lengths/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
@@ -3882,8 +3922,8 @@ fn contextual_box_lengths_resolve_native_fonts_and_viewport() -> TestResult {
             checks.values().all(|value| value == &json!(true)),
             "{result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
@@ -3928,8 +3968,7 @@ fn serve_resolved_box_values(request: Request) -> io::Result<()> {
 #[test]
 fn resolved_box_values_follow_native_used_layout() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/resolved-box-values/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let checks = result.as_object().ok_or("missing resolved box checks")?;
@@ -3938,8 +3977,8 @@ fn resolved_box_values_follow_native_used_layout() -> TestResult {
             checks.values().all(|value| value == &json!(true)),
             "{result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 fn serve_svg_viewport(request: Request) -> io::Result<()> {
@@ -3959,8 +3998,7 @@ fn serve_svg_viewport(request: Request) -> io::Result<()> {
 #[test]
 fn svg_viewports_use_native_intrinsic_sizing() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/svg-viewport/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let checks = result.as_object().ok_or("missing SVG viewport checks")?;
@@ -3969,8 +4007,8 @@ fn svg_viewports_use_native_intrinsic_sizing() -> TestResult {
             checks.values().all(|value| value == &json!(true)),
             "{result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 fn is_script_resource(path: &str) -> bool {
@@ -4110,8 +4148,7 @@ fn serve_scripts(request: Request) -> io::Result<()> {
 #[test]
 fn classic_scripts_and_expressions_preserve_ecmascript_modes() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/script-modes/{variant}")))?;
         let result = page.evaluate(include_str!("fixtures/script-modes-expression.txt"))?;
         let checks = result.as_object().ok_or("missing script mode checks")?;
@@ -4120,8 +4157,8 @@ fn classic_scripts_and_expressions_preserve_ecmascript_modes() -> TestResult {
             checks.values().all(|value| value == &json!(true)),
             "{result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 fn serve_animation_frames(request: Request) -> io::Result<()> {
@@ -4141,8 +4178,7 @@ fn serve_animation_frames(request: Request) -> io::Result<()> {
 #[test]
 fn animation_frames_snapshot_callbacks_and_interleave_microtasks() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let start = Instant::now();
         let page = browser.navigate(&fixture.path(&format!("/animation-frames/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
@@ -4153,8 +4189,8 @@ fn animation_frames_snapshot_callbacks_and_interleave_microtasks() -> TestResult
             "{result}"
         );
         assert!(start.elapsed() >= Duration::from_millis(30));
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
@@ -4200,8 +4236,7 @@ fn serve_layout_snapshot(request: Request) -> io::Result<()> {
 #[test]
 fn layout_snapshots_observe_dom_cssom_and_scroll_mutations() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/layout-snapshot/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let checks = result.as_object().ok_or("missing layout snapshot checks")?;
@@ -4210,8 +4245,8 @@ fn layout_snapshots_observe_dom_cssom_and_scroll_mutations() -> TestResult {
             checks.values().all(|value| value == &json!(true)),
             "{result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
@@ -4262,8 +4297,7 @@ fn layout_snapshot_reuse_retains_operation_limits_and_unsupported_errors() -> Te
 #[test]
 fn background_colors_compute_native_cascade_and_live_mutations() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/background-color/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let checks = result
@@ -4274,15 +4308,14 @@ fn background_colors_compute_native_cascade_and_live_mutations() -> TestResult {
             checks.values().all(|value| value == &json!(true)),
             "{result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn document_stylesheets_real_http_and_live_cssom() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/document-stylesheets/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let checks = result.as_object().ok_or("missing stylesheet checks")?;
@@ -4291,8 +4324,8 @@ fn document_stylesheets_real_http_and_live_cssom() -> TestResult {
             checks.values().all(|value| value == &json!(true)),
             "{result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
@@ -4335,8 +4368,7 @@ fn window_named_properties_follow_real_dom() -> TestResult {
 #[test]
 fn window_named_properties_mass_real_http() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/window-named/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let checks = result.as_object().ok_or("missing Window checks")?;
@@ -4345,8 +4377,8 @@ fn window_named_properties_mass_real_http() -> TestResult {
             checks.values().all(|value| value == &json!(true)),
             "{result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
@@ -4360,8 +4392,7 @@ fn window_interface_brand_and_prototype_identity() -> TestResult {
 #[test]
 fn attribute_namespaces_mass_real_http() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/attribute-namespaces/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let checks = result.as_object().ok_or("missing Window checks")?;
@@ -4370,15 +4401,14 @@ fn attribute_namespaces_mass_real_http() -> TestResult {
             checks.values().all(|value| value == &json!(true)),
             "{result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn native_shaping_uses_real_http_font_resources() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/font-shaping/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let fields = result.as_object().ok_or("missing font shaping result")?;
@@ -4387,15 +4417,14 @@ fn native_shaping_uses_real_http_font_resources() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn native_script_runs_shape_mixed_direction_text_over_real_http() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/font-scripts/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let fields = result.as_object().ok_or("missing font scripts result")?;
@@ -4404,15 +4433,14 @@ fn native_script_runs_shape_mixed_direction_text_over_real_http() -> TestResult 
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn native_font_fallback_selects_faces_per_character_over_real_http() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/font-fallback/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let fields = result.as_object().ok_or("missing font fallback result")?;
@@ -4421,15 +4449,14 @@ fn native_font_fallback_selects_faces_per_character_over_real_http() -> TestResu
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn native_text_layout_uses_real_http_font_resources() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/text-layout/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let fields = result.as_object().ok_or("missing text layout result")?;
@@ -4438,15 +4465,14 @@ fn native_text_layout_uses_real_http_font_resources() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn public_font_profile_uses_real_http_faces_and_builtin_metrics() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/font-profile/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let fields = result.as_object().ok_or("missing font profile result")?;
@@ -4455,15 +4481,14 @@ fn public_font_profile_uses_real_http_faces_and_builtin_metrics() -> TestResult 
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn flex_grid_order_layout_uses_stable_real_box_geometry() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/order-layout/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let fields = result.as_object().ok_or("missing order layout result")?;
@@ -4472,15 +4497,14 @@ fn flex_grid_order_layout_uses_stable_real_box_geometry() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn anonymous_flex_grid_text_items_use_native_real_font_geometry() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/anonymous-text/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let fields = result.as_object().ok_or("missing anonymous text result")?;
@@ -4489,15 +4513,14 @@ fn anonymous_flex_grid_text_items_use_native_real_font_geometry() -> TestResult 
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn authored_flex_grid_button_geometry_uses_native_text_items() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/authored-button/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let fields = result.as_object().ok_or("missing authored button result")?;
@@ -4506,15 +4529,14 @@ fn authored_flex_grid_button_geometry_uses_native_text_items() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn font_settings_cssom_preserves_native_validated_declarations() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/font-settings/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let fields = result.as_object().ok_or("missing font settings result")?;
@@ -4523,15 +4545,14 @@ fn font_settings_cssom_preserves_native_validated_declarations() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn text_baselines_use_actual_native_font_metrics() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/text-baseline/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let fields = result.as_object().ok_or("missing baseline result")?;
@@ -4540,14 +4561,13 @@ fn text_baselines_use_actual_native_font_metrics() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 #[test]
 fn atomic_inline_flow_uses_native_line_boxes() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/atomic-inline/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let fields = result.as_object().ok_or("missing atomic inline result")?;
@@ -4556,14 +4576,13 @@ fn atomic_inline_flow_uses_native_line_boxes() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 #[test]
 fn rounded_boxes_keep_native_rectangular_geometry() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/rounded-box/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let fields = result.as_object().ok_or("missing rounded box result")?;
@@ -4572,15 +4591,14 @@ fn rounded_boxes_keep_native_rectangular_geometry() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn clip_shapes_use_native_intersection_geometry() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/clip-geometry/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let fields = result.as_object().ok_or("missing rounded box result")?;
@@ -4589,15 +4607,14 @@ fn clip_shapes_use_native_intersection_geometry() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn absolute_generated_boxes_use_native_positioning_and_scroll_geometry() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/positioned-generated/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let fields = result.as_object().ok_or("missing generated box result")?;
@@ -4606,15 +4623,14 @@ fn absolute_generated_boxes_use_native_positioning_and_scroll_geometry() -> Test
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn unicode_text_transform_uses_native_shaping_and_preserves_dom() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/text-transform/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let fields = result.as_object().ok_or("missing text transform result")?;
@@ -4623,15 +4639,14 @@ fn unicode_text_transform_uses_native_shaping_and_preserves_dom() -> TestResult 
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn adjacent_elements_use_native_insertion_adoption_and_reactions() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/adjacent-element/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let fields = result
@@ -4642,15 +4657,14 @@ fn adjacent_elements_use_native_insertion_adoption_and_reactions() -> TestResult
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn shadow_ink_is_excluded_from_native_layout_scroll_and_intersection() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/box-shadow-geometry/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let fields = result.as_object().ok_or("missing shadow geometry result")?;
@@ -4659,15 +4673,14 @@ fn shadow_ink_is_excluded_from_native_layout_scroll_and_intersection() -> TestRe
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn logical_borders_resolve_to_physical_geometry() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/logical-borders/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let fields = result.as_object().ok_or("missing logical borders result")?;
@@ -4676,15 +4689,14 @@ fn logical_borders_resolve_to_physical_geometry() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn explicit_grid_and_authored_lists_geometry() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/explicit-grid/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let fields = result.as_object().ok_or("missing grid result")?;
@@ -4693,15 +4705,14 @@ fn explicit_grid_and_authored_lists_geometry() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn paragraph_and_emergency_wrap_geometry() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/paragraph-wrap/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let fields = result.as_object().ok_or("missing grid result")?;
@@ -4710,15 +4721,14 @@ fn paragraph_and_emergency_wrap_geometry() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn heading_defaults_and_authored_geometry() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/headings/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let fields = result.as_object().ok_or("missing grid result")?;
@@ -4727,15 +4737,14 @@ fn heading_defaults_and_authored_geometry() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn translation_geometry_and_scrolling() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/translation/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let fields = result.as_object().ok_or("missing grid result")?;
@@ -4744,15 +4753,14 @@ fn translation_geometry_and_scrolling() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn canvas_replaced_box_geometry() -> TestResult {
     let fixture = Fixture::new()?;
-    let browser = fixture.browser()?;
-    for variant in 0..64 {
+    each_variant(&fixture, |browser, variant| {
         let page = browser.navigate(&fixture.path(&format!("/canvas-box/{variant}")))?;
         let result = page.evaluate("globalThis.comparison")?;
         let fields = result.as_object().ok_or("missing grid result")?;
@@ -4761,8 +4769,8 @@ fn canvas_replaced_box_geometry() -> TestResult {
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"
         );
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]

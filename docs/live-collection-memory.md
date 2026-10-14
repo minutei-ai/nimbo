@@ -25,7 +25,7 @@ versions and the fixture hash.
 
 ```sh
 bun run build:worker
-bun test tooling/browser-live.test.ts --test-name-pattern 'large live child collections'
+bun test tooling/browser-live-*.test.ts --test-name-pattern 'large live child collections'
 cargo test --locked -p nimbo-engine --test browser live_children_counts_and_mutations
 NIMBO_COMPARE_CHROMIUM_BINARY=/path/to/chromium bun run tooling/compare-live-children.ts
 ```

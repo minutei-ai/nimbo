@@ -1,0 +1,398 @@
+import { expect, test } from "bun:test";
+import { origin, requests, worker } from "./browser-live-setup";
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd: invalid media environments are rejected before navigation variant %i",
+  async (variant) => {
+    const invalid = [
+      { width: 0 },
+      { height: 0 },
+      { width: 16385 },
+      { height: 16385 },
+      { width: 1.5 },
+      { height: "600" },
+      { colorScheme: "invalid" },
+      { reducedMotion: 1 },
+    ][variant % 8];
+    const url = new URL(`media/invalid-${variant}`, origin.url).href;
+    const before = requests.length;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, media: invalid, expression: "1" }),
+    });
+    expect(response.status).toBe(400);
+    expect(requests.slice(before)).not.toContain(`GET /media/invalid-${variant}`);
+  },
+);
+
+test("real HTTP → workerd → Wasm: registry quotas and fresh request recovery", async () => {
+  const url = new URL("custom-elements-empty", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression: `(async () => {
+      for (let i=0;i<1024;i++) customElements.define('x-limit-'+i,class extends HTMLElement{});
+      let definitionLimit=false;
+      try {customElements.define('x-overflow',class extends HTMLElement{})} catch(error) {definitionLimit=error.message==='custom element definition limit'}
+      for (let i=0;i<1024;i++) customElements.whenDefined('x-pending-'+i);
+      let promiseLimit=false;
+      try {await customElements.whenDefined('x-pending-overflow')} catch(error) {promiseLimit=error.message==='when-defined promise limit'}
+      return [definitionLimit,promiseLimit,customElements.get('x-overflow')===undefined];
+    })()`,
+    }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({
+    url,
+    engine: "rust-wasm-quickjs",
+    value: [true, true, true],
+  });
+  const recovery = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression:
+        "[customElements.get('x-limit-0')===undefined,typeof nimboDom,customElements instanceof CustomElementRegistry]",
+    }),
+  });
+  expect(recovery.status).toBe(200);
+  expect(await recovery.json()).toEqual({
+    url,
+    engine: "rust-wasm-quickjs",
+    value: [true, "undefined", true],
+  });
+});
+
+test.each([
+  ["bytes", "'x'.repeat(262145)", "resource limit: stylesheet bytes"],
+  [
+    "selectors",
+    "Array.from({length:65},(_,i)=>'.x'+i).join(',')+'{width:1px}'",
+    "layout unsupported: stylesheet selectors",
+  ],
+  [
+    "rules",
+    "Array.from({length:4097},(_,i)=>'.x'+i+'{width:1px}').join('')",
+    "resource limit: stylesheet rules",
+  ],
+  [
+    "nesting",
+    "':is('.repeat(34)+'.x'+')'.repeat(34)+'{width:1px}'",
+    "resource limit: stylesheet nesting",
+  ],
+  ["nested rule", "'div { & div {width:1px;} }'", "layout unsupported: nested stylesheet rule"],
+  ["scope", "'@scope (.test) {div {width:1px;}}'", "layout unsupported: stylesheet at-rule"],
+  [
+    "forgiving recovery",
+    "':is(.x, :bogus#never) {width:1px;}'",
+    "layout unsupported: forgiving selector recovery",
+  ],
+])(
+  "real HTTP → workerd → Wasm: stylesheet %s fails explicitly and releases the request",
+  async (_name, source, reason) => {
+    const url = new URL("geometry-empty", origin.url).href;
+    const expression = `(() => {const css=document.createElement('style');css.textContent=${source};document.body.appendChild(css);return document.body.getBoundingClientRect();})()`;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression }),
+    });
+    expect(response.status).toBe(422);
+    const message: unknown = expect.stringContaining(reason);
+    expect(await response.json()).toEqual({ error: message });
+    const recovered = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "document.body.getBoundingClientRect().width > 0" }),
+    });
+    expect(recovered.status).toBe(200);
+    expect(await recovered.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: true });
+  },
+);
+
+test("real HTTP → workerd → Wasm: native dataset exposes unsupported exotic descriptors", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const expression =
+    "(()=>{const e=document.createElement('div'),d=e.dataset;return !Reflect.defineProperty(d,'locked',{value:'x',configurable:false})&&!Reflect.defineProperty(d,'accessor',{get(){return 'x';}})&&!e.hasAttribute('data-locked')&&!e.hasAttribute('data-accessor');})()";
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: true });
+});
+
+for (const [name, css, reason] of [
+  [
+    "style conditions",
+    "@container style(--value:test){.target{width:1px}}",
+    "container style query",
+  ],
+  [
+    "scroll-state conditions",
+    "@container scroll-state(stuck:top){.target{width:1px}}",
+    "container scroll-state query",
+  ],
+  [
+    "glyph-relative conditions",
+    "@container (width > 1ex){.target{width:1px}}",
+    "container relative query length",
+  ],
+  ["name inheritance", ".target{container-name:inherit}", "container name inheritance"],
+] as const) {
+  test(`real HTTP → workerd → Wasm: container gap ${name} fails explicitly and recovers`, async () => {
+    const url = new URL("geometry-empty", origin.url).href;
+    const expression = `(()=>{const parent=document.createElement('div');parent.className='parent';const target=document.createElement('div');target.className='target';parent.appendChild(target);document.body.appendChild(parent);const sheet=document.createElement('style');sheet.textContent=${JSON.stringify(css)};document.head.appendChild(sheet);let failure='';try{target.getBoundingClientRect()}catch(error){failure=String(error)}sheet.remove();target.style.width='11px';return {failure,width:target.getBoundingClientRect().width};})()`;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression }),
+    });
+    expect(response.status).toBe(200);
+    const failure: unknown = expect.stringContaining(reason);
+    expect(await response.json()).toEqual({
+      url,
+      engine: "rust-wasm-quickjs",
+      value: { failure, width: 11 },
+    });
+  });
+}
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: font matching variant %i",
+  async (variant) => {
+    const url = new URL(`font-matching/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: `fontMatchCase(${variant})` }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing comparison");
+    expect(Object.keys(value)).toHaveLength(55);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native canvas compositing variant %i",
+  async (variant) => {
+    const url = new URL(`canvas/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: `canvasCompositingCase(${variant})` }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing pixels");
+    const checks: unknown = Reflect.get(value, "checks");
+    if (typeof checks !== "object" || checks === null) throw new Error("Missing checks");
+    expect(Object.keys(checks)).toHaveLength(222);
+    expect(Object.values(checks).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: text adjustment cascade variant %i",
+  async (variant) => {
+    const url = new URL(`text-adjust/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: `textAdjustCase(${variant})` }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing adjustment values");
+    expect(Object.keys(value)).toHaveLength(44);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test("real HTTP → workerd → Wasm: positioning preserves independent scalars and image layer count", async () => {
+  const url = new URL("background-position/0", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression:
+        "(()=>{const e=document.body;e.style.cssText='font-size:18px;background-position:2ex 30%';const s=getComputedStyle(e);const font=s.fontSize,y=s.backgroundPositionY;e.style.cssText='background-image:url(https://example.test/a),url(https://example.test/b);background-position:10px 20%';return {font,y,x:s.backgroundPositionX,layersY:s.backgroundPositionY,paint:CSS.supports('background-position-x','10px')}})()",
+    }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
+    value: { font: "18px", y: "30%", x: "10px, 10px", layersY: "20%, 20%", paint: false },
+  });
+});
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: native background layer context variant %i",
+  async (variant) => {
+    const url = new URL(`background-layers/${variant}`, origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: `backgroundLayersCase(${variant})` }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing response");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null)
+      throw new Error("Missing background layer values");
+    expect(Object.keys(value)).toHaveLength(143);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test("real HTTP → workerd → Wasm: live collection iteration follows native mutations", async () => {
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url: new URL("large-dom/iteration", origin.url).href,
+      expression: "collectionIterationCase()",
+    }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
+    value: {
+      large: true,
+      keys: true,
+      forEach: true,
+      prepend: true,
+      callback: true,
+      entries: true,
+      snapshot: true,
+      tags: true,
+      attributes: true,
+      shadow: true,
+      xml: true,
+    },
+  });
+});
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: z-index computed state variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`z-index/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing result");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing checks");
+    expect(Object.keys(value)).toHaveLength(39);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: Window named properties variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`window-named/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    const result: unknown = await response.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing result");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing checks");
+    expect(Object.keys(value)).toHaveLength(34);
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);
+
+test.each(Array.from({ length: 64 }, (_, variant) => variant))(
+  "real HTTP → workerd → Wasm: text baseline variant %i",
+  async (variant) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL(`text-baseline/${variant}`, origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      value: Object.fromEntries(
+        [
+          "flex",
+          "grid",
+          "anonymous",
+          "synthesis",
+          "edges",
+          "nested",
+          "wrap",
+          "normal",
+          "fractional",
+          "mutation",
+        ].map((key) => [key, true]),
+      ),
+    });
+  },
+);
+
+test.each([
+  ["grid-template-columns:repeat(257,1px)", "div", "grid track limit"],
+  ["grid-template-columns:[named] 1fr", "div", "named grid lines"],
+  ["grid-template-columns:repeat(auto-fit,20px)", "div", "automatic grid repetition"],
+  ["grid-column:span 257", "div", "overlarge grid placement"],
+  ["", "ol", "list marker"],
+])(
+  "real HTTP → workerd → Wasm: bounded grid/list rejection and recovery %s",
+  async (css, tag, error) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL("geometry-empty", origin.url).href,
+        expression: `(()=>{const n=document.createElement(${JSON.stringify(tag)});n.style.cssText=${JSON.stringify(css)};document.body.append(n);return n.getBoundingClientRect().width})()`,
+      }),
+    });
+    expect(response.status).toBe(422);
+    const body: unknown = await response.json();
+    if (typeof body !== "object" || body === null) throw new Error("Missing rejection");
+    expect(Reflect.get(body, "error")).toContain(error);
+    const recovered = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL("explicit-grid/0", origin.url).href,
+        expression: "globalThis.comparison",
+      }),
+    });
+    expect(recovered.status).toBe(200);
+    const result: unknown = await recovered.json();
+    if (typeof result !== "object" || result === null) throw new Error("Missing recovery");
+    const value: unknown = Reflect.get(result, "value");
+    if (typeof value !== "object" || value === null) throw new Error("Missing geometry checks");
+    expect(Object.values(value).every((check) => check === true)).toBe(true);
+  },
+);

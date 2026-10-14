@@ -27,7 +27,7 @@ fn native_cli_proxy_covers_navigation_and_javascript_subrequests()
     let report: serde_json::Value = serde_json::from_slice(&output.stdout)?;
     assert_eq!(
         report.get("origin_requests"),
-        Some(&serde_json::json!(2744))
+        Some(&serde_json::json!(1064))
     );
     Ok(())
 }

@@ -1125,6 +1125,40 @@ mod layout_contracts {
         Ok(())
     }
 
+    fn synthetic_fixture(source: &str, count: usize) -> Result<()> {
+        for variant in 0..64 {
+            let html = format!(
+                "<!doctype html><body><script>globalThis.variant={variant};{source}</script>"
+            );
+            let mut machine = Machine::new(
+                &html,
+                "https://example.test/",
+                Limits::default(),
+                Arc::new(|| Ok(())),
+                true,
+                crate::cookies::Session::default(),
+                MediaEnvironment::default(),
+            )?;
+            assert!(matches!(machine.step()?, Action::Ready));
+            machine.evaluate("globalThis.comparison")?;
+            let Action::Result { json } = machine.step()? else {
+                return Err(crate::Error::Dom(
+                    "synthetic fixture must finish without transport".into(),
+                ));
+            };
+            let value: serde_json::Value = serde_json::from_str(&json)
+                .map_err(|error| crate::Error::Dom(error.to_string()))?;
+            let checks = value
+                .as_object()
+                .ok_or_else(|| crate::Error::Dom("fixture checks".into()))?;
+            assert_eq!(checks.len(), count);
+            for (name, passed) in checks {
+                assert_eq!(passed, true, "variant {variant}: {name}");
+            }
+        }
+        Ok(())
+    }
+
     #[test]
     fn synthetic_layout_contracts_without_transport() -> Result<()> {
         let fixtures = [
@@ -1147,38 +1181,22 @@ mod layout_contracts {
             (include_str!("../tests/fixtures/text-align.txt"), 13),
             (include_str!("../tests/fixtures/vertical-align.txt"), 6),
         ];
-        for (source, count) in fixtures {
-            for variant in 0..64 {
-                let html = format!(
-                    "<!doctype html><body><script>globalThis.variant={variant};{source}</script>"
-                );
-                let mut machine = Machine::new(
-                    &html,
-                    "https://example.test/",
-                    Limits::default(),
-                    Arc::new(|| Ok(())),
-                    true,
-                    crate::cookies::Session::default(),
-                    MediaEnvironment::default(),
-                )?;
-                assert!(matches!(machine.step()?, Action::Ready));
-                machine.evaluate("globalThis.comparison")?;
-                let Action::Result { json } = machine.step()? else {
-                    return Err(crate::Error::Dom(
-                        "synthetic fixture must finish without transport".into(),
-                    ));
-                };
-                let value: serde_json::Value = serde_json::from_str(&json)
-                    .map_err(|error| crate::Error::Dom(error.to_string()))?;
-                let checks = value
-                    .as_object()
-                    .ok_or_else(|| crate::Error::Dom("fixture checks".into()))?;
-                assert_eq!(checks.len(), count);
-                for (name, passed) in checks {
-                    assert_eq!(passed, true, "variant {variant}: {name}");
-                }
-            }
-        }
+        // Each fixture runs on its own thread; a Machine stays on the thread that built it.
+        std::thread::scope(|scope| {
+            #[expect(
+                clippy::needless_collect,
+                reason = "Spawn every fixture before joining, or they run one at a time"
+            )]
+            let handles: Vec<_> = fixtures
+                .into_iter()
+                .map(|(source, count)| scope.spawn(move || synthetic_fixture(source, count)))
+                .collect();
+            handles.into_iter().try_for_each(|handle| {
+                handle
+                    .join()
+                    .map_err(|_panic| crate::Error::Dom("synthetic fixture panicked".into()))?
+            })
+        })?;
         Ok(())
     }
 }
