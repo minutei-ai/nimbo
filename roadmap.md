@@ -96,6 +96,10 @@ and select-derived form ownership without descendant handles or a copied DOM.
 [Native select state](docs/select-state.md) adds sparse selectedness, dirty defaults,
 live/indexed option collections, native batch resizing and transactional select reset.
 Labels, validity, pickers, submission, complete exotic descriptors and wider forms remain open.
+[Private collection kinds](docs/collection-receivers.md) reject cross-interface
+native getters/items while preserving generic array-like iterators and forEach.
+Eighty-six contracts pass on both Chromium and Nimbo, with original-fuel
+interruption and fresh-page recovery. Wider exotic property behavior remains open.
 
 ## 0.4 — Scripts and page readiness
 

@@ -5010,3 +5010,22 @@ fn named_collections_observe_conversion_before_live_resolution() -> TestResult {
     assert!(page.diagnostics().dom_handle_count <= before + 2);
     Ok(())
 }
+
+#[test]
+fn collection_receivers_keep_native_brands_and_generic_iterators() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    let page = browser.navigate(&fixture.path("/static"))?;
+    let source = include_str!("fixtures/collection-receivers.txt");
+    assert_eq!(page.evaluate(&format!("(()=>{{{source};const checks=collectionReceiversCase(0);return {{count:Object.keys(checks).length,failed:Object.entries(checks).filter(([,passed])=>!passed).map(([name])=>name)}}}})()"))?, json!({"count":86,"failed":[]}));
+    let rejected =
+        page.evaluate("(NodeList.prototype.forEach.call({length:1000000000},()=>{}),true)");
+    assert!(matches!(rejected, Err(Error::Limit("JavaScript fuel"))));
+    assert_eq!(
+        browser
+            .navigate(&fixture.path("/static"))?
+            .evaluate("typeof missing")?,
+        json!("undefined")
+    );
+    Ok(())
+}

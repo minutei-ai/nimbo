@@ -983,3 +983,37 @@ test("selected named lookup avoids handles for unmatched options", async () => {
     },
   );
 });
+
+test("collection methods preserve interface brands and generic iteration", async () => {
+  const source = await Bun.file(
+    join(root, "crates/engine/tests/fixtures/collection-receivers.txt"),
+  ).text();
+  await fixture(
+    () => html("<body>fresh</body>"),
+    async (worker) => {
+      const response = await scrape(
+        worker,
+        `(()=>{${source};const checks=collectionReceiversCase(0);return {count:Object.keys(checks).length,failed:Object.entries(checks).filter(([,passed])=>!passed).map(([name])=>name)}})()`,
+      );
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({ value: { count: 86, failed: [] } });
+    },
+  );
+});
+
+test("generic collection forEach remains bounded by original JavaScript fuel", async () => {
+  await fixture(
+    () => html("<body>fresh</body>"),
+    async (worker) => {
+      const rejected = await scrape(
+        worker,
+        "(NodeList.prototype.forEach.call({length:1000000000},()=>{}),true)",
+      );
+      expect(rejected.status).toBe(422);
+      expect(await json(rejected)).toEqual({ error: "resource limit: JavaScript fuel" });
+      const recovered = await scrape(worker, "document.body.textContent");
+      expect(recovered.status).toBe(200);
+      expect(await json(recovered)).toMatchObject({ value: "fresh" });
+    },
+  );
+});

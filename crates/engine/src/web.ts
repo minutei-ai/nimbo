@@ -1329,7 +1329,9 @@
   const internal = Symbol("native node");
   type Collection = NodeList | HTMLCollection | NamedNodeMap;
   type CollectionItems = readonly (Node | number)[];
+  type CollectionKind = "nodes" | "elements" | "attributes";
   type CollectionState = {
+    kind: CollectionKind;
     resolve: () => CollectionItems;
     live: boolean;
     count?: () => number;
@@ -1342,11 +1344,19 @@
   const collections = new WeakMap<object, CollectionState>();
   const childLists = new WeakMap<Node, NodeList>();
   const elementLists = new WeakMap<ParentNode, HTMLCollection>();
-  function collectionState(list: Collection): CollectionState {
+  function collectionState(list: Collection, kind?: CollectionKind): CollectionState {
     const state = collections.get(list);
-    if (!state) throw new TypeError("Illegal invocation");
+    if (!state || (kind !== undefined && state.kind !== kind))
+      throw new TypeError("Illegal invocation");
     return state;
   }
+  const nodeArray: Node[] = [];
+  const arrayForEach = nodeArray.forEach;
+  const arrayValues = nodeArray.values;
+  const arrayEntries = nodeArray.entries;
+  const arrayKeys = nodeArray.keys;
+  const attributeArray: Attr[] = [];
+  const attributeValues = attributeArray.values;
   function namedNodes(items: CollectionItems): Map<string, Node> {
     const names = new Map<string, Node>();
     for (const value of items) {
@@ -1384,6 +1394,7 @@
   function makeCollection<T extends Collection>(
     target: T,
     resolve: () => CollectionItems,
+    kind: CollectionKind,
     options: {
       named?: boolean;
       live?: boolean;
@@ -1394,7 +1405,7 @@
     } = {},
   ): T {
     const { named = false, live = false, count } = options;
-    const state: CollectionState = count ? { resolve, live, count } : { resolve, live };
+    const state: CollectionState = count ? { resolve, live, kind, count } : { resolve, live, kind };
     if (options.at) state.at = options.at;
     if (options.namedGet) state.namedGet = options.namedGet;
     const visibleName = (key: string | symbol): Node | undefined =>
@@ -1496,7 +1507,7 @@
     }
     item(index: number): Attr | null {
       required(1, arguments.length);
-      const value = collectionNode(collectionState(this).resolve()[index >>> 0]);
+      const value = collectionNode(collectionState(this, "attributes").resolve()[index >>> 0]);
       return value instanceof Attr ? value : null;
     }
     getNamedItem(name: unknown): Attr | null {
@@ -1527,10 +1538,11 @@
       if (!attribute) throw new DOMException("attribute not found", "NotFoundError");
       return mapOwner(this).removeAttributeNode(attribute);
     }
-    *[Symbol.iterator](): Generator<Attr> {
-      for (const value of collectionValues(collectionState(this))) {
-        if (value instanceof Attr) yield value;
-      }
+    [Symbol.iterator](): IterableIterator<Attr> {
+      const state = collections.get(this);
+      return state?.kind === "attributes"
+        ? collectionAttributes(state)
+        : attributeValues.call(this);
     }
   }
   class NodeList {
@@ -1538,17 +1550,23 @@
       if (key !== internal) throw new TypeError("Illegal constructor");
     }
     get length(): number {
-      return collectionState(this).resolve().length;
+      return collectionState(this, "nodes").resolve().length;
     }
     item(index: number): Node | null {
       if (arguments.length === 0) throw new TypeError("item requires an index");
-      return collectionNode(collectionState(this).resolve()[index >>> 0]) ?? null;
+      return collectionNode(collectionState(this, "nodes").resolve()[index >>> 0]) ?? null;
     }
     forEach(
       callback: (this: unknown, value: Node, index: number, list: NodeList) => void,
       thisArg?: unknown,
     ) {
-      const state = collectionState(this);
+      const state = collections.get(this);
+      if (!state) {
+        if (typeof callback !== "function") return arrayForEach.call(this, callback, thisArg);
+        return arrayForEach.call(this, (value, index) =>
+          callback.call(thisArg, value, index, this),
+        );
+      }
       if (typeof callback !== "function") throw new TypeError("callback must be a function");
       const resolve = iterationResolver(state);
       const length = resolve().length;
@@ -1557,20 +1575,23 @@
         if (value !== undefined) callback.call(thisArg, value, index, this);
       }
     }
-    entries(): Generator<[number, Node]> {
-      return collectionEntries(collectionState(this));
+    entries(): IterableIterator<[number, Node]> {
+      const state = collections.get(this);
+      return state ? collectionEntries(state) : arrayEntries.call(this);
     }
-    keys(): Generator<number> {
-      const state = collectionState(this);
+    keys(): IterableIterator<number> {
+      const state = collections.get(this);
+      if (!state) return arrayKeys.call(this);
       return (function* () {
         const resolve = iterationResolver(state);
         for (let index = 0; index < resolve().length; index++) yield index;
       })();
     }
-    values(): Generator<Node> {
-      return collectionValues(collectionState(this));
+    values(): IterableIterator<Node> {
+      const state = collections.get(this);
+      return state ? collectionValues(state) : arrayValues.call(this);
     }
-    [Symbol.iterator](): Generator<Node> {
+    [Symbol.iterator](): IterableIterator<Node> {
       return this.values();
     }
   }
@@ -1599,31 +1620,35 @@
   function* collectionValues(state: CollectionState): Generator<Node> {
     for (const [, value] of collectionEntries(state)) yield value;
   }
+  function* collectionAttributes(state: CollectionState): Generator<Attr> {
+    for (const value of collectionValues(state)) if (value instanceof Attr) yield value;
+  }
   class HTMLCollection {
     constructor(key: symbol) {
       if (key !== internal) throw new TypeError("Illegal constructor");
     }
     get length(): number {
-      const state = collectionState(this);
+      const state = collectionState(this, "elements");
       return state.count?.() ?? state.resolve().length;
     }
     item(index: number): Element | null {
       if (arguments.length === 0) throw new TypeError("item requires an index");
-      const state = collectionState(this);
+      const state = collectionState(this, "elements");
       const converted = idlNumber(index) >>> 0;
       const value = collectionNode(state.at ? state.at(converted) : state.resolve()[converted]);
       return value instanceof Element ? value : null;
     }
     namedItem(name: unknown): Element | null {
       if (arguments.length === 0) throw new TypeError("namedItem requires a name");
-      const state = collectionState(this);
+      const state = collectionState(this, "elements");
       const key = domString(name);
       if (key === "") return null;
       const value = state.namedGet ? state.namedGet(key) : namedNodes(state.resolve()).get(key);
       return value instanceof Element ? value : null;
     }
-    [Symbol.iterator](): Generator<Node> {
-      return collectionValues(collectionState(this));
+    [Symbol.iterator](): IterableIterator<Node> {
+      const state = collections.get(this);
+      return state ? collectionValues(state) : arrayValues.call(this);
     }
   }
   Object.defineProperty(NodeList.prototype, Symbol.iterator, {
@@ -1657,6 +1682,7 @@
         list = makeCollection(
           new NodeList(internal),
           () => call<number[]>("children", idOf(this), "nodes"),
+          "nodes",
           { live: true },
         );
         childLists.set(this, list);
@@ -1829,6 +1855,7 @@
         list = makeCollection(
           new HTMLCollection(internal),
           () => call<number[]>("children", idOf(this), "elements"),
+          "elements",
           { named: true, live: true },
         );
         elementLists.set(this, list);
@@ -1840,7 +1867,7 @@
     }
     querySelectorAll(selector: string): NodeList {
       const snapshot = call<number[]>("query", idOf(this), selector);
-      return makeCollection(new NodeList(internal), () => snapshot);
+      return makeCollection(new NodeList(internal), () => snapshot, "nodes");
     }
     querySelector(selector: string): Element | null {
       const id = call<number | null>("queryOne", idOf(this), selector);
@@ -1868,6 +1895,7 @@
               : name)
           );
         }),
+      "elements",
       { named: true, live: true },
     );
   }
@@ -2379,6 +2407,7 @@
         map = makeCollection(
           new NamedNodeMap(internal),
           () => raw<number[]>("attributeNode", id, "list"),
+          "attributes",
           { named: true, live: true },
         );
         attributeMaps.set(this, map);
@@ -3817,6 +3846,7 @@
       list = makeCollection(
         new HTMLOptionsCollection(internal),
         () => raw<number[]>("selection", id, "options"),
+        "elements",
         {
           named: true,
           live: true,
@@ -3848,6 +3878,7 @@
         list = makeCollection(
           new HTMLCollection(internal),
           () => raw<number[]>("selection", id, "selectedOptions"),
+          "elements",
           {
             named: true,
             live: true,
@@ -4969,8 +5000,8 @@
       if (key !== internal || !wire) throw new TypeError("Illegal constructor");
       mutationData.set(this, {
         wire,
-        added: makeCollection(new NodeList(internal), () => wire.addedNodes),
-        removed: makeCollection(new NodeList(internal), () => wire.removedNodes),
+        added: makeCollection(new NodeList(internal), () => wire.addedNodes, "nodes"),
+        removed: makeCollection(new NodeList(internal), () => wire.removedNodes, "nodes"),
       });
     }
     get type(): string {
@@ -8281,6 +8312,7 @@
       collection = makeCollection(
         new HTMLCollection(internal),
         () => call<number[]>("windowNamed", 0, key),
+        "elements",
         { named: true, live: true },
       );
       namedWindowCollections.set(key, collection);

@@ -1,0 +1,37 @@
+function collectionReceiversCase(variant) {
+ document.body.innerHTML='<div id=p data-value=x><i id=item></i>text</div><select id=s><option>one</option></select>';
+ const checks={},p=document.getElementById('p'),receivers={nodes:p.childNodes,elements:p.children,attributes:p.attributes,options:document.getElementById('s').options,array:[p.firstChild],fake:Object.create(NodeList.prototype)};
+ const getter=(proto)=>Object.getOwnPropertyDescriptor(proto,'length').get;
+ const methods=[['nodesLength',getter(NodeList.prototype),'nodes'],['nodesItem',NodeList.prototype.item,'nodes'],['elementsLength',getter(HTMLCollection.prototype),'elements'],['elementsItem',HTMLCollection.prototype.item,'elements'],['elementsNamed',HTMLCollection.prototype.namedItem,'elements'],['attributesLength',getter(NamedNodeMap.prototype),'attributes'],['attributesItem',NamedNodeMap.prototype.item,'attributes']];
+ const throws=fn=>{try{fn();return false}catch(e){return e instanceof TypeError}};
+ const accepts=fn=>{try{fn();return true}catch{return false}};
+ for(const [name,method,kind] of methods)for(const [receiver,obj] of Object.entries(receivers)){
+  const valid=receiver===kind||(kind==='elements'&&receiver==='options');
+  checks[name+'_'+receiver]=valid?accepts(()=>method.call(obj,name==='elementsNamed'?'item':0)):throws(()=>method.call(obj,name==='elementsNamed'?'item':0));
+ }
+ const nl=receivers.nodes,hc=receivers.elements,attrs=receivers.attributes;
+ const np=Object.getPrototypeOf(nl),hp=Object.getPrototypeOf(hc),ap=Object.getPrototypeOf(attrs);
+ Object.setPrototypeOf(nl,HTMLCollection.prototype);
+ checks.nodesPrototype=getter(NodeList.prototype).call(nl)===2&&throws(()=>getter(HTMLCollection.prototype).call(nl));Object.setPrototypeOf(nl,np);
+ Object.setPrototypeOf(hc,NodeList.prototype);
+ checks.elementsPrototype=getter(HTMLCollection.prototype).call(hc)===1&&throws(()=>getter(NodeList.prototype).call(hc));Object.setPrototypeOf(hc,hp);
+ Object.setPrototypeOf(attrs,NodeList.prototype);
+ checks.attributesPrototype=getter(NamedNodeMap.prototype).call(attrs)===2&&throws(()=>NodeList.prototype.item.call(attrs,0));Object.setPrototypeOf(attrs,ap);
+ let converted=0;checks.conversionOrder=throws(()=>HTMLCollection.prototype.namedItem.call(nl,{toString(){converted++;return 'item'}}))&&converted===0;
+ let calls=0;const context={variant};NodeList.prototype.forEach.call([3,4],function(value,index,list){if(this===context&&value===index+3&&list.length===2)calls++},context);checks.forEachArray=calls===2;
+ let reads=0;checks.forEachValidation=throws(()=>NodeList.prototype.forEach.call({get length(){reads++;return 1}},0))&&reads===1;
+ const generic=[['values',NodeList.prototype.values],['entries',NodeList.prototype.entries],['keys',NodeList.prototype.keys],['elementsValues',HTMLCollection.prototype[Symbol.iterator]],['attributeValues',NamedNodeMap.prototype[Symbol.iterator]]];
+ for(const [name,method] of generic){
+  for(const receiver of ['nodes','elements','attributes','options']){
+   const expected=Array.from(receivers[receiver]),values=Array.from(method.call(receivers[receiver]));
+   checks[name+'_'+receiver]=values.length===expected.length&&values.every((value,index)=>name==='entries'?value[0]===index&&value[1]===expected[index]:name==='keys'?value===index:value===expected[index]);
+  }
+  const actual=Array.from(method.call([3,4]));checks[name+'_array']=JSON.stringify(actual)===JSON.stringify(name==='entries'?[[0,3],[1,4]]:name==='keys'?[0,1]:[3,4]);
+  checks[name+'_null']=throws(()=>method.call(null));
+  checks[name+'_empty']=method.call({}).next().done;
+ }
+ const data={length:1,0:'first',1:'second'},it=NodeList.prototype.values.call(data);const first=it.next();data.length=2;checks.liveGeneric=first.value==='first'&&it.next().value==='second'&&it.next().done;
+ const sparse={length:2,1:'present'},sparseValues=NodeList.prototype.values.call(sparse);checks.sparseGeneric=sparseValues.next().value===undefined&&sparseValues.next().value==='present';
+ const original=Array.prototype.values;try{Array.prototype.values=()=>{throw new Error('replaced')};checks.capturedValues=NodeList.prototype.values.call([variant]).next().value===variant;}finally{Array.prototype.values=original}
+ return checks;
+}

@@ -306,10 +306,10 @@ const collectionExpressionFor = (variant: number) => `(() => {
   const errors = [];
   for (const action of [() => new NodeList(), () => new HTMLCollection(), () => all.item(),
     () => elements.namedItem(), () => NodeList.prototype.item.call({}, 0),
-    () => NodeList.prototype.entries.call({}), () => elements.namedItem(Symbol('invalid'))]) {
+    () => NodeList.prototype.entries.call(null), () => elements.namedItem(Symbol('invalid'))]) {
     try { action(); errors.push(false); } catch (error) { errors.push(error instanceof TypeError); }
   }
-  const guarded = errors.length === 7 && errors.every(Boolean);
+  const guarded = errors.length === 7 && errors.every(Boolean) && NodeList.prototype.entries.call({}).next().done;
   return {kinds, identity, index, names, reflection, readonly, iteration, callback,
     live, removed, renamed, reparent, cleared, fragmentLive, transferred, guarded};
 })()`;
