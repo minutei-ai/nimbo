@@ -13,6 +13,14 @@ pub(crate) struct Session {
     pub cookies: Cookies,
 }
 
+impl Session {
+    /// Empties cookies and Web Storage in place, so live pages observe the reset.
+    pub(crate) fn clear(&self) {
+        self.cookies.0.borrow_mut().clear();
+        *self.storage.borrow_mut() = Storage::default();
+    }
+}
+
 #[derive(Clone, Default)]
 pub(crate) struct Cookies(Rc<RefCell<Vec<Cookie<'static>>>>);
 

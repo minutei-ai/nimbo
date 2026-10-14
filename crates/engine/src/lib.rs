@@ -72,7 +72,7 @@ use std::time::Duration;
 
 pub(crate) type BudgetCheck = std::sync::Arc<dyn Fn() -> Result<()> + Send + Sync>;
 
-pub use diagnostics::{Diagnostics, ExecutionPhase};
+pub use diagnostics::{Diagnostics, ExecutionPhase, PhaseTimings};
 
 #[cfg(not(target_arch = "wasm32"))]
 pub use cancellation::CancellationToken;

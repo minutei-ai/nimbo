@@ -14,6 +14,7 @@ pub struct Page {
     transport: Rc<Transport>,
     url: String,
     epoch: std::time::Instant,
+    timings: crate::PhaseTimings,
 }
 
 impl fmt::Debug for Page {
@@ -31,8 +32,10 @@ impl Page {
         transport: Rc<Transport>,
         session: crate::cookies::Session,
         media: MediaEnvironment,
+        request: std::time::Duration,
     ) -> std::result::Result<Self, crate::NavigationFailure> {
         use crate::{NavigationFailure as Failure, NavigationStage as Stage};
+        let started = std::time::Instant::now();
         transport
             .check_deadline()
             .map_err(|error| Failure::new(Stage::Initialization, error))?;
@@ -55,11 +58,17 @@ impl Page {
             media,
         )
         .map_err(|error| Failure::new(Stage::Initialization, error))?;
-        let page = Self {
+        let epoch = std::time::Instant::now();
+        let mut page = Self {
             machine: RefCell::new(machine),
             transport,
             url: response.url,
-            epoch: std::time::Instant::now(),
+            epoch,
+            timings: crate::PhaseTimings {
+                request,
+                initialization: epoch.saturating_duration_since(started),
+                execution: std::time::Duration::ZERO,
+            },
         };
         let failed = |error| {
             let mut failure = Failure::new(Stage::Execution, error);
@@ -69,6 +78,7 @@ impl Page {
         if page.drive().map_err(failed)?.is_some() {
             return Err(failed(Error::Unsupported("unexpected load result".into())));
         }
+        page.timings.execution = epoch.elapsed();
         Ok(page)
     }
 
@@ -83,6 +93,12 @@ impl Page {
     #[must_use]
     pub fn diagnostics(&self) -> crate::Diagnostics {
         self.machine.borrow().diagnostics()
+    }
+
+    /// Returns the phase durations measured while this page was navigated.
+    #[must_use]
+    pub const fn timings(&self) -> crate::PhaseTimings {
+        self.timings
     }
 
     /// Reads the scheduler state without executing JavaScript or resetting budgets.

@@ -31,6 +31,20 @@ impl ExecutionPhase {
     }
 }
 
+/// Wall-clock durations of one native navigation's phases, without page data.
+/// Request covers redirects and the body transfer; execution covers parser
+/// scripts and lifecycle delivery. Later evaluation and readiness are excluded.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct PhaseTimings {
+    /// Destination validation, redirects and response transfer.
+    pub request: std::time::Duration,
+    /// HTML parsing, DOM construction and JavaScript runtime initialization.
+    pub initialization: std::time::Duration,
+    /// Parser-discovered scripts and document lifecycle delivery.
+    pub execution: std::time::Duration,
+}
+
 /// An explicit resource snapshot of one owned page, without page content or host secrets.
 /// `QuickJS` byte counts describe its runtime; they are not peak or total process memory.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]

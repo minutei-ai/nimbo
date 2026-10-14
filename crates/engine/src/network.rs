@@ -102,6 +102,12 @@ impl Browser {
         })
     }
 
+    /// Ends this browser's session by discarding its cookies and Web Storage.
+    /// Pages already returned keep running and observe the empty session.
+    pub fn clear_session(&self) {
+        self.session.clear();
+    }
+
     /// Carrega HTML e executa scripts clássicos após o parsing do documento.
     ///
     /// # Errors
@@ -151,6 +157,7 @@ impl Browser {
             bytes: Cell::new(0),
             cookies: self.session.cookies.clone(),
         });
+        let started = Instant::now();
         let response = transport
             .request(&self.origin, url, "GET", "", false)
             .map_err(|error| Failure::new(Stage::Request, error))?;
@@ -171,6 +178,7 @@ impl Browser {
             transport,
             self.session.clone(),
             self.media.clone(),
+            started.elapsed(),
         )
     }
 }
