@@ -24,8 +24,13 @@ pub(crate) struct Context {
     initial: f64,
     width: f64,
     height: f64,
+    rtl: bool,
 }
 impl Context {
+    /// Inherited inline base direction; `dir` reaches it as a presentational default.
+    pub(crate) fn rtl(&self) -> bool {
+        self.rtl
+    }
     pub(crate) fn line_height(&self) -> Result<String> {
         self.line_height.value(self)
     }
@@ -54,6 +59,7 @@ impl Context {
             initial: size,
             width: f64::from(media.width),
             height: f64::from(media.height),
+            rtl: false,
         }
     }
     pub(crate) fn compute(
@@ -89,7 +95,14 @@ impl Context {
             work.charge()?;
         }
         let adjustment = self.adjustment.compute(&value)?;
+        let rtl = match declarations.value("direction").0.as_str() {
+            "rtl" => true,
+            "ltr" | "initial" => false,
+            "" | "inherit" | "unset" => self.rtl,
+            _ => return Err(unsupported("direction")),
+        };
         let mut computed = Self {
+            rtl,
             adjustment,
             size,
             zero_advance: self.zero_advance.map(|width| {

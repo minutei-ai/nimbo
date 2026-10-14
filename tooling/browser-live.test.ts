@@ -4735,7 +4735,7 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
 
 test.each([
   ["writing-mode:vertical-rl;inline-size:20px", "writing-mode"],
-  ["direction:rtl;inline-size:20px", "direction"],
+  ["writing-mode:sideways-lr;inline-size:20px", "writing-mode"],
   ["inline-size:2ic", "relative query length"],
   ["inline-size:inherit", "width"],
 ])(
@@ -4824,7 +4824,7 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
   expect(await response.json()).toMatchObject({
     value: {
       font: "18px",
-      count: 47,
+      count: 48,
       names: [
         "background-attachment",
         "background-clip",
@@ -4836,6 +4836,7 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
         "background-size",
         "block-size",
         "color",
+        "direction",
         "display",
         "font-family",
         "font-size",

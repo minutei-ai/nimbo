@@ -107,13 +107,7 @@ fn defaulted<'a>(name: &str, value: &'a str) -> &'a str {
     }
 }
 
-fn initial_style(node: NodeRef<'_>, generated: bool) -> Result<Style> {
-    if node
-        .null_attribute("dir")
-        .is_some_and(|value| value.eq_ignore_ascii_case("rtl"))
-    {
-        return Err(unsupported("direction"));
-    }
+fn initial_style(node: NodeRef<'_>, generated: bool) -> Style {
     let mut style = Style {
         display: Display::Block,
         box_sizing: BoxSizing::ContentBox,
@@ -125,7 +119,7 @@ fn initial_style(node: NodeRef<'_>, generated: bool) -> Result<Style> {
     if !generated && node.null_attribute("hidden").is_some() {
         style.display = Display::None;
     }
-    Ok(style)
+    style
 }
 
 // This first layout pass accepts real inline block/flex and auto-grid boxes. Unsupported
@@ -291,7 +285,7 @@ fn style_for(
     fonts: &crate::fonts::Context,
     work: &mut Work<'_>,
 ) -> Result<(Style, Option<svg_viewport::Intrinsic>)> {
-    let mut style = initial_style(node, generated)?;
+    let mut style = initial_style(node, generated);
     if !generated
         && (node.has_name("p") || node.has_name("ol") || node.has_name("ul") || node.has_name("dl"))
     {
@@ -364,7 +358,10 @@ fn style_properties(
             $field = value.parse().map_err(|_error| unsupported($name))?;
         }};
     }
-    for (name, value, deferred) in logical::entries(declarations) {
+    if fonts.rtl() {
+        style.direction = taffy::Direction::Rtl;
+    }
+    for (name, value, deferred) in logical::entries(declarations, fonts.rtl()) {
         if generated && name == "content" {
             continue;
         }
@@ -397,12 +394,11 @@ fn style_properties(
             continue;
         }
         match name {
-            "clip-path" => {}
             "appearance"
                 if crate::html_boxes::appearance(node, value, style.display, generated) => {}
             "writing-mode"
                 if matches!(value, "horizontal-tb" | "initial" | "unset" | "inherit") => {}
-            "direction" if matches!(value, "ltr" | "initial" | "unset" | "inherit") => {}
+            "clip-path" | "direction" => {}
             "box-sizing" => assign!(style.box_sizing, value, name),
             "width" => assign!(style.size.width, value, name),
             "height" => assign!(style.size.height, value, name),

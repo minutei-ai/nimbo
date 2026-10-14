@@ -293,7 +293,7 @@ impl State {
             .map(|parent| parent.controls.clone())
             .unwrap_or_default();
         let controls = parent.compute(&declarations)?;
-        let values: HashMap<_, _> = crate::layout::logical::entries(&declarations)
+        let values: HashMap<_, _> = crate::layout::logical::entries(&declarations, false)
             .into_iter()
             .filter(|(name, _, _)| {
                 !property(name) && !name.starts_with("animation-") && !name.starts_with("--")

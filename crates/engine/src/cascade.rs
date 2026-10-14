@@ -839,11 +839,15 @@ impl Cascade {
         }
         Declarations::cascade(sources)
             .and_then(|declarations| {
-                declarations.defaults(if generated.is_none() {
-                    crate::html_boxes::heading_defaults(node)
-                } else {
-                    ""
-                })
+                if generated.is_some() {
+                    return Ok(declarations);
+                }
+                let declarations =
+                    declarations.defaults(crate::html_boxes::heading_defaults(node))?;
+                match crate::html_boxes::direction_default(node) {
+                    Some(direction) => declarations.defaults(direction),
+                    None => Ok(declarations),
+                }
             })
             .map_err(|message| Error::Dom(message.into()))
     }

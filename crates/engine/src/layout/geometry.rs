@@ -113,7 +113,7 @@ pub(super) fn insets(
     work: &mut Work<'_>,
 ) -> Result<Rect<LengthPercentageAuto>> {
     let mut result = Rect::auto();
-    for (name, value, _) in super::logical::entries(declarations) {
+    for (name, value, _) in super::logical::entries(declarations, fonts.rtl()) {
         let slot = match name {
             "top" => &mut result.top,
             "right" => &mut result.right,

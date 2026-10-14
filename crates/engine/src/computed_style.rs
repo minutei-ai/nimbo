@@ -7,7 +7,7 @@ use crate::{
     styles::{Declarations, Variables},
 };
 
-pub(crate) const PROPERTIES: [&str; 47] = [
+pub(crate) const PROPERTIES: [&str; 48] = [
     "background-attachment",
     "background-clip",
     "background-color",
@@ -18,6 +18,7 @@ pub(crate) const PROPERTIES: [&str; 47] = [
     "background-size",
     "block-size",
     "color",
+    "direction",
     "display",
     "font-family",
     "font-size",
@@ -117,6 +118,8 @@ impl Computed {
             self.family.value()
         } else if name == "line-height" {
             self.fonts.line_height()
+        } else if name == "direction" {
+            Ok(if self.fonts.rtl() { "rtl" } else { "ltr" }.into())
         } else if name == "tab-size" {
             self.fonts.tabs()
         } else if name == "text-size-adjust" {

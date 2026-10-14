@@ -2,7 +2,36 @@ use std::collections::HashMap;
 
 use crate::styles::Declarations;
 
-// This engine currently lays out horizontal-tb, left-to-right boxes only.
+/// Maps a logical property for horizontal-tb with the given inline base direction.
+pub(crate) fn physical_in(name: &str, rtl: bool) -> &str {
+    let mapped = physical(name);
+    if !rtl || mapped == name {
+        return mapped;
+    }
+    INLINE
+        .iter()
+        .find_map(|&(left, right)| {
+            if mapped == left {
+                Some(right)
+            } else if mapped == right {
+                Some(left)
+            } else {
+                None
+            }
+        })
+        .unwrap_or(mapped)
+}
+
+const INLINE: [(&str, &str); 6] = [
+    ("margin-left", "margin-right"),
+    ("padding-left", "padding-right"),
+    ("border-left-width", "border-right-width"),
+    ("border-left-style", "border-right-style"),
+    ("border-left-color", "border-right-color"),
+    ("left", "right"),
+];
+
+// Horizontal-tb, left-to-right mapping; `physical_in` applies right-to-left.
 pub(crate) fn physical(name: &str) -> &str {
     match name {
         "inline-size" => "width",
@@ -51,10 +80,10 @@ pub(crate) fn group(name: &str) -> Option<&'static str> {
     }
 }
 
-pub(crate) fn entries(declarations: &Declarations) -> Vec<(&str, &str, bool)> {
+pub(crate) fn entries(declarations: &Declarations, rtl: bool) -> Vec<(&str, &str, bool)> {
     let mut winners = HashMap::new();
     for (name, value, deferred, rank) in declarations.layout_priorities() {
-        let name = physical(name);
+        let name = physical_in(name, rtl);
         let winner = winners.entry(name).or_insert((rank, value, deferred));
         if rank >= winner.0 {
             *winner = (rank, value, deferred);

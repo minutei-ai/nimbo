@@ -181,6 +181,19 @@ pub(crate) fn non_layout(name: &str, value: &str) -> bool {
     }
 }
 
+/// The `dir` attribute's presentational direction. Shaping rejects right-to-left
+/// scripts, so `auto` resolves to its no-strong-character result, `ltr`.
+pub(crate) fn direction_default(node: NodeRef<'_>) -> Option<&'static str> {
+    let value = node.null_attribute("dir")?;
+    if value.eq_ignore_ascii_case("rtl") {
+        Some("direction:rtl")
+    } else if value.eq_ignore_ascii_case("ltr") || value.eq_ignore_ascii_case("auto") {
+        Some("direction:ltr")
+    } else {
+        None
+    }
+}
+
 /// Modern HTML heading defaults, before authored declarations.
 pub(crate) fn heading_defaults(node: NodeRef<'_>) -> &'static str {
     if node.has_name("h1") {

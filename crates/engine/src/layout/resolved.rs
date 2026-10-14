@@ -14,11 +14,12 @@ pub(crate) struct BoxValues {
     height: f32,
     margin: [f32; 4],
     padding: [f32; 4],
+    rtl: bool,
 }
 
 impl BoxValues {
     pub(crate) fn value(&self, name: &str) -> Result<String> {
-        let value = match logical::physical(name) {
+        let value = match logical::physical_in(name, self.rtl) {
             "width" => self.width,
             "height" => self.height,
             "margin-top" => self.margin[0],
@@ -75,6 +76,7 @@ pub(crate) fn resolve(
                 layout.padding.bottom,
                 layout.padding.left,
             ],
+            rtl: style.direction == taffy::Direction::Rtl,
         })
     })
 }

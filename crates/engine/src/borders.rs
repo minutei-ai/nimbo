@@ -86,7 +86,7 @@ impl Borders {
         fonts: &Context,
         work: &mut Work<'_>,
     ) -> Result<Self> {
-        let entries = crate::layout::logical::entries(declarations);
+        let entries = crate::layout::logical::entries(declarations, fonts.rtl());
         if !entries.iter().any(|(name, _, _)| property(name)) {
             return Ok(Self::default());
         }
