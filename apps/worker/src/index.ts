@@ -1,4 +1,4 @@
-import { Effect, Schema, Semaphore } from "effect";
+import { Effect, Exit, Option, Schema, Semaphore } from "effect";
 import wasm from "nimbo:wasm";
 import {
   initSync,
@@ -6,7 +6,15 @@ import {
   engine_limits,
   engine_version,
 } from "../../../dist/wasm/nimbo_engine.js";
-import { Action, Input, Limits, ScrapeError, failure, type Environment } from "./protocol";
+import {
+  Action,
+  Input,
+  Limits,
+  ScrapeError,
+  completionFailure,
+  failure,
+  type Environment,
+} from "./protocol";
 import { Transport, readBody } from "./transport";
 
 const { memory } = initSync({ module: wasm });
@@ -18,7 +26,23 @@ const defaults = Schema.decodeUnknownSync(Schema.Struct({ page: Schema.Unknown }
 // Single active page bounds the isolate's combined Rust DOM and QuickJS allocations.
 const capacity = Semaphore.makeUnsafe(1);
 
-const scrape = (request: Request, environment: Environment) =>
+type FailureState = {
+  phase:
+    | "admission"
+    | "input"
+    | "navigation"
+    | "parsing"
+    | "initialization"
+    | "execution"
+    | "resource"
+    | "readiness"
+    | "extraction"
+    | "serialization";
+  diagnostics: boolean;
+  enginePhase?: string;
+};
+
+const scrape = (request: Request, environment: Environment, state: FailureState) =>
   Effect.scoped(
     Effect.gen(function* () {
       yield* Effect.acquireRelease(
@@ -33,6 +57,7 @@ const scrape = (request: Request, environment: Environment) =>
           ),
         () => capacity.release(1),
       );
+      state.phase = "input";
       const input = yield* Effect.tryPromise({
         try: () => readBody(request, 128 * 1024),
         catch: (cause) => failure(cause, 400),
@@ -43,8 +68,10 @@ const scrape = (request: Request, environment: Environment) =>
           ),
         ),
       );
+      state.diagnostics = input.diagnostics === true;
       const wasmLinearBytesBefore =
         input.diagnostics === true ? memory.buffer.byteLength : undefined;
+      state.phase = "navigation";
       const transport = yield* Effect.acquireRelease(
         Effect.try({
           try: () => new Transport(input.url, limits, environment.EGRESS, environment.PROXY_URL),
@@ -63,6 +90,7 @@ const scrape = (request: Request, environment: Environment) =>
         });
       if (!response.content_type.toLowerCase().startsWith("text/html"))
         return yield* new ScrapeError({ status: 422, reason: "navigation requires text/html" });
+      state.phase = "parsing";
       const loader = yield* Effect.acquireRelease(
         Effect.try({
           try: () =>
@@ -103,16 +131,26 @@ const scrape = (request: Request, environment: Environment) =>
       }
       // Parsing owns its data now; do not retain the navigation string during scripts or waits.
       response.body = "";
+      state.phase = "initialization";
       const page = yield* Effect.acquireRelease(
         Effect.try({
           try: () => loader.finish(),
           catch: (cause) => failure(cause),
         }),
-        (loaded) => Effect.sync(() => loaded.free()),
+        (loaded) =>
+          Effect.sync(() => {
+            // Capture state before disposal, including interrupted scopes. Always free the page.
+            try {
+              if (state.diagnostics) state.enginePhase = loaded.execution_phase();
+            } finally {
+              loaded.free();
+            }
+          }),
       );
       let evaluating = false;
       let waiting = false;
       const epoch = performance.now();
+      state.phase = "execution";
       while (true) {
         const action = yield* Effect.try({
           try: () => {
@@ -132,6 +170,8 @@ const scrape = (request: Request, environment: Environment) =>
             yield* Effect.sleep(action.milliseconds);
             break;
           case "request": {
+            const resume: FailureState["phase"] = state.phase;
+            state.phase = "resource";
             yield* Effect.tryPromise({
               try: (signal) =>
                 transport.request(action.url, action.method, action.body, signal, action.binary),
@@ -156,12 +196,14 @@ const scrape = (request: Request, environment: Environment) =>
                   }),
               ),
             );
+            state.phase = resume;
             break;
           }
           case "ready":
             if (evaluating)
               return yield* new ScrapeError({ status: 500, reason: "missing evaluation result" });
             if (input.waitFor !== undefined && !waiting) {
+              state.phase = "readiness";
               yield* Effect.try({
                 try: () => page.wait_for(JSON.stringify(input.waitFor)),
                 catch: (cause) => failure(cause),
@@ -169,6 +211,7 @@ const scrape = (request: Request, environment: Environment) =>
               waiting = true;
               break;
             }
+            state.phase = "extraction";
             yield* Effect.try({
               try: () => page.evaluate(input.expression),
               catch: (cause) => failure(cause),
@@ -176,6 +219,7 @@ const scrape = (request: Request, environment: Environment) =>
             evaluating = true;
             break;
           case "result": {
+            state.phase = "serialization";
             const value: unknown = yield* Effect.try({
               try: (): unknown => JSON.parse(action.json),
               catch: (cause) => failure(cause, 500),
@@ -228,17 +272,26 @@ export default {
     if (!environment.API_TOKEN) return new Response("API token is not configured", { status: 503 });
     if (request.headers.get("authorization") !== `Bearer ${environment.API_TOKEN}`)
       return new Response("Unauthorized", { status: 401 });
-    return Effect.runPromise(
-      scrape(request, environment).pipe(
-        Effect.catch((cause) => {
-          const error =
-            cause instanceof ScrapeError
-              ? cause
-              : new ScrapeError({ status: 504, reason: "scrape deadline or invalid input" });
-          return Effect.succeed(Response.json({ error: error.reason }, { status: error.status }));
-        }),
-      ),
-      { signal: request.signal },
+    const state: FailureState = { phase: "admission", diagnostics: false };
+    const exit = await Effect.runPromiseExit(scrape(request, environment, state), {
+      signal: request.signal,
+    });
+    if (Exit.isSuccess(exit)) return exit.value;
+    const cancelled = Exit.hasInterrupts(exit);
+    const cause = Option.getOrUndefined(Exit.findErrorOption(exit));
+    const error = completionFailure(cause, cancelled);
+    const diagnostics = state.diagnostics
+      ? {
+          phase: state.phase,
+          ...(state.enginePhase === undefined ? {} : { enginePhase: state.enginePhase }),
+          cancelled,
+        }
+      : undefined;
+    if (cancelled && diagnostics !== undefined)
+      console.info(JSON.stringify({ event: "nimbo.scrape.cancelled", diagnostics }));
+    return Response.json(
+      { error: error.reason, ...(diagnostics === undefined ? {} : { diagnostics }) },
+      { status: error.status },
     );
   },
 };

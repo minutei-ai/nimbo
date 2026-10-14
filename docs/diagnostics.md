@@ -31,8 +31,8 @@ Diagnostics contain resource counts, rather than page contents, URLs or host
 configuration. The guest realm has no diagnostics binding. Each fresh page
 starts with its own runtime and counters. Worker diagnostics are collected
 after extraction, before disposing the owned page; the extraction value retains
-the ordinary semantics. Timing samples, transient peaks and diagnostics for
-failed navigation remain separate roadmap work.
+the ordinary semantics. Timing samples and transient peaks remain separate
+roadmap work.
 
 Worker responses also include `wasmLinearBytesBefore` and `wasmLinearBytes`:
 the isolate's linear-memory capacity before navigation and at extraction,
@@ -67,3 +67,55 @@ the loader consumes its final block. Scripts, subresources and readiness waits
 retain the native DOM rather than the original host string. This makes the
 string eligible for host garbage collection; it does not force a collection
 or promise an immediate RSS reduction.
+
+## Failure and cancellation phases
+
+After a valid authenticated request enables `diagnostics`, a failed Worker
+response includes a separate diagnostic shape:
+
+```json
+{
+  "error": "resource limit: readiness deadline",
+  "diagnostics": {
+    "phase": "readiness",
+    "enginePhase": "waiting",
+    "cancelled": false
+  }
+}
+```
+
+`phase` records the host operation: `navigation`, `parsing`, `initialization`,
+`execution`, `resource`, `readiness`, `extraction` or `serialization`. A resource
+request temporarily enters `resource`, then returns to its calling operation
+when the response or recoverable rejection is delivered. Failures before input
+validation completes cannot enable optional diagnostics. Authentication and
+capacity rejections retain their existing response shapes.
+
+`enginePhase`, when a page exists, records the owned scheduler state:
+`scripts`, `lifecycle`, `ready`, `waiting` or `evaluating`. It is read during
+scoped finalization before freeing the page. For example, a synchronous
+extraction can throw while the scheduler remains `ready`; a rejected extraction
+promise fails in `evaluating`. This read does not walk the heap or execute guest
+code. Failed responses do not attempt heap snapshots of an interrupted runtime.
+
+Native callers can read `Page::execution_phase()` and
+`ExecutionPhase::as_str()`, including after readiness failure or cancellation.
+Existing `Error` variants and budget behavior are preserved. Navigation failures
+that never produce a native page still return their ordinary errors; structured
+native navigation-phase diagnostics remain open.
+
+A host timeout retains HTTP 504 and reports `cancelled: false`.
+Unexpected internal defects return HTTP 500 with a generic error message.
+Client interruption is represented internally by HTTP 499 and `cancelled: true` after
+all scope finalizers run. A disconnected client cannot receive that response.
+For opted-in requests, the Worker also emits one structured console record with
+event `nimbo.scrape.cancelled` and those phase diagnostics. It includes no URL,
+expression, credentials, page content or raw error cause. Without the flag,
+there is no cancellation record and ordinary error responses omit diagnostics.
+
+Real HTTP/workerd tests cover navigation, node limits, inline scripts, failed
+imports, synchronous and rejected extraction, readiness deadlines and host
+timeouts. Actual listener disconnects verify phase records during timer, HTTP,
+partial-body, readiness and incremental-parser waits, followed by fresh-page
+recovery. Wider lifecycle cases, timing profiles and native navigation-phase
+diagnostics remain roadmap work.

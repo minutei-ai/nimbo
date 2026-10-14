@@ -2,9 +2,18 @@ import { expect, test } from "bun:test";
 import { join } from "node:path";
 import { Miniflare } from "miniflare";
 
-test.each(["timer", "http", "body", "readiness", "parsing"])(
-  "client disconnect interrupts %s and releases Worker capacity",
-  async (phase) => {
+test.each([
+  { phase: "timer", diagnostics: false },
+  ...["timer", "http", "body", "readiness", "parsing"].map((phase) => ({
+    phase,
+    diagnostics: true,
+  })),
+])(
+  "client disconnect interrupts $phase (diagnostics=$diagnostics) and releases Worker capacity",
+  async ({ phase, diagnostics }) => {
+    const record = Promise.withResolvers<string>();
+    const messages: string[] = [];
+
     const entered = Promise.withResolvers<void>();
     const origin = Bun.serve({
       hostname: "127.0.0.1",
@@ -49,6 +58,12 @@ test.each(["timer", "http", "body", "readiness", "parsing"])(
       },
     });
     const worker = new Miniflare({
+      handleStructuredLogs: ({ message }) => {
+        if (message.includes('"event":"nimbo.scrape.cancelled"')) {
+          messages.push(message);
+          record.resolve(message);
+        }
+      },
       modules: [
         { type: "ESModule", path: join(import.meta.dir, "../dist/worker/index.js") },
         {
@@ -72,6 +87,7 @@ test.each(["timer", "http", "body", "readiness", "parsing"])(
         ...options,
         signal: client.signal,
         body: JSON.stringify({
+          diagnostics,
           url: new URL(
             phase === "body" ? "/body" : phase === "parsing" ? "/parsing" : "/",
             origin.url,
@@ -101,6 +117,11 @@ test.each(["timer", "http", "body", "readiness", "parsing"])(
         () => 0,
       );
       await entered.promise;
+      if (phase === "timer" || phase === "readiness") {
+        // The marker arrives before its HTTP response is consumed. Let the calling
+        // operation resume its wait; its cancellation record must confirm that phase.
+        await Bun.sleep(50);
+      }
       if (phase === "parsing") {
         // The origin has returned its complete local body; let initial parsing advance.
         await Bun.sleep(200);
@@ -126,6 +147,25 @@ test.each(["timer", "http", "body", "readiness", "parsing"])(
         value: { title: "fresh", entered: "undefined" },
       });
       expect(performance.now() - started).toBeLessThan(2000);
+      if (diagnostics) {
+        const message = await Promise.race([record.promise, Bun.sleep(2000).then(() => "missing")]);
+        const hostPhase =
+          phase === "timer"
+            ? "extraction"
+            : phase === "http"
+              ? "resource"
+              : phase === "body"
+                ? "navigation"
+                : phase;
+        expect(message).toContain(`"phase":"${hostPhase}"`);
+        expect(message).toContain('"cancelled":true');
+        if (phase === "timer" || phase === "http")
+          expect(message).toContain('"enginePhase":"evaluating"');
+        if (phase === "readiness") expect(message).toContain('"enginePhase":"waiting"');
+        expect(message).not.toContain(origin.url.href);
+        expect(message).not.toContain("test-secret");
+        expect(messages).toHaveLength(1);
+      } else expect(messages).toHaveLength(0);
     } finally {
       client.abort();
       await worker.dispose();

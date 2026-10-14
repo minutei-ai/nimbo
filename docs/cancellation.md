@@ -39,8 +39,10 @@ including partially received bodies, and wakes timer waits. QuickJS checks the
 same signal through its interrupt handler and DOM operation checks. The tests
 observe socket closure for pending headers and partial bodies, then recover on
 the same browser; they also cover timers, infinite JavaScript, readiness and
-pre-cancelled signals. Cancellation diagnostics and broader resource/session
-lifecycle tests remain roadmap work.
+pre-cancelled signals. [Optional phase diagnostics](diagnostics.md) expose the
+last owned scheduler state after native failure and emit bounded Worker phase
+records for opted-in client interruptions. Native navigation-phase reporting
+and broader resource/session lifecycle tests remain roadmap work.
 
 [Native selector traversal](selector-traversal-budget.md) checks the native
 signal during query and structural matching walks. A separate page-scoped

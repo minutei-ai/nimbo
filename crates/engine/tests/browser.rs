@@ -3018,6 +3018,8 @@ fn diagnostics_observe_owned_heap_and_counters_without_resetting_budgets() -> Te
     let browser = fixture.browser()?;
     let page = browser.navigate(&fixture.path("/static"))?;
     let before = page.diagnostics();
+    assert_eq!(page.execution_phase(), nimbo_engine::ExecutionPhase::Ready);
+    assert_eq!(page.execution_phase().as_str(), "ready");
     assert_eq!(page.diagnostics(), before);
     page.evaluate("(globalThis.kept=Array.from({length:1000},(_,i)=>({i})),document.body.setAttribute('data-marker','owned'),true)")?;
     let after = page.diagnostics();
@@ -4955,6 +4957,14 @@ fn native_cancellation_interrupts_timers_javascript_and_readiness() -> TestResul
         );
         assert!(started.elapsed() < Duration::from_secs(1));
         assert!(token.is_cancelled());
+        assert_eq!(
+            page.execution_phase(),
+            match phase {
+                "timer" => nimbo_engine::ExecutionPhase::Evaluating,
+                "readiness" => nimbo_engine::ExecutionPhase::Waiting,
+                _ => nimbo_engine::ExecutionPhase::Ready,
+            }
+        );
         token.cancel();
         assert!(matches!(page.evaluate("1"), Err(Error::Cancelled)));
         drop(page);

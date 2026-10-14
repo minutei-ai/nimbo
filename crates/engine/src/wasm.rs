@@ -248,6 +248,12 @@ impl WasmPage {
         serde_json::to_string(&self.machine.diagnostics()).map_err(|error| error.to_string())
     }
 
+    /// Reads the last scheduler state without running JavaScript or collecting heap statistics.
+    #[must_use]
+    pub fn execution_phase(&self) -> String {
+        self.machine.execution_phase().as_str().into()
+    }
+
     /// Avança o relógio monotônico da página com tempo real decorrido do host.
     ///
     /// # Errors

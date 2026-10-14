@@ -111,6 +111,11 @@ HTTP/readiness/timer waits and releases page capacity on disconnect. Native
 cancellation now covers HTTP headers/bodies, timers, readiness and QuickJS
 execution through a shared irreversible signal. Broader phase diagnostics and
 lifecycle cases remain open.
+[Optional failure phases](docs/diagnostics.md) now report the Worker host
+operation and last owned scheduler state, distinguishing host deadlines from
+client interruption. Actual workerd listener tests verify bounded cancellation
+records and fresh-page recovery. Native pages expose their scheduler state
+after failure; structured native navigation-phase reporting remains open.
 [Cooperative initial parsing](docs/cooperative-parsing.md) retains the owned
 native parser across bounded host calls so Worker deadlines and disconnections
 can release a partially constructed document. [Native selector traversal](docs/selector-traversal-budget.md) now checks

@@ -1,9 +1,17 @@
-import { Data, Schema } from "effect";
+import { Cause, Data, Schema } from "effect";
 
 export class ScrapeError extends Data.TaggedError("ScrapeError")<{
   readonly status: number;
   readonly reason: string;
 }> {}
+
+export function completionFailure(cause: unknown, cancelled: boolean): ScrapeError {
+  if (cancelled) return new ScrapeError({ status: 499, reason: "scrape cancelled" });
+  if (cause instanceof ScrapeError) return cause;
+  if (Cause.isTimeoutError(cause))
+    return new ScrapeError({ status: 504, reason: "scrape deadline or invalid input" });
+  return new ScrapeError({ status: 500, reason: "scrape execution failed" });
+}
 
 const Dimension = Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 16384 }));
 export const Readiness = Schema.Struct({

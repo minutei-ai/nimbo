@@ -76,6 +76,13 @@ impl Page {
         self.machine.borrow().diagnostics()
     }
 
+    /// Reads the scheduler state without executing JavaScript or resetting budgets.
+    /// After failure or cancellation, this remains the last scheduler state.
+    #[must_use]
+    pub fn execution_phase(&self) -> crate::ExecutionPhase {
+        self.machine.borrow().execution_phase()
+    }
+
     fn drive(&self) -> Result<Option<String>> {
         let base = parse_url(&self.url)?;
         loop {

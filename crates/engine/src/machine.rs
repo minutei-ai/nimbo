@@ -13,7 +13,9 @@ use rquickjs::{Context, Ctx, Exception, Function, Persistent, Promise, Runtime};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::{Error, Limits, MediaEnvironment, Result, dom::Dom, modules::Modules};
+use crate::{
+    Error, ExecutionPhase as Phase, Limits, MediaEnvironment, Result, dom::Dom, modules::Modules,
+};
 
 type Check = crate::BudgetCheck;
 
@@ -69,15 +71,6 @@ struct Script {
     source: String,
     module: bool,
     deferred: bool,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Phase {
-    Scripts,
-    Lifecycle,
-    Ready,
-    Waiting,
-    Evaluating,
 }
 
 pub(crate) struct Machine {
@@ -157,6 +150,10 @@ fn callback<'js>(
 }
 
 impl Machine {
+    pub(crate) const fn execution_phase(&self) -> Phase {
+        self.phase
+    }
+
     pub(crate) fn diagnostics(&self) -> crate::Diagnostics {
         let memory = self.runtime.memory_usage();
         let (dom_operations, dom_write_bytes, dom_handle_count) =
