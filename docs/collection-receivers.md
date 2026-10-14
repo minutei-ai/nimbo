@@ -33,9 +33,10 @@ a fresh navigation. No larger fuel, DOM, heap or timeout budget is requested.
 The existing 1,000-option named-lookup regression still creates only two handles.
 
 The comparison concerns these behaviors, not complete Web IDL conformance.
-Own length/index shadowing, iterator function identity and the remaining exotic
-property matrix still need separate compatibility work before the roadmap's
-broader DOM gate can close.
+[Observable lengths and inherited indices](collection-properties.md) have a
+separate independent comparison. Indexed definitions, iterator function identity
+and the remaining exotic property matrix still need compatibility work before
+the roadmap's broader DOM gate can close.
 
 ```sh
 bun run build:worker

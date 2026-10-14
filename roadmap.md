@@ -99,7 +99,11 @@ Labels, validity, pickers, submission, complete exotic descriptors and wider for
 [Private collection kinds](docs/collection-receivers.md) reject cross-interface
 native getters/items while preserving generic array-like iterators and forEach.
 Eighty-six contracts pass on both Chromium and Nimbo, with original-fuel
-interruption and fresh-page recovery. Wider exotic property behavior remains open.
+interruption and fresh-page recovery.
+[Observable collection iteration](docs/collection-properties.md) adds 38 contracts
+for own lengths and inherited unsupported indices through temporary views,
+while keeping iteration-local native ID reuse and default-budget operation counts.
+The wider exotic property matrix remains open.
 
 ## 0.4 — Scripts and page readiness
 

@@ -1,0 +1,939 @@
+{
+  "date": "2026-10-14",
+  "scope": "Local owned workerd; 3 alternating rounds; fresh pages; default equal budgets; synthetic 100/500/1000 children; snapshots after extraction, not allocation/Worker peaks; baseline artifact predates collection receiver correction",
+  "limits": {
+    "max_javascript_ticks": 512,
+    "max_microtasks": 10000,
+    "max_timers": 1024,
+    "max_timer_tasks": 10000,
+    "max_expression_bytes": 65536,
+    "timeout": {
+      "secs": 10,
+      "nanos": 0
+    },
+    "max_response_bytes": 2097152,
+    "max_initial_dom_nodes": 65536,
+    "max_dom_nodes": 65536,
+    "max_stylesheet_bytes": 262144,
+    "max_requests": 32,
+    "max_dom_operations": 10000,
+    "max_layout_nodes": 1024,
+    "max_dom_write_bytes": 4194304,
+    "max_storage_bytes": 65536,
+    "javascript_memory_bytes": 33554432
+  },
+  "artifacts": [
+    {
+      "label": "baseline",
+      "wasm_sha256": "95f107d4a2b70a813259edc51b0f12db4f0099894477723d9adb06767e8ef21f",
+      "bundle_sha256": "3bbb77feb39ba13a4c873540bb9739db6672ce9dfebc1ec211c827f3ba93f67b"
+    },
+    {
+      "label": "candidate",
+      "wasm_sha256": "488edc71f4feab5c265e6da569f7a9d8fb1f270344653fac613ea03a8624faf8",
+      "bundle_sha256": "3bbb77feb39ba13a4c873540bb9739db6672ce9dfebc1ec211c827f3ba93f67b"
+    }
+  ],
+  "rounds": [
+    {
+      "round": 0,
+      "build": "baseline",
+      "samples": [
+        {
+          "size": 100,
+          "scenario": "count",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 668992,
+            "javascriptUsedBytes": 632221,
+            "javascriptObjectCount": 1913,
+            "javascriptTicksUsed": 1,
+            "microtasksExecuted": 2,
+            "domOperations": 7,
+            "domWriteBytes": 0,
+            "domHandleCount": 102,
+            "wasmLinearBytesBefore": 6750208,
+            "wasmLinearBytes": 7602176
+          }
+        },
+        {
+          "size": 100,
+          "scenario": "values",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 705792,
+            "javascriptUsedBytes": 637863,
+            "javascriptObjectCount": 2013,
+            "javascriptTicksUsed": 2,
+            "microtasksExecuted": 2,
+            "domOperations": 408,
+            "domWriteBytes": 0,
+            "domHandleCount": 102,
+            "wasmLinearBytesBefore": 7602176,
+            "wasmLinearBytes": 7667712
+          }
+        },
+        {
+          "size": 100,
+          "scenario": "forEach",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 705736,
+            "javascriptUsedBytes": 637821,
+            "javascriptObjectCount": 2013,
+            "javascriptTicksUsed": 2,
+            "microtasksExecuted": 2,
+            "domOperations": 408,
+            "domWriteBytes": 0,
+            "domHandleCount": 102,
+            "wasmLinearBytesBefore": 7667712,
+            "wasmLinearBytes": 7667712
+          }
+        },
+        {
+          "size": 500,
+          "scenario": "count",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 668992,
+            "javascriptUsedBytes": 632221,
+            "javascriptObjectCount": 1913,
+            "javascriptTicksUsed": 1,
+            "microtasksExecuted": 2,
+            "domOperations": 7,
+            "domWriteBytes": 0,
+            "domHandleCount": 502,
+            "wasmLinearBytesBefore": 7667712,
+            "wasmLinearBytes": 7733248
+          }
+        },
+        {
+          "size": 500,
+          "scenario": "values",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 852992,
+            "javascriptUsedBytes": 660263,
+            "javascriptObjectCount": 2413,
+            "javascriptTicksUsed": 7,
+            "microtasksExecuted": 2,
+            "domOperations": 2008,
+            "domWriteBytes": 0,
+            "domHandleCount": 502,
+            "wasmLinearBytesBefore": 7733248,
+            "wasmLinearBytes": 7864320
+          }
+        },
+        {
+          "size": 500,
+          "scenario": "forEach",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 852936,
+            "javascriptUsedBytes": 660221,
+            "javascriptObjectCount": 2413,
+            "javascriptTicksUsed": 7,
+            "microtasksExecuted": 2,
+            "domOperations": 2008,
+            "domWriteBytes": 0,
+            "domHandleCount": 502,
+            "wasmLinearBytesBefore": 7864320,
+            "wasmLinearBytes": 7864320
+          }
+        },
+        {
+          "size": 1000,
+          "scenario": "count",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 668992,
+            "javascriptUsedBytes": 632236,
+            "javascriptObjectCount": 1913,
+            "javascriptTicksUsed": 1,
+            "microtasksExecuted": 2,
+            "domOperations": 7,
+            "domWriteBytes": 0,
+            "domHandleCount": 1002,
+            "wasmLinearBytesBefore": 7864320,
+            "wasmLinearBytes": 7995392
+          }
+        },
+        {
+          "size": 1000,
+          "scenario": "values",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 1036992,
+            "javascriptUsedBytes": 688278,
+            "javascriptObjectCount": 2913,
+            "javascriptTicksUsed": 13,
+            "microtasksExecuted": 2,
+            "domOperations": 4008,
+            "domWriteBytes": 0,
+            "domHandleCount": 1002,
+            "wasmLinearBytesBefore": 7995392,
+            "wasmLinearBytes": 8192000
+          }
+        },
+        {
+          "size": 1000,
+          "scenario": "forEach",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 1036936,
+            "javascriptUsedBytes": 688236,
+            "javascriptObjectCount": 2913,
+            "javascriptTicksUsed": 12,
+            "microtasksExecuted": 2,
+            "domOperations": 4008,
+            "domWriteBytes": 0,
+            "domHandleCount": 1002,
+            "wasmLinearBytesBefore": 8192000,
+            "wasmLinearBytes": 8192000
+          }
+        }
+      ]
+    },
+    {
+      "round": 0,
+      "build": "candidate",
+      "samples": [
+        {
+          "size": 100,
+          "scenario": "count",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 672448,
+            "javascriptUsedBytes": 636007,
+            "javascriptObjectCount": 1925,
+            "javascriptTicksUsed": 1,
+            "microtasksExecuted": 2,
+            "domOperations": 7,
+            "domWriteBytes": 0,
+            "domHandleCount": 102,
+            "wasmLinearBytesBefore": 6750208,
+            "wasmLinearBytes": 7602176
+          }
+        },
+        {
+          "size": 100,
+          "scenario": "values",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 709408,
+            "javascriptUsedBytes": 641775,
+            "javascriptObjectCount": 2028,
+            "javascriptTicksUsed": 2,
+            "microtasksExecuted": 2,
+            "domOperations": 408,
+            "domWriteBytes": 0,
+            "domHandleCount": 102,
+            "wasmLinearBytesBefore": 7602176,
+            "wasmLinearBytes": 7667712
+          }
+        },
+        {
+          "size": 100,
+          "scenario": "forEach",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 709336,
+            "javascriptUsedBytes": 641719,
+            "javascriptObjectCount": 2027,
+            "javascriptTicksUsed": 2,
+            "microtasksExecuted": 2,
+            "domOperations": 408,
+            "domWriteBytes": 0,
+            "domHandleCount": 102,
+            "wasmLinearBytesBefore": 7667712,
+            "wasmLinearBytes": 7667712
+          }
+        },
+        {
+          "size": 500,
+          "scenario": "count",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 672448,
+            "javascriptUsedBytes": 636007,
+            "javascriptObjectCount": 1925,
+            "javascriptTicksUsed": 1,
+            "microtasksExecuted": 2,
+            "domOperations": 7,
+            "domWriteBytes": 0,
+            "domHandleCount": 502,
+            "wasmLinearBytesBefore": 7667712,
+            "wasmLinearBytes": 7733248
+          }
+        },
+        {
+          "size": 500,
+          "scenario": "values",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 856608,
+            "javascriptUsedBytes": 664175,
+            "javascriptObjectCount": 2428,
+            "javascriptTicksUsed": 9,
+            "microtasksExecuted": 2,
+            "domOperations": 2008,
+            "domWriteBytes": 0,
+            "domHandleCount": 502,
+            "wasmLinearBytesBefore": 7733248,
+            "wasmLinearBytes": 7864320
+          }
+        },
+        {
+          "size": 500,
+          "scenario": "forEach",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 856536,
+            "javascriptUsedBytes": 664119,
+            "javascriptObjectCount": 2427,
+            "javascriptTicksUsed": 8,
+            "microtasksExecuted": 2,
+            "domOperations": 2008,
+            "domWriteBytes": 0,
+            "domHandleCount": 502,
+            "wasmLinearBytesBefore": 7864320,
+            "wasmLinearBytes": 7864320
+          }
+        },
+        {
+          "size": 1000,
+          "scenario": "count",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 672448,
+            "javascriptUsedBytes": 636022,
+            "javascriptObjectCount": 1925,
+            "javascriptTicksUsed": 1,
+            "microtasksExecuted": 2,
+            "domOperations": 7,
+            "domWriteBytes": 0,
+            "domHandleCount": 1002,
+            "wasmLinearBytesBefore": 7864320,
+            "wasmLinearBytes": 7995392
+          }
+        },
+        {
+          "size": 1000,
+          "scenario": "values",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 1040608,
+            "javascriptUsedBytes": 692190,
+            "javascriptObjectCount": 2928,
+            "javascriptTicksUsed": 16,
+            "microtasksExecuted": 2,
+            "domOperations": 4008,
+            "domWriteBytes": 0,
+            "domHandleCount": 1002,
+            "wasmLinearBytesBefore": 7995392,
+            "wasmLinearBytes": 8192000
+          }
+        },
+        {
+          "size": 1000,
+          "scenario": "forEach",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 1040536,
+            "javascriptUsedBytes": 692134,
+            "javascriptObjectCount": 2927,
+            "javascriptTicksUsed": 15,
+            "microtasksExecuted": 2,
+            "domOperations": 4008,
+            "domWriteBytes": 0,
+            "domHandleCount": 1002,
+            "wasmLinearBytesBefore": 8192000,
+            "wasmLinearBytes": 8192000
+          }
+        }
+      ]
+    },
+    {
+      "round": 1,
+      "build": "candidate",
+      "samples": [
+        {
+          "size": 100,
+          "scenario": "count",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 672448,
+            "javascriptUsedBytes": 636007,
+            "javascriptObjectCount": 1925,
+            "javascriptTicksUsed": 1,
+            "microtasksExecuted": 2,
+            "domOperations": 7,
+            "domWriteBytes": 0,
+            "domHandleCount": 102,
+            "wasmLinearBytesBefore": 6750208,
+            "wasmLinearBytes": 7602176
+          }
+        },
+        {
+          "size": 100,
+          "scenario": "values",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 709408,
+            "javascriptUsedBytes": 641775,
+            "javascriptObjectCount": 2028,
+            "javascriptTicksUsed": 2,
+            "microtasksExecuted": 2,
+            "domOperations": 408,
+            "domWriteBytes": 0,
+            "domHandleCount": 102,
+            "wasmLinearBytesBefore": 7602176,
+            "wasmLinearBytes": 7667712
+          }
+        },
+        {
+          "size": 100,
+          "scenario": "forEach",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 709336,
+            "javascriptUsedBytes": 641719,
+            "javascriptObjectCount": 2027,
+            "javascriptTicksUsed": 2,
+            "microtasksExecuted": 2,
+            "domOperations": 408,
+            "domWriteBytes": 0,
+            "domHandleCount": 102,
+            "wasmLinearBytesBefore": 7667712,
+            "wasmLinearBytes": 7667712
+          }
+        },
+        {
+          "size": 500,
+          "scenario": "count",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 672448,
+            "javascriptUsedBytes": 636007,
+            "javascriptObjectCount": 1925,
+            "javascriptTicksUsed": 1,
+            "microtasksExecuted": 2,
+            "domOperations": 7,
+            "domWriteBytes": 0,
+            "domHandleCount": 502,
+            "wasmLinearBytesBefore": 7667712,
+            "wasmLinearBytes": 7733248
+          }
+        },
+        {
+          "size": 500,
+          "scenario": "values",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 856608,
+            "javascriptUsedBytes": 664175,
+            "javascriptObjectCount": 2428,
+            "javascriptTicksUsed": 9,
+            "microtasksExecuted": 2,
+            "domOperations": 2008,
+            "domWriteBytes": 0,
+            "domHandleCount": 502,
+            "wasmLinearBytesBefore": 7733248,
+            "wasmLinearBytes": 7864320
+          }
+        },
+        {
+          "size": 500,
+          "scenario": "forEach",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 856536,
+            "javascriptUsedBytes": 664119,
+            "javascriptObjectCount": 2427,
+            "javascriptTicksUsed": 8,
+            "microtasksExecuted": 2,
+            "domOperations": 2008,
+            "domWriteBytes": 0,
+            "domHandleCount": 502,
+            "wasmLinearBytesBefore": 7864320,
+            "wasmLinearBytes": 7864320
+          }
+        },
+        {
+          "size": 1000,
+          "scenario": "count",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 672448,
+            "javascriptUsedBytes": 636022,
+            "javascriptObjectCount": 1925,
+            "javascriptTicksUsed": 1,
+            "microtasksExecuted": 2,
+            "domOperations": 7,
+            "domWriteBytes": 0,
+            "domHandleCount": 1002,
+            "wasmLinearBytesBefore": 7864320,
+            "wasmLinearBytes": 7995392
+          }
+        },
+        {
+          "size": 1000,
+          "scenario": "values",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 1040608,
+            "javascriptUsedBytes": 692190,
+            "javascriptObjectCount": 2928,
+            "javascriptTicksUsed": 16,
+            "microtasksExecuted": 2,
+            "domOperations": 4008,
+            "domWriteBytes": 0,
+            "domHandleCount": 1002,
+            "wasmLinearBytesBefore": 7995392,
+            "wasmLinearBytes": 8192000
+          }
+        },
+        {
+          "size": 1000,
+          "scenario": "forEach",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 1040536,
+            "javascriptUsedBytes": 692134,
+            "javascriptObjectCount": 2927,
+            "javascriptTicksUsed": 15,
+            "microtasksExecuted": 2,
+            "domOperations": 4008,
+            "domWriteBytes": 0,
+            "domHandleCount": 1002,
+            "wasmLinearBytesBefore": 8192000,
+            "wasmLinearBytes": 8192000
+          }
+        }
+      ]
+    },
+    {
+      "round": 1,
+      "build": "baseline",
+      "samples": [
+        {
+          "size": 100,
+          "scenario": "count",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 668992,
+            "javascriptUsedBytes": 632221,
+            "javascriptObjectCount": 1913,
+            "javascriptTicksUsed": 1,
+            "microtasksExecuted": 2,
+            "domOperations": 7,
+            "domWriteBytes": 0,
+            "domHandleCount": 102,
+            "wasmLinearBytesBefore": 6750208,
+            "wasmLinearBytes": 7602176
+          }
+        },
+        {
+          "size": 100,
+          "scenario": "values",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 705792,
+            "javascriptUsedBytes": 637863,
+            "javascriptObjectCount": 2013,
+            "javascriptTicksUsed": 2,
+            "microtasksExecuted": 2,
+            "domOperations": 408,
+            "domWriteBytes": 0,
+            "domHandleCount": 102,
+            "wasmLinearBytesBefore": 7602176,
+            "wasmLinearBytes": 7667712
+          }
+        },
+        {
+          "size": 100,
+          "scenario": "forEach",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 705736,
+            "javascriptUsedBytes": 637821,
+            "javascriptObjectCount": 2013,
+            "javascriptTicksUsed": 2,
+            "microtasksExecuted": 2,
+            "domOperations": 408,
+            "domWriteBytes": 0,
+            "domHandleCount": 102,
+            "wasmLinearBytesBefore": 7667712,
+            "wasmLinearBytes": 7667712
+          }
+        },
+        {
+          "size": 500,
+          "scenario": "count",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 668992,
+            "javascriptUsedBytes": 632221,
+            "javascriptObjectCount": 1913,
+            "javascriptTicksUsed": 1,
+            "microtasksExecuted": 2,
+            "domOperations": 7,
+            "domWriteBytes": 0,
+            "domHandleCount": 502,
+            "wasmLinearBytesBefore": 7667712,
+            "wasmLinearBytes": 7733248
+          }
+        },
+        {
+          "size": 500,
+          "scenario": "values",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 852992,
+            "javascriptUsedBytes": 660263,
+            "javascriptObjectCount": 2413,
+            "javascriptTicksUsed": 7,
+            "microtasksExecuted": 2,
+            "domOperations": 2008,
+            "domWriteBytes": 0,
+            "domHandleCount": 502,
+            "wasmLinearBytesBefore": 7733248,
+            "wasmLinearBytes": 7864320
+          }
+        },
+        {
+          "size": 500,
+          "scenario": "forEach",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 852936,
+            "javascriptUsedBytes": 660221,
+            "javascriptObjectCount": 2413,
+            "javascriptTicksUsed": 7,
+            "microtasksExecuted": 2,
+            "domOperations": 2008,
+            "domWriteBytes": 0,
+            "domHandleCount": 502,
+            "wasmLinearBytesBefore": 7864320,
+            "wasmLinearBytes": 7864320
+          }
+        },
+        {
+          "size": 1000,
+          "scenario": "count",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 668992,
+            "javascriptUsedBytes": 632236,
+            "javascriptObjectCount": 1913,
+            "javascriptTicksUsed": 1,
+            "microtasksExecuted": 2,
+            "domOperations": 7,
+            "domWriteBytes": 0,
+            "domHandleCount": 1002,
+            "wasmLinearBytesBefore": 7864320,
+            "wasmLinearBytes": 7995392
+          }
+        },
+        {
+          "size": 1000,
+          "scenario": "values",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 1036992,
+            "javascriptUsedBytes": 688278,
+            "javascriptObjectCount": 2913,
+            "javascriptTicksUsed": 13,
+            "microtasksExecuted": 2,
+            "domOperations": 4008,
+            "domWriteBytes": 0,
+            "domHandleCount": 1002,
+            "wasmLinearBytesBefore": 7995392,
+            "wasmLinearBytes": 8192000
+          }
+        },
+        {
+          "size": 1000,
+          "scenario": "forEach",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 1036936,
+            "javascriptUsedBytes": 688236,
+            "javascriptObjectCount": 2913,
+            "javascriptTicksUsed": 12,
+            "microtasksExecuted": 2,
+            "domOperations": 4008,
+            "domWriteBytes": 0,
+            "domHandleCount": 1002,
+            "wasmLinearBytesBefore": 8192000,
+            "wasmLinearBytes": 8192000
+          }
+        }
+      ]
+    },
+    {
+      "round": 2,
+      "build": "baseline",
+      "samples": [
+        {
+          "size": 100,
+          "scenario": "count",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 668992,
+            "javascriptUsedBytes": 632221,
+            "javascriptObjectCount": 1913,
+            "javascriptTicksUsed": 1,
+            "microtasksExecuted": 2,
+            "domOperations": 7,
+            "domWriteBytes": 0,
+            "domHandleCount": 102,
+            "wasmLinearBytesBefore": 6750208,
+            "wasmLinearBytes": 7602176
+          }
+        },
+        {
+          "size": 100,
+          "scenario": "values",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 705792,
+            "javascriptUsedBytes": 637863,
+            "javascriptObjectCount": 2013,
+            "javascriptTicksUsed": 2,
+            "microtasksExecuted": 2,
+            "domOperations": 408,
+            "domWriteBytes": 0,
+            "domHandleCount": 102,
+            "wasmLinearBytesBefore": 7602176,
+            "wasmLinearBytes": 7667712
+          }
+        },
+        {
+          "size": 100,
+          "scenario": "forEach",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 705736,
+            "javascriptUsedBytes": 637821,
+            "javascriptObjectCount": 2013,
+            "javascriptTicksUsed": 2,
+            "microtasksExecuted": 2,
+            "domOperations": 408,
+            "domWriteBytes": 0,
+            "domHandleCount": 102,
+            "wasmLinearBytesBefore": 7667712,
+            "wasmLinearBytes": 7667712
+          }
+        },
+        {
+          "size": 500,
+          "scenario": "count",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 668992,
+            "javascriptUsedBytes": 632221,
+            "javascriptObjectCount": 1913,
+            "javascriptTicksUsed": 1,
+            "microtasksExecuted": 2,
+            "domOperations": 7,
+            "domWriteBytes": 0,
+            "domHandleCount": 502,
+            "wasmLinearBytesBefore": 7667712,
+            "wasmLinearBytes": 7733248
+          }
+        },
+        {
+          "size": 500,
+          "scenario": "values",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 852992,
+            "javascriptUsedBytes": 660263,
+            "javascriptObjectCount": 2413,
+            "javascriptTicksUsed": 7,
+            "microtasksExecuted": 2,
+            "domOperations": 2008,
+            "domWriteBytes": 0,
+            "domHandleCount": 502,
+            "wasmLinearBytesBefore": 7733248,
+            "wasmLinearBytes": 7864320
+          }
+        },
+        {
+          "size": 500,
+          "scenario": "forEach",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 852936,
+            "javascriptUsedBytes": 660221,
+            "javascriptObjectCount": 2413,
+            "javascriptTicksUsed": 7,
+            "microtasksExecuted": 2,
+            "domOperations": 2008,
+            "domWriteBytes": 0,
+            "domHandleCount": 502,
+            "wasmLinearBytesBefore": 7864320,
+            "wasmLinearBytes": 7864320
+          }
+        },
+        {
+          "size": 1000,
+          "scenario": "count",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 668992,
+            "javascriptUsedBytes": 632236,
+            "javascriptObjectCount": 1913,
+            "javascriptTicksUsed": 1,
+            "microtasksExecuted": 2,
+            "domOperations": 7,
+            "domWriteBytes": 0,
+            "domHandleCount": 1002,
+            "wasmLinearBytesBefore": 7864320,
+            "wasmLinearBytes": 7995392
+          }
+        },
+        {
+          "size": 1000,
+          "scenario": "values",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 1036992,
+            "javascriptUsedBytes": 688278,
+            "javascriptObjectCount": 2913,
+            "javascriptTicksUsed": 13,
+            "microtasksExecuted": 2,
+            "domOperations": 4008,
+            "domWriteBytes": 0,
+            "domHandleCount": 1002,
+            "wasmLinearBytesBefore": 7995392,
+            "wasmLinearBytes": 8192000
+          }
+        },
+        {
+          "size": 1000,
+          "scenario": "forEach",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 1036936,
+            "javascriptUsedBytes": 688236,
+            "javascriptObjectCount": 2913,
+            "javascriptTicksUsed": 12,
+            "microtasksExecuted": 2,
+            "domOperations": 4008,
+            "domWriteBytes": 0,
+            "domHandleCount": 1002,
+            "wasmLinearBytesBefore": 8192000,
+            "wasmLinearBytes": 8192000
+          }
+        }
+      ]
+    },
+    {
+      "round": 2,
+      "build": "candidate",
+      "samples": [
+        {
+          "size": 100,
+          "scenario": "count",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 672448,
+            "javascriptUsedBytes": 636007,
+            "javascriptObjectCount": 1925,
+            "javascriptTicksUsed": 1,
+            "microtasksExecuted": 2,
+            "domOperations": 7,
+            "domWriteBytes": 0,
+            "domHandleCount": 102,
+            "wasmLinearBytesBefore": 6750208,
+            "wasmLinearBytes": 7602176
+          }
+        },
+        {
+          "size": 100,
+          "scenario": "values",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 709408,
+            "javascriptUsedBytes": 641775,
+            "javascriptObjectCount": 2028,
+            "javascriptTicksUsed": 2,
+            "microtasksExecuted": 2,
+            "domOperations": 408,
+            "domWriteBytes": 0,
+            "domHandleCount": 102,
+            "wasmLinearBytesBefore": 7602176,
+            "wasmLinearBytes": 7667712
+          }
+        },
+        {
+          "size": 100,
+          "scenario": "forEach",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 709336,
+            "javascriptUsedBytes": 641719,
+            "javascriptObjectCount": 2027,
+            "javascriptTicksUsed": 2,
+            "microtasksExecuted": 2,
+            "domOperations": 408,
+            "domWriteBytes": 0,
+            "domHandleCount": 102,
+            "wasmLinearBytesBefore": 7667712,
+            "wasmLinearBytes": 7667712
+          }
+        },
+        {
+          "size": 500,
+          "scenario": "count",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 672448,
+            "javascriptUsedBytes": 636007,
+            "javascriptObjectCount": 1925,
+            "javascriptTicksUsed": 1,
+            "microtasksExecuted": 2,
+            "domOperations": 7,
+            "domWriteBytes": 0,
+            "domHandleCount": 502,
+            "wasmLinearBytesBefore": 7667712,
+            "wasmLinearBytes": 7733248
+          }
+        },
+        {
+          "size": 500,
+          "scenario": "values",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 856608,
+            "javascriptUsedBytes": 664175,
+            "javascriptObjectCount": 2428,
+            "javascriptTicksUsed": 9,
+            "microtasksExecuted": 2,
+            "domOperations": 2008,
+            "domWriteBytes": 0,
+            "domHandleCount": 502,
+            "wasmLinearBytesBefore": 7733248,
+            "wasmLinearBytes": 7864320
+          }
+        },
+        {
+          "size": 500,
+          "scenario": "forEach",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 856536,
+            "javascriptUsedBytes": 664119,
+            "javascriptObjectCount": 2427,
+            "javascriptTicksUsed": 8,
+            "microtasksExecuted": 2,
+            "domOperations": 2008,
+            "domWriteBytes": 0,
+            "domHandleCount": 502,
+            "wasmLinearBytesBefore": 7864320,
+            "wasmLinearBytes": 7864320
+          }
+        },
+        {
+          "size": 1000,
+          "scenario": "count",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 672448,
+            "javascriptUsedBytes": 636022,
+            "javascriptObjectCount": 1925,
+            "javascriptTicksUsed": 1,
+            "microtasksExecuted": 2,
+            "domOperations": 7,
+            "domWriteBytes": 0,
+            "domHandleCount": 1002,
+            "wasmLinearBytesBefore": 7864320,
+            "wasmLinearBytes": 7995392
+          }
+        },
+        {
+          "size": 1000,
+          "scenario": "values",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 1040608,
+            "javascriptUsedBytes": 692190,
+            "javascriptObjectCount": 2928,
+            "javascriptTicksUsed": 16,
+            "microtasksExecuted": 2,
+            "domOperations": 4008,
+            "domWriteBytes": 0,
+            "domHandleCount": 1002,
+            "wasmLinearBytesBefore": 7995392,
+            "wasmLinearBytes": 8192000
+          }
+        },
+        {
+          "size": 1000,
+          "scenario": "forEach",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 1040536,
+            "javascriptUsedBytes": 692134,
+            "javascriptObjectCount": 2927,
+            "javascriptTicksUsed": 15,
+            "microtasksExecuted": 2,
+            "domOperations": 4008,
+            "domWriteBytes": 0,
+            "domHandleCount": 1002,
+            "wasmLinearBytesBefore": 8192000,
+            "wasmLinearBytes": 8192000
+          }
+        }
+      ]
+    }
+  ]
+}

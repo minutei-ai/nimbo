@@ -1,0 +1,51 @@
+function collectionPropertiesCase() {
+ const checks={};
+ const setup=()=>{const p=document.createElement('div');p.innerHTML='<i>A</i><i>B</i>';p.setAttribute('a','x');p.setAttribute('b','y');return [p.childNodes,p.children,p.attributes]};
+ const methods=[NodeList.prototype.values,HTMLCollection.prototype[Symbol.iterator],NamedNodeMap.prototype[Symbol.iterator]];
+ for(let kind=0;kind<3;kind++){
+  const list=setup()[kind],method=methods[kind],label=['nodes','elements','attributes'][kind];
+  const collect=()=>Array.from(method.call(list));
+  Object.defineProperty(list,'length',{value:0,configurable:true});
+  checks[label+'Zero']=collect().length===0;
+  Object.defineProperty(list,'length',{value:1,configurable:true});
+  checks[label+'One']=collect().length===1;
+  Object.defineProperty(list,'length',{value:3,configurable:true});
+  const extended=collect();checks[label+'Extended']=extended.length===3&&extended[2]===undefined;
+  let reads=0,receiver=true;Object.defineProperty(list,'length',{get(){reads++;receiver=receiver&&this===list;return 1},configurable:true});
+  checks[label+'Accessor']=collect().length===1&&reads===2&&receiver;
+  delete list.length;
+  const proto=Object.getPrototypeOf(list),it=method.call(list);it.next();
+  Object.setPrototypeOf(list,{length:3,2:'inherited'});
+  checks[label+'InheritedIndex']=list[2]==='inherited'&&2 in list;
+  checks[label+'ChangedPrototype']=it.next().value===list[1]&&it.next().value==='inherited'&&it.next().done;
+  Object.setPrototypeOf(list,proto);
+  const finished=method.call(list);Object.defineProperty(list,'length',{value:0,configurable:true});
+  checks[label+'Done']=finished.next().done;
+  Object.defineProperty(list,'length',{value:2,configurable:true});checks[label+'StaysDone']=finished.next().done;
+  Object.defineProperty(list,'length',{value:0,configurable:false});checks[label+'FixedZero']=collect().length===0;
+ }
+ const prototypes=[NodeList.prototype,HTMLCollection.prototype,NamedNodeMap.prototype];
+ for(let kind=0;kind<3;kind++){
+  const list=setup()[kind],proto=prototypes[kind],descriptor=Object.getOwnPropertyDescriptor(proto,'length');
+  try{Object.defineProperty(proto,'length',{get(){return 0},configurable:true});checks['prototypeGetter'+kind]=Array.from(methods[kind].call(list)).length===0}finally{Object.defineProperty(proto,'length',descriptor)}
+ }
+ const converted=setup()[0];Object.defineProperty(converted,'length',{get(){return {valueOf(){converted[0].remove();return 1}}}});
+ checks.coercionMutation=NodeList.prototype.values.call(converted).next().value.textContent==='B';
+ const list=setup()[0];let reads=0,calls=0,original=true;
+ Object.defineProperty(list,'length',{get(){reads++;return 3},configurable:true});
+ Object.setPrototypeOf(list,{2:'inherited'});
+ NodeList.prototype.forEach.call(list,(value,index,receiver)=>{calls++;original=original&&receiver===list&&value===list[index]});
+ checks.forEachLength=reads===1;checks.forEachInherited=calls===3&&original;
+ const shrink=setup()[0];let visited=0;
+ NodeList.prototype.forEach.call(shrink,()=>{visited++;Object.defineProperty(shrink,'length',{value:0,configurable:true})});
+ checks.forEachSnapshot=visited===2;
+ const live=setup()[0],it=NodeList.prototype.values.call(live);it.next();
+ Object.defineProperty(live,'length',{value:0,configurable:true});checks.iteratorReadsLength=it.next().done;
+ const sparse=setup()[0];Object.defineProperty(sparse,'length',{value:3,configurable:true});
+ const entries=Array.from(NodeList.prototype.entries.call(sparse));
+ checks.entriesExtended=entries.length===3&&entries[2][0]===2&&entries[2][1]===undefined;
+ checks.keysExtended=Array.from(NodeList.prototype.keys.call(sparse)).join(',')==='0,1,2';
+ const throwing=setup()[0];Object.defineProperty(throwing,'length',{get(){throw new RangeError('synthetic')}});
+ const delayed=NodeList.prototype.values.call(throwing);let threw=false;try{delayed.next()}catch(e){threw=e instanceof RangeError}checks.deferredLength=threw;
+ return checks;
+}

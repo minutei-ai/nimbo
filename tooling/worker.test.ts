@@ -1001,6 +1001,23 @@ test("collection methods preserve interface brands and generic iteration", async
   );
 });
 
+test("collection iteration observes length and inherited indices", async () => {
+  const source = await Bun.file(
+    join(root, "crates/engine/tests/fixtures/collection-properties.txt"),
+  ).text();
+  await fixture(
+    () => html("<body>fresh</body>"),
+    async (worker) => {
+      const response = await scrape(
+        worker,
+        `(()=>{${source};const checks=collectionPropertiesCase();return {count:Object.keys(checks).length,failed:Object.entries(checks).filter(([,passed])=>!passed).map(([name])=>name)}})()`,
+      );
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({ value: { count: 38, failed: [] } });
+    },
+  );
+});
+
 test("generic collection forEach remains bounded by original JavaScript fuel", async () => {
   await fixture(
     () => html("<body>fresh</body>"),

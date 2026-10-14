@@ -5029,3 +5029,13 @@ fn collection_receivers_keep_native_brands_and_generic_iterators() -> TestResult
     );
     Ok(())
 }
+
+#[test]
+fn collection_iteration_observes_length_and_inherited_indices() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    let page = browser.navigate(&fixture.path("/static"))?;
+    let source = include_str!("fixtures/collection-properties.txt");
+    assert_eq!(page.evaluate(&format!("(()=>{{{source};const checks=collectionPropertiesCase();return {{count:Object.keys(checks).length,failed:Object.entries(checks).filter(([,passed])=>!passed).map(([name])=>name)}}}})()"))?, json!({"count":38,"failed":[]}));
+    Ok(())
+}

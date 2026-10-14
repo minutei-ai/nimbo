@@ -1357,6 +1357,10 @@
   const arrayKeys = nodeArray.keys;
   const attributeArray: Attr[] = [];
   const attributeValues = attributeArray.values;
+  const collectionDescriptor = Object.getOwnPropertyDescriptor;
+  const collectionPrototype = Object.getPrototypeOf;
+  const collectionGet = Reflect.get;
+  const collectionHas = Reflect.has;
   function namedNodes(items: CollectionItems): Map<string, Node> {
     const names = new Map<string, Node>();
     for (const value of items) {
@@ -1418,7 +1422,10 @@
       get(object, key, receiver): unknown {
         const index = propertyIndex(key);
         if (index !== null)
-          return collectionNode(options.at ? options.at(index) : resolve()[index]);
+          return (
+            collectionNode(options.at ? options.at(index) : resolve()[index]) ??
+            collectionGet(object, key, receiver)
+          );
         return visibleName(key) ?? Reflect.get(object, key, receiver);
       },
       set(object, key, value: unknown, receiver) {
@@ -1430,7 +1437,7 @@
       has(object, key) {
         const index = propertyIndex(key);
         return index !== null
-          ? index < resolve().length
+          ? index < resolve().length || collectionHas(object, key)
           : Reflect.has(object, key) || visibleName(key) !== undefined;
       },
       ownKeys(object) {
@@ -1540,9 +1547,7 @@
     }
     [Symbol.iterator](): IterableIterator<Attr> {
       const state = collections.get(this);
-      return state?.kind === "attributes"
-        ? collectionAttributes(state)
-        : attributeValues.call(this);
+      return attributeValues.call(state ? iterationView(this, state) : this);
     }
   }
   class NodeList {
@@ -1561,35 +1566,23 @@
       thisArg?: unknown,
     ) {
       const state = collections.get(this);
-      if (!state) {
-        if (typeof callback !== "function") return arrayForEach.call(this, callback, thisArg);
-        return arrayForEach.call(this, (value, index) =>
-          callback.call(thisArg, value, index, this),
-        );
-      }
-      if (typeof callback !== "function") throw new TypeError("callback must be a function");
-      const resolve = iterationResolver(state);
-      const length = resolve().length;
-      for (let index = 0; index < length; index++) {
-        const value = collectionNode(resolve()[index]);
-        if (value !== undefined) callback.call(thisArg, value, index, this);
-      }
+      const receiver = state ? iterationView(this, state) : this;
+      if (typeof callback !== "function") return arrayForEach.call(receiver, callback, thisArg);
+      return arrayForEach.call(receiver, (value, index) =>
+        callback.call(thisArg, value, index, this),
+      );
     }
     entries(): IterableIterator<[number, Node]> {
       const state = collections.get(this);
-      return state ? collectionEntries(state) : arrayEntries.call(this);
+      return arrayEntries.call(state ? iterationView(this, state) : this);
     }
     keys(): IterableIterator<number> {
       const state = collections.get(this);
-      if (!state) return arrayKeys.call(this);
-      return (function* () {
-        const resolve = iterationResolver(state);
-        for (let index = 0; index < resolve().length; index++) yield index;
-      })();
+      return arrayKeys.call(state ? iterationView(this, state) : this);
     }
     values(): IterableIterator<Node> {
       const state = collections.get(this);
-      return state ? collectionValues(state) : arrayValues.call(this);
+      return arrayValues.call(state ? iterationView(this, state) : this);
     }
     [Symbol.iterator](): IterableIterator<Node> {
       return this.values();
@@ -1620,8 +1613,50 @@
   function* collectionValues(state: CollectionState): Generator<Node> {
     for (const [, value] of collectionEntries(state)) yield value;
   }
-  function* collectionAttributes(state: CollectionState): Generator<Attr> {
-    for (const value of collectionValues(state)) if (value instanceof Attr) yield value;
+  function iterationView(list: Collection, state: CollectionState) {
+    const resolve = iterationResolver(state);
+    let current: CollectionItems | undefined;
+    return new Proxy(
+      {},
+      {
+        get(_target, key): unknown {
+          if (key === "length") {
+            current = undefined;
+            const normal =
+              state.kind === "nodes"
+                ? collectionLengths.nodes
+                : state.kind === "attributes"
+                  ? collectionLengths.attributes
+                  : optionListOwners.has(list)
+                    ? collectionLengths.options
+                    : collectionLengths.elements;
+            if (
+              collectionPrototype(list) === normal.prototype &&
+              collectionDescriptor(list, "length") === undefined &&
+              collectionDescriptor(normal.prototype, "length")?.get === normal.descriptor?.get
+            ) {
+              current = resolve();
+              return current.length;
+            }
+          }
+          const index = propertyIndex(key);
+          if (index !== null) {
+            const items = current ?? resolve();
+            current = undefined;
+            const value = collectionNode(items[index]);
+            if (value !== undefined) return value;
+          }
+          return collectionGet(list, key, list);
+        },
+        has(_target, key) {
+          const index = propertyIndex(key);
+          current = index !== null ? resolve() : undefined;
+          if (index !== null && current && index < current.length) return true;
+          current = undefined;
+          return collectionHas(list, key);
+        },
+      },
+    );
   }
   class HTMLCollection {
     constructor(key: symbol) {
@@ -1648,7 +1683,7 @@
     }
     [Symbol.iterator](): IterableIterator<Node> {
       const state = collections.get(this);
-      return state ? collectionValues(state) : arrayValues.call(this);
+      return arrayValues.call(state ? iterationView(this, state) : this);
     }
   }
   Object.defineProperty(NodeList.prototype, Symbol.iterator, {
@@ -3839,6 +3874,24 @@
       );
     }
   }
+  const collectionLengths = {
+    nodes: {
+      prototype: NodeList.prototype,
+      descriptor: collectionDescriptor(NodeList.prototype, "length"),
+    },
+    elements: {
+      prototype: HTMLCollection.prototype,
+      descriptor: collectionDescriptor(HTMLCollection.prototype, "length"),
+    },
+    attributes: {
+      prototype: NamedNodeMap.prototype,
+      descriptor: collectionDescriptor(NamedNodeMap.prototype, "length"),
+    },
+    options: {
+      prototype: HTMLOptionsCollection.prototype,
+      descriptor: collectionDescriptor(HTMLOptionsCollection.prototype, "length"),
+    },
+  };
   function selectOptionList(owner: HTMLSelectElement): HTMLOptionsCollection {
     const id = selectId(owner);
     let list = selectOptions.get(owner);
