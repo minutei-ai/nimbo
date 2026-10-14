@@ -37,10 +37,27 @@ See the [pinned host implementation](https://github.com/denoland/celld/blob/v0.6
 The runner inherits this external setting and does not change deployment
 configuration. A single-isolate run and a multi-isolate run are different tests.
 
+Sustained 120-second runs on 2026-10-14 used the build that adds the RTL
+subset and the session API, on a 28-CPU x64 Linux host (1-minute load
+average about 9 at the start, from processes outside this run):
+
+| Host                           | Lanes | Attempted | Accepted | Accepted/s | Failures | p50–p95 range across scenarios | Memory                  |
+| ------------------------------ | ----: | --------: | -------: | ---------: | -------: | ------------------------------ | ----------------------- |
+| Native, fresh process per page |     4 |    16,671 |   16,671 |      138.9 |        0 | 19–57 ms / 24–68 ms            | 79 MiB peak per process |
+| Worker, one isolate            |     8 |    86,378 |    2,544 |       21.2 |        0 | 40–123 ms / 79–180 ms          | host tree 402→563 MiB   |
+
+The Worker isolate admits one active page, so excess client lanes are shed
+immediately as capacity rejections. Nothing queues, and no admitted request
+failed. Host process-tree RSS rose during warm-up and stayed level until the
+end (562 MiB final versus a 563 MiB peak). The recovery extraction passed
+after both runs. See the [native](evidence/native-load-sustained.json) and
+[Worker](evidence/worker-load-sustained.json) reports. These local numbers
+describe one machine, not production capacity.
+
 Local results establish behavior on the measured host. They do not establish
 production capacity, absence of memory leaks, or controlled performance
-regression acceptance. Repeated rounds, idle retention, cancellation, explicit
-session expiry/isolation and controlled-runner gates remain separate work.
+regression acceptance. Native session semantics and isolation are specified in [sessions](sessions.md).
+Repeated rounds, idle retention and controlled-runner gates remain separate work.
 
 The initial 30-second local reports cover all 12 corpus scenarios with four
 native lanes and eight Worker client lanes (one Worker isolate). Each accepted

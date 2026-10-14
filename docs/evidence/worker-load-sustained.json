@@ -1,0 +1,181 @@
+{
+  "schema_version": 1,
+  "corpus_sha256": "adf445447c9d31eef503863f214375c257ed1756ec607b84c5166b94dbc5c51b",
+  "worker_isolate_cap": 1,
+  "date": "2026-10-14T14:20:54.695Z",
+  "corpus_version": 1,
+  "scope": "bounded local host load; fresh pages; not production capacity or a controlled regression gate",
+  "host": {
+    "platform": "linux",
+    "architecture": "x64",
+    "cpus": 28,
+    "load_before": [7.99, 29, 32.27],
+    "load_after": [6.52, 21.18, 28.98]
+  },
+  "runtime": {
+    "mode": "worker",
+    "version": "celld 0.6.1",
+    "artifact_sha256": "507bc424de96e4cb9d913b50ccb13f33b0f487ff1aae80a8d0abf2f629df6ad0",
+    "artifact_bytes": 15689243,
+    "wasm_bytes": 15574022
+  },
+  "concurrency": 8,
+  "requested_seconds": 120,
+  "elapsed_ms": 120107.537834,
+  "attempted": 86378,
+  "accepted": 2544,
+  "accepted_per_second": 21.181018659428762,
+  "recovery": true,
+  "latency_sample_limit_per_scenario": 10000,
+  "scenarios": [
+    {
+      "scenario": "static",
+      "attempted": 6645,
+      "accepted": 242,
+      "rejected": 6403,
+      "failures": 0,
+      "peak_native_rss_kib": null,
+      "latency_samples": 242,
+      "p50_ms": 41.472208999999566,
+      "p95_ms": 79.40500400000019
+    },
+    {
+      "scenario": "selectors-200",
+      "attempted": 6645,
+      "accepted": 308,
+      "rejected": 6337,
+      "failures": 0,
+      "peak_native_rss_kib": null,
+      "latency_samples": 308,
+      "p50_ms": 40.240692000006675,
+      "p95_ms": 108.029515000002
+    },
+    {
+      "scenario": "dynamic-fetch",
+      "attempted": 6645,
+      "accepted": 263,
+      "rejected": 6382,
+      "failures": 0,
+      "peak_native_rss_kib": null,
+      "latency_samples": 263,
+      "p50_ms": 41.17259899999772,
+      "p95_ms": 120.35172800000146
+    },
+    {
+      "scenario": "js-dom-events",
+      "attempted": 6645,
+      "accepted": 116,
+      "rejected": 6529,
+      "failures": 0,
+      "peak_native_rss_kib": null,
+      "latency_samples": 116,
+      "p50_ms": 65.83812100000796,
+      "p95_ms": 129.2512569999999
+    },
+    {
+      "scenario": "js-modules",
+      "attempted": 6645,
+      "accepted": 115,
+      "rejected": 6530,
+      "failures": 0,
+      "peak_native_rss_kib": null,
+      "latency_samples": 115,
+      "p50_ms": 70.11575799999991,
+      "p95_ms": 112.30714800000715
+    },
+    {
+      "scenario": "js-dom-selectors-200",
+      "attempted": 6645,
+      "accepted": 111,
+      "rejected": 6534,
+      "failures": 0,
+      "peak_native_rss_kib": null,
+      "latency_samples": 111,
+      "p50_ms": 67.78105700000015,
+      "p95_ms": 112.28016500000376
+    },
+    {
+      "scenario": "static-5000",
+      "attempted": 6644,
+      "accepted": 272,
+      "rejected": 6372,
+      "failures": 0,
+      "peak_native_rss_kib": null,
+      "latency_samples": 272,
+      "p50_ms": 80.48657599999933,
+      "p95_ms": 125.03410499999882
+    },
+    {
+      "scenario": "selectors-200-5000",
+      "attempted": 6644,
+      "accepted": 330,
+      "rejected": 6314,
+      "failures": 0,
+      "peak_native_rss_kib": null,
+      "latency_samples": 330,
+      "p50_ms": 76.150241000003,
+      "p95_ms": 95.42029299999922
+    },
+    {
+      "scenario": "live-child-iteration",
+      "attempted": 6644,
+      "accepted": 294,
+      "rejected": 6350,
+      "failures": 0,
+      "peak_native_rss_kib": null,
+      "latency_samples": 294,
+      "p50_ms": 123.3488470000002,
+      "p95_ms": 180.15737799999988
+    },
+    {
+      "scenario": "named-access-after-style",
+      "attempted": 6644,
+      "accepted": 108,
+      "rejected": 6536,
+      "failures": 0,
+      "peak_native_rss_kib": null,
+      "latency_samples": 108,
+      "p50_ms": 73.927592,
+      "p95_ms": 134.07538799999747
+    },
+    {
+      "scenario": "same-class-with-layout",
+      "attempted": 6644,
+      "accepted": 106,
+      "rejected": 6538,
+      "failures": 0,
+      "peak_native_rss_kib": null,
+      "latency_samples": 106,
+      "p50_ms": 56.84547900000325,
+      "p95_ms": 114.44350500000292
+    },
+    {
+      "scenario": "selector-heavy-layout",
+      "attempted": 6644,
+      "accepted": 105,
+      "rejected": 6539,
+      "failures": 0,
+      "peak_native_rss_kib": null,
+      "latency_samples": 105,
+      "p50_ms": 80.87984799999685,
+      "p95_ms": 146.99816399998963
+    },
+    {
+      "scenario": "text-wrap",
+      "attempted": 6644,
+      "accepted": 174,
+      "rejected": 6470,
+      "failures": 0,
+      "peak_native_rss_kib": null,
+      "latency_samples": 174,
+      "p50_ms": 82.59885799999756,
+      "p95_ms": 123.53693300001032
+    }
+  ],
+  "worker_host_process_tree_rss_kib": {
+    "initial": 411904,
+    "peak": 576692,
+    "final": 575136,
+    "samples": 480
+  }
+}

@@ -200,6 +200,18 @@ blocked fetch rejects with `Error` rather than `TypeError`.
 
 Exit: overlapping requests, session expiry and cancellation have documented semantics and isolation tests. Sustained load reports show throughput, p95, failures and memory on each supported host; local benchmarks alone do not establish production capacity.
 
+Implemented: [sessions](docs/sessions.md) define one native `Browser` as one
+session. Pages on it interleave on one thread in program order. Tenants are
+isolated by separate browsers, and `Browser::clear_session` or drop ends a
+session, with cookie expiry applied per request. Cancellation keeps the
+session usable. The Worker stays stateless per request. Real-HTTP tests cover
+persistence, tenant isolation, overlap, clearing, expiry and cancellation.
+`Page::timings` reports request, initialization and execution durations
+without page data. [Sustained 120-second load reports](docs/load-testing.md)
+record throughput, p50/p95, admission rejection, failures and memory for the
+native and Worker hosts. These are local evidence, not production capacity.
+Persistent Worker sessions remain out of scope.
+
 Implemented groundwork: [bounded local load tests](docs/load-testing.md) reuse
 the versioned corpus and existing native/Worker adapters, record admission
 separately from failures and validate recovery. Host isolate limits and workload
