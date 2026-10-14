@@ -151,6 +151,17 @@ hardening work.
 
 Exit: the declared geometry subset passes independent Chromium comparisons under documented tolerances. Mutation tests catch stale caches; overlarge and unsupported layout work remains bounded.
 
+Implemented: the [CSS geometry subset](docs/css-geometry.md) declares each
+supported area, its fixture, numerical tolerance and Chromium evidence. Every
+row passes 64 real-HTTP pages in Chrome for Testing 153 and the Worker host,
+plus the native suite. Twelve previously unrecorded comparisons now have
+evidence. Horizontal right-to-left boxes come from `dir` and `direction`
+across block, flex, grid, absolute insets, logical box properties and computed
+values. `layout-snapshot` and a `dir` mutation catch stale caches, and layout
+stays under the node, depth, operation and time budgets. Bidi text, non-start
+`text-align`, vertical writing modes and wider intrinsic sizing remain outside
+the subset.
+
 ## 0.6 — Text and fonts
 
 - Add script-aware shaping, bidi ordering and font fallback for a declared language/script matrix.

@@ -1734,12 +1734,13 @@ normal/important cascade layers, percentages, content/border boxes, variables,
 invalid computed values, paused animations and CSSOM mutation/removal/order.
 All 2880 assertions also pass in Chromium; see
 [the aggregate](evidence/logical-size-chromium.json). Four further real Worker
-requests reject unsupported vertical writing, RTL, a glyph-metric relative dimension and
+requests reject unsupported vertical and sideways writing, a glyph-metric relative dimension and
 inherited sizing, then recover through fresh successful requests.
 
 Writing-mode is now syntax-checked natively because the pinned declaration
 parser does not recognize it. Horizontal-tb is admitted; vertical and sideways
-values remain explicit layout failures. Complete writing-mode/direction layout,
+values remain explicit layout failures. Horizontal right-to-left boxes are now
+supported; see [the CSS geometry subset](css-geometry.md). Vertical writing modes,
 logical borders, inherited sizing, glyph-metric lengths and percentage math,
 intrinsic-size coverage, text shaping/painting and unmodified WPT remain pending.
 These checks do not prove complete CSS logical-property conformance.
@@ -2761,7 +2762,7 @@ see the [celld/Chromium results](logical-spacing-chromium.json).
 The [original WPT report](performance-wpt-logical-spacing.json) records
 126/181 passing Nimbo/celld subtests, with ten passing and six failing files.
 
-Full RTL/vertical layout, inherited sizing, computed spacing CSSOM,
+Bidi text, vertical layout, inherited sizing, computed spacing CSSOM,
 percentage math, glyph-metric lengths, logical borders and complete browser conformance
 remain pending. Original WPT assertions remain separate from these supplemental
 fixtures and unsupported values remain visible failures.
@@ -2845,7 +2846,7 @@ not a pass, and the command reports unsuccessful suite execution.
 
 Computed box values without a box (`display:none`/`contents`), inherited sizing,
 inline/text layout, complete computed box shorthands, mixed percentage math,
-vertical/RTL mappings and frames remain pending. This bounded coverage does not
+vertical mappings and frames remain pending (horizontal RTL: [css-geometry](css-geometry.md)). This bounded coverage does not
 establish complete CSSOM or upstream browser parity.
 
 Reference: [CSSOM resolved values](https://drafts.csswg.org/cssom/#resolved-values).
