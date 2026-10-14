@@ -1,0 +1,15 @@
+globalThis.comparison=(()=>{
+ const checks={},v=Number(globalThis.variant)||0,near=(a,b)=>Math.abs(a-b)<.1;
+ const sheet=document.createElement('style');sheet.textContent='html,body{margin:0;padding:0}div{margin:0;padding:0;border:0}.a{display:inline-block;width:30px}';document.head.append(sheet);
+ const line=(css,boxes)=>{const p=document.createElement('div');p.style.cssText='width:300px;margin-top:'+v+'px;'+css;const items=boxes.map(([h,align])=>{const a=document.createElement('div');a.className='a';a.style.height=h+'px';if(align)a.style.verticalAlign=align;p.append(a);return a;});document.body.append(p);return [p,items];};
+ const top=(n,p)=>n.getBoundingClientRect().y-p.getBoundingClientRect().y;
+ const h=(n)=>n.getBoundingClientRect().height;
+ const flat='line-height:0;font-size:0';
+ let [p,[a,b]]=line(flat,[[20],[40]]);checks.baseline=near(top(a,p),20)&&near(top(b,p),0)&&near(h(p),40);p.remove();
+ [p,[a,b]]=line(flat,[[20,'top'],[40]]);checks.top=near(top(a,p),0)&&near(top(b,p),0)&&near(h(p),40);p.remove();
+ [p,[a,b]]=line(flat,[[60,'top'],[40]]);checks.tallTop=near(top(a,p),0)&&near(top(b,p),0)&&near(h(p),60);p.remove();
+ [p,[a]]=line('font-size:16px;line-height:30px',[[10,'top']]);checks.strutTop=near(top(a,p),0)&&near(h(p),30);
+ a.style.verticalAlign='baseline';checks.mutation=!near(top(a,p),0);
+ a.style.verticalAlign='bottom';let rejected=false;try{a.getBoundingClientRect()}catch(e){rejected=true}checks.bottomDecision=rejected||near(top(a,p),20);p.remove();
+ return checks;
+})()

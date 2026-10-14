@@ -1,0 +1,21 @@
+globalThis.comparison=(()=>{
+ const checks={},v=Number(globalThis.variant)||0,w=300+2*v,near=(a,b)=>Math.abs(a-b)<.1;
+ const sheet=document.createElement('style');sheet.textContent='html,body{margin:0;padding:0}div{margin:0;padding:0;border:0}.a{display:inline-block;height:10px}';document.head.append(sheet);
+ const line=(css,widths,attrs={})=>{const p=document.createElement('div');p.style.cssText='width:'+w+'px;'+css;for(const [k,value] of Object.entries(attrs))p.setAttribute(k,value);const items=widths.map((x)=>{const a=document.createElement('div');a.className='a';a.style.width=x+'px';p.append(a);return a;});document.body.append(p);return [p,items];};
+ const x=(n)=>n.getBoundingClientRect().x;
+ let [p,[a,b]]=line('text-align:left',[50,40]);checks.left=near(x(a),0)&&near(x(b),50);p.remove();
+ [p,[a,b]]=line('text-align:right',[50,40]);checks.right=near(x(a),w-90)&&near(x(b),w-40);p.remove();
+ [p,[a,b]]=line('text-align:center',[50,40]);checks.center=near(x(a),(w-90)/2)&&near(x(b),(w-90)/2+50);p.remove();
+ [p,[a]]=line('text-align:end',[50]);checks.end=near(x(a),w-50);p.remove();
+ [p,[a,b]]=line('text-align:start',[50,40],{dir:'rtl'});checks.rtlStart=near(x(a),w-50)&&near(x(b),w-90);p.remove();
+ [p,[a,b]]=line('text-align:left',[50,40],{dir:'rtl'});checks.rtlLeft=near(x(a),40)&&near(x(b),0);p.remove();
+ [p,[a]]=line('text-align:end',[50],{dir:'rtl'});checks.rtlEnd=near(x(a),0);p.remove();
+ [p,[a,b]]=line('',[50,40],{dir:'rtl'});checks.rtlDefault=near(x(a),w-50);p.remove();
+ const outer=document.createElement('div');outer.style.textAlign='center';document.body.append(outer);
+ [p,[a]]=line('',[60]);outer.append(p);checks.inherited=near(x(a),(w-60)/2);
+ p.style.textAlign='initial';checks.initial=near(x(a),0);outer.remove();
+ const k=Math.floor(w*.4);[p,[a,b]]=line('text-align:center',[k,k,k]);const c=p.lastChild;
+ checks.wrapFirst=near(x(a),(w-2*k)/2)&&near(x(b),(w-2*k)/2+k);checks.wrapSecond=near(x(c),(w-k)/2);
+ p.style.textAlign='right';checks.mutation=near(x(c),w-k)&&near(x(a),w-2*k);p.remove();
+ return checks;
+})()

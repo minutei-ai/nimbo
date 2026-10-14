@@ -1143,7 +1143,9 @@ mod layout_contracts {
             (include_str!("../tests/fixtures/headings.txt"), 10),
             (include_str!("../tests/fixtures/translation.txt"), 19),
             (include_str!("../tests/fixtures/canvas-box.txt"), 15),
-            (include_str!("../tests/fixtures/rtl-boxes.txt"), 19),
+            (include_str!("../tests/fixtures/rtl-boxes.txt"), 21),
+            (include_str!("../tests/fixtures/text-align.txt"), 13),
+            (include_str!("../tests/fixtures/vertical-align.txt"), 6),
         ];
         for (source, count) in fixtures {
             for variant in 0..64 {

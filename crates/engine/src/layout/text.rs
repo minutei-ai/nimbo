@@ -25,6 +25,7 @@ pub(super) struct Typography {
     overflow_wrap: String,
     transform: crate::text_transform::Transform,
     language: String,
+    align: String,
 }
 impl Default for Typography {
     fn default() -> Self {
@@ -38,10 +39,20 @@ impl Default for Typography {
             overflow_wrap: "normal".into(),
             transform: crate::text_transform::Transform::default(),
             language: "und".into(),
+            align: "start".into(),
         }
     }
 }
 impl Typography {
+    /// Inline placement for `text-align`, resolved against the box's direction.
+    pub(super) fn justify(&self, rtl: bool) -> Result<JustifyContent> {
+        Ok(match (self.align.as_str(), rtl) {
+            ("start", _) | ("left", false) | ("right", true) => JustifyContent::START,
+            ("end", _) | ("right", false) | ("left", true) => JustifyContent::END,
+            ("center", _) => JustifyContent::CENTER,
+            _ => return Err(unsupported("text-align")),
+        })
+    }
     pub(super) fn preserves_breaks(&self) -> bool {
         self.whitespace == "pre-line"
     }
@@ -125,6 +136,11 @@ impl Typography {
             variant: inherited(declarations, "font-variant", &self.variant),
             whitespace: inherited(declarations, "white-space", &self.whitespace),
             overflow_wrap: inherited(declarations, "overflow-wrap", &self.overflow_wrap),
+            align: match declarations.value("text-align").0.as_str() {
+                "" | "inherit" | "unset" | "revert" => self.align.clone(),
+                "initial" => "start".into(),
+                value => value.to_owned(),
+            },
         })
     }
 }

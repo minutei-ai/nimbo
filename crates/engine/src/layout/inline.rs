@@ -11,17 +11,17 @@ pub(super) fn atomic_style(
     if !display.inline_atomic() {
         return Ok(());
     }
-    let (alignment, _) = declarations.value("vertical-align");
-    if !matches!(
-        alignment.as_str(),
-        "" | "baseline" | "initial" | "unset" | "revert"
-    ) {
-        return Err(unsupported("atomic inline vertical alignment"));
-    }
+    // Top aligns to the line box top, which is the flex line start. Bottom
+    // alignment moves the baseline set when it is taller, so it stays unsupported.
+    let alignment = match declarations.value("vertical-align").0.as_str() {
+        "" | "baseline" | "initial" | "unset" | "revert" => None,
+        "top" => Some(AlignItems::FLEX_START),
+        _ => return Err(unsupported("atomic inline vertical alignment")),
+    };
     style.flex_grow = 0.0;
     style.flex_basis = Dimension::AUTO;
     style.flex_shrink = if style.size.width.is_auto() { 1.0 } else { 0.0 };
-    style.align_self = None;
+    style.align_self = alignment;
     style.margin = style.margin.map(|value| {
         if value.is_auto() {
             LengthPercentageAuto::length(0.0)
@@ -73,12 +73,18 @@ impl Tree<'_, '_> {
             for atom in children.iter().copied() {
                 let strut = self.inline_strut(context)?;
                 self.visit(0)?;
+                let alignment = self
+                    .boxes
+                    .style(atom)
+                    .map_err(|error| layout_error(&error))?
+                    .align_self;
                 let group = self
                     .boxes
                     .new_with_children(
                         Style {
                             display: Display::Flex,
-                            align_items: Some(AlignItems::BASELINE),
+                            align_items: Some(alignment.unwrap_or(AlignItems::BASELINE)),
+                            align_self: alignment,
                             flex_grow: 0.0,
                             flex_shrink: 1.0,
                             ..Style::default()
@@ -101,7 +107,7 @@ impl Tree<'_, '_> {
         };
         style.align_content = Some(AlignContent::START);
         style.align_items = Some(AlignItems::BASELINE);
-        style.justify_content = Some(JustifyContent::START);
+        style.justify_content = Some(context.typography.justify(context.fonts.rtl())?);
         style.gap = Size::ZERO.map(LengthPercentage::length);
         Ok(())
     }
