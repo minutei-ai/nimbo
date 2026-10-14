@@ -130,7 +130,11 @@ lifecycle cases remain open.
 operation and last owned scheduler state, distinguishing host deadlines from
 client interruption. Actual workerd listener tests verify bounded cancellation
 records and fresh-page recovery. Native pages expose their scheduler state
-after failure; structured native navigation-phase reporting remains open.
+after failure. Opt-in native navigation failures now preserve the original error,
+report validation/request/response/initialization/execution stages and capture
+the last scheduler state before disposal. Real HTTP tests cover failed response
+validation, parser limits, script/lifecycle fuel and partial-body cancellation,
+with fresh-page recovery. Finer transport/initialization phases remain open.
 [Cooperative initial parsing](docs/cooperative-parsing.md) retains the owned
 native parser across bounded host calls so Worker deadlines and disconnections
 can release a partially constructed document. [Native selector traversal](docs/selector-traversal-budget.md) now checks

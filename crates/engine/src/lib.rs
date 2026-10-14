@@ -40,6 +40,8 @@ mod machine;
 mod media;
 mod modules;
 #[cfg(not(target_arch = "wasm32"))]
+mod navigation;
+#[cfg(not(target_arch = "wasm32"))]
 mod network;
 mod outlines;
 #[cfg(not(target_arch = "wasm32"))]
@@ -71,6 +73,8 @@ pub use diagnostics::{Diagnostics, ExecutionPhase};
 
 #[cfg(not(target_arch = "wasm32"))]
 pub use cancellation::CancellationToken;
+#[cfg(not(target_arch = "wasm32"))]
+pub use navigation::{NavigationFailure, NavigationStage};
 #[cfg(not(target_arch = "wasm32"))]
 pub use network::Browser;
 #[cfg(not(target_arch = "wasm32"))]

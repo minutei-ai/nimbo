@@ -81,6 +81,14 @@ fn script_fixture(script: &str) -> String {
     format!("<script>{script}</script>")
 }
 
+fn infinite_fixture(path: &str) -> String {
+    script_fixture(if path == "/lifecycle-infinite" {
+        "document.addEventListener('DOMContentLoaded',()=>{while(true){}})"
+    } else {
+        "while (true) {}"
+    })
+}
+
 fn layout_fixture(path: &str) -> String {
     let script = match path {
         "/empty-layout" => return "<!doctype html><body></body>".into(),
@@ -426,7 +434,7 @@ fn serve_page(mut request: Request) -> io::Result<()> {
             "<main>Set</main>".into()
         }
         "/cookie" => format!("<main>{}</main>", request_cookie(&request)),
-        "/infinite" => "<script>while (true) {}</script>".into(),
+        "/infinite" | "/lifecycle-infinite" => infinite_fixture(request.url()),
         "/bad-js" => "<script>const = ;</script>".into(),
         "/rejected" => "<script>Promise.reject(new Error('failed'));</script>".into(),
         "/caught" => {
@@ -5037,5 +5045,77 @@ fn collection_iteration_observes_length_and_inherited_indices() -> TestResult {
     let page = browser.navigate(&fixture.path("/static"))?;
     let source = include_str!("fixtures/collection-properties.txt");
     assert_eq!(page.evaluate(&format!("(()=>{{{source};const checks=collectionPropertiesCase();return {{count:Object.keys(checks).length,failed:Object.entries(checks).filter(([,passed])=>!passed).map(([name])=>name)}}}})()"))?, json!({"count":38,"failed":[]}));
+    Ok(())
+}
+
+#[test]
+fn diagnosed_navigation_preserves_failure_stages_and_recovers() -> TestResult {
+    use nimbo_engine::{CancellationToken, ExecutionPhase, NavigationStage};
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    let token = CancellationToken::new();
+    for (url, stage, phase) in [
+        (
+            "http://example.test/".to_owned(),
+            NavigationStage::Request,
+            None,
+        ),
+        (
+            fixture.path("/missing-native-diagnostics"),
+            NavigationStage::Response,
+            None,
+        ),
+        (fixture.path("/api"), NavigationStage::Response, None),
+        (
+            fixture.path("/bad-js"),
+            NavigationStage::Execution,
+            Some(ExecutionPhase::Scripts),
+        ),
+        (
+            fixture.path("/infinite"),
+            NavigationStage::Execution,
+            Some(ExecutionPhase::Scripts),
+        ),
+        (
+            fixture.path("/lifecycle-infinite"),
+            NavigationStage::Execution,
+            Some(ExecutionPhase::Lifecycle),
+        ),
+    ] {
+        let failure = browser
+            .navigate_with_diagnostics(&url, &token)
+            .err()
+            .ok_or("navigation unexpectedly succeeded")?;
+        assert_eq!(failure.stage, stage, "{failure:?}");
+        assert_eq!(failure.execution_phase, phase, "{failure:?}");
+        assert!(std::error::Error::source(&failure).is_some());
+        let page = browser.navigate_with_diagnostics(&fixture.path("/static"), &token)?;
+        assert_eq!(page.execution_phase(), ExecutionPhase::Ready);
+    }
+    let cancelled = CancellationToken::new();
+    cancelled.cancel();
+    let failure = browser
+        .navigate_with_diagnostics(&fixture.path("/static"), &cancelled)
+        .err()
+        .ok_or("cancelled navigation succeeded")?;
+    assert_eq!(failure.stage, NavigationStage::Validation);
+    assert_eq!(failure.execution_phase, None);
+    assert!(matches!(failure.error, Error::Cancelled));
+    let bounded = Browser::new(
+        &fixture.url,
+        Limits {
+            max_initial_dom_nodes: 5,
+            ..Limits::default()
+        },
+    )?;
+    let failure = bounded
+        .navigate_with_diagnostics(&fixture.path("/static"), &token)
+        .err()
+        .ok_or("dense navigation succeeded")?;
+    assert_eq!(failure.stage, NavigationStage::Initialization);
+    assert_eq!(failure.execution_phase, None);
+    assert!(matches!(failure.error, Error::Limit("initial DOM nodes")));
+    let fresh = bounded.navigate_with_diagnostics(&fixture.path("/empty-layout"), &token)?;
+    assert_eq!(fresh.execution_phase(), ExecutionPhase::Ready);
     Ok(())
 }

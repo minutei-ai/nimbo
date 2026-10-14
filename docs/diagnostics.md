@@ -103,9 +103,25 @@ code. Failed responses do not attempt heap snapshots of an interrupted runtime.
 
 Native callers can read `Page::execution_phase()` and
 `ExecutionPhase::as_str()`, including after readiness failure or cancellation.
-Existing `Error` variants and budget behavior are preserved. Navigation failures
-that never produce a native page still return their ordinary errors; structured
-native navigation-phase diagnostics remain open.
+Existing `Error` variants and budget behavior are preserved.
+`Browser::navigate_with_diagnostics(url, &cancellation)` additionally returns
+`NavigationFailure` when navigation cannot produce a page. Its `stage` is
+`validation`, `request`, `response`, `initialization` or `execution`. Request
+covers destination checks, redirects and HTTP transfer; initialization covers
+HTML/DOM parsing and runtime creation. `execution_phase` is present after
+initialization and retains the last owned scheduler state before page disposal.
+`stage.as_str()` and `execution_phase.map(ExecutionPhase::as_str)` provide fixed
+labels for callers. The original `error` remains available as an error source;
+its existing message can include destination data. Nimbo adds no automatic logs,
+heap walks, timing samples or budget changes to this API. `navigate` and
+`navigate_with_cancel` keep returning their original `Error` values.
+
+Native real-HTTP tests cover blocked destinations, status/content rejection,
+initial DOM limits, script and lifecycle fuel exhaustion, early cancellation
+and cancellation during a partial HTTP body. Fresh navigation verifies cleanup
+after failure; scalar phase capture requires no surviving failed Page.
+The native labels describe operation boundaries; headers versus bodies,
+individual initialization steps and subresource timing remain separate work.
 
 A host timeout retains HTTP 504 and reports `cancelled: false`.
 Unexpected internal defects return HTTP 500 with a generic error message.
@@ -120,5 +136,9 @@ Real HTTP/workerd tests cover navigation, node limits, inline scripts, failed
 imports, synchronous and rejected extraction, readiness deadlines and host
 timeouts. Actual listener disconnects verify phase records during timer, HTTP,
 partial-body, readiness and incremental-parser waits, followed by fresh-page
-recovery. Wider lifecycle cases, timing profiles and native navigation-phase
-diagnostics remain roadmap work.
+recovery. Wider lifecycle cases and timing profiles remain roadmap work.
+
+The installed QuickJS wrapper exposes allocation interception through an unsafe
+allocator trait, while this engine forbids unsafe Rust. The current safe runtime
+API supplies heap snapshots and has no allocator peak counter. Snapshot maxima
+must not be reported as a true transient allocation peak; that gate remains open.

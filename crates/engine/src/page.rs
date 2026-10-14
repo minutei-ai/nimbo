@@ -31,8 +31,11 @@ impl Page {
         transport: Rc<Transport>,
         session: crate::cookies::Session,
         media: MediaEnvironment,
-    ) -> Result<Self> {
-        transport.check_deadline()?;
+    ) -> std::result::Result<Self, crate::NavigationFailure> {
+        use crate::{NavigationFailure as Failure, NavigationStage as Stage};
+        transport
+            .check_deadline()
+            .map_err(|error| Failure::new(Stage::Initialization, error))?;
         let deadline = transport.deadline;
         let cancellation = transport.cancellation.clone();
         let machine = Machine::new(
@@ -50,15 +53,21 @@ impl Page {
             true,
             session,
             media,
-        )?;
+        )
+        .map_err(|error| Failure::new(Stage::Initialization, error))?;
         let page = Self {
             machine: RefCell::new(machine),
             transport,
             url: response.url,
             epoch: std::time::Instant::now(),
         };
-        if page.drive()?.is_some() {
-            return Err(Error::Unsupported("unexpected load result".into()));
+        let failed = |error| {
+            let mut failure = Failure::new(Stage::Execution, error);
+            failure.execution_phase = Some(page.execution_phase());
+            failure
+        };
+        if page.drive().map_err(failed)?.is_some() {
+            return Err(failed(Error::Unsupported("unexpected load result".into())));
         }
         Ok(page)
     }

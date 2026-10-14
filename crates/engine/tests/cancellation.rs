@@ -84,7 +84,17 @@ fn cancellation_drops_pending_http_and_partial_body_and_recovers() -> TestResult
             Ok(())
         });
         let started = Instant::now();
-        let result = browser.navigate_with_cancel(&origin, &token);
+        let result = if partial {
+            browser
+                .navigate_with_diagnostics(&origin, &token)
+                .map_err(|failure| {
+                    assert_eq!(failure.stage, nimbo_engine::NavigationStage::Request);
+                    assert_eq!(failure.execution_phase, None);
+                    failure.error
+                })
+        } else {
+            browser.navigate_with_cancel(&origin, &token)
+        };
         cancelling
             .join()
             .map_err(|_panic| "cancelling thread panicked")??;

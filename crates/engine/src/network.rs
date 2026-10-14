@@ -119,10 +119,27 @@ impl Browser {
         url: &str,
         cancellation: &crate::CancellationToken,
     ) -> Result<Page> {
-        cancellation.check()?;
+        self.navigate_with_diagnostics(url, cancellation)
+            .map_err(|failure| failure.error)
+    }
+
+    /// Loads a page with structured failure stages and the original cancellation signal.
+    /// This does not collect heap snapshots, log errors or alter navigation budgets.
+    ///
+    /// # Errors
+    /// Returns the original error with its native operation and last scheduler state.
+    pub fn navigate_with_diagnostics(
+        &self,
+        url: &str,
+        cancellation: &crate::CancellationToken,
+    ) -> std::result::Result<Page, crate::NavigationFailure> {
+        use crate::{NavigationFailure as Failure, NavigationStage as Stage};
+        cancellation
+            .check()
+            .map_err(|error| Failure::new(Stage::Validation, error))?;
         let deadline = Instant::now()
             .checked_add(self.limits.timeout)
-            .ok_or(Error::Limit("invalid timeout"))?;
+            .ok_or_else(|| Failure::new(Stage::Validation, Error::Limit("invalid timeout")))?;
         let transport = Rc::new(Transport {
             client: self.client.clone(),
             runtime: Arc::clone(&self.runtime),
@@ -134,12 +151,20 @@ impl Browser {
             bytes: Cell::new(0),
             cookies: self.session.cookies.clone(),
         });
-        let response = transport.request(&self.origin, url, "GET", "", false)?;
+        let response = transport
+            .request(&self.origin, url, "GET", "", false)
+            .map_err(|error| Failure::new(Stage::Request, error))?;
         if !(200..300).contains(&response.status) {
-            return Err(Error::HttpStatus(response.status));
+            return Err(Failure::new(
+                Stage::Response,
+                Error::HttpStatus(response.status),
+            ));
         }
         if !response.content_type.starts_with("text/html") {
-            return Err(Error::Unsupported("navigation requires text/html".into()));
+            return Err(Failure::new(
+                Stage::Response,
+                Error::Unsupported("navigation requires text/html".into()),
+            ));
         }
         Page::load(
             response,
