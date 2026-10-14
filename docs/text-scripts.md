@@ -83,3 +83,13 @@ Late fonts and font changes reuse the bounded font-loading path
 ([css-font-loading](evidence/css-font-loading-chromium.json)). Layout repeats
 only on DOM, style or font registry changes, under the existing traversal,
 shaping-byte (1 MiB) and time budgets.
+
+## Performance
+
+A native corpus A/B against the build before the RTL and script-run changes
+(three rounds, 15 samples each) keeps every scenario's median within ±3.5%,
+with text wrapping at +1.2%. The only p95 flags fall in different scenarios in
+different rounds, so they read as noise
+([report](performance-comparison-scripts.json)). Text that a single face
+covers skips fallback segmentation, and single-script text is shaped as one
+run.
