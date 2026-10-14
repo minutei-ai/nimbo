@@ -35,10 +35,11 @@ test.skipIf(process.platform !== "linux")(
       const released = await processMemory(child.pid);
       if (released === null || released.rss_high_water_kib === null || allocated === null)
         throw new Error("Missing owned process memory");
-      // The peak must retain most of the known 64 MiB allocation, even after RSS recovers.
-      // Kernel RSS counters are approximate; this is not an exact-byte allocator assertion.
-      expect(released.rss_high_water_kib - released.rss_kib).toBeGreaterThan(48 * 1024);
-      expect(allocated.rss_kib - released.rss_kib).toBeGreaterThan(48 * 1024);
+      // The peak must keep the known 64 MiB allocation after it is released. Whether
+      // the allocator returns those pages to the kernel varies by host, so current RSS
+      // is not asserted. Kernel RSS counters are approximate, not exact allocator bytes.
+      expect(allocated.rss_kib).toBeGreaterThan(48 * 1024);
+      expect(released.rss_high_water_kib).toBeGreaterThanOrEqual(allocated.rss_kib);
       expect(await ownedWorkerdMemory(child.pid)).toBeNull();
     } finally {
       if (child.exitCode === null) child.kill("SIGTERM");
