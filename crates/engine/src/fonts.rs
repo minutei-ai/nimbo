@@ -95,11 +95,15 @@ impl Context {
             work.charge()?;
         }
         let adjustment = self.adjustment.compute(&value)?;
-        let rtl = match declarations.value("direction").0.as_str() {
-            "rtl" => true,
-            "ltr" | "initial" => false,
-            "" | "inherit" | "unset" => self.rtl,
-            _ => return Err(unsupported("direction")),
+        // `direction` has no shorthand; a direct scan avoids the longhand fallback per element.
+        let rtl = match declarations
+            .layout_entries()
+            .find(|(name, _, _)| *name == "direction")
+        {
+            None | Some((_, "inherit" | "unset", false)) => self.rtl,
+            Some((_, "rtl", false)) => true,
+            Some((_, "ltr" | "initial", false)) => false,
+            Some(_) => return Err(unsupported("direction")),
         };
         let mut computed = Self {
             rtl,
