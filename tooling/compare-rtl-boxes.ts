@@ -13,6 +13,6 @@ await compareCssContracts(
   },
   "rtl-boxes",
   fixturePath,
-  19,
+  21,
   "64 fresh HTTP pages per runtime; horizontal-tb right-to-left block, flex, grid and absolute boxes from dir and direction, logical margin/padding/border/inset mapping, computed direction, author override, dir mutation, auto/invalid dir and an LTR control; original supplemental fixture, not original WPT",
 );

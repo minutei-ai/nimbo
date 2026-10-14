@@ -29,6 +29,10 @@ globalThis.comparison=(()=>{
  p=box(document.body,'width:'+w+'px',{dir:'auto'});c=box(p,'width:100px;height:10px');
  checks.autoNoStrong=near(rect(c).x,0)&&getComputedStyle(p).direction==='ltr';
  p.remove();
+ p=box(document.body,'width:'+w+'px',{dir:'auto'});const hebrew=document.createElement('span');hebrew.hidden=true;hebrew.textContent='\u05d0\u05d1';p.append(hebrew);c=box(p,'width:100px;height:10px');
+ checks.autoStrongRtl=near(rect(c).x,w-100)&&getComputedStyle(p).direction==='rtl';
+ hebrew.dir='ltr';checks.autoSkipsOwnDir=near(rect(c).x,0)&&getComputedStyle(p).direction==='ltr';
+ p.remove();
  p=box(document.body,'width:'+w+'px',{dir:'bogus'});c=box(p,'width:100px;height:10px');
  checks.invalidInherits=near(rect(c).x,0)&&getComputedStyle(p).direction==='ltr';
  p.remove();

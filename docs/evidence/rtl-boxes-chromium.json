@@ -25,6 +25,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -51,6 +53,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -77,6 +81,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -103,6 +109,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -129,6 +137,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -155,6 +165,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -181,6 +193,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -207,6 +221,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -233,6 +249,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -259,6 +277,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -285,6 +305,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -311,6 +333,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -337,6 +361,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -363,6 +389,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -389,6 +417,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -415,6 +445,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -441,6 +473,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -467,6 +501,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -493,6 +529,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -519,6 +557,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -545,6 +585,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -571,6 +613,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -597,6 +641,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -623,6 +669,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -649,6 +697,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -675,6 +725,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -701,6 +753,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -727,6 +781,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -753,6 +809,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -779,6 +837,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -805,6 +865,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -831,6 +893,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -857,6 +921,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -883,6 +949,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -909,6 +977,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -935,6 +1005,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -961,6 +1033,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -987,6 +1061,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1013,6 +1089,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1039,6 +1117,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1065,6 +1145,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1091,6 +1173,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1117,6 +1201,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1143,6 +1229,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1169,6 +1257,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1195,6 +1285,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1221,6 +1313,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1247,6 +1341,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1273,6 +1369,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1299,6 +1397,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1325,6 +1425,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1351,6 +1453,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1377,6 +1481,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1403,6 +1509,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1429,6 +1537,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1455,6 +1565,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1481,6 +1593,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1507,6 +1621,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1533,6 +1649,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1559,6 +1677,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1585,6 +1705,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1611,6 +1733,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1637,6 +1761,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1663,6 +1789,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1689,6 +1817,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1715,6 +1845,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1741,6 +1873,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1767,6 +1901,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1793,6 +1929,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1819,6 +1957,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1845,6 +1985,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1871,6 +2013,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1897,6 +2041,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1923,6 +2069,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1949,6 +2097,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -1975,6 +2125,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2001,6 +2153,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2027,6 +2181,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2053,6 +2209,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2079,6 +2237,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2105,6 +2265,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2131,6 +2293,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2157,6 +2321,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2183,6 +2349,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2209,6 +2377,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2235,6 +2405,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2261,6 +2433,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2287,6 +2461,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2313,6 +2489,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2339,6 +2517,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2365,6 +2545,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2391,6 +2573,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2417,6 +2601,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2443,6 +2629,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2469,6 +2657,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2495,6 +2685,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2521,6 +2713,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2547,6 +2741,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2573,6 +2769,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2599,6 +2797,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2625,6 +2825,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2651,6 +2853,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2677,6 +2881,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2703,6 +2909,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2729,6 +2937,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2755,6 +2965,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2781,6 +2993,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2807,6 +3021,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2833,6 +3049,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2859,6 +3077,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2885,6 +3105,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2911,6 +3133,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2937,6 +3161,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2963,6 +3189,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -2989,6 +3217,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -3015,6 +3245,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -3041,6 +3273,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -3067,6 +3301,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -3093,6 +3329,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -3119,6 +3357,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -3145,6 +3385,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -3171,6 +3413,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -3197,6 +3441,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -3223,6 +3469,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -3249,6 +3497,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -3275,6 +3525,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -3301,6 +3553,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }
@@ -3327,6 +3581,8 @@
         "insetStart": true,
         "insetEnd": true,
         "autoNoStrong": true,
+        "autoStrongRtl": true,
+        "autoSkipsOwnDir": true,
         "invalidInherits": true,
         "ltrControl": true
       }

@@ -170,7 +170,10 @@ fn custom_name(name: &str) -> bool {
 /// Authored markerless list paint and wrapping validated by text runs.
 pub(crate) fn non_layout(name: &str, value: &str) -> bool {
     match name {
-        "text-align" => matches!(value, "left" | "start" | "initial" | "inherit" | "unset"),
+        "text-align" => matches!(
+            value,
+            "left" | "right" | "center" | "start" | "end" | "initial" | "inherit" | "unset"
+        ),
         "overflow-wrap" => matches!(
             value,
             "normal" | "break-word" | "anywhere" | "initial" | "unset" | "inherit"
@@ -181,17 +184,51 @@ pub(crate) fn non_layout(name: &str, value: &str) -> bool {
     }
 }
 
-/// The `dir` attribute's presentational direction. Shaping rejects right-to-left
-/// scripts, so `auto` resolves to its no-strong-character result, `ltr`.
+/// The `dir` attribute's presentational direction.
 pub(crate) fn direction_default(node: NodeRef<'_>) -> Option<&'static str> {
     let value = node.null_attribute("dir")?;
-    if value.eq_ignore_ascii_case("rtl") {
-        Some("direction:rtl")
-    } else if value.eq_ignore_ascii_case("ltr") || value.eq_ignore_ascii_case("auto") {
-        Some("direction:ltr")
+    let rtl = if value.eq_ignore_ascii_case("rtl") {
+        true
+    } else if value.eq_ignore_ascii_case("ltr") {
+        false
+    } else if value.eq_ignore_ascii_case("auto") {
+        auto_rtl(node)
     } else {
-        None
+        return None;
+    };
+    Some(if rtl {
+        "direction:rtl"
+    } else {
+        "direction:ltr"
+    })
+}
+
+/// HTML auto directionality: the first strong character of descendant text in
+/// tree order, skipping script, style, textarea and bdi elements and
+/// descendants with their own `dir`. No strong character resolves to `ltr`.
+fn auto_rtl(node: NodeRef<'_>) -> bool {
+    use icu_properties::{CodePointMapData, props::BidiClass};
+    let bidi = CodePointMapData::<BidiClass>::new();
+    let mut pending: Vec<_> = node.children_it(true).collect();
+    while let Some(child) = pending.pop() {
+        if child.is_text() {
+            for ch in child.text().chars() {
+                match bidi.get(ch) {
+                    BidiClass::LeftToRight => return false,
+                    BidiClass::RightToLeft | BidiClass::ArabicLetter => return true,
+                    _ => {}
+                }
+            }
+        } else if child.is_element()
+            && child.null_attribute("dir").is_none()
+            && !["script", "style", "textarea", "bdi"]
+                .iter()
+                .any(|name| child.has_name(name))
+        {
+            pending.extend(child.children_it(true));
+        }
     }
+    false
 }
 
 /// Modern HTML heading defaults, before authored declarations.
