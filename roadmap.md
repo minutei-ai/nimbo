@@ -170,6 +170,17 @@ the subset.
 
 Exit: deterministic font fixtures validate shaping and geometry against independent references. Reports distinguish font-dependent differences from engine errors and record supported scripts.
 
+Implemented: the [text scripts matrix](docs/text-scripts.md) declares Latin,
+Greek, Cyrillic, Hebrew and Arabic. Each script run is shaped with its own
+script and direction, including Arabic joining. Layout text falls back per
+character across `font-family` lists and `unicode-range` subsets. Inputs
+outside the matrix, explicit bidi controls, mirrored characters in
+right-to-left text and fallback with different line metrics fail explicitly.
+A reproducible synthetic multi-script font backs two new 64-page Chromium
+comparisons, and differences are classified as engine errors, font-dependent
+behavior or layout-unit rounding. Han and other complex scripts, line
+breaking without spaces, bidi positions and canvas fallback remain open.
+
 ## 0.7 — Transport and security boundaries
 
 - Expand HTTP decoding, redirects, cookie rules, page fetch and generic HTTP/CONNECT proxy coverage.
