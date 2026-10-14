@@ -4,7 +4,10 @@ import { join, resolve } from "node:path";
 import { benchmarkFixture } from "./benchmark-fixture";
 import { runWorkerBenchmark } from "./benchmark-worker";
 
-export async function startCelld(bundleDirectory = resolve(import.meta.dir, "../dist/worker")) {
+export async function startCelld(
+  bundleDirectory = resolve(import.meta.dir, "../dist/worker"),
+  environment: Readonly<Record<string, string>> = {},
+) {
   const binary = process.env.CELLD_BINARY ?? "celld";
   const versionProcess = Bun.spawn([binary, "--version"], { stdout: "pipe", stderr: "ignore" });
   const [version, versionExit] = await Promise.all([
@@ -41,7 +44,7 @@ export async function startCelld(bundleDirectory = resolve(import.meta.dir, "../
     await writeFile(join(project, ".dev.vars"), `API_TOKEN=${token}\n`, { mode: 0o600 });
     child = Bun.spawn(
       [binary, "dev", project, "--host", "127.0.0.1", "--port", String(port), "--no-watch"],
-      { stdout: "ignore", stderr: "ignore" },
+      { stdout: "ignore", stderr: "ignore", env: { ...process.env, ...environment } },
     );
     const endpoint = new URL(`http://127.0.0.1:${port}`);
     const deadline = performance.now() + 45_000;

@@ -1,0 +1,116 @@
+name: Performance comparison
+
+on:
+  workflow_dispatch:
+    inputs:
+      baseline_ref:
+        description: Full baseline commit SHA supporting benchmark schema 2
+        required: true
+        type: string
+      candidate_ref:
+        description: Full candidate commit SHA; empty uses this workflow revision
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: performance-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        host: [native, worker]
+    env:
+      RUSTUP_TOOLCHAIN: 1.96.0
+      CARGO_HTTP_MULTIPLEXING: "false"
+      NIMBO_BENCH_WORKER_HOST: workerd
+      NIMBO_BASELINE_REF: ${{ inputs.baseline_ref }}
+      NIMBO_CANDIDATE_REF: ${{ inputs.candidate_ref || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate immutable source revisions
+        shell: bash
+        run: |
+          [[ "$NIMBO_BASELINE_REF" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$NIMBO_CANDIDATE_REF" =~ ^[0-9a-f]{40}$ ]]
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.NIMBO_BASELINE_REF }}
+          path: target/performance/baseline-source
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.NIMBO_CANDIDATE_REF }}
+          path: target/performance/candidate-source
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          targets: wasm32-unknown-unknown
+      - run: sudo apt-get update && sudo apt-get install -y clang llvm lld python3
+      - if: matrix.host == 'worker'
+        run: cargo install wasm-bindgen-cli --version 0.2.129 --locked
+      - run: bun install --frozen-lockfile
+      - name: Prepare baseline dependencies
+        working-directory: target/performance/baseline-source
+        run: bun install --frozen-lockfile
+      - name: Prepare candidate dependencies
+        working-directory: target/performance/candidate-source
+        run: bun install --frozen-lockfile
+      - name: Build native baseline
+        if: matrix.host == 'native'
+        working-directory: target/performance/baseline-source
+        run: cargo build --release --locked -p nimbo-engine
+      - name: Build native candidate
+        if: matrix.host == 'native'
+        working-directory: target/performance/candidate-source
+        run: cargo build --release --locked -p nimbo-engine
+      - name: Build Worker baseline
+        if: matrix.host == 'worker'
+        working-directory: target/performance/baseline-source
+        run: bun run build:worker
+      - name: Build Worker candidate
+        if: matrix.host == 'worker'
+        working-directory: target/performance/candidate-source
+        run: bun run build:worker
+      - name: Record source revisions
+        env:
+          NIMBO_DRIVER_REF: ${{ github.sha }}
+        run: >-
+          bun -e 'await Bun.write("target/performance/revisions.json", JSON.stringify({driver:process.env.NIMBO_DRIVER_REF,baseline:process.env.NIMBO_BASELINE_REF,candidate:process.env.NIMBO_CANDIDATE_REF},null,2)+"\n")'
+      - name: Measure native artifacts after builds finish
+        if: matrix.host == 'native'
+        continue-on-error: true
+        run: >-
+          bun run tooling/benchmark-corpus.ts native
+          target/performance/candidate-source/target/release/nimbo-engine
+          target/performance/baseline-source/target/release/nimbo-engine
+          > target/performance/report.json
+      - name: Measure Worker artifacts after builds finish
+        if: matrix.host == 'worker'
+        continue-on-error: true
+        run: >-
+          bun run tooling/benchmark-corpus.ts worker
+          target/performance/candidate-source/dist/worker
+          target/performance/baseline-source/dist/worker
+          > target/performance/report.json
+      - name: Verify complete samples, budgets and fixed regression policy
+        run: bun run bench:gate target/performance/report.json > target/performance/gate.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: performance-${{ matrix.host }}-${{ github.run_id }}
+          path: target/performance/*.json
+          if-no-files-found: error
+          retention-days: 30

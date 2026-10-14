@@ -323,7 +323,7 @@ impl WasmPage {
 #[must_use]
 pub fn engine_limits() -> String {
     let limits = Limits::default();
-    serde_json::json!({ "timeoutMs": limits.timeout.as_millis(), "maxResponseBytes": limits.max_response_bytes, "maxStylesheetBytes": limits.max_stylesheet_bytes, "maxLayoutNodes": limits.max_layout_nodes, "maxRequests": limits.max_requests, "maxExpressionBytes": limits.max_expression_bytes }).to_string()
+    serde_json::json!({ "timeoutMs": limits.timeout.as_millis(), "maxResponseBytes": limits.max_response_bytes, "maxStylesheetBytes": limits.max_stylesheet_bytes, "maxLayoutNodes": limits.max_layout_nodes, "maxRequests": limits.max_requests, "maxExpressionBytes": limits.max_expression_bytes, "page": limits }).to_string()
 }
 
 /// Decodes bounded HTTP text using BOM precedence and a transport charset label.

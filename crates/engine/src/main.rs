@@ -10,13 +10,22 @@ use nimbo_engine::{Browser, Limits};
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = env::args().skip(1);
-    let usage = "usage: nimbo-engine [--proxy <proxy URL>] <url> [JavaScript expression]";
+    let usage =
+        "usage: nimbo-engine --limits | [--proxy <proxy URL>] <url> [JavaScript expression]";
+    let mut url = args.next().ok_or(usage)?;
+    if url == "--limits" {
+        if args.next().is_some() {
+            return Err(usage.into());
+        }
+        serde_json::to_writer(io::stdout().lock(), &Limits::default())?;
+        writeln!(io::stdout().lock())?;
+        return Ok(());
+    }
     let mut proxy = match env::var("NIMBO_PROXY_URL") {
         Ok(value) => Some(value),
         Err(env::VarError::NotPresent) => None,
         Err(env::VarError::NotUnicode(_value)) => return Err("invalid proxy configuration".into()),
     };
-    let mut url = args.next().ok_or(usage)?;
     if url == "--proxy" {
         proxy = Some(args.next().ok_or(usage)?);
         url = args.next().ok_or(usage)?;

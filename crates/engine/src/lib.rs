@@ -78,7 +78,7 @@ pub use page::Page;
 pub use readiness::{Readiness, ReadyCondition};
 
 /// Orçamento de uma navegação, incluindo scripts, fetch e extração.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, serde::Serialize)]
 pub struct Limits {
     /// Chamadas máximas ao watchdog de bytecode do `QuickJS` (independente do relógio).
     pub max_javascript_ticks: usize,

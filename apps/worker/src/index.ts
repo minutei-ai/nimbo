@@ -10,7 +10,11 @@ import { Action, Input, Limits, ScrapeError, failure, type Environment } from ".
 import { Transport, readBody } from "./transport";
 
 initSync({ module: wasm });
-const limits = Schema.decodeUnknownSync(Limits)(JSON.parse(engine_limits()));
+const configuration: unknown = JSON.parse(engine_limits());
+const limits = Schema.decodeUnknownSync(Limits)(configuration);
+const defaults = Schema.decodeUnknownSync(Schema.Struct({ page: Schema.Unknown }))(
+  configuration,
+).page;
 // Single active page bounds the isolate's combined Rust DOM and QuickJS allocations.
 const capacity = Semaphore.makeUnsafe(1);
 
@@ -202,7 +206,11 @@ export default {
   async fetch(request: Request, environment: Environment): Promise<Response> {
     const path = new URL(request.url).pathname;
     if (request.method === "GET" && path === "/health")
-      return Response.json({ engine: "rust-wasm-quickjs", version: engine_version() });
+      return Response.json({
+        engine: "rust-wasm-quickjs",
+        version: engine_version(),
+        limits: defaults,
+      });
     if (request.method !== "POST" || path !== "/scrape")
       return new Response("Not found", { status: 404 });
     if (!environment.API_TOKEN) return new Response("API token is not configured", { status: 503 });

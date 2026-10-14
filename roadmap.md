@@ -18,8 +18,10 @@ Exit: repeated A/B runs retain correctness and original limits; reports include 
 Implemented groundwork: [corpus v1](docs/performance-corpus.md) provides 13
 shared workloads, three-round A/B reporting, artifact/corpus hashes, native peak
 RSS, Worker retained host RSS and predeclared regression tolerances. Correctness
-runs in the normal Worker suite at default limits. Controlled-runner regression
-automation, profiling and Worker peak allocation evidence remain open.
+runs in the normal Worker suite at default limits. [Artifact-attested performance gates](docs/performance-gate.md) validate complete
+A/B reports and provide a manual CI workflow for immutable native/Worker builds.
+Controlled-runner acceptance evidence, profiling and Worker peak allocation
+evidence remain open.
 [Binary response ownership](docs/worker-memory.md) avoids numeric JSON arrays
 and a second Rust buffer; a local single-isolate probe records reduced Wasm
 linear capacity under the same synthetic byte workload and default budgets.

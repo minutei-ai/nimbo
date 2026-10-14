@@ -584,9 +584,14 @@ test("workerd loads Rust Wasm and executes inline JS, lifecycle and DOM selector
       });
     </script>`),
     async (worker) => {
-      expect(await json(await worker.dispatchFetch("https://nimbo.test/health"))).toEqual({
+      expect(await json(await worker.dispatchFetch("https://nimbo.test/health"))).toMatchObject({
         engine: "rust-wasm-quickjs",
         version: "0.1.0",
+        limits: {
+          max_dom_operations: 10000,
+          max_dom_nodes: 65536,
+          timeout: { secs: 10, nanos: 0 },
+        },
       });
       const response = await scrape(worker, "document.querySelector('h1').textContent");
       expect(response.status).toBe(200);

@@ -4,7 +4,9 @@ import { processTreeRss } from "./benchmark-memory";
 import { arch, cpus, loadavg, platform, release, totalmem } from "node:os";
 import { join, resolve } from "node:path";
 import { startCelld } from "./benchmark-celld";
+import { startWorkerd } from "./benchmark-workerd";
 import { corpusVersion, extractionCorpus, extractionFixture } from "./extraction-corpus";
+import { corpusOrder, corpusProtocol, decodeBudget, type Budget } from "./benchmark-protocol";
 import { regressions, regressionPolicy, summarize } from "./benchmark-statistics";
 
 type Scenario = (typeof extractionCorpus)[number];
@@ -14,6 +16,7 @@ export type Runtime = {
   artifact_bytes: number;
   wasm_bytes: number | null;
   host_version: string;
+  limits: Budget;
   startup_ms: number | null;
   rss?: () => Promise<number | null>;
   extract: (scenario: Scenario, origin: URL) => Promise<{ value: unknown; rss_kib: number | null }>;
@@ -33,11 +36,29 @@ async function artifact(path: string) {
 export async function nativeRuntime(path: string, label: string): Promise<Runtime> {
   const binary = resolve(path);
   const identity = await artifact(binary);
+  const probe = Bun.spawn([binary, "--limits"], {
+    stdout: "pipe",
+    stderr: "ignore",
+    timeout: 5000,
+    env: { ...process.env, NIMBO_PROXY_URL: undefined },
+  });
+  const [configuration, probeExit] = await Promise.all([
+    new Response(probe.stdout).text(),
+    probe.exited,
+  ]);
+  if (probeExit !== 0) throw new Error("Native artifact cannot attest its default limits");
+  let limits: Budget;
+  try {
+    limits = decodeBudget(JSON.parse(configuration));
+  } catch {
+    throw new Error("Native artifact cannot attest its default limits");
+  }
   return {
     label,
     ...identity,
     wasm_bytes: null,
     host_version: "native CLI; new process and page per extraction",
+    limits,
     startup_ms: null,
     async extract(scenario, origin) {
       const args = [binary, new URL(scenario.path, origin).href, scenario.expression];
@@ -75,12 +96,29 @@ export async function workerRuntime(path: string, label: string): Promise<Runtim
     wasm_bytes: wasm.byteLength,
   };
   const started = performance.now();
-  const host = await startCelld(path);
+  const host =
+    process.env.NIMBO_BENCH_WORKER_HOST === "workerd"
+      ? await startWorkerd(path)
+      : await startCelld(path, { CELLD_MAX_STATELESS_ISOLATES: "1" });
+  let limits: Budget;
+  try {
+    const health = await fetch(new URL("/health", host.endpoint), {
+      signal: AbortSignal.timeout(5000),
+    });
+    const status: unknown = await health.json();
+    if (!health.ok || typeof status !== "object" || status === null)
+      throw new Error("Missing Worker limit attestation");
+    limits = decodeBudget(Reflect.get(status, "limits"));
+  } catch {
+    await host.stop();
+    throw new Error("Worker artifact cannot attest its default limits");
+  }
   const startup_ms = performance.now() - started;
   return {
     label,
     ...identity,
     host_version: host.version,
+    limits,
     startup_ms,
     async extract(scenario, origin) {
       const response = await fetch(new URL("/scrape", host.endpoint), {
@@ -130,9 +168,7 @@ if (import.meta.main) {
   const candidate =
     process.argv[3] ?? (mode === "native" ? "target/release/nimbo-engine" : "dist/worker");
   const baseline = process.argv[4];
-  const warmups = 3,
-    samples = 15,
-    rounds = 3;
+  const { warmups, samples, rounds } = corpusProtocol;
   const fixture = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: extractionFixture });
   const loadBefore = loadavg();
   const runtimes: Runtime[] = [];
@@ -222,7 +258,7 @@ if (import.meta.main) {
         ];
       });
     const report = {
-      schema_version: 1,
+      schema_version: 2,
       corpus_version: corpusVersion,
       corpus_sha256: await corpusIdentity(),
       date: new Date().toISOString(),
@@ -247,9 +283,10 @@ if (import.meta.main) {
         samples,
         rounds,
         concurrency: 1,
-        order: "alternating builds; reversed first build each iteration and round",
-        limits:
-          "unmodified engine defaults; baseline budget equivalence requires operator verification",
+        budget_mode: "artifact-defaults",
+        host_isolates: mode === "worker" ? 1 : null,
+        order: corpusOrder,
+        limits: "artifact-attested default page budgets; no request overrides",
         timing:
           mode === "native"
             ? "process creation through output and exit"
@@ -265,13 +302,22 @@ if (import.meta.main) {
         policy: regressionPolicy,
       },
       runtimes: runtimes.map(
-        ({ label, artifact_sha256, artifact_bytes, wasm_bytes, host_version, startup_ms }) => ({
+        ({
           label,
           artifact_sha256,
           artifact_bytes,
           wasm_bytes,
           host_version,
           startup_ms,
+          limits,
+        }) => ({
+          label,
+          artifact_sha256,
+          artifact_bytes,
+          wasm_bytes,
+          host_version,
+          startup_ms,
+          limits,
         }),
       ),
       results: results.map((entry) => ({

@@ -9,9 +9,10 @@ expected result or budget requires a corpus version bump.
 
 The normal test suite runs the corpus through real local HTTP and Worker/Wasm in
 workerd at the original default limits. Benchmark runs use the same fixtures
-and default limits on both hosts. Verify that a saved baseline has the same
-default budgets before interpreting A/B results; the runner cannot attest the
-defaults embedded in arbitrary historical binaries. Builds are prepared before
+and default limits on both hosts. Schema 2 obtains each artifact's default budgets through the native CLI/Worker
+health contract. Baselines lacking this attestation are rejected. The
+[performance gate](performance-gate.md) also checks budget equivalence and full
+sample completeness before interpreting A/B results. Builds are prepared before
 measurement:
 
 ```sh
@@ -73,8 +74,9 @@ samples. Quantile/regression tests independently cover tail selection, invalid
 samples, throughput and both thresholds. Use this timing gate on an idle,
 controlled runner. Shared CI gates correctness at default limits; it does not
 gate wall-clock time. Local reports alone do not establish production throughput
-or prove the 0.2 milestone complete. Profiling, controlled-runner ownership,
-Worker peak allocation and sustained-load evidence remain open.
+or prove the 0.2 milestone complete. A manual artifact-attested CI workflow and report gate are now available.
+Profiling, controlled-runner ownership, Worker peak allocation and sustained-load
+evidence remain open.
 
 ## Local A/B evidence, 2026-10-12
 
