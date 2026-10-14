@@ -1,5 +1,7 @@
 import { Cause, Data, Schema } from "effect";
 
+export { Input, Media, Readiness } from "@nimbo/client/schema";
+
 export class ScrapeError extends Data.TaggedError("ScrapeError")<{
   readonly status: number;
   readonly reason: string;
@@ -13,50 +15,6 @@ export function completionFailure(cause: unknown, cancelled: boolean): ScrapeErr
   return new ScrapeError({ status: 500, reason: "scrape execution failed" });
 }
 
-const Dimension = Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 16384 }));
-export const Readiness = Schema.Struct({
-  condition: Schema.Union([
-    Schema.Struct({ type: Schema.Literal("selector"), selector: Schema.String }),
-    Schema.Struct({ type: Schema.Literal("predicate"), expression: Schema.String }),
-    Schema.Struct({
-      type: Schema.Literal("networkIdle"),
-      quietMs: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 10000 })),
-    }),
-  ]),
-  timeoutMs: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 10000 })),
-  pollIntervalMs: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 1000 })),
-});
-export const Media = Schema.Struct({
-  width: Schema.optional(Dimension),
-  height: Schema.optional(Dimension),
-  defaultFontSize: Schema.optional(
-    Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 512 })),
-  ),
-  colorScheme: Schema.optional(Schema.Literals(["light", "dark"])),
-  reducedMotion: Schema.optional(Schema.Boolean),
-});
-
-export const Input = Schema.Struct({
-  url: Schema.String,
-  expression: Schema.String,
-  diagnostics: Schema.optional(Schema.Boolean),
-  maxInitialDomNodes: Schema.optional(
-    Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 65536 })),
-  ),
-  maxDomNodes: Schema.optional(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 65536 }))),
-  media: Schema.optional(Media),
-  maxStylesheetBytes: Schema.optional(
-    Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 2 * 1024 * 1024 })),
-  ),
-  maxLayoutNodes: Schema.optional(
-    Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 4096 })),
-  ),
-  maxDomOperations: Schema.optional(
-    Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 1_000_000 })),
-  ),
-  scripts: Schema.optional(Schema.Literals(["execute", "skip"])),
-  waitFor: Schema.optional(Readiness),
-});
 export const Action = Schema.Union([
   Schema.Struct({
     type: Schema.Literal("request"),

@@ -5,6 +5,7 @@ A TypeScript Worker using Effect v4 to run Nimbo's own Rust/QuickJS engine in We
 - `GET /health`: engine identity and version.
 - `POST /scrape`: extraction authenticated by the `API_TOKEN` secret binding.
 - Optional `EGRESS`: HTTP transport binding; otherwise the host's `fetch` is used.
+- `Engine` entrypoint: native RPC (`scrape`, `health`) for service bindings, with no token. See [`@nimbo/client`](../../packages/client/README.md).
 - Optional `scripts: "skip"`: extract from received HTML without running page scripts. The default is `execute`.
 
 From the repository root:

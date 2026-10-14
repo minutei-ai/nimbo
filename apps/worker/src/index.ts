@@ -1,3 +1,4 @@
+import { WorkerEntrypoint } from "cloudflare:workers";
 import { Effect, Exit, Option, Schema, Semaphore } from "effect";
 import wasm from "nimbo:wasm";
 import {
@@ -42,7 +43,19 @@ type FailureState = {
   enginePhase?: string;
 };
 
-const scrape = (request: Request, environment: Environment, state: FailureState) =>
+type ScrapeInput = typeof Input.Type;
+
+/** Outcome shared by the HTTP route and the RPC entrypoint: an HTTP status and JSON body. */
+export interface Outcome {
+  readonly status: number;
+  readonly body: Record<string, unknown>;
+}
+
+const scrape = (
+  source: Effect.Effect<ScrapeInput, ScrapeError>,
+  environment: Environment,
+  state: FailureState,
+) =>
   Effect.scoped(
     Effect.gen(function* () {
       yield* Effect.acquireRelease(
@@ -58,16 +71,7 @@ const scrape = (request: Request, environment: Environment, state: FailureState)
         () => capacity.release(1),
       );
       state.phase = "input";
-      const input = yield* Effect.tryPromise({
-        try: () => readBody(request, 128 * 1024),
-        catch: (cause) => failure(cause, 400),
-      }).pipe(
-        Effect.flatMap(({ text }) =>
-          Schema.decodeEffect(Schema.fromJsonString(Input))(text).pipe(
-            Effect.mapError((cause) => failure(cause, 400)),
-          ),
-        ),
-      );
+      const input = yield* source;
       state.diagnostics = input.diagnostics === true;
       const wasmLinearBytesBefore =
         input.diagnostics === true ? memory.buffer.byteLength : undefined;
@@ -238,7 +242,7 @@ const scrape = (request: Request, environment: Environment, state: FailureState)
                     Effect.mapError((cause) => failure(cause, 500)),
                   )
                 : undefined;
-            return Response.json({
+            return {
               url: response.url,
               value,
               engine: "rust-wasm-quickjs",
@@ -251,47 +255,85 @@ const scrape = (request: Request, environment: Environment, state: FailureState)
                       wasmLinearBytes: memory.buffer.byteLength,
                     },
                   }),
-            });
+            };
           }
         }
       }
     }),
   ).pipe(Effect.timeout(limits.timeoutMs));
 
+const execute = async (
+  read: Effect.Effect<ScrapeInput, ScrapeError>,
+  environment: Environment,
+  signal?: AbortSignal,
+): Promise<Outcome> => {
+  const state: FailureState = { phase: "admission", diagnostics: false };
+  const exit = await Effect.runPromiseExit(
+    scrape(read, environment, state),
+    signal === undefined ? undefined : { signal },
+  );
+  if (Exit.isSuccess(exit)) return { status: 200, body: exit.value };
+  const cancelled = Exit.hasInterrupts(exit);
+  const cause = Option.getOrUndefined(Exit.findErrorOption(exit));
+  const error = completionFailure(cause, cancelled);
+  const diagnostics = state.diagnostics
+    ? {
+        phase: state.phase,
+        ...(state.enginePhase === undefined ? {} : { enginePhase: state.enginePhase }),
+        cancelled,
+      }
+    : undefined;
+  if (cancelled && diagnostics !== undefined)
+    console.info(JSON.stringify({ event: "nimbo.scrape.cancelled", diagnostics }));
+  return {
+    status: error.status,
+    body: { error: error.reason, ...(diagnostics === undefined ? {} : { diagnostics }) },
+  };
+};
+
+const health = () => ({ engine: "rust-wasm-quickjs", version: engine_version(), limits: defaults });
+
+const readHttp = (request: Request) =>
+  Effect.tryPromise({
+    try: () => readBody(request, 128 * 1024),
+    catch: (cause) => failure(cause, 400),
+  }).pipe(
+    Effect.flatMap(({ text }) =>
+      Schema.decodeEffect(Schema.fromJsonString(Input))(text).pipe(
+        Effect.mapError((cause) => failure(cause, 400)),
+      ),
+    ),
+  );
+
+/**
+ * Native RPC entrypoint for Cloudflare service bindings. A binding is
+ * authorized by deployment configuration, so it carries no API token; it
+ * shares admission, limits and failures with `POST /scrape`.
+ */
+export class Engine extends WorkerEntrypoint<Environment> {
+  scrape(input: unknown): Promise<Outcome> {
+    return execute(
+      Schema.decodeUnknownEffect(Input)(input).pipe(
+        Effect.mapError((cause) => failure(cause, 400)),
+      ),
+      this.env,
+    );
+  }
+  health() {
+    return health();
+  }
+}
+
 export default {
   async fetch(request: Request, environment: Environment): Promise<Response> {
     const path = new URL(request.url).pathname;
-    if (request.method === "GET" && path === "/health")
-      return Response.json({
-        engine: "rust-wasm-quickjs",
-        version: engine_version(),
-        limits: defaults,
-      });
+    if (request.method === "GET" && path === "/health") return Response.json(health());
     if (request.method !== "POST" || path !== "/scrape")
       return new Response("Not found", { status: 404 });
     if (!environment.API_TOKEN) return new Response("API token is not configured", { status: 503 });
     if (request.headers.get("authorization") !== `Bearer ${environment.API_TOKEN}`)
       return new Response("Unauthorized", { status: 401 });
-    const state: FailureState = { phase: "admission", diagnostics: false };
-    const exit = await Effect.runPromiseExit(scrape(request, environment, state), {
-      signal: request.signal,
-    });
-    if (Exit.isSuccess(exit)) return exit.value;
-    const cancelled = Exit.hasInterrupts(exit);
-    const cause = Option.getOrUndefined(Exit.findErrorOption(exit));
-    const error = completionFailure(cause, cancelled);
-    const diagnostics = state.diagnostics
-      ? {
-          phase: state.phase,
-          ...(state.enginePhase === undefined ? {} : { enginePhase: state.enginePhase }),
-          cancelled,
-        }
-      : undefined;
-    if (cancelled && diagnostics !== undefined)
-      console.info(JSON.stringify({ event: "nimbo.scrape.cancelled", diagnostics }));
-    return Response.json(
-      { error: error.reason, ...(diagnostics === undefined ? {} : { diagnostics }) },
-      { status: error.status },
-    );
+    const outcome = await execute(readHttp(request), environment, request.signal);
+    return Response.json(outcome.body, { status: outcome.status });
   },
 };
