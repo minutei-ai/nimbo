@@ -58,7 +58,7 @@ test.each([
       },
     });
     const worker = new Miniflare({
-      handleStructuredLogs: ({ message }) => {
+      handleStructuredLogs: ({ message }: { message: string }) => {
         if (message.includes('"event":"nimbo.scrape.cancelled"')) {
           messages.push(message);
           record.resolve(message);

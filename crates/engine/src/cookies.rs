@@ -15,6 +15,7 @@ pub(crate) struct Session {
 
 impl Session {
     /// Empties cookies and Web Storage in place, so live pages observe the reset.
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn clear(&self) {
         self.cookies.0.borrow_mut().clear();
         *self.storage.borrow_mut() = Storage::default();

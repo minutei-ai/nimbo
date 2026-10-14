@@ -12,7 +12,7 @@ await compareCssContracts(
   (path) => {
     const asset = /^\/font-fallback-assets\/(latin|scripts)\/\d+$/.exec(path);
     if (asset)
-      return new Response(fonts[asset[1] as keyof typeof fonts], {
+      return new Response(asset[1] === "latin" ? fonts.latin : fonts.scripts, {
         headers: { "content-type": "font/ttf" },
       });
     const match = /^\/font-fallback\/(\d+)$/.exec(path);
