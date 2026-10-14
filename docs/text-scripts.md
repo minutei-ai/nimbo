@@ -26,7 +26,7 @@ These inputs fail explicitly with `layout unsupported: …`:
 - `letter-spacing` on Arabic text;
 - a character no candidate face can render.
 
-`text-align` other than `left`/`start` stays unsupported (see
+Inline fragment geometry and `text-align: justify` stay unsupported (see
 [CSS geometry](css-geometry.md)).
 
 ## Font fallback

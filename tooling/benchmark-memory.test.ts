@@ -37,9 +37,10 @@ test.skipIf(process.platform !== "linux")(
         throw new Error("Missing owned process memory");
       // The peak must keep the known 64 MiB allocation after it is released. Whether
       // the allocator returns those pages to the kernel varies by host, so current RSS
-      // is not asserted. Kernel RSS counters are approximate, not exact allocator bytes.
+      // is not asserted. Kernel RSS counters are batched per thread, so VmHWM may trail
+      // an earlier VmRSS sample slightly; they are approximate, not allocator bytes.
       expect(allocated.rss_kib).toBeGreaterThan(48 * 1024);
-      expect(released.rss_high_water_kib).toBeGreaterThanOrEqual(allocated.rss_kib);
+      expect(released.rss_high_water_kib).toBeGreaterThan(allocated.rss_kib - 8 * 1024);
       expect(await ownedWorkerdMemory(child.pid)).toBeNull();
     } finally {
       if (child.exitCode === null) child.kill("SIGTERM");

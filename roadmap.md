@@ -158,9 +158,10 @@ plus the native suite. Twelve previously unrecorded comparisons now have
 evidence. Horizontal right-to-left boxes come from `dir` and `direction`
 across block, flex, grid, absolute insets, logical box properties and computed
 values. `layout-snapshot` and a `dir` mutation catch stale caches, and layout
-stays under the node, depth, operation and time budgets. Bidi text, non-start
-`text-align`, vertical writing modes and wider intrinsic sizing remain outside
-the subset.
+stays under the node, depth, operation and time budgets. `text-align` places
+atomic inline boxes in both directions, and `dir="auto"` uses the first strong
+character. Inline fragment geometry, `justify`, vertical writing modes and
+wider intrinsic sizing remain outside the subset.
 
 ## 0.6 — Text and fonts
 
@@ -199,8 +200,8 @@ stalled response with recovery. Credentials never reach origins or errors;
 the Worker suite shares the fixture. A 10,000-run [libFuzzer campaign](docs/fuzzing.md)
 over HTML, CSS, selectors, import maps and expressions found nothing; it also
 checks that each input leaves a clean fresh page, and a manual CI workflow
-repeats it. Native transport does not request compressed bodies, and a
-blocked fetch rejects with `Error` rather than `TypeError`.
+repeats it. Fetch reports network and policy failures as `TypeError` with the
+host error as `cause`. Native transport does not request compressed bodies.
 
 ## 0.8 — Sessions and bounded execution at scale
 

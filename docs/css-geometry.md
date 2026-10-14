@@ -50,6 +50,8 @@ recorded below:
 | Clip and box-shadow geometry                | `clip-geometry`, `box-shadow-geometry`                                       | 1/64      | [clip](evidence/clip-geometry.json), [box-shadow](evidence/box-shadow-geometry.json)                                                                                                                                                                                |
 | Outer SVG viewport                          | `svg-viewport`                                                               | exact     | [svg-viewport](svg-viewport-chromium.json)                                                                                                                                                                                                                          |
 | Canvas and authored input boxes             | `canvas-box`, `authored-inputs`                                              | 0.1       | [canvas-box](evidence/canvas-box-chromium.json), [authored-inputs](evidence/authored-inputs-chromium.json)                                                                                                                                                          |
+| Text alignment of atomic inlines            | `text-align`                                                                 | 0.1       | [text-align](evidence/text-align-chromium.json)                                                                                                                                                                                                                     |
+| Atomic inline `vertical-align: top`         | `vertical-align`                                                             | 0.1       | [vertical-align](evidence/vertical-align-chromium.json)                                                                                                                                                                                                             |
 | Right-to-left boxes                         | `rtl-boxes`                                                                  | 0.01      | [rtl-boxes](evidence/rtl-boxes-chromium.json)                                                                                                                                                                                                                       |
 | Stale-cache invalidation                    | `layout-snapshot`                                                            | 0.01      | [layout-snapshot](layout-snapshot-chromium.json)                                                                                                                                                                                                                    |
 | Text wrapping and headings                  | `paragraph-wrap`, `inline-text`, `pre-line`, `headings`, `latin-punctuation` | 0.01–0.1  | [paragraph-wrap](evidence/paragraph-wrap-chromium.json), [inline-text](evidence/inline-text-chromium.json), [pre-line](evidence/pre-line-chromium.json), [headings](evidence/headings-chromium.json), [latin-punctuation](evidence/latin-punctuation-chromium.json) |
@@ -60,12 +62,16 @@ recorded below:
 base direction for horizontal-tb boxes. Block, flex and grid placement,
 absolute insets, and logical margin, padding, border and inset properties map
 to the right-to-left physical sides. `getComputedStyle` reports `direction` and
-resolved logical box values. Invalid `dir` values inherit. `dir="auto"`
-resolves to `ltr`, which is the no-strong-character result: shaping still
-rejects right-to-left scripts, so any measurable text is left-to-right. Text
-inside a right-to-left box keeps its start-aligned box geometry. Bidi
-reordering, `text-align` other than `left`/`start`, transitions of logical
-properties under `rtl`, and vertical or sideways writing modes stay
+resolved logical box values. Invalid `dir` values inherit. `dir="auto"` takes
+the first strong character of descendant text in tree order. It skips script,
+style, textarea and bdi elements and descendants with their own `dir`, and
+falls back to `ltr`. `text-align` `left`, `right`, `center`, `start` and `end`
+place atomic inline boxes on each line, with `start`/`end` resolved against
+the box's direction. Atomic inlines accept `vertical-align: baseline` and
+`top`. Chromium moves the baseline-aligned set when a taller box is
+bottom-aligned, so `bottom`, `middle` and text-relative values fail
+explicitly. Inline fragment geometry, `justify`, transitions of
+logical properties under `rtl`, and vertical or sideways writing modes stay
 unsupported.
 
 ## Stale caches and bounds
