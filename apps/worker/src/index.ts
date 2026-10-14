@@ -9,7 +9,7 @@ import {
 import { Action, Input, Limits, ScrapeError, failure, type Environment } from "./protocol";
 import { Transport, readBody } from "./transport";
 
-initSync({ module: wasm });
+const { memory } = initSync({ module: wasm });
 const configuration: unknown = JSON.parse(engine_limits());
 const limits = Schema.decodeUnknownSync(Limits)(configuration);
 const defaults = Schema.decodeUnknownSync(Schema.Struct({ page: Schema.Unknown }))(
@@ -43,6 +43,8 @@ const scrape = (request: Request, environment: Environment) =>
           ),
         ),
       );
+      const wasmLinearBytesBefore =
+        input.diagnostics === true ? memory.buffer.byteLength : undefined;
       const transport = yield* Effect.acquireRelease(
         Effect.try({
           try: () => new Transport(input.url, limits, environment.EGRESS, environment.PROXY_URL),
@@ -99,6 +101,8 @@ const scrape = (request: Request, environment: Environment) =>
         if (deep || blocks % 16 === 0 || (offset === response.body.length && blocks > 1))
           yield* Effect.yieldNow;
       }
+      // Parsing owns its data now; do not retain the navigation string during scripts or waits.
+      response.body = "";
       const page = yield* Effect.acquireRelease(
         Effect.try({
           try: () => loader.finish(),
@@ -194,7 +198,15 @@ const scrape = (request: Request, environment: Environment) =>
               url: response.url,
               value,
               engine: "rust-wasm-quickjs",
-              ...(diagnostics === undefined ? {} : { diagnostics }),
+              ...(diagnostics === undefined
+                ? {}
+                : {
+                    diagnostics: {
+                      ...diagnostics,
+                      wasmLinearBytesBefore,
+                      wasmLinearBytes: memory.buffer.byteLength,
+                    },
+                  }),
             });
           }
         }

@@ -1,0 +1,303 @@
+{
+  "schema_version": 1,
+  "protocol": "three fresh single-isolate hosts; four sequential default-budget extractions",
+  "measurement": "post-extraction QuickJS snapshot, retained Wasm capacity and sampled host RSS",
+  "transient_peaks_measured": false,
+  "navigation_bytes": 262172,
+  "wasm_sha256": "f2e7d35c07894664a2789b9b8a6561ae20ef79a6946ddcda883fd54ad0c5eae9",
+  "bundle_sha256": "89a252342a762a7e6eb626515dc8f9d622faf79c4ee6c1b699b4f3637045b0c4",
+  "environment": {
+    "bun": "1.4.3",
+    "platform": "linux",
+    "arch": "x64",
+    "release": "7.2.9-arch1-1",
+    "cpu": "Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz"
+  },
+  "rounds": [
+    {
+      "round": 0,
+      "host_version": "workerd 1.20260730.1; Miniflare 4.20260730.0",
+      "limits": {
+        "max_javascript_ticks": 512,
+        "max_microtasks": 10000,
+        "max_timers": 1024,
+        "max_timer_tasks": 10000,
+        "max_expression_bytes": 65536,
+        "timeout": {
+          "secs": 10,
+          "nanos": 0
+        },
+        "max_response_bytes": 2097152,
+        "max_initial_dom_nodes": 65536,
+        "max_dom_nodes": 65536,
+        "max_stylesheet_bytes": 262144,
+        "max_requests": 32,
+        "max_dom_operations": 10000,
+        "max_layout_nodes": 1024,
+        "max_dom_write_bytes": 4194304,
+        "max_storage_bytes": 65536,
+        "javascript_memory_bytes": 33554432
+      },
+      "samples": [
+        {
+          "scenario": "small",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 666600,
+            "javascriptUsedBytes": 630832,
+            "javascriptObjectCount": 1897,
+            "javascriptTicksUsed": 1,
+            "microtasksExecuted": 2,
+            "domOperations": 13,
+            "domWriteBytes": 0,
+            "domHandleCount": 2,
+            "wasmLinearBytesBefore": 6750208,
+            "wasmLinearBytes": 10092544
+          },
+          "host_rss_after_request_kib": 273392,
+          "valid": true
+        },
+        {
+          "scenario": "large",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 667032,
+            "javascriptUsedBytes": 17408365,
+            "javascriptObjectCount": 1899,
+            "javascriptTicksUsed": 1,
+            "microtasksExecuted": 2,
+            "domOperations": 13,
+            "domWriteBytes": 0,
+            "domHandleCount": 2,
+            "wasmLinearBytesBefore": 10092544,
+            "wasmLinearBytes": 26869760
+          },
+          "host_rss_after_request_kib": 292640,
+          "valid": true
+        },
+        {
+          "scenario": "large-repeat",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 667032,
+            "javascriptUsedBytes": 17408365,
+            "javascriptObjectCount": 1899,
+            "javascriptTicksUsed": 1,
+            "microtasksExecuted": 2,
+            "domOperations": 13,
+            "domWriteBytes": 0,
+            "domHandleCount": 2,
+            "wasmLinearBytesBefore": 26869760,
+            "wasmLinearBytes": 26869760
+          },
+          "host_rss_after_request_kib": 320152,
+          "valid": true
+        },
+        {
+          "scenario": "small-recovery",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 666600,
+            "javascriptUsedBytes": 630832,
+            "javascriptObjectCount": 1897,
+            "javascriptTicksUsed": 1,
+            "microtasksExecuted": 2,
+            "domOperations": 13,
+            "domWriteBytes": 0,
+            "domHandleCount": 2,
+            "wasmLinearBytesBefore": 26869760,
+            "wasmLinearBytes": 26869760
+          },
+          "host_rss_after_request_kib": 327556,
+          "valid": true
+        }
+      ]
+    },
+    {
+      "round": 1,
+      "host_version": "workerd 1.20260730.1; Miniflare 4.20260730.0",
+      "limits": {
+        "max_javascript_ticks": 512,
+        "max_microtasks": 10000,
+        "max_timers": 1024,
+        "max_timer_tasks": 10000,
+        "max_expression_bytes": 65536,
+        "timeout": {
+          "secs": 10,
+          "nanos": 0
+        },
+        "max_response_bytes": 2097152,
+        "max_initial_dom_nodes": 65536,
+        "max_dom_nodes": 65536,
+        "max_stylesheet_bytes": 262144,
+        "max_requests": 32,
+        "max_dom_operations": 10000,
+        "max_layout_nodes": 1024,
+        "max_dom_write_bytes": 4194304,
+        "max_storage_bytes": 65536,
+        "javascript_memory_bytes": 33554432
+      },
+      "samples": [
+        {
+          "scenario": "small",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 666600,
+            "javascriptUsedBytes": 630832,
+            "javascriptObjectCount": 1897,
+            "javascriptTicksUsed": 1,
+            "microtasksExecuted": 2,
+            "domOperations": 13,
+            "domWriteBytes": 0,
+            "domHandleCount": 2,
+            "wasmLinearBytesBefore": 6750208,
+            "wasmLinearBytes": 10092544
+          },
+          "host_rss_after_request_kib": 275564,
+          "valid": true
+        },
+        {
+          "scenario": "large",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 667032,
+            "javascriptUsedBytes": 17408365,
+            "javascriptObjectCount": 1899,
+            "javascriptTicksUsed": 1,
+            "microtasksExecuted": 2,
+            "domOperations": 13,
+            "domWriteBytes": 0,
+            "domHandleCount": 2,
+            "wasmLinearBytesBefore": 10092544,
+            "wasmLinearBytes": 26869760
+          },
+          "host_rss_after_request_kib": 294920,
+          "valid": true
+        },
+        {
+          "scenario": "large-repeat",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 667032,
+            "javascriptUsedBytes": 17408365,
+            "javascriptObjectCount": 1899,
+            "javascriptTicksUsed": 1,
+            "microtasksExecuted": 2,
+            "domOperations": 13,
+            "domWriteBytes": 0,
+            "domHandleCount": 2,
+            "wasmLinearBytesBefore": 26869760,
+            "wasmLinearBytes": 26869760
+          },
+          "host_rss_after_request_kib": 322708,
+          "valid": true
+        },
+        {
+          "scenario": "small-recovery",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 666600,
+            "javascriptUsedBytes": 630832,
+            "javascriptObjectCount": 1897,
+            "javascriptTicksUsed": 1,
+            "microtasksExecuted": 2,
+            "domOperations": 13,
+            "domWriteBytes": 0,
+            "domHandleCount": 2,
+            "wasmLinearBytesBefore": 26869760,
+            "wasmLinearBytes": 26869760
+          },
+          "host_rss_after_request_kib": 328016,
+          "valid": true
+        }
+      ]
+    },
+    {
+      "round": 2,
+      "host_version": "workerd 1.20260730.1; Miniflare 4.20260730.0",
+      "limits": {
+        "max_javascript_ticks": 512,
+        "max_microtasks": 10000,
+        "max_timers": 1024,
+        "max_timer_tasks": 10000,
+        "max_expression_bytes": 65536,
+        "timeout": {
+          "secs": 10,
+          "nanos": 0
+        },
+        "max_response_bytes": 2097152,
+        "max_initial_dom_nodes": 65536,
+        "max_dom_nodes": 65536,
+        "max_stylesheet_bytes": 262144,
+        "max_requests": 32,
+        "max_dom_operations": 10000,
+        "max_layout_nodes": 1024,
+        "max_dom_write_bytes": 4194304,
+        "max_storage_bytes": 65536,
+        "javascript_memory_bytes": 33554432
+      },
+      "samples": [
+        {
+          "scenario": "small",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 666600,
+            "javascriptUsedBytes": 630832,
+            "javascriptObjectCount": 1897,
+            "javascriptTicksUsed": 1,
+            "microtasksExecuted": 2,
+            "domOperations": 13,
+            "domWriteBytes": 0,
+            "domHandleCount": 2,
+            "wasmLinearBytesBefore": 6750208,
+            "wasmLinearBytes": 10092544
+          },
+          "host_rss_after_request_kib": 276968,
+          "valid": true
+        },
+        {
+          "scenario": "large",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 667032,
+            "javascriptUsedBytes": 17408365,
+            "javascriptObjectCount": 1899,
+            "javascriptTicksUsed": 1,
+            "microtasksExecuted": 2,
+            "domOperations": 13,
+            "domWriteBytes": 0,
+            "domHandleCount": 2,
+            "wasmLinearBytesBefore": 10092544,
+            "wasmLinearBytes": 26869760
+          },
+          "host_rss_after_request_kib": 296256,
+          "valid": true
+        },
+        {
+          "scenario": "large-repeat",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 667032,
+            "javascriptUsedBytes": 17408365,
+            "javascriptObjectCount": 1899,
+            "javascriptTicksUsed": 1,
+            "microtasksExecuted": 2,
+            "domOperations": 13,
+            "domWriteBytes": 0,
+            "domHandleCount": 2,
+            "wasmLinearBytesBefore": 26869760,
+            "wasmLinearBytes": 26869760
+          },
+          "host_rss_after_request_kib": 320140,
+          "valid": true
+        },
+        {
+          "scenario": "small-recovery",
+          "diagnostics": {
+            "javascriptAllocatedBytes": 666600,
+            "javascriptUsedBytes": 630832,
+            "javascriptObjectCount": 1897,
+            "javascriptTicksUsed": 1,
+            "microtasksExecuted": 2,
+            "domOperations": 13,
+            "domWriteBytes": 0,
+            "domHandleCount": 2,
+            "wasmLinearBytesBefore": 26869760,
+            "wasmLinearBytes": 26869760
+          },
+          "host_rss_after_request_kib": 331584,
+          "valid": true
+        }
+      ]
+    }
+  ]
+}

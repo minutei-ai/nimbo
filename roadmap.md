@@ -22,6 +22,10 @@ runs in the normal Worker suite at default limits. [Artifact-attested performanc
 A/B reports and provide a manual CI workflow for immutable native/Worker builds.
 Controlled-runner acceptance evidence, profiling and Worker peak allocation
 evidence remain open.
+[Worker memory diagnostics](docs/diagnostics.md) separate fresh-page QuickJS
+snapshots from retained isolate Wasm capacity, with a reproducible three-host
+default-budget profile. Navigation HTML is released after parsing. These
+snapshots do not close the transient peak allocation gate.
 [Binary response ownership](docs/worker-memory.md) avoids numeric JSON arrays
 and a second Rust buffer; a local single-isolate probe records reduced Wasm
 linear capacity under the same synthetic byte workload and default budgets.

@@ -72,7 +72,7 @@ function diagnosticHeap(body: unknown): number {
   if (typeof body !== "object" || body === null) throw new Error("Missing response");
   const counters: unknown = Reflect.get(body, "diagnostics");
   if (typeof counters !== "object" || counters === null) throw new Error("Missing diagnostics");
-  expect(Object.keys(counters)).toHaveLength(8);
+  expect(Object.keys(counters)).toHaveLength(10);
   expect(
     Object.values(counters).every(
       (value: unknown) => typeof value === "number" && Number.isFinite(value) && value >= 0,
@@ -82,6 +82,45 @@ function diagnosticHeap(body: unknown): number {
   if (typeof used !== "number") throw new Error("Missing heap measurement");
   return used;
 }
+
+function diagnosticCapacity(body: unknown, field = "wasmLinearBytes"): number {
+  if (typeof body !== "object" || body === null) throw new Error("Missing response");
+  const counters: unknown = Reflect.get(body, "diagnostics");
+  if (typeof counters !== "object" || counters === null) throw new Error("Missing diagnostics");
+  const bytes: unknown = Reflect.get(counters, field);
+  if (typeof bytes !== "number") throw new Error("Missing Wasm capacity");
+  expect(bytes).toBeGreaterThan(0);
+  expect(bytes % 65536).toBe(0);
+  return bytes;
+}
+
+test("Worker diagnostics separate retained Wasm capacity from a fresh page heap", async () => {
+  await fixture(
+    () => html("<body>capacity</body>"),
+    async (worker) => {
+      const run = async (expression: string) => {
+        const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+          method: "POST",
+          headers: { authorization: "Bearer test-secret" },
+          body: JSON.stringify({ url: originFor(worker), expression, diagnostics: true }),
+        });
+        expect(response.status).toBe(200);
+        return json(response);
+      };
+      const first = await run("true");
+      const large = await run("(globalThis.kept = new ArrayBuffer(16 * 1024 * 1024), true)");
+      const recovered = await run("typeof kept");
+      expect(recovered).toMatchObject({ value: "undefined" });
+      expect(diagnosticCapacity(large, "wasmLinearBytesBefore")).toBe(diagnosticCapacity(first));
+      expect(diagnosticCapacity(large)).toBeGreaterThan(diagnosticCapacity(first));
+      expect(diagnosticCapacity(recovered, "wasmLinearBytesBefore")).toBe(
+        diagnosticCapacity(large),
+      );
+      expect(diagnosticCapacity(recovered)).toBeGreaterThanOrEqual(diagnosticCapacity(large));
+      expect(diagnosticHeap(recovered)).toBeLessThan(diagnosticHeap(large));
+    },
+  );
+});
 
 test("optional diagnostics observe page heap growth and fresh-page isolation", async () => {
   await fixture(
