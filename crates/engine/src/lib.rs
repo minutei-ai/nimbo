@@ -29,6 +29,9 @@ mod font_family;
 mod font_matching;
 mod font_settings;
 mod fonts;
+#[cfg(fuzzing)]
+#[doc(hidden)]
+pub mod fuzzing;
 mod html_boxes;
 mod html_parse;
 mod import_maps;

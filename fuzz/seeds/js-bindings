@@ -1,0 +1,1 @@
+(()=>{const p=document.getElementById('p');p.innerHTML='<i>A</i><i>B</i>';return Array.from(p.childNodes).map(n=>n.textContent)})()

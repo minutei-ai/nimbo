@@ -1,0 +1,1 @@
+(()=>{globalThis.leaked=1;localStorage.setItem('leaked','x');return document.body.children.length})()

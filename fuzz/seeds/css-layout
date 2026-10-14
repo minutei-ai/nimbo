@@ -1,0 +1,1 @@
+:root{--x:calc(1px + 2%)}#p{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:var(--x)}
