@@ -168,6 +168,18 @@ Exit: deterministic font fixtures validate shaping and geometry against independ
 
 Exit: transport tests cover authenticated proxies, redirects, cancellation and blocked destinations. No credential or cross-page state leakage occurs in the declared isolation model; fuzzing findings are resolved or explicitly triaged.
 
+Implemented: [native proxy transport](tooling/native-proxy-fixture.py) runs
+real HTTP/TLS origins behind HTTP, HTTPS and SOCKS5 proxies, with and without
+authentication. Authenticated proxies cover redirects, cross-origin redirects
+and page fetches blocked before the proxy, redirect loops, response limits,
+TLS hostname and trust failures, no direct fallback, and cancellation of a
+stalled response with recovery. Credentials never reach origins or errors;
+the Worker suite shares the fixture. A 10,000-run [libFuzzer campaign](docs/fuzzing.md)
+over HTML, CSS, selectors, import maps and expressions found nothing; it also
+checks that each input leaves a clean fresh page, and a manual CI workflow
+repeats it. Native transport does not request compressed bodies, and a
+blocked fetch rejects with `Error` rather than `TypeError`.
+
 ## 0.8 — Sessions and bounded execution at scale
 
 - Define an explicit session API for native and Worker hosts, building on native cookie/storage state.

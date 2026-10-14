@@ -1,0 +1,64 @@
+name: Fuzz campaign
+
+on:
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: libFuzzer executions
+        required: false
+        default: "10000"
+        type: string
+      seed:
+        description: libFuzzer seed
+        required: false
+        default: "20261015"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fuzz-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  engine:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      CARGO_HTTP_MULTIPLEXING: "false"
+      FUZZ_RUNS: ${{ inputs.runs }}
+      FUZZ_SEED: ${{ inputs.seed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate numeric inputs
+        shell: bash
+        run: |
+          [[ "$FUZZ_RUNS" =~ ^[0-9]{1,9}$ ]]
+          [[ "$FUZZ_SEED" =~ ^[0-9]{1,10}$ ]]
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-04-29
+      - run: sudo apt-get update && sudo apt-get install -y clang llvm
+      - run: bun install --frozen-lockfile
+      - name: Install cargo-fuzz
+        run: cargo +nightly-2026-04-29 install cargo-fuzz --locked
+      - name: Run campaign
+        shell: bash
+        run: |
+          mkdir -p fuzz/corpus/engine fuzz/artifacts
+          cargo +nightly-2026-04-29 fuzz run engine fuzz/corpus/engine fuzz/seeds -- \
+            -runs="$FUZZ_RUNS" -seed="$FUZZ_SEED" -max_len=8192 -timeout=15 \
+            -rss_limit_mb=1024 -artifact_prefix=fuzz/artifacts/
+      - name: Upload findings
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-artifacts
+          path: fuzz/artifacts/
+          if-no-files-found: ignore
