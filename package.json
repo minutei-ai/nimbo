@@ -103,7 +103,8 @@
     "compare:history": "bun run build:worker && bun run tooling/compare-history.ts",
     "compare:import-maps": "bun run build:worker && bun run tooling/compare-import-maps.ts",
     "bench:gate": "bun run tooling/benchmark-gate.ts",
-    "profile:worker-memory": "bun run tooling/profile-worker-memory.ts"
+    "profile:worker-memory": "bun run tooling/profile-worker-memory.ts",
+    "profile:collection-names": "bun run tooling/profile-collection-names.ts"
   },
   "devDependencies": {
     "@effect/tsgo": "0.47.2",

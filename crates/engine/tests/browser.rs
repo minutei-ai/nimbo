@@ -4998,3 +4998,15 @@ fn select_state_preserves_defaults_mutations_collections_and_reset() -> TestResu
     assert_eq!(page.evaluate("(()=>{const s=document.createElement('select');s.append(new Option('A'),new Option('B'));const before=s[0],replacement=new Option('Replacement');return Reflect.defineProperty(s,'0',{value:replacement,configurable:false})===false&&s[0]===before&&Reflect.defineProperty(s.options,'0',{value:replacement,configurable:false})===false&&s[0]===before})()")?, json!(true));
     Ok(())
 }
+
+#[test]
+fn named_collections_observe_conversion_before_live_resolution() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    let source = include_str!("fixtures/collection-names.txt");
+    assert_eq!(page.evaluate(&format!("(()=>{{{source};const checks=collectionNamesCase(0);return {{count:Object.keys(checks).length,failed:Object.entries(checks).filter(([,passed])=>!passed).map(([name])=>name)}}}})()"))?, json!({"count":19,"failed":[]}));
+    let before = page.diagnostics().dom_handle_count;
+    assert_eq!(page.evaluate("(()=>{document.body.innerHTML='<select multiple id=s>'+Array.from({length:1000},(_,i)=>'<option selected id=o'+i+'>'+i+'</option>').join('')+'</select>';return document.getElementById('s').selectedOptions.namedItem('missing')===null})()")?, json!(true));
+    assert!(page.diagnostics().dom_handle_count <= before + 2);
+    Ok(())
+}

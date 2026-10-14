@@ -940,3 +940,46 @@ test("native select state observes defaults, live options and owned reset", asyn
     },
   );
 });
+
+test("named collections use current state after DOMString conversion", async () => {
+  const source = await Bun.file(
+    join(root, "crates/engine/tests/fixtures/collection-names.txt"),
+  ).text();
+  await fixture(
+    () => html("<body>fresh</body>"),
+    async (worker) => {
+      const response = await scrape(
+        worker,
+        `(()=>{${source};const checks=collectionNamesCase(0);return {count:Object.keys(checks).length,failed:Object.entries(checks).filter(([,passed])=>!passed).map(([name])=>name)}})()`,
+      );
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({ value: { count: 19, failed: [] } });
+    },
+  );
+});
+
+test("selected named lookup avoids handles for unmatched options", async () => {
+  const options = Array.from(
+    { length: 1000 },
+    (_, index) => `<option selected id=o${index}>${index}</option>`,
+  ).join("");
+  await fixture(
+    () => html(`<select multiple id=s>${options}</select>`),
+    async (worker) => {
+      const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+        method: "POST",
+        headers: { authorization: "Bearer test-secret" },
+        body: JSON.stringify({
+          url: originFor(worker),
+          expression: "document.getElementById('s').selectedOptions.namedItem('missing')===null",
+          diagnostics: true,
+        }),
+      });
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({
+        value: true,
+        diagnostics: { domHandleCount: 2 },
+      });
+    },
+  );
+});

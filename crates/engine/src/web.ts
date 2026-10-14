@@ -1334,6 +1334,7 @@
     live: boolean;
     count?: () => number;
     at?: (index: number) => Node | number | undefined;
+    namedGet?: (name: string) => Node | undefined;
   };
   function collectionNode(value: Node | number | undefined): Node | undefined {
     return typeof value === "number" ? node(value) : value;
@@ -1395,6 +1396,7 @@
     const { named = false, live = false, count } = options;
     const state: CollectionState = count ? { resolve, live, count } : { resolve, live };
     if (options.at) state.at = options.at;
+    if (options.namedGet) state.namedGet = options.namedGet;
     const visibleName = (key: string | symbol): Node | undefined =>
       named && typeof key === "string" && !Reflect.has(target, key)
         ? options.namedGet
@@ -1614,8 +1616,10 @@
     }
     namedItem(name: unknown): Element | null {
       if (arguments.length === 0) throw new TypeError("namedItem requires a name");
-      if (typeof name === "symbol") throw new TypeError("name must be convertible to a DOMString");
-      const value = namedNodes(collectionState(this).resolve()).get(String(name));
+      const state = collectionState(this);
+      const key = domString(name);
+      if (key === "") return null;
+      const value = state.namedGet ? state.namedGet(key) : namedNodes(state.resolve()).get(key);
       return value instanceof Element ? value : null;
     }
     [Symbol.iterator](): Generator<Node> {

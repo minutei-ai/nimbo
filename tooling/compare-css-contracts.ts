@@ -2,6 +2,23 @@ import { Schema } from "effect";
 import { startCelld } from "./benchmark-celld";
 import { startCdpBrowser } from "./benchmark-cdp";
 
+export function classifyChecks(
+  checks: Readonly<Record<string, boolean>>,
+  expectedCount: number,
+  referenceDivergences?: Readonly<Record<string, string>>,
+): "passed" | "reference-divergence" | "failed" {
+  if (
+    Object.keys(checks).length !== expectedCount ||
+    !Object.keys(referenceDivergences ?? {}).every((key) => Object.hasOwn(checks, key)) ||
+    !Object.entries(checks).every(
+      ([key, passed]) =>
+        passed === !(referenceDivergences && Object.hasOwn(referenceDivergences, key)),
+    )
+  )
+    return "failed";
+  return referenceDivergences ? "reference-divergence" : "passed";
+}
+
 export async function compareCssContracts(
   serve: (path: string, headers?: Headers) => Response | undefined,
   route: string,
@@ -10,6 +27,7 @@ export async function compareCssContracts(
   scope: string,
   scenarios: ReadonlyArray<{ route: string; expectedCount: number }> = [{ route, expectedCount }],
   expression = "globalThis.comparison",
+  referenceDivergences?: Readonly<Record<string, string>>,
 ) {
   const binary = process.env.NIMBO_COMPARE_CHROMIUM_BINARY;
   if (!binary) throw new Error("Set NIMBO_COMPARE_CHROMIUM_BINARY to ordinary Chromium");
@@ -63,11 +81,8 @@ export async function compareCssContracts(
               value = Reflect.get(body, "value");
             }
             row.checks = decode(value);
-            row.status =
-              Object.keys(row.checks).length === scenario.expectedCount &&
-              Object.values(row.checks).every(Boolean)
-                ? "passed"
-                : "failed";
+            const divergences = runtime === browser.version ? referenceDivergences : undefined;
+            row.status = classifyChecks(row.checks, scenario.expectedCount, divergences);
           } catch (error) {
             row.error = String(error);
           }
@@ -75,9 +90,10 @@ export async function compareCssContracts(
       }
     }
     process.stdout.write(
-      `${JSON.stringify({ date: new Date().toISOString().slice(0, 10), fixture: fixturePath, scope, results }, null, 2)}\n`,
+      `${JSON.stringify({ date: new Date().toISOString().slice(0, 10), fixture: fixturePath, scope, reference_divergences: referenceDivergences, results }, null, 2)}\n`,
     );
-    if (results.some((row) => row.status !== "passed")) process.exitCode = 1;
+    if (results.some((row) => row.status !== "passed" && row.status !== "reference-divergence"))
+      process.exitCode = 1;
   } finally {
     try {
       if (celld) await celld.stop();

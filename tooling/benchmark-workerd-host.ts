@@ -15,6 +15,7 @@ const workerd = manifest(
   ).json(),
 );
 const worker = new Miniflare({
+  modulesRoot: resolve(directory),
   modules: [
     { type: "ESModule", path: join(resolve(directory), "index.js") },
     { type: "CompiledWasm", path: join(resolve(directory), "nimbo_engine_bg.wasm") },

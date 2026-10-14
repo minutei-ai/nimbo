@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
 import { resolve } from "node:path";
+import { cp, mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { decodeBudget } from "./benchmark-protocol";
 import { ownedWorkerdMemory, processTreeRss } from "./benchmark-memory";
 import { startWorkerd } from "./benchmark-workerd";
@@ -56,5 +59,22 @@ test("memory attribution rejects multiple workerd processes under one owner", as
     }
   } finally {
     await first.stop();
+  }
+}, 30000);
+
+test("benchmark workerd loads an immutable bundle outside the checkout", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "nimbo-benchmark-bundle-"));
+  try {
+    await cp(resolve(import.meta.dir, "../dist/worker"), directory, { recursive: true });
+    const host = await startWorkerd(directory);
+    try {
+      const response = await fetch(new URL("/health", host.endpoint));
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({ engine: "rust-wasm-quickjs" });
+    } finally {
+      await host.stop();
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
   }
 }, 30000);

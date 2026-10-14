@@ -1,0 +1,708 @@
+{
+  "schema_version": 1,
+  "kind": "named-collection-resource-profile",
+  "options": [200, 1000],
+  "protocol": "three rounds; fresh single-isolate host per build; reverse build order in middle round; equal original limits; six fresh pages per host; baseline quota failures retained",
+  "latency_acceptance_measured": false,
+  "rounds": [
+    [
+      {
+        "round": 0,
+        "build": "baseline",
+        "wasm_sha256": "95f107d4a2b70a813259edc51b0f12db4f0099894477723d9adb06767e8ef21f",
+        "bundle_sha256": "3bbb77feb39ba13a4c873540bb9739db6672ce9dfebc1ec211c827f3ba93f67b",
+        "host_version": "workerd 1.20260730.1; Miniflare 4.20260730.0",
+        "limits": {
+          "max_javascript_ticks": 512,
+          "max_microtasks": 10000,
+          "max_timers": 1024,
+          "max_timer_tasks": 10000,
+          "max_expression_bytes": 65536,
+          "timeout": {
+            "secs": 10,
+            "nanos": 0
+          },
+          "max_response_bytes": 2097152,
+          "max_initial_dom_nodes": 65536,
+          "max_dom_nodes": 65536,
+          "max_stylesheet_bytes": 262144,
+          "max_requests": 32,
+          "max_dom_operations": 10000,
+          "max_layout_nodes": 1024,
+          "max_dom_write_bytes": 4194304,
+          "max_storage_bytes": 65536,
+          "javascript_memory_bytes": 33554432
+        },
+        "samples": [
+          {
+            "scenario": "missing",
+            "options": 200,
+            "valid": true,
+            "diagnostics": {
+              "javascriptAllocatedBytes": 760440,
+              "javascriptUsedBytes": 644389,
+              "javascriptObjectCount": 2126,
+              "javascriptTicksUsed": 5,
+              "microtasksExecuted": 2,
+              "domOperations": 2009,
+              "domWriteBytes": 0,
+              "domHandleCount": 202,
+              "wasmLinearBytesBefore": 6750208,
+              "wasmLinearBytes": 7798784
+            }
+          },
+          {
+            "scenario": "last",
+            "options": 200,
+            "valid": true,
+            "diagnostics": {
+              "javascriptAllocatedBytes": 760440,
+              "javascriptUsedBytes": 644389,
+              "javascriptObjectCount": 2126,
+              "javascriptTicksUsed": 5,
+              "microtasksExecuted": 2,
+              "domOperations": 2010,
+              "domWriteBytes": 0,
+              "domHandleCount": 202,
+              "wasmLinearBytesBefore": 7798784,
+              "wasmLinearBytes": 7798784
+            }
+          },
+          {
+            "scenario": "empty",
+            "options": 200,
+            "valid": true,
+            "diagnostics": {
+              "javascriptAllocatedBytes": 760440,
+              "javascriptUsedBytes": 644389,
+              "javascriptObjectCount": 2126,
+              "javascriptTicksUsed": 5,
+              "microtasksExecuted": 2,
+              "domOperations": 2009,
+              "domWriteBytes": 0,
+              "domHandleCount": 202,
+              "wasmLinearBytesBefore": 7798784,
+              "wasmLinearBytes": 7798784
+            }
+          },
+          {
+            "scenario": "missing",
+            "options": 1000,
+            "valid": false,
+            "error": "resource limit: DOM operations"
+          },
+          {
+            "scenario": "last",
+            "options": 1000,
+            "valid": false,
+            "error": "resource limit: DOM operations"
+          },
+          {
+            "scenario": "empty",
+            "options": 1000,
+            "valid": false,
+            "error": "resource limit: DOM operations"
+          }
+        ]
+      },
+      {
+        "round": 0,
+        "build": "candidate",
+        "wasm_sha256": "ab041265f1871d694319b573cf46e22c0f635db8af35e79aea7e4b610962058b",
+        "bundle_sha256": "3bbb77feb39ba13a4c873540bb9739db6672ce9dfebc1ec211c827f3ba93f67b",
+        "host_version": "workerd 1.20260730.1; Miniflare 4.20260730.0",
+        "limits": {
+          "max_javascript_ticks": 512,
+          "max_microtasks": 10000,
+          "max_timers": 1024,
+          "max_timer_tasks": 10000,
+          "max_expression_bytes": 65536,
+          "timeout": {
+            "secs": 10,
+            "nanos": 0
+          },
+          "max_response_bytes": 2097152,
+          "max_initial_dom_nodes": 65536,
+          "max_dom_nodes": 65536,
+          "max_stylesheet_bytes": 262144,
+          "max_requests": 32,
+          "max_dom_operations": 10000,
+          "max_layout_nodes": 1024,
+          "max_dom_write_bytes": 4194304,
+          "max_storage_bytes": 65536,
+          "javascript_memory_bytes": 33554432
+        },
+        "samples": [
+          {
+            "scenario": "missing",
+            "options": 200,
+            "valid": true,
+            "diagnostics": {
+              "javascriptAllocatedBytes": 670880,
+              "javascriptUsedBytes": 633206,
+              "javascriptObjectCount": 1926,
+              "javascriptTicksUsed": 1,
+              "microtasksExecuted": 2,
+              "domOperations": 809,
+              "domWriteBytes": 0,
+              "domHandleCount": 2,
+              "wasmLinearBytesBefore": 6750208,
+              "wasmLinearBytes": 7667712
+            }
+          },
+          {
+            "scenario": "last",
+            "options": 200,
+            "valid": true,
+            "diagnostics": {
+              "javascriptAllocatedBytes": 671432,
+              "javascriptUsedBytes": 633334,
+              "javascriptObjectCount": 1927,
+              "javascriptTicksUsed": 1,
+              "microtasksExecuted": 2,
+              "domOperations": 811,
+              "domWriteBytes": 0,
+              "domHandleCount": 3,
+              "wasmLinearBytesBefore": 7667712,
+              "wasmLinearBytes": 7667712
+            }
+          },
+          {
+            "scenario": "empty",
+            "options": 200,
+            "valid": true,
+            "diagnostics": {
+              "javascriptAllocatedBytes": 670880,
+              "javascriptUsedBytes": 633206,
+              "javascriptObjectCount": 1926,
+              "javascriptTicksUsed": 1,
+              "microtasksExecuted": 2,
+              "domOperations": 6,
+              "domWriteBytes": 0,
+              "domHandleCount": 2,
+              "wasmLinearBytesBefore": 7667712,
+              "wasmLinearBytes": 7667712
+            }
+          },
+          {
+            "scenario": "missing",
+            "options": 1000,
+            "valid": true,
+            "diagnostics": {
+              "javascriptAllocatedBytes": 670880,
+              "javascriptUsedBytes": 633221,
+              "javascriptObjectCount": 1926,
+              "javascriptTicksUsed": 1,
+              "microtasksExecuted": 2,
+              "domOperations": 4009,
+              "domWriteBytes": 0,
+              "domHandleCount": 2,
+              "wasmLinearBytesBefore": 7667712,
+              "wasmLinearBytes": 8060928
+            }
+          },
+          {
+            "scenario": "last",
+            "options": 1000,
+            "valid": true,
+            "diagnostics": {
+              "javascriptAllocatedBytes": 671432,
+              "javascriptUsedBytes": 633349,
+              "javascriptObjectCount": 1927,
+              "javascriptTicksUsed": 1,
+              "microtasksExecuted": 2,
+              "domOperations": 4011,
+              "domWriteBytes": 0,
+              "domHandleCount": 3,
+              "wasmLinearBytesBefore": 8060928,
+              "wasmLinearBytes": 8060928
+            }
+          },
+          {
+            "scenario": "empty",
+            "options": 1000,
+            "valid": true,
+            "diagnostics": {
+              "javascriptAllocatedBytes": 670880,
+              "javascriptUsedBytes": 633221,
+              "javascriptObjectCount": 1926,
+              "javascriptTicksUsed": 1,
+              "microtasksExecuted": 2,
+              "domOperations": 6,
+              "domWriteBytes": 0,
+              "domHandleCount": 2,
+              "wasmLinearBytesBefore": 8060928,
+              "wasmLinearBytes": 8060928
+            }
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "round": 1,
+        "build": "candidate",
+        "wasm_sha256": "ab041265f1871d694319b573cf46e22c0f635db8af35e79aea7e4b610962058b",
+        "bundle_sha256": "3bbb77feb39ba13a4c873540bb9739db6672ce9dfebc1ec211c827f3ba93f67b",
+        "host_version": "workerd 1.20260730.1; Miniflare 4.20260730.0",
+        "limits": {
+          "max_javascript_ticks": 512,
+          "max_microtasks": 10000,
+          "max_timers": 1024,
+          "max_timer_tasks": 10000,
+          "max_expression_bytes": 65536,
+          "timeout": {
+            "secs": 10,
+            "nanos": 0
+          },
+          "max_response_bytes": 2097152,
+          "max_initial_dom_nodes": 65536,
+          "max_dom_nodes": 65536,
+          "max_stylesheet_bytes": 262144,
+          "max_requests": 32,
+          "max_dom_operations": 10000,
+          "max_layout_nodes": 1024,
+          "max_dom_write_bytes": 4194304,
+          "max_storage_bytes": 65536,
+          "javascript_memory_bytes": 33554432
+        },
+        "samples": [
+          {
+            "scenario": "missing",
+            "options": 200,
+            "valid": true,
+            "diagnostics": {
+              "javascriptAllocatedBytes": 670880,
+              "javascriptUsedBytes": 633206,
+              "javascriptObjectCount": 1926,
+              "javascriptTicksUsed": 1,
+              "microtasksExecuted": 2,
+              "domOperations": 809,
+              "domWriteBytes": 0,
+              "domHandleCount": 2,
+              "wasmLinearBytesBefore": 6750208,
+              "wasmLinearBytes": 7667712
+            }
+          },
+          {
+            "scenario": "last",
+            "options": 200,
+            "valid": true,
+            "diagnostics": {
+              "javascriptAllocatedBytes": 671432,
+              "javascriptUsedBytes": 633334,
+              "javascriptObjectCount": 1927,
+              "javascriptTicksUsed": 1,
+              "microtasksExecuted": 2,
+              "domOperations": 811,
+              "domWriteBytes": 0,
+              "domHandleCount": 3,
+              "wasmLinearBytesBefore": 7667712,
+              "wasmLinearBytes": 7667712
+            }
+          },
+          {
+            "scenario": "empty",
+            "options": 200,
+            "valid": true,
+            "diagnostics": {
+              "javascriptAllocatedBytes": 670880,
+              "javascriptUsedBytes": 633206,
+              "javascriptObjectCount": 1926,
+              "javascriptTicksUsed": 1,
+              "microtasksExecuted": 2,
+              "domOperations": 6,
+              "domWriteBytes": 0,
+              "domHandleCount": 2,
+              "wasmLinearBytesBefore": 7667712,
+              "wasmLinearBytes": 7667712
+            }
+          },
+          {
+            "scenario": "missing",
+            "options": 1000,
+            "valid": true,
+            "diagnostics": {
+              "javascriptAllocatedBytes": 670880,
+              "javascriptUsedBytes": 633221,
+              "javascriptObjectCount": 1926,
+              "javascriptTicksUsed": 1,
+              "microtasksExecuted": 2,
+              "domOperations": 4009,
+              "domWriteBytes": 0,
+              "domHandleCount": 2,
+              "wasmLinearBytesBefore": 7667712,
+              "wasmLinearBytes": 8060928
+            }
+          },
+          {
+            "scenario": "last",
+            "options": 1000,
+            "valid": true,
+            "diagnostics": {
+              "javascriptAllocatedBytes": 671432,
+              "javascriptUsedBytes": 633349,
+              "javascriptObjectCount": 1927,
+              "javascriptTicksUsed": 1,
+              "microtasksExecuted": 2,
+              "domOperations": 4011,
+              "domWriteBytes": 0,
+              "domHandleCount": 3,
+              "wasmLinearBytesBefore": 8060928,
+              "wasmLinearBytes": 8060928
+            }
+          },
+          {
+            "scenario": "empty",
+            "options": 1000,
+            "valid": true,
+            "diagnostics": {
+              "javascriptAllocatedBytes": 670880,
+              "javascriptUsedBytes": 633221,
+              "javascriptObjectCount": 1926,
+              "javascriptTicksUsed": 1,
+              "microtasksExecuted": 2,
+              "domOperations": 6,
+              "domWriteBytes": 0,
+              "domHandleCount": 2,
+              "wasmLinearBytesBefore": 8060928,
+              "wasmLinearBytes": 8060928
+            }
+          }
+        ]
+      },
+      {
+        "round": 1,
+        "build": "baseline",
+        "wasm_sha256": "95f107d4a2b70a813259edc51b0f12db4f0099894477723d9adb06767e8ef21f",
+        "bundle_sha256": "3bbb77feb39ba13a4c873540bb9739db6672ce9dfebc1ec211c827f3ba93f67b",
+        "host_version": "workerd 1.20260730.1; Miniflare 4.20260730.0",
+        "limits": {
+          "max_javascript_ticks": 512,
+          "max_microtasks": 10000,
+          "max_timers": 1024,
+          "max_timer_tasks": 10000,
+          "max_expression_bytes": 65536,
+          "timeout": {
+            "secs": 10,
+            "nanos": 0
+          },
+          "max_response_bytes": 2097152,
+          "max_initial_dom_nodes": 65536,
+          "max_dom_nodes": 65536,
+          "max_stylesheet_bytes": 262144,
+          "max_requests": 32,
+          "max_dom_operations": 10000,
+          "max_layout_nodes": 1024,
+          "max_dom_write_bytes": 4194304,
+          "max_storage_bytes": 65536,
+          "javascript_memory_bytes": 33554432
+        },
+        "samples": [
+          {
+            "scenario": "missing",
+            "options": 200,
+            "valid": true,
+            "diagnostics": {
+              "javascriptAllocatedBytes": 760440,
+              "javascriptUsedBytes": 644389,
+              "javascriptObjectCount": 2126,
+              "javascriptTicksUsed": 5,
+              "microtasksExecuted": 2,
+              "domOperations": 2009,
+              "domWriteBytes": 0,
+              "domHandleCount": 202,
+              "wasmLinearBytesBefore": 6750208,
+              "wasmLinearBytes": 7798784
+            }
+          },
+          {
+            "scenario": "last",
+            "options": 200,
+            "valid": true,
+            "diagnostics": {
+              "javascriptAllocatedBytes": 760440,
+              "javascriptUsedBytes": 644389,
+              "javascriptObjectCount": 2126,
+              "javascriptTicksUsed": 5,
+              "microtasksExecuted": 2,
+              "domOperations": 2010,
+              "domWriteBytes": 0,
+              "domHandleCount": 202,
+              "wasmLinearBytesBefore": 7798784,
+              "wasmLinearBytes": 7798784
+            }
+          },
+          {
+            "scenario": "empty",
+            "options": 200,
+            "valid": true,
+            "diagnostics": {
+              "javascriptAllocatedBytes": 760440,
+              "javascriptUsedBytes": 644389,
+              "javascriptObjectCount": 2126,
+              "javascriptTicksUsed": 5,
+              "microtasksExecuted": 2,
+              "domOperations": 2009,
+              "domWriteBytes": 0,
+              "domHandleCount": 202,
+              "wasmLinearBytesBefore": 7798784,
+              "wasmLinearBytes": 7798784
+            }
+          },
+          {
+            "scenario": "missing",
+            "options": 1000,
+            "valid": false,
+            "error": "resource limit: DOM operations"
+          },
+          {
+            "scenario": "last",
+            "options": 1000,
+            "valid": false,
+            "error": "resource limit: DOM operations"
+          },
+          {
+            "scenario": "empty",
+            "options": 1000,
+            "valid": false,
+            "error": "resource limit: DOM operations"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "round": 2,
+        "build": "baseline",
+        "wasm_sha256": "95f107d4a2b70a813259edc51b0f12db4f0099894477723d9adb06767e8ef21f",
+        "bundle_sha256": "3bbb77feb39ba13a4c873540bb9739db6672ce9dfebc1ec211c827f3ba93f67b",
+        "host_version": "workerd 1.20260730.1; Miniflare 4.20260730.0",
+        "limits": {
+          "max_javascript_ticks": 512,
+          "max_microtasks": 10000,
+          "max_timers": 1024,
+          "max_timer_tasks": 10000,
+          "max_expression_bytes": 65536,
+          "timeout": {
+            "secs": 10,
+            "nanos": 0
+          },
+          "max_response_bytes": 2097152,
+          "max_initial_dom_nodes": 65536,
+          "max_dom_nodes": 65536,
+          "max_stylesheet_bytes": 262144,
+          "max_requests": 32,
+          "max_dom_operations": 10000,
+          "max_layout_nodes": 1024,
+          "max_dom_write_bytes": 4194304,
+          "max_storage_bytes": 65536,
+          "javascript_memory_bytes": 33554432
+        },
+        "samples": [
+          {
+            "scenario": "missing",
+            "options": 200,
+            "valid": true,
+            "diagnostics": {
+              "javascriptAllocatedBytes": 760440,
+              "javascriptUsedBytes": 644389,
+              "javascriptObjectCount": 2126,
+              "javascriptTicksUsed": 5,
+              "microtasksExecuted": 2,
+              "domOperations": 2009,
+              "domWriteBytes": 0,
+              "domHandleCount": 202,
+              "wasmLinearBytesBefore": 6750208,
+              "wasmLinearBytes": 7798784
+            }
+          },
+          {
+            "scenario": "last",
+            "options": 200,
+            "valid": true,
+            "diagnostics": {
+              "javascriptAllocatedBytes": 760440,
+              "javascriptUsedBytes": 644389,
+              "javascriptObjectCount": 2126,
+              "javascriptTicksUsed": 5,
+              "microtasksExecuted": 2,
+              "domOperations": 2010,
+              "domWriteBytes": 0,
+              "domHandleCount": 202,
+              "wasmLinearBytesBefore": 7798784,
+              "wasmLinearBytes": 7798784
+            }
+          },
+          {
+            "scenario": "empty",
+            "options": 200,
+            "valid": true,
+            "diagnostics": {
+              "javascriptAllocatedBytes": 760440,
+              "javascriptUsedBytes": 644389,
+              "javascriptObjectCount": 2126,
+              "javascriptTicksUsed": 5,
+              "microtasksExecuted": 2,
+              "domOperations": 2009,
+              "domWriteBytes": 0,
+              "domHandleCount": 202,
+              "wasmLinearBytesBefore": 7798784,
+              "wasmLinearBytes": 7798784
+            }
+          },
+          {
+            "scenario": "missing",
+            "options": 1000,
+            "valid": false,
+            "error": "resource limit: DOM operations"
+          },
+          {
+            "scenario": "last",
+            "options": 1000,
+            "valid": false,
+            "error": "resource limit: DOM operations"
+          },
+          {
+            "scenario": "empty",
+            "options": 1000,
+            "valid": false,
+            "error": "resource limit: DOM operations"
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "build": "candidate",
+        "wasm_sha256": "ab041265f1871d694319b573cf46e22c0f635db8af35e79aea7e4b610962058b",
+        "bundle_sha256": "3bbb77feb39ba13a4c873540bb9739db6672ce9dfebc1ec211c827f3ba93f67b",
+        "host_version": "workerd 1.20260730.1; Miniflare 4.20260730.0",
+        "limits": {
+          "max_javascript_ticks": 512,
+          "max_microtasks": 10000,
+          "max_timers": 1024,
+          "max_timer_tasks": 10000,
+          "max_expression_bytes": 65536,
+          "timeout": {
+            "secs": 10,
+            "nanos": 0
+          },
+          "max_response_bytes": 2097152,
+          "max_initial_dom_nodes": 65536,
+          "max_dom_nodes": 65536,
+          "max_stylesheet_bytes": 262144,
+          "max_requests": 32,
+          "max_dom_operations": 10000,
+          "max_layout_nodes": 1024,
+          "max_dom_write_bytes": 4194304,
+          "max_storage_bytes": 65536,
+          "javascript_memory_bytes": 33554432
+        },
+        "samples": [
+          {
+            "scenario": "missing",
+            "options": 200,
+            "valid": true,
+            "diagnostics": {
+              "javascriptAllocatedBytes": 670880,
+              "javascriptUsedBytes": 633206,
+              "javascriptObjectCount": 1926,
+              "javascriptTicksUsed": 1,
+              "microtasksExecuted": 2,
+              "domOperations": 809,
+              "domWriteBytes": 0,
+              "domHandleCount": 2,
+              "wasmLinearBytesBefore": 6750208,
+              "wasmLinearBytes": 7667712
+            }
+          },
+          {
+            "scenario": "last",
+            "options": 200,
+            "valid": true,
+            "diagnostics": {
+              "javascriptAllocatedBytes": 671432,
+              "javascriptUsedBytes": 633334,
+              "javascriptObjectCount": 1927,
+              "javascriptTicksUsed": 1,
+              "microtasksExecuted": 2,
+              "domOperations": 811,
+              "domWriteBytes": 0,
+              "domHandleCount": 3,
+              "wasmLinearBytesBefore": 7667712,
+              "wasmLinearBytes": 7667712
+            }
+          },
+          {
+            "scenario": "empty",
+            "options": 200,
+            "valid": true,
+            "diagnostics": {
+              "javascriptAllocatedBytes": 670880,
+              "javascriptUsedBytes": 633206,
+              "javascriptObjectCount": 1926,
+              "javascriptTicksUsed": 1,
+              "microtasksExecuted": 2,
+              "domOperations": 6,
+              "domWriteBytes": 0,
+              "domHandleCount": 2,
+              "wasmLinearBytesBefore": 7667712,
+              "wasmLinearBytes": 7667712
+            }
+          },
+          {
+            "scenario": "missing",
+            "options": 1000,
+            "valid": true,
+            "diagnostics": {
+              "javascriptAllocatedBytes": 670880,
+              "javascriptUsedBytes": 633221,
+              "javascriptObjectCount": 1926,
+              "javascriptTicksUsed": 1,
+              "microtasksExecuted": 2,
+              "domOperations": 4009,
+              "domWriteBytes": 0,
+              "domHandleCount": 2,
+              "wasmLinearBytesBefore": 7667712,
+              "wasmLinearBytes": 8060928
+            }
+          },
+          {
+            "scenario": "last",
+            "options": 1000,
+            "valid": true,
+            "diagnostics": {
+              "javascriptAllocatedBytes": 671432,
+              "javascriptUsedBytes": 633349,
+              "javascriptObjectCount": 1927,
+              "javascriptTicksUsed": 1,
+              "microtasksExecuted": 2,
+              "domOperations": 4011,
+              "domWriteBytes": 0,
+              "domHandleCount": 3,
+              "wasmLinearBytesBefore": 8060928,
+              "wasmLinearBytes": 8060928
+            }
+          },
+          {
+            "scenario": "empty",
+            "options": 1000,
+            "valid": true,
+            "diagnostics": {
+              "javascriptAllocatedBytes": 670880,
+              "javascriptUsedBytes": 633221,
+              "javascriptObjectCount": 1926,
+              "javascriptTicksUsed": 1,
+              "microtasksExecuted": 2,
+              "domOperations": 6,
+              "domWriteBytes": 0,
+              "domHandleCount": 2,
+              "wasmLinearBytesBefore": 8060928,
+              "wasmLinearBytes": 8060928
+            }
+          }
+        ]
+      }
+    ]
+  ]
+}

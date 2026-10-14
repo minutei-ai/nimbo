@@ -1,0 +1,28 @@
+function collectionNamesCase(variant) {
+ document.body.innerHTML='<select multiple id=s><option selected id=a name=shared>A</option><option selected id=b name=shared>B</option><option id=c name=unselected>C</option></select>';
+ const checks={},select=document.getElementById('s'),list=select.selectedOptions,base=HTMLCollection.prototype.namedItem;
+ const a=document.getElementById('a'),b=document.getElementById('b'),c=document.getElementById('c');
+ checks.same=list===select.selectedOptions;
+ checks.id=list.namedItem('a')===a;
+ checks.name=list.namedItem('shared')===a;
+ b.id='shared';checks.order=list.namedItem('shared')===a;b.id='b';
+ checks.filtered=list.namedItem('unselected')===null;
+ checks.empty=list.namedItem('')===null;
+ checks.missing=list.namedItem('missing-'+variant)===null;
+ b.setAttribute('name','item');checks.prototypeName=list.namedItem('item')===b&&typeof list.item==='function';b.setAttribute('name','shared');
+ checks.borrowed=base.call(list,'a')===a&&base.call(select.options,'unselected')===c;
+ b.id='0';checks.numeric=list.namedItem(0)===b;b.id='b';
+ checks.null=list.namedItem(null)===null;
+ const throws=fn=>{try{fn();return false}catch(e){return e instanceof TypeError}};
+ checks.symbol=throws(()=>list.namedItem(Symbol('x')));
+ checks.required=throws(()=>list.namedItem());
+ let converted=0;checks.receiver=throws(()=>base.call({}, {toString(){converted++;return 'a'}}))&&converted===0;
+ a.selected=false;checks.live=list.namedItem('shared')===b; a.selected=true;
+ checks.coercion=list.namedItem({toString(){a.id='converted';return 'converted'}})===a;
+ const added=new Option('new','new',true,true);added.id='added';
+ checks.append=list.namedItem({toString(){select.append(added);return 'added'}})===added;
+ const container=document.createElement('div');container.innerHTML='<i id=before></i>';document.body.append(container);const children=container.children;
+ checks.genericCoercion=children.namedItem({toString(){container.firstElementChild.id='after';return 'after'}})===container.firstElementChild;
+ added.remove(); checks.remove=list.namedItem('added')===null;
+ return checks;
+}
