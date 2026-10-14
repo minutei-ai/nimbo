@@ -65,9 +65,16 @@ class Origin(http.server.BaseHTTPRequestHandler):
             '/style.css': ('text/css', '#value{width:24px;height:12px}'),
             '/data': ('application/json', '{"value":"through-proxy"}'),
         }
-        if self.path == '/start':
+        port = self.server.server_port
+        if self.path == '/fetch-escape':
+            # Page fetch toward another origin must fail before reaching the proxy.
+            routes[self.path] = ('text/html', '<!doctype html><body><div id="value"></div><script>'
+                                 f"globalThis.result=fetch('//blocked.test:{port}/data')"
+                                 ".then(()=>'leaked',()=>'blocked:'+location.host)</script>")
+        if self.path in ('/start', '/escape', '/loop'):
             self.send_response(302)
-            self.send_header('Location', '/page')
+            target = {'/start': '/page', '/escape': f'//blocked.test:{port}/page', '/loop': '/loop'}
+            self.send_header('Location', target[self.path])
             self.send_header('Set-Cookie', 'transport=retained; Path=/')
             data, content_type = b'', 'text/html'
         else:
@@ -135,7 +142,8 @@ class Proxy(socketserver.StreamRequestHandler):
         return not self.server.auth or (username, password) == self.server.auth
 
     def target(self, host, port):
-        if host not in ('127.0.0.1', '::1', 'localhost', 'example.test', 'mismatch.test') or port not in self.server.ports:
+        # blocked.test is routable here so a destination-policy leak would reach the origin.
+        if host not in ('127.0.0.1', '::1', 'localhost', 'example.test', 'mismatch.test', 'blocked.test') or port not in self.server.ports:
             raise ValueError('Destination outside synthetic fixture')
         with self.server.lock:
             self.server.targets.append((host, port))
@@ -272,7 +280,10 @@ def proxy(mode, ports, auth=None, context=None):
     return server
 
 
-def invoke(binary, env, url, proxy_url=None, flag=False):
+EXTRACT = "result.then(v=>({value:v,text:document.querySelector('#value').textContent,suffix:globalThis.suffix,cookie:document.cookie}))"
+
+
+def invoke(binary, env, url, proxy_url=None, flag=False, expression=EXTRACT):
     args = [binary]
     child_env = dict(env)
     child_env.pop('NIMBO_PROXY_URL', None)
@@ -281,7 +292,7 @@ def invoke(binary, env, url, proxy_url=None, flag=False):
             args += ['--proxy', proxy_url]
         else:
             child_env['NIMBO_PROXY_URL'] = proxy_url
-    args += [url, "result.then(v=>({value:v,text:document.querySelector('#value').textContent,suffix:globalThis.suffix,cookie:document.cookie}))"]
+    args += [url, expression]
     return subprocess.run(args, env=child_env, capture_output=True, text=True, timeout=15)
 
 
@@ -307,6 +318,50 @@ def certificates(root):
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     context.load_cert_chain(cert, key)
     return context, ca
+
+
+def boundaries(binary, env, http, https, context):
+    """Destination, limit and TLS failures through authenticated HTTP and HTTPS proxies."""
+    counts = collections.Counter()
+    ports = (http.server_port, https.server_port)
+    for mode in ('http-auth', 'https-auth'):
+        credentials = (secrets.token_hex(8), secrets.token_hex(12))
+        with running(proxy(mode, ports, credentials, context if mode.startswith('https') else None)) as relay:
+            proxy_url = (mode.split('-')[0] + '://' + ':'.join(credentials) + '@127.0.0.1:'
+                         + str(relay.server_address[1]))
+            for secure, origin_server in enumerate((http, https)):
+                base = ('https' if secure else 'http') + '://example.test:' + str(ports[secure])
+                cases = {
+                    'blocked-redirects': ('/escape', 'origin'),
+                    'redirect-loops': ('/loop', 'redirect count'),
+                    'response-limits': ('/large', 'response bytes'),
+                }
+                for name, (path, message) in cases.items():
+                    before = len(origin_server.requests)
+                    rejected = invoke(binary, env, base + path, proxy_url, expression='document.title')
+                    assert rejected.returncode != 0, name
+                    assert message in rejected.stderr.lower(), (name, rejected.stderr)
+                    assert all(secret not in rejected.stderr for secret in credentials)
+                    assert all(path != '/page' for path, *_rest in origin_server.requests[before:])
+                    counts[name] += 1
+                result = invoke(binary, env, base + '/fetch-escape', proxy_url, expression='result')
+                assert result.returncode == 0 and json.loads(result.stdout).startswith('blocked:'), result.stderr
+                assert [path for path, *_rest in origin_server.requests[-1:]] == ['/fetch-escape']
+                counts['blocked-page-fetches'] += 1
+            assert all(host != 'blocked.test' for host, _port in relay.targets)
+            if mode != 'http-auth':
+                continue
+            # Without the synthetic CA the origin certificate must fail before any request is sent.
+            untrusted = {key: value for key, value in env.items() if key != 'SSL_CERT_FILE'}
+            before = len(https.requests)
+            rejected = invoke(binary, untrusted, f'https://example.test:{https.server_port}/start',
+                              proxy_url, expression='document.title')
+            assert rejected.returncode != 0 and len(https.requests) == before
+            assert all(secret not in rejected.stderr for secret in credentials)
+            counts['TLS-trust-rejections'] += 1
+    for server in (http, https):
+        assert all(auth is None for _path, _method, _body, _cookie, auth in server.requests)
+    return counts
 
 
 def main(binary):
@@ -361,6 +416,8 @@ def main(binary):
                 assert rejected.returncode != 0 and len(https.requests) == before
                 assert relay.targets == [('mismatch.test', https.server_port)]
                 counts['TLS-hostname-rejections'] += 1
+            for name, value in boundaries(binary, env, http, https, context).items():
+                counts[name] += value
             # A dead configured proxy must not be bypassed, even when the origin is reachable directly.
             with socket.socket() as dead:
                 dead.bind(('127.0.0.1', 0))
