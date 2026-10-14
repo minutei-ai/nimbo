@@ -6516,7 +6516,7 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
 
 test.each([
   ["context.measureText('C').width", "font glyph fallback"],
-  ["context.measureText('שלום').width", "text script itemization or bidi"],
+  ["context.measureText('שלום').width", "font glyph fallback"],
   ["context.measureText('A'.repeat(1025)).width", "font shaping limit"],
   [
     "context.measureText('A'.repeat(1024)); for(let i=0;i<64;i++)context.measureText('A'.repeat(1024));",

@@ -97,7 +97,18 @@ impl Arena {
         self.registered = registered;
         Ok(true)
     }
+    /// Selects one face for text that a single face covers, as canvas text requires.
     pub(crate) fn select(&self, font: String, text: &str) -> crate::Result<Font> {
+        match self.select_faces(font, text)?.as_slice() {
+            [(font, _)] => Ok(font.clone()),
+            _ => Err(crate::Error::Dom(
+                "layout unsupported: text shaping: font selection or fallback".into(),
+            )),
+        }
+    }
+
+    /// Faces covering any of the text, in family and set order, for per-character fallback.
+    pub(crate) fn select_faces(&self, font: String, text: &str) -> crate::Result<Faces> {
         let request = crate::font_matching::Request {
             font,
             text: text.encode_utf16().collect(),
@@ -110,36 +121,45 @@ impl Arena {
         let selected = crate::font_matching::select(&request)?
             .ok_or_else(|| crate::Error::Dom("invalid layout font".into()))?;
         if selected.is_empty() {
-            return crate::builtin_fonts::select(&request.font);
+            return Ok(vec![(
+                crate::builtin_fonts::select(&request.font)?,
+                vec![(0, 0x0010_FFFF)],
+            )]);
         }
-        let [index] = selected.as_slice() else {
-            return Err(crate::Error::Dom(
-                "layout unsupported: text shaping: font selection or fallback".into(),
-            ));
-        };
-        let face = self
-            .registered
-            .get(*index)
-            .ok_or_else(|| crate::Error::Dom("invalid layout font index".into()))?;
-        if !face.supported {
-            return Err(crate::Error::Dom(
-                "layout unsupported: font shaping descriptor".into(),
-            ));
-        }
-        let resource = self
-            .fonts
-            .get(face.resource.saturating_sub(1))
-            .ok_or_else(|| crate::Error::Dom("invalid native font resource".into()))?;
-        if resource.variable
-            || !crate::font_matching::without_synthesis(&request.font, &face.description)?
-        {
-            return Err(crate::Error::Dom(
-                "layout unsupported: loaded font synthesis or variation".into(),
-            ));
-        }
-        Ok(resource.font.clone())
+        selected
+            .iter()
+            .map(|index| {
+                let face = self
+                    .registered
+                    .get(*index)
+                    .ok_or_else(|| crate::Error::Dom("invalid layout font index".into()))?;
+                if !face.supported {
+                    return Err(crate::Error::Dom(
+                        "layout unsupported: font shaping descriptor".into(),
+                    ));
+                }
+                let resource = self
+                    .fonts
+                    .get(face.resource.saturating_sub(1))
+                    .ok_or_else(|| crate::Error::Dom("invalid native font resource".into()))?;
+                if resource.variable
+                    || !crate::font_matching::without_synthesis(&request.font, &face.description)?
+                {
+                    return Err(crate::Error::Dom(
+                        "layout unsupported: loaded font synthesis or variation".into(),
+                    ));
+                }
+                Ok((
+                    resource.font.clone(),
+                    crate::font_matching::ranges(&face.description)?,
+                ))
+            })
+            .collect()
     }
 }
+
+/// Faces in fallback order with their inclusive `unicode-range` intervals.
+pub(crate) type Faces = Vec<(Font, Vec<(u32, u32)>)>;
 
 pub(crate) fn install<'js>(ctx: &Ctx<'js>, fonts: Rc<RefCell<Arena>>) -> rquickjs::Result<()> {
     let measures = Rc::clone(&fonts);
@@ -203,10 +223,84 @@ pub(crate) fn install<'js>(ctx: &Ctx<'js>, fonts: Rc<RefCell<Arena>>) -> rquickj
     )
 }
 
-// One bounded LTR Latin run. Script itemization, bidi and glyph fallback are
-// deliberately rejected until the layout engine can implement their runs.
+// Script runs from the declared matrix, each shaped with its own script and
+// direction. Glyph fallback, explicit bidi controls and mirrored characters in
+// right-to-left runs are rejected rather than approximated.
 pub(crate) fn measure(font: &Font, text: &str, size: f64) -> Result<f64, &'static str> {
     measure_spaced(font, text, size, 0.0)
+}
+
+/// ISO 15924 tag and right-to-left direction of one supported script run.
+type RunScript = (&'static [u8; 4], bool);
+
+enum Class {
+    Neutral,
+    Run(RunScript),
+    Unsupported,
+}
+
+/// The declared script matrix.
+const fn class(script: icu_properties::props::Script) -> Class {
+    use icu_properties::props::Script;
+    match script {
+        Script::Common | Script::Inherited => Class::Neutral,
+        Script::Latin => Class::Run((b"Latn", false)),
+        Script::Greek => Class::Run((b"Grek", false)),
+        Script::Cyrillic => Class::Run((b"Cyrl", false)),
+        Script::Hebrew => Class::Run((b"Hebr", true)),
+        Script::Arabic => Class::Run((b"Arab", true)),
+        _ => Class::Unsupported,
+    }
+}
+
+/// Splits text into maximal runs of one script. Neutral characters join the
+/// preceding run, or the first script run when they lead the text.
+fn itemize(text: &str) -> Result<Vec<(&str, Option<RunScript>)>, &'static str> {
+    use icu_properties::{
+        CodePointMapData, CodePointSetData,
+        props::{BidiClass, BidiMirrored, Script},
+    };
+    let scripts = CodePointMapData::<Script>::new();
+    let bidi = CodePointMapData::<BidiClass>::new();
+    let mirrored = CodePointSetData::new::<BidiMirrored>();
+    let mut runs = Vec::new();
+    let (mut start, mut current) = (0, None);
+    for (index, ch) in text.char_indices() {
+        let class = class(scripts.get(ch));
+        if matches!(class, Class::Unsupported) {
+            return Err("unsupported: text script itemization");
+        }
+        if matches!(
+            bidi.get(ch),
+            BidiClass::LeftToRightEmbedding
+                | BidiClass::RightToLeftEmbedding
+                | BidiClass::LeftToRightOverride
+                | BidiClass::RightToLeftOverride
+                | BidiClass::PopDirectionalFormat
+                | BidiClass::LeftToRightIsolate
+                | BidiClass::RightToLeftIsolate
+                | BidiClass::FirstStrongIsolate
+                | BidiClass::PopDirectionalIsolate
+        ) {
+            return Err("unsupported: explicit bidi formatting");
+        }
+        let Class::Run(script) = class else { continue };
+        match current {
+            None => current = Some(script),
+            Some(previous) if previous != script => {
+                runs.push((text.get(start..index).ok_or("text run boundary")?, current));
+                (start, current) = (index, Some(script));
+            }
+            Some(_) => {}
+        }
+    }
+    runs.push((text.get(start..).ok_or("text run boundary")?, current));
+    if runs.iter().any(|(run, script)| {
+        script.is_some_and(|(_, rtl)| rtl) && run.chars().any(|ch| mirrored.contains(ch))
+    }) {
+        return Err("unsupported: bidi mirroring");
+    }
+    Ok(runs)
 }
 
 pub(crate) fn measure_spaced(
@@ -215,63 +309,131 @@ pub(crate) fn measure_spaced(
     size: f64,
     spacing: f64,
 ) -> Result<f64, &'static str> {
-    use icu_properties::{
-        CodePointMapData,
-        props::{BidiClass, Script},
-    };
-    let scripts = CodePointMapData::<Script>::new();
-    let bidi = CodePointMapData::<BidiClass>::new();
-    if !text.chars().all(|ch| {
-        matches!(
-            scripts.get(ch),
-            Script::Latin | Script::Common | Script::Inherited
-        ) && matches!(
-            bidi.get(ch),
-            BidiClass::LeftToRight
-                | BidiClass::EuropeanNumber
-                | BidiClass::EuropeanSeparator
-                | BidiClass::EuropeanTerminator
-                | BidiClass::CommonSeparator
-                | BidiClass::OtherNeutral
-                | BidiClass::WhiteSpace
-                | BidiClass::NonspacingMark
-        )
-    }) {
-        return Err("unsupported: text script itemization or bidi");
+    shape_segments(std::iter::once((font, text)), text, size, spacing)
+}
+
+/// Measures text that may need several faces. Each character uses the first
+/// face whose `unicode-range` covers it and whose cmap has a glyph; combining
+/// marks stay with their base character's face.
+pub(crate) fn measure_faces(
+    faces: &[(Font, Vec<(u32, u32)>)],
+    text: &str,
+    size: f64,
+    spacing: f64,
+) -> Result<f64, &'static str> {
+    use icu_properties::{CodePointMapData, props::Script};
+    if let [(font, _)] = faces {
+        return measure_spaced(font, text, size, spacing);
     }
-    let mut buffer = Buffer::new();
-    buffer.push_str(text);
-    buffer.guess_segment_properties();
+    let scripts = CodePointMapData::<Script>::new();
+    let shapers: Vec<_> = faces
+        .iter()
+        .map(|(font, _)| ShaperFont::new(font))
+        .collect();
+    let mut segments = Vec::new();
+    let (mut start, mut current) = (0, None);
+    for (index, ch) in text.char_indices() {
+        let code = u32::from(ch);
+        let face = match current {
+            Some(face) if scripts.get(ch) == Script::Inherited => face,
+            _ => faces
+                .iter()
+                .zip(&shapers)
+                .position(|((_, ranges), shaper)| {
+                    ranges
+                        .iter()
+                        .any(|&(low, high)| (low..=high).contains(&code))
+                        && shaper.nominal_glyph(code).is_some()
+                })
+                .ok_or("unsupported: font glyph fallback")?,
+        };
+        if current != Some(face) {
+            if let Some(previous) = current {
+                segments.push((previous, text.get(start..index).ok_or("text run boundary")?));
+            }
+            (start, current) = (index, Some(face));
+        }
+    }
+    if let Some(previous) = current {
+        segments.push((previous, text.get(start..).ok_or("text run boundary")?));
+    }
+    let segments = segments
+        .into_iter()
+        .map(|(face, run)| {
+            faces
+                .get(face)
+                .map(|(font, _)| (font, run))
+                .ok_or("font face index")
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    shape_segments(segments, text, size, spacing)
+}
+
+fn shape_segments<'a>(
+    segments: impl IntoIterator<Item = (&'a Font, &'a str)>,
+    text: &str,
+    size: f64,
+    spacing: f64,
+) -> Result<f64, &'static str> {
     let features = [
         harfrust::Feature::new(harfrust::Tag::new(b"liga"), 0, ..),
         harfrust::Feature::new(harfrust::Tag::new(b"clig"), 0, ..),
     ];
-    let options = ShapeOptions::new().features(if spacing == 0.0 { &[] } else { &features });
-    harfrust::shape(&ShaperFont::new(font), &mut buffer, options)
-        .map_err(|_error| "font shaping failed")?;
-    if !buffer.allocation_successful() {
-        return Err("font shaping work or allocation limit");
+    let mut width = 0.0;
+    let mut buffer = Buffer::new();
+    for (font, segment) in segments {
+        let runs = itemize(segment)?;
+        if spacing != 0.0
+            && runs
+                .iter()
+                .any(|(_, script)| script.is_some_and(|(tag, _)| tag == b"Arab"))
+        {
+            return Err("unsupported: letter-spacing in cursive scripts");
+        }
+        let units = font.units_per_em();
+        if units == 0 {
+            return Err("invalid font units");
+        }
+        let shaper = ShaperFont::new(font);
+        let mut advance = 0_i32;
+        for (run, script) in runs {
+            buffer.push_str(run);
+            if let Some((tag, rtl)) = script {
+                buffer.set_script(harfrust::Script::from_iso15924_tag(harfrust::Tag::new(tag)));
+                buffer.set_direction(if rtl {
+                    harfrust::Direction::RightToLeft
+                } else {
+                    harfrust::Direction::LeftToRight
+                });
+            }
+            buffer.guess_segment_properties();
+            let options =
+                ShapeOptions::new().features(if spacing == 0.0 { &[] } else { &features });
+            harfrust::shape(&shaper, &mut buffer, options)
+                .map_err(|_error| "font shaping failed")?;
+            if !buffer.allocation_successful() {
+                return Err("font shaping work or allocation limit");
+            }
+            if buffer.glyph_infos().iter().any(|glyph| glyph.glyph_id == 0) {
+                return Err("unsupported: font glyph fallback");
+            }
+            advance = buffer
+                .glyph_positions()
+                .iter()
+                .try_fold(advance, |sum, glyph| sum.checked_add(glyph.x_advance))
+                .ok_or("font advance limit")?;
+            buffer.clear();
+        }
+        width += f64::from(advance) * size / f64::from(units);
     }
-    if buffer.glyph_infos().iter().any(|glyph| glyph.glyph_id == 0) {
-        return Err("unsupported: font glyph fallback");
-    }
-    let advance = buffer
-        .glyph_positions()
-        .iter()
-        .try_fold(0_i32, |sum, glyph| sum.checked_add(glyph.x_advance))
-        .ok_or("font advance limit")?;
-    let units = font.units_per_em();
-    if units == 0 {
-        return Err("invalid font units");
-    }
-    // For this supported Latin subset, combining marks join the preceding
-    // typographic unit. Required ligatures do not erase character spacing.
+    // Combining marks join the preceding typographic unit. Required ligatures
+    // do not erase character spacing.
     if spacing == 0.0 {
-        return Ok(f64::from(advance) * size / f64::from(units));
+        return Ok(width);
     }
     let count = text.graphemes(true).count();
     let count = u32::try_from(count).map_err(|_error| "font character unit limit")?;
-    Ok(f64::from(advance) * size / f64::from(units) + f64::from(count) * spacing)
+    Ok(width + f64::from(count) * spacing)
 }
 
 #[cfg(test)]
@@ -294,7 +456,7 @@ mod tests {
         );
         assert_eq!(
             measure(&font, "A\u{202e}B", 16.0),
-            Err("unsupported: text script itemization or bidi")
+            Err("unsupported: explicit bidi formatting")
         );
         assert_eq!(
             measure(&font, "C", 16.0),
@@ -302,7 +464,30 @@ mod tests {
         );
         assert_eq!(
             measure(&font, "שלום", 16.0),
-            Err("unsupported: text script itemization or bidi")
+            Err("unsupported: font glyph fallback")
+        );
+        assert_eq!(
+            measure(&font, "ไทย", 16.0),
+            Err("unsupported: text script itemization")
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn shapes_each_script_run_with_its_own_script_and_direction() -> Result<(), String> {
+        let font = Font::new(
+            include_bytes!("../tests/fixtures/synthetic-scripts-font.ttf").to_vec(),
+            0,
+        )
+        .ok_or("font parsing")?;
+        // Arabic joining forms (init, medi, fina) apply only to an Arabic run.
+        assert_eq!(measure(&font, "\u{628}\u{644}\u{627}", 10.0), Ok(8.2));
+        // Latin kerning still applies inside right-to-left text.
+        assert_eq!(measure(&font, "\u{5d0}BA", 10.0), Ok(18.4));
+        assert_eq!(measure(&font, "\u{5d0}\u{5d1} 11", 10.0), Ok(24.5));
+        assert_eq!(
+            measure(&font, "\u{5d0}(", 10.0),
+            Err("unsupported: bidi mirroring")
         );
         Ok(())
     }

@@ -1,0 +1,40 @@
+globalThis.comparison = (async () => {
+  const face = new FontFace('NimboScripts', 'url(/font-scripts-assets/' + variant + ')');
+  document.fonts.add(face);
+  await face.load();
+  const size = 10 + variant;
+  const near = (actual, expected) => Math.abs(actual - expected) < 0.001;
+  // Chromium rounds each shaped text fragment to 1/64 px layout units.
+  const nearBox = (actual, expected) => Math.abs(actual - expected) <= 2 / 64 + 0.000001;
+  const context = new OffscreenCanvas(8, 8).getContext('2d');
+  context.font = size + 'px NimboScripts';
+  const checks = {};
+  const cases = [
+    ['greek', 'Αα', 1150],
+    ['cyrillic', 'Жж', 1470],
+    ['hebrew', 'אב', 1160],
+    ['hebrewWords', 'אב אב', 2570],
+    ['arabicIsolated', 'ب', 400],
+    ['arabicPair', 'بب', 720],
+    ['arabicJoining', 'بلا', 820],
+    ['arabicSpace', 'ب ب', 1050],
+    ['latinArabic', 'Aب', 1000],
+    ['hebrewNumbers', 'אב 11', 2450],
+    ['latinKernInHebrew', 'אBA', 1840],
+    ['arabicLatinArabic', 'ببAبب', 2040],
+    ['mixedScripts', 'AΑЖאب', 3030],
+  ];
+  for (const [name, text, units] of cases) checks[name] = near(context.measureText(text).width, units * size / 1000);
+  const box = document.createElement('span');
+  box.style.cssText = 'display:inline-block;white-space:nowrap;font:' + size + 'px NimboScripts';
+  document.body.append(box);
+  for (const [name, text, units] of cases.slice(4, 8)) {
+    box.textContent = text;
+    checks['box' + name[0].toUpperCase() + name.slice(1)] = nearBox(box.getBoundingClientRect().width, units * size / 1000);
+  }
+  box.dir = 'rtl';
+  box.textContent = 'אב 11';
+  checks.boxRtlNumbers = nearBox(box.getBoundingClientRect().width, 2450 * size / 1000);
+  box.remove();
+  return checks;
+})();

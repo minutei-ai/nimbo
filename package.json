@@ -95,6 +95,8 @@
     "compare:inline-block": "bun run build:worker && bun run tooling/compare-inline-block.ts",
     "compare:static-position": "bun run build:worker && bun run tooling/compare-static-position.ts",
     "compare:rtl-boxes": "bun run build:worker && bun run tooling/compare-rtl-boxes.ts",
+    "compare:font-scripts": "bun run build:worker && bun run tooling/compare-font-scripts.ts",
+    "compare:font-fallback": "bun run build:worker && bun run tooling/compare-font-fallback.ts",
     "bench:corpus:native": "bun run tooling/benchmark-corpus.ts native",
     "bench:corpus:worker": "bun run tooling/benchmark-corpus.ts worker",
     "compare:shadow-dom": "bun run build:worker && bun run tooling/compare-shadow-dom.ts",

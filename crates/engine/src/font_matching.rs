@@ -324,6 +324,15 @@ pub(crate) fn select(request: &Request) -> Result<Option<Vec<usize>>> {
     }
     Ok(Some(selected))
 }
+/// Inclusive `unicode-range` intervals of one registered face.
+pub(crate) fn ranges(description: &Description) -> Result<Vec<(u32, u32)>> {
+    Ok(Face::parse(description)?
+        .range
+        .iter()
+        .map(|range| (range.start, range.end))
+        .collect())
+}
+
 pub(crate) fn install(ctx: &Ctx<'_>) -> rquickjs::Result<()> {
     ctx.globals().set(
         "nimboFontMatch",

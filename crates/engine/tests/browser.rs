@@ -1765,6 +1765,10 @@ fn serve_remaining_resource(request: Request) -> io::Result<()> {
         || request.url().starts_with("/public-font-assets/")
         || request.url().starts_with("/font-shaping/")
         || request.url().starts_with("/font-shaping-assets/")
+        || request.url().starts_with("/font-scripts/")
+        || request.url().starts_with("/font-scripts-assets/")
+        || request.url().starts_with("/font-fallback/")
+        || request.url().starts_with("/font-fallback-assets/")
     {
         return serve_fonts(request);
     }
@@ -1953,6 +1957,10 @@ fn is_resource(path: &str) -> bool {
             "/public-font-assets/",
             "/font-shaping/",
             "/font-shaping-assets/",
+            "/font-scripts/",
+            "/font-scripts-assets/",
+            "/font-fallback/",
+            "/font-fallback-assets/",
         ]
         .iter()
         .any(|prefix| path.starts_with(prefix))
@@ -2137,7 +2145,41 @@ fn serve_fonts(request: Request) -> io::Result<()> {
     serve_font_response(request, &path)
 }
 
+/// Multi-script and fallback font fixtures share the synthetic font assets.
+fn script_font_response(path: &str) -> io::Result<Option<Response<io::Cursor<Vec<u8>>>>> {
+    let response = if path.starts_with("/font-fallback-assets/latin/") {
+        Response::from_data(include_bytes!("fixtures/synthetic-shaping-font.ttf").to_vec())
+            .with_header(header("Content-Type", "font/ttf")?)
+    } else if path.starts_with("/font-fallback-assets/scripts/") {
+        Response::from_data(include_bytes!("fixtures/synthetic-scripts-font.ttf").to_vec())
+            .with_header(header("Content-Type", "font/ttf")?)
+    } else if let Some(variant) = path.strip_prefix("/font-fallback/") {
+        let variant = variant.parse::<usize>().unwrap_or_default();
+        Response::from_data(format!(
+            "<!doctype html><meta charset=utf-8><body><script>globalThis.variant={variant};{}</script>",
+            include_str!("fixtures/font-fallback.txt")
+        ))
+        .with_header(header("Content-Type", "text/html")?)
+    } else if path.starts_with("/font-scripts-assets/") {
+        Response::from_data(include_bytes!("fixtures/synthetic-scripts-font.ttf").to_vec())
+            .with_header(header("Content-Type", "font/ttf")?)
+    } else if let Some(variant) = path.strip_prefix("/font-scripts/") {
+        let variant = variant.parse::<usize>().unwrap_or_default();
+        Response::from_data(format!(
+            "<!doctype html><meta charset=utf-8><body><script>globalThis.variant={variant};{}</script>",
+            include_str!("fixtures/font-scripts.txt")
+        ))
+        .with_header(header("Content-Type", "text/html")?)
+    } else {
+        return Ok(None);
+    };
+    Ok(Some(response))
+}
+
 fn serve_font_response(request: Request, path: &str) -> io::Result<()> {
+    if let Some(response) = script_font_response(path)? {
+        return request.respond(response);
+    }
     let mut response = if path.starts_with("/font-loading/font/")
         || path.starts_with("/font-assets/font/")
     {
@@ -4341,6 +4383,40 @@ fn native_shaping_uses_real_http_font_resources() -> TestResult {
         let result = page.evaluate("globalThis.comparison")?;
         let fields = result.as_object().ok_or("missing font shaping result")?;
         assert_eq!(fields.len(), 27);
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn native_script_runs_shape_mixed_direction_text_over_real_http() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/font-scripts/{variant}")))?;
+        let result = page.evaluate("globalThis.comparison")?;
+        let fields = result.as_object().ok_or("missing font scripts result")?;
+        assert_eq!(fields.len(), 18);
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "variant {variant}: {result}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn native_font_fallback_selects_faces_per_character_over_real_http() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for variant in 0..64 {
+        let page = browser.navigate(&fixture.path(&format!("/font-fallback/{variant}")))?;
+        let result = page.evaluate("globalThis.comparison")?;
+        let fields = result.as_object().ok_or("missing font fallback result")?;
+        assert_eq!(fields.len(), 8);
         assert!(
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"

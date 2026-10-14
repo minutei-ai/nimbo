@@ -1,0 +1,35 @@
+globalThis.comparison = (async () => {
+  const latin = '/font-fallback-assets/latin/' + variant;
+  const scripts = '/font-fallback-assets/scripts/' + variant;
+  const faces = [
+    new FontFace('FallbackPrimary', 'url(' + latin + ')'),
+    new FontFace('FallbackSecond', 'url(' + scripts + ')'),
+    new FontFace('FallbackSplit', 'url(' + latin + ')', { unicodeRange: 'U+0000-00FF' }),
+    new FontFace('FallbackSplit', 'url(' + scripts + ')', { unicodeRange: 'U+0370-05FF' }),
+  ];
+  for (const face of faces) document.fonts.add(face);
+  await Promise.all(faces.map((face) => face.load()));
+  const size = 10 + variant;
+  // Chromium rounds each shaped text fragment to 1/64 px layout units.
+  const near = (actual, expected) => Math.abs(actual - expected) <= 3 / 64 + 0.000001;
+  const box = document.createElement('span');
+  document.body.append(box);
+  const width = (family, text) => {
+    box.style.cssText = 'display:inline-block;white-space:nowrap;font:' + size + 'px ' + family;
+    box.textContent = text;
+    return box.getBoundingClientRect().width;
+  };
+  const checks = {};
+  const list = 'FallbackPrimary, FallbackSecond';
+  checks.primaryOnly = near(width(list, 'AB'), 900 * size / 1000);
+  checks.hebrewFallback = near(width(list, 'A א'), 1440 * size / 1000);
+  checks.cyrillicFallback = near(width(list, 'ЖA'), 1430 * size / 1000);
+  checks.arabicFallback = near(width(list, 'بلا'), 820 * size / 1000);
+  checks.secondOnly = near(width('FallbackSecond, FallbackPrimary', 'BA'), 1250 * size / 1000);
+  checks.rangeSubsets = near(width('FallbackSplit', 'Aα'), 1140 * size / 1000);
+  checks.rangeOrder = near(width('FallbackSplit', 'אב A'), 2010 * size / 1000);
+  box.style.fontFamily = 'FallbackSecond';
+  checks.familyMutation = near(box.getBoundingClientRect().width, 2010 * size / 1000);
+  box.remove();
+  return checks;
+})();

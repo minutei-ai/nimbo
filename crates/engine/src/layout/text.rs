@@ -5,6 +5,7 @@ use std::{
     rc::Rc,
 };
 
+use crate::font_data::Faces;
 use harfrust::Font;
 use num_traits::ToPrimitive;
 use taffy::prelude::*;
@@ -137,13 +138,13 @@ impl Budget {
     pub(super) fn check(&self) -> Result<()> {
         self.error.borrow_mut().take().map_or(Ok(()), Err)
     }
-    fn shape(&self, font: &Font, source: &str, size: f64, spacing: f64) -> Result<f64> {
+    fn shape(&self, faces: &Faces, source: &str, size: f64, spacing: f64) -> Result<f64> {
         self.bytes
             .set(self.bytes.get().saturating_add(source.len().max(1)));
         if source.len() > 65_536 || self.bytes.get() > 1_048_576 {
             return Err(crate::Error::Limit("layout text shaping"));
         }
-        crate::font_data::measure_spaced(font, source, size, spacing).map_err(unsupported)
+        crate::font_data::measure_faces(faces, source, size, spacing).map_err(unsupported)
     }
 }
 
@@ -319,7 +320,7 @@ fn line_metrics(font: &Font, size: f64, height: &str) -> Result<(f64, f64)> {
 }
 
 pub(super) struct Run {
-    font: Font,
+    faces: Faces,
     source: String,
     size: f64,
     height: f64,
@@ -392,7 +393,7 @@ impl Run {
             .transform
             .apply(&normalized, &typography.language)?;
         let size = context.fonts.size();
-        let font = fonts.select(
+        let faces = fonts.select_faces(
             format!(
                 "{} {} {size}px {}",
                 typography.style,
@@ -401,18 +402,28 @@ impl Run {
             ),
             &normalized,
         )?;
-        let (height, baseline) = line_metrics(&font, size, &context.fonts.line_height()?)?;
+        let line_height = context.fonts.line_height()?;
+        let (primary, fallback) = faces
+            .split_first()
+            .ok_or_else(|| unsupported("text font selection"))?;
+        let (height, baseline) = line_metrics(&primary.0, size, &line_height)?;
+        // Fallback glyphs from a face with other metrics would grow normal line boxes.
+        for (font, _) in fallback {
+            if line_metrics(font, size, &line_height)? != (height, baseline) {
+                return Err(unsupported("font fallback line metrics"));
+            }
+        }
         let mut advances = HashMap::new();
         for line in normalized.split('\n') {
             if !advances.contains_key(line) {
                 advances.insert(
                     line.to_owned(),
-                    budget.shape(&font, line, size, typography.spacing)?,
+                    budget.shape(&faces, line, size, typography.spacing)?,
                 );
             }
         }
         Ok(Some(Self {
-            font,
+            faces,
             source: normalized,
             size,
             height,
@@ -430,7 +441,7 @@ impl Run {
         }
         let advance = self
             .budget
-            .shape(&self.font, source, self.size, self.spacing)?;
+            .shape(&self.faces, source, self.size, self.spacing)?;
         self.advances
             .borrow_mut()
             .insert(source.to_owned(), advance);
