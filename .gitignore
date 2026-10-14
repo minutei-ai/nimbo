@@ -14,3 +14,6 @@ coverage/
 # Local deployment/proxy configuration stays outside the public repository.
 *.private.*
 secrets/
+
+# Python bytecode from test fixtures.
+__pycache__/
