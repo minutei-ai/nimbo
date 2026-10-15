@@ -82,7 +82,7 @@ impl Browser {
         let mut builder = Client::builder()
             .redirect(Policy::none())
             .no_proxy()
-            .user_agent("Nimbo/0.1");
+            .user_agent(crate::USER_AGENT);
         if let Some(proxy) = proxy {
             builder = builder.proxy(explicit_proxy(proxy)?);
         }

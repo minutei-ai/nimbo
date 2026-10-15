@@ -1,5 +1,7 @@
 //! Primeiro núcleo de scraping do Nimbo: HTTP, DOM e JavaScript sem renderização.
 
+pub(crate) const USER_AGENT: &str = "Mozilla/5.0 (compatible; Nimbo/0.1; like Gecko)";
+
 mod animations;
 mod background_layers;
 mod background_position;
@@ -197,4 +199,4 @@ pub use media::MediaEnvironment;
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[cfg(target_arch = "wasm32")]
-pub use wasm::{WasmPage, decode_response, engine_limits, engine_version};
+pub use wasm::{WasmPage, browser_user_agent, decode_response, engine_limits, engine_version};

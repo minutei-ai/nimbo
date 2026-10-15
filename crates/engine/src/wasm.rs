@@ -185,6 +185,13 @@ pub fn engine_version() -> String {
     env!("CARGO_PKG_VERSION").to_owned()
 }
 
+/// Default HTTP identity shared by the native engine and host transport.
+#[wasm_bindgen]
+#[must_use]
+pub fn browser_user_agent() -> String {
+    crate::USER_AGENT.to_owned()
+}
+
 /// Página Rust/QuickJS dentro do Wasm; o host atende HTTP e esperas do relógio.
 #[wasm_bindgen]
 pub struct WasmPage {

@@ -18,6 +18,7 @@
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const mediaEnvironment = JSON.parse(nimboMediaEnvironment) as { width: number; height: number };
   let href = nimboUrl;
+  const userAgent = nimboUserAgent;
   const nativeIsProxy = nimboIsProxy;
   const now = nimboNow;
   const timerLimit = nimboTimerLimit;
@@ -38,6 +39,7 @@
   Reflect.deleteProperty(globalThis, "nimboFontMatch");
   Reflect.deleteProperty(globalThis, "nimboMediaEnvironment");
   Reflect.deleteProperty(globalThis, "nimboUrl");
+  Reflect.deleteProperty(globalThis, "nimboUserAgent");
   Reflect.deleteProperty(globalThis, "nimboIsProxy");
   Reflect.deleteProperty(globalThis, "nimboNow");
   Reflect.deleteProperty(globalThis, "nimboTimerLimit");
@@ -8518,7 +8520,7 @@
     }
   }
   const navigatorValues = {
-    userAgent: "Nimbo/0.1",
+    userAgent,
     appCodeName: "Mozilla",
     appName: "Netscape",
     appVersion: "0.1",

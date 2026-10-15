@@ -1,5 +1,9 @@
 import { ProxyTransport } from "./proxy";
-import { decode_response, WasmCookies } from "../../../dist/wasm/nimbo_engine.js";
+import {
+  browser_user_agent,
+  decode_response,
+  WasmCookies,
+} from "../../../dist/wasm/nimbo_engine.js";
 import { ScrapeError, type Egress, type EngineLimits, type FetchOptions } from "./protocol";
 
 export async function readBytes(message: Request | Response, maximum: number): Promise<Uint8Array> {
@@ -103,7 +107,11 @@ export class Transport {
       if (this.requests >= this.limits.maxRequests)
         throw new ScrapeError({ status: 422, reason: "request count limit" });
       this.requests++;
-      const headers = new Headers({ "user-agent": "Nimbo/0.1", accept: "*/*", ...this.headers });
+      const headers = new Headers({
+        "user-agent": browser_user_agent(),
+        accept: "*/*",
+        ...this.headers,
+      });
       for (const [name, header] of fetch.headers) headers.set(name, header);
       const cookie = this.cookies.header(url.href);
       if (cookie) headers.set("cookie", cookie);

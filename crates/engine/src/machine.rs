@@ -403,6 +403,7 @@ impl Machine {
             js(&ctx, crate::links::install(&ctx))?;
             install_proxy_brand(&ctx)?;
             js(&ctx, globals.set("nimboUrl", url))?;
+            js(&ctx, globals.set("nimboUserAgent", crate::USER_AGENT))?;
             let callbacks = web_bindings(&ctx)?;
             Ok((
                 callback(&ctx, &callbacks, "ready")?,

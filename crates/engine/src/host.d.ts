@@ -17,6 +17,7 @@ declare function nimboCookie(write: boolean, value: string): string;
 declare function nimboMedia(query: string): string;
 declare const nimboMediaEnvironment: string;
 declare const nimboUrl: string;
+declare const nimboUserAgent: string;
 declare function nimboNow(): number;
 declare const nimboTimerLimit: number;
 declare const nimboTimerTaskLimit: number;

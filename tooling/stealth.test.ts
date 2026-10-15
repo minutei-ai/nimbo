@@ -6,6 +6,7 @@ import { hotPathFixture, hotPathScenarios } from "./hot-paths-fixture";
 const source = await Bun.file(
   new URL("../crates/engine/tests/fixtures/stealth.txt", import.meta.url),
 ).text();
+const nativeIdentity: unknown = expect.stringContaining("Nimbo/0.1");
 let origin: ReturnType<typeof Bun.serve>;
 let worker: Miniflare;
 beforeAll(() => {
@@ -76,7 +77,12 @@ test("navigator identity agrees with navigation and page-fetch headers", async (
     await extract(
       "fetch('/echo').then(r=>r.json()).then(r=>({same:r.userAgent===navigator.userAgent,identity:navigator.userAgent,webdriver:navigator.webdriver,secret:r.authorization}))",
     ),
-  ).toEqual({ same: true, identity: "Nimbo/0.1", webdriver: false, secret: null });
+  ).toEqual({
+    same: true,
+    identity: nativeIdentity,
+    webdriver: false,
+    secret: null,
+  });
 });
 
 test("page modules cannot import the owned host bindings", async () => {
@@ -95,7 +101,7 @@ test("failed pages dispose poisoned platform state and release capacity", async 
   });
   expect(response.status).toBe(422);
   expect(await extract("({ua:navigator.userAgent,local:localStorage.getItem('probe')})")).toEqual({
-    ua: "Nimbo/0.1",
+    ua: nativeIdentity,
     local: null,
   });
 });
@@ -113,7 +119,7 @@ test.each(Array.from({ length: 8 }, (_, variant) => variant))(
         "fetch('/echo').then(r=>r.json()).then(r=>({ua:navigator.userAgent,local:localStorage.getItem('probe'),session:sessionStorage.getItem('probe'),cookie:document.cookie,sent:r.cookie,host:typeof process,native:/\\[native code\\]/.test(Function.prototype.toString.call(Object.prototype.toString))}))",
       ),
     ).toEqual({
-      ua: "Nimbo/0.1",
+      ua: nativeIdentity,
       local: null,
       session: null,
       cookie: "",
