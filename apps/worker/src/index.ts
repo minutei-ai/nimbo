@@ -1,3 +1,4 @@
+import { ConsoleMessages } from "@nimbo/client/schema";
 import { WorkerEntrypoint } from "cloudflare:workers";
 import { Effect, Exit, Option, Queue, Schema, Semaphore } from "effect";
 import wasm from "nimbo:wasm";
@@ -41,6 +42,7 @@ type FailureState = {
     | "serialization";
   diagnostics: boolean;
   enginePhase?: string;
+  consoleMessages?: typeof ConsoleMessages.Type;
 };
 
 type ScrapeInput = typeof Input.Type;
@@ -74,6 +76,7 @@ const scrape = (
       const input = yield* source.pipe(Effect.timeout(limits.timeoutMs));
       return yield* Effect.gen(function* () {
         state.diagnostics = input.diagnostics === true;
+        if (input.captureConsole === true) state.consoleMessages = [];
         const wasmLinearBytesBefore =
           input.diagnostics === true ? memory.buffer.byteLength : undefined;
         state.phase = "navigation";
@@ -157,14 +160,13 @@ const scrape = (
             catch: (cause) => failure(cause),
           }),
           (loaded) =>
-            Effect.sync(() => {
-              // Capture state before disposal, including interrupted scopes. Always free the page.
-              try {
-                if (state.diagnostics) state.enginePhase = loaded.execution_phase();
-              } finally {
-                loaded.free();
-              }
-            }),
+            Effect.gen(function* () {
+              if (state.diagnostics) state.enginePhase = loaded.execution_phase();
+              if (state.consoleMessages !== undefined)
+                state.consoleMessages = yield* Schema.decodeEffect(
+                  Schema.fromJsonString(ConsoleMessages),
+                )(loaded.console_messages());
+            }).pipe(Effect.orDie, Effect.ensuring(Effect.sync(() => loaded.free()))),
         );
         const completions =
           yield* Queue.unbounded<
@@ -325,7 +327,9 @@ const execute = async (
     scrape(read, environment, state),
     signal === undefined ? undefined : { signal },
   );
-  if (Exit.isSuccess(exit)) return { status: 200, body: exit.value };
+  const consoleOutput =
+    state.consoleMessages === undefined ? {} : { console: state.consoleMessages };
+  if (Exit.isSuccess(exit)) return { status: 200, body: { ...exit.value, ...consoleOutput } };
   const cancelled = Exit.hasInterrupts(exit);
   const cause = Option.getOrUndefined(Exit.findErrorOption(exit));
   const error = completionFailure(cause, cancelled);
@@ -340,7 +344,11 @@ const execute = async (
     console.info(JSON.stringify({ event: "nimbo.scrape.cancelled", diagnostics }));
   return {
     status: error.status,
-    body: { error: error.reason, ...(diagnostics === undefined ? {} : { diagnostics }) },
+    body: {
+      error: error.reason,
+      ...(diagnostics === undefined ? {} : { diagnostics }),
+      ...consoleOutput,
+    },
   };
 };
 

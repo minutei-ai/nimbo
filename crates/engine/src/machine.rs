@@ -104,6 +104,7 @@ struct Script {
 }
 
 pub(crate) struct Machine {
+    pub(crate) console: crate::console::Console,
     // All persistent values, including callback-owned queues, must be cleared before Context.
     ready: Option<Persistent<Function<'static>>>,
     timer: Option<Persistent<Function<'static>>>,
@@ -275,7 +276,10 @@ impl Machine {
         )));
         let context =
             Context::full(&runtime).map_err(|error| Error::JavaScript(error.to_string()))?;
+        let console = crate::console::Console::default();
+        context.with(|ctx| js(&ctx, console.install(&ctx)))?;
         let mut machine = Self {
+            console,
             ready: None,
             timer: None,
             intersections: None,

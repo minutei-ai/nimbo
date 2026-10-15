@@ -15,6 +15,7 @@ mod cancellation;
 mod canvas;
 mod cascade;
 mod computed_style;
+mod console;
 mod containers;
 mod cookies;
 mod cssom;
@@ -74,6 +75,7 @@ use std::time::Duration;
 
 pub(crate) type BudgetCheck = std::sync::Arc<dyn Fn() -> Result<()> + Send + Sync>;
 
+pub use console::{ConsoleLevel, ConsoleMessage};
 pub use diagnostics::{Diagnostics, ExecutionPhase, PhaseTimings};
 
 #[cfg(not(target_arch = "wasm32"))]

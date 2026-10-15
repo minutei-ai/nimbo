@@ -30,6 +30,8 @@ The response contains `url`, `value` and `engine: "rust-wasm-quickjs"`. Errors r
 
 Page scripts execute by default. `"scripts":"skip"` parses received HTML and runs only the extraction expression. `maxStylesheetBytes`, `maxLayoutNodes` and `maxDomOperations` configure bounded CSS/DOM work. `timeoutMs` (up to 60 s), `maxResponseBytes` (up to 4 MiB) and `headers` (for example `user-agent` or `accept-language`, sent with every page request) are per-scrape inputs.
 
+Set `captureConsole: true` to include the page's bounded `console` records in success or error responses. Records are omitted by default, including when `diagnostics` is enabled. The supported logging methods, buffer bounds and native inspection APIs are described in [console coverage](docs/browser-coverage.md#bounded-native-console).
+
 Page `fetch` is same-origin and sends the page's cookies. It accepts `method` (GET or POST), `body`, `headers`, `credentials` (`same-origin` or `include`) and `redirect` (`follow` or `error`). Forbidden request headers such as `cookie`, `host` and `sec-*` are dropped, as in browsers. Responses expose `Headers`, without `set-cookie`.
 
 Optional `waitFor` waits for a selector, synchronous boolean predicate or quiet

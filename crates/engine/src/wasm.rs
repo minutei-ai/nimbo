@@ -266,6 +266,14 @@ impl WasmPage {
             .map_err(|error| error.to_string())
     }
 
+    /// Serializes the bounded console buffer without executing guest code.
+    ///
+    /// # Errors
+    /// Returns a failure if the records cannot be serialized.
+    pub fn console_messages(&self) -> Result<String, String> {
+        serde_json::to_string(&self.machine.console.messages()).map_err(|error| error.to_string())
+    }
+
     /// Serializes an explicit snapshot of page resource counters and `QuickJS` heap accounting.
     ///
     /// # Errors

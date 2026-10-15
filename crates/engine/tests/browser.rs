@@ -5512,3 +5512,83 @@ fn blocked_stylesheets_report_errors_and_recover_without_leaving_the_origin() ->
     );
     Ok(())
 }
+
+#[test]
+fn console_logs_during_page_execution_and_keeps_native_records() -> TestResult {
+    use nimbo_engine::ConsoleLevel::{Assert, Debug, Error, Info, Log, Warn};
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    let checks = page.evaluate(include_str!("fixtures/console.txt"))?;
+    let checks = checks.as_object().ok_or("missing console checks")?;
+    assert_eq!(checks.len(), 11);
+    assert!(
+        checks.values().all(|value| value == &json!(true)),
+        "{checks:?}"
+    );
+    let messages = page.console_messages();
+    let actual: Vec<_> = messages
+        .iter()
+        .map(|message| (message.level, message.text.as_str()))
+        .collect();
+    assert_eq!(
+        actual,
+        vec![
+            (Debug, "debug"),
+            (Info, "info"),
+            (Warn, "warn"),
+            (Error, "error"),
+            (Log, " 1"),
+            (Log, "value:12.5x/12/12.5/[Object]/[Object]/end"),
+            (Assert, "Assertion failed"),
+            (Assert, "Assertion failed: detail"),
+            (Log, "detached"),
+            (Log, "[Object]"),
+            (Log, "safe 10 2.5"),
+            (Log, "Symbol(s)/NaN/NaN"),
+            (Info, "nested"),
+            (Log, "outer"),
+        ]
+    );
+    Ok(())
+}
+
+#[test]
+fn console_buffers_bound_utf8_records_and_reset_for_fresh_pages() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    let page = browser.navigate(&fixture.path("/static"))?;
+    page.evaluate("(()=>{for(var i=0;i<120;i++)console.log('entry',i)})()")?;
+    let messages = page.console_messages();
+    assert_eq!(messages.len(), 100);
+    assert_eq!(
+        messages.first().map(|entry| entry.text.as_str()),
+        Some("entry 20")
+    );
+    assert_eq!(
+        messages.last().map(|entry| entry.text.as_str()),
+        Some("entry 119")
+    );
+    page.evaluate(
+        "(()=>{console.clear();for(var i=0;i<20;i++)console.log('%s','€'.repeat(2000))})()",
+    )?;
+    let messages = page.console_messages();
+    assert_eq!(messages.len(), 16);
+    assert!(messages.iter().all(|entry| entry.text.len() == 4095));
+    assert_eq!(
+        messages.iter().map(|entry| entry.text.len()).sum::<usize>(),
+        65_520
+    );
+    page.evaluate("(()=>{console.clear();console.log('kept')})()")?;
+    assert_eq!(page.console_messages().len(), 1);
+    assert_eq!(messages.len(), 16);
+    page.evaluate(r"(()=>{console.clear();console.log('\ud800','\udc00','\ud800\udc00')})()")?;
+    assert_eq!(
+        page.console_messages()
+            .first()
+            .map(|entry| entry.text.as_str()),
+        Some("\u{fffd} \u{fffd} \u{10000}")
+    );
+    let fresh = browser.navigate(&fixture.path("/static"))?;
+    assert!(fresh.console_messages().is_empty());
+    Ok(())
+}

@@ -1,5 +1,6 @@
 import { Context, Data, Effect, Layer, Schema } from "effect";
 import {
+  type ConsoleMessages,
   Failure,
   Health,
   Input,
@@ -25,6 +26,7 @@ export class NimboError extends Data.TaggedError("NimboError")<{
   readonly status: number;
   readonly reason: string;
   readonly diagnostics?: Readonly<Record<string, unknown>>;
+  readonly console?: typeof ConsoleMessages.Type;
 }> {}
 
 export class Nimbo extends Context.Service<
@@ -48,12 +50,13 @@ const outcome = (status: number, body: unknown): Effect.Effect<ScrapeResult, Nim
     ? Schema.decodeUnknownEffect(Success)(body).pipe(Effect.mapError(protocol))
     : Schema.decodeUnknownEffect(Failure)(body).pipe(
         Effect.mapError(protocol),
-        Effect.flatMap(({ error, diagnostics }) =>
+        Effect.flatMap(({ error, diagnostics, console }) =>
           Effect.fail(
             new NimboError({
               status,
               reason: error,
               ...(diagnostics === undefined ? {} : { diagnostics }),
+              ...(console === undefined ? {} : { console }),
             }),
           ),
         ),

@@ -3,16 +3,19 @@ import { join } from "node:path";
 import { Miniflare } from "miniflare";
 
 test.each([
-  { phase: "timer", diagnostics: false },
+  { phase: "timer", diagnostics: false, captureConsole: false },
   ...["timer", "http", "body", "readiness", "parsing"].map((phase) => ({
     phase,
     diagnostics: true,
+    captureConsole: false,
   })),
+  { phase: "timer", diagnostics: true, captureConsole: true },
 ])(
-  "client disconnect interrupts $phase (diagnostics=$diagnostics) and releases Worker capacity",
-  async ({ phase, diagnostics }) => {
+  "client disconnect interrupts $phase (diagnostics=$diagnostics, console=$captureConsole) and releases Worker capacity",
+  async ({ phase, diagnostics, captureConsole }) => {
     const record = Promise.withResolvers<string>();
     const messages: string[] = [];
+    const hostMessages: string[] = [];
 
     const entered = Promise.withResolvers<void>();
     const origin = Bun.serve({
@@ -61,6 +64,7 @@ test.each([
     });
     const worker = new Miniflare({
       handleStructuredLogs: ({ message }: { message: string }) => {
+        hostMessages.push(message);
         if (message.includes('"event":"nimbo.scrape.cancelled"')) {
           messages.push(message);
           record.resolve(message);
@@ -90,6 +94,7 @@ test.each([
         signal: client.signal,
         body: JSON.stringify({
           diagnostics,
+          captureConsole,
           url: new URL(
             phase === "body" ? "/body" : phase === "parsing" ? "/parsing" : "/",
             origin.url,
@@ -112,7 +117,7 @@ test.each([
               ? "fetch('/hang')"
               : phase === "readiness" || phase === "body" || phase === "parsing"
                 ? "1"
-                : "fetch('/entered').then(()=>new Promise(resolve=>setTimeout(()=>resolve(1),60000)))",
+                : "(console.log('page-console-marker'),fetch('/entered').then(()=>new Promise(resolve=>setTimeout(()=>resolve(1),60000))))",
         }),
       }).then(
         (response) => response.status,
@@ -168,6 +173,7 @@ test.each([
         value: { title: "fresh", entered: "undefined" },
       });
       expect(performance.now() - started).toBeLessThan(2000);
+      expect(hostMessages.join("\n")).not.toContain("page-console-marker");
     } finally {
       client.abort();
       await worker.dispose();

@@ -28,6 +28,8 @@ export const Input = Schema.Struct({
   url: Schema.String,
   expression: Schema.String,
   diagnostics: Schema.optional(Schema.Boolean),
+  /** Return bounded page console records, including failed executions. */
+  captureConsole: Schema.optional(Schema.Boolean),
   maxInitialDomNodes: Schema.optional(
     Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 65536 })),
   ),
@@ -60,19 +62,29 @@ export const Input = Schema.Struct({
 
 export type ScrapeInput = typeof Input.Encoded;
 
+/** Bounded printable records explicitly requested by the caller. */
+export const ConsoleMessages = Schema.Array(
+  Schema.Struct({
+    level: Schema.Literals(["debug", "error", "info", "log", "warn", "assert"]),
+    text: Schema.String,
+  }),
+);
+
 /** A successful extraction. `value` is the JSON result of the expression. */
 export const Success = Schema.Struct({
   url: Schema.String,
   value: Schema.Unknown,
   engine: Schema.String,
   diagnostics: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+  console: Schema.optional(ConsoleMessages),
 });
 export type ScrapeResult = typeof Success.Type;
 
-/** A failed extraction: `error` is a fixed reason without page data. */
+/** A failed extraction, with page console records only when explicitly requested. */
 export const Failure = Schema.Struct({
   error: Schema.String,
   diagnostics: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+  console: Schema.optional(ConsoleMessages),
 });
 
 /** HTTP status and JSON body, as returned by the RPC entrypoint. */

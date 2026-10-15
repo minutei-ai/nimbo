@@ -95,6 +95,12 @@ impl Page {
         self.machine.borrow().diagnostics()
     }
 
+    /// Reads the bounded console buffer without running guest code.
+    #[must_use]
+    pub fn console_messages(&self) -> Vec<crate::ConsoleMessage> {
+        self.machine.borrow().console.messages()
+    }
+
     /// Returns the phase durations measured while this page was navigated.
     #[must_use]
     pub const fn timings(&self) -> crate::PhaseTimings {

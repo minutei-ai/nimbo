@@ -3483,3 +3483,13 @@ The three budget regressions in the native unit suite lock down named-window cac
 ### Pinned module comparator difference
 
 The Obscura v0.2.3 module-graph comparison returns its full result object, rather than `null`. Its classic `nomodule` script executes despite module support, so the comparator assertion records `legacy: false` while checking the remaining module results unchanged. Nimbo requires `legacy: true` (the script is skipped), consistent with the independent Chromium check. The comparator result does not establish parity for `nomodule`.
+
+## Bounded native console
+
+Each page owns a native Rust console namespace with `debug`, `error`, `info`, `log`, `warn`, `assert` and `clear`. Logging is available during initial scripts and later evaluation. The functions retain native identity, namespace descriptors and detached-call behavior. The formatter uses the original QuickJS `String`, `parseInt` and `parseFloat` intrinsics for `%s`, `%d`/`%i` and `%f`; `%o`/`%O` render opaque object labels and `%c` consumes its style argument without visual styling. Object inspection does not run guest getters or JSON encoders. Conversion exceptions propagate. Object expansion, tables, traces, counters, groups and console timers are not implemented.
+
+The printer follows the [Console Standard's implementation-defined buffering contract](https://console.spec.whatwg.org/#printer). It keeps the most recent 100 records within 64 KiB of printable text, truncating each message to 4096 UTF-8 bytes at a character boundary. Native `String.prototype.toWellFormed` replaces isolated UTF-16 surrogates before export. A call accepts up to 128 arguments and a 64 KiB format string; exceeding either work bound fails explicitly. `clear()` empties the buffer. A fresh page starts empty, including successive navigations in one native Browser session.
+
+Native `Page::console_messages()` and Wasm `WasmPage.console_messages()` inspect immutable printable snapshots without executing guest code. The Worker and TypeScript client expose records only with `captureConsole: true`, in the `console` field of success or failure bodies. Resource diagnostics remain independent and do not expose the console implicitly. Records are not copied to host logs. A failed page is inspected before its native resources are freed; the following request receives a fresh buffer.
+
+The shared synthetic `console.txt` fixture has 11 aggregate contracts, independently checked in Chromium and the native engine. Native and real HTTP → workerd → Wasm tests also cover FIFO eviction, UTF-8 byte bounds, clear/fresh-page behavior, explicit collection, failure cleanup, immutable snapshots and the client error channel. These checks cover the listed subset, not the complete Console Standard.

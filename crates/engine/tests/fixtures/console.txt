@@ -1,0 +1,40 @@
+(() => {
+  console.clear();
+  const checks = {};
+  const global = Object.getOwnPropertyDescriptor(globalThis, 'console');
+  const prototype = Object.getPrototypeOf(console);
+  checks.namespace = Object.prototype.toString.call(console) === '[object console]' && Reflect.ownKeys(prototype).length === 0 && Object.getPrototypeOf(prototype) === Object.prototype;
+  checks.global = !global.enumerable && global.writable && global.configurable;
+  const methods = ['log', 'warn', 'info', 'debug', 'error', 'assert', 'clear'];
+  checks.methods = methods.every(name => { const descriptor = Object.getOwnPropertyDescriptor(console, name); return console[name].length === 0 && console[name].name === name && descriptor.enumerable && descriptor.configurable && descriptor.writable && Function.prototype.toString.call(console[name]).includes('[native code]'); });
+  checks.empty = console.log() === undefined;
+  checks.returns = console.debug('debug') === undefined && console.info('info') === undefined && console.warn('warn') === undefined && console.error('error') === undefined;
+  console.log('', 1);
+  let conversions = 0;
+  const value = {toString() { conversions++; return '12.5x'; }};
+  console.log('value:%s/%i/%f/%o/%O/%cend', value, value, value, value, value, 'color:red');
+  checks.formatters = conversions === 3;
+  console.assert(true, 'not printed');
+  console.assert(false);
+  console.assert(false, '%s', 'detail');
+  const detached = console.log;
+  checks.detached = detached.call(null, 'detached') === undefined;
+  checks.notConstructible = false;
+  try { Reflect.construct(console.log, []); } catch (error) { checks.notConstructible = error.name === 'TypeError'; }
+  let read = false;
+  const object = {get field() {read = true; throw new Error('getter');}, toString() {read = true; throw new Error('toString');}};
+  console.log(object);
+  checks.opaque = !read;
+  checks.throwing = false;
+  try { console.log('%s', {toString() {throw new Error('format');}}); } catch (error) {checks.throwing = error.message === 'format';}
+  const original = [String, parseInt, parseFloat];
+  globalThis.String = () => {throw new Error('poison');};
+  globalThis.parseInt = globalThis.String;
+  globalThis.parseFloat = globalThis.String;
+  console.log('%s %i %f', 'safe', '10x', '2.5x');
+  [globalThis.String, globalThis.parseInt, globalThis.parseFloat] = original;
+  checks.poisoning = true;
+  console.log('%s/%d/%f', Symbol('s'), Symbol('i'), Symbol('f'));
+  console.log('%s', {toString() {console.info('nested');return 'outer';}});
+  return checks;
+})()
