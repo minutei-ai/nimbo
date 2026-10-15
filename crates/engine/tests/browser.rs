@@ -438,6 +438,15 @@ fn variant_source(url: &str) -> Option<&'static str> {
 }
 
 fn serve(request: Request) -> io::Result<()> {
+    if request.url() == "/async-inline" {
+        return respond(
+            request,
+            "<script async>globalThis.order=['inline'];globalThis.phase=document.readyState</script><script async defer>order.push('next')</script><script type='application/json' async>{}</script>".into(),
+            200,
+            "text/html",
+            Vec::new(),
+        );
+    }
     if request.url().starts_with("/history/") {
         return serve_history(request);
     }
@@ -674,6 +683,19 @@ fn rejects_cross_origin_navigation_scripts_redirects_and_fetch() -> TestResult {
     assert!(
         page.evaluate("fetch('http://localhost:9/blocked')")
             .is_err()
+    );
+    Ok(())
+}
+
+#[test]
+fn inline_classic_scripts_ignore_async_and_defer_attributes() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/async-inline"))?;
+    assert_eq!(
+        page.evaluate("({order,phase,ready:document.readyState})")?,
+        json!({"order":["inline","next"],"phase":"loading","ready":"complete"})
     );
     Ok(())
 }

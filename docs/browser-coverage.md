@@ -176,7 +176,9 @@ records that separately and requires a complete result from Nimbo.
 
 Import maps and JSON modules remain missing. Dynamic import currently works for
 already loaded sources; fetching new dynamic dependencies remains missing and
-fails explicitly. Async script scheduling and full HTML module lifecycle/WPT
+fails explicitly. Inline classic scripts ignore `async` and `defer`, execute in
+parser order with loading readyState, and are covered in native and Worker tests.
+External and module async script scheduling and full HTML module lifecycle/WPT
 conformance remain incomplete. These tests do not prove application hydration
 or production compatibility.
 

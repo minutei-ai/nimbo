@@ -695,6 +695,22 @@ test("guest JS cannot access Worker credentials or host bindings", async () => {
   );
 });
 
+test("inline classic async and defer attributes preserve parser execution", async () => {
+  await fixture(
+    () =>
+      html(`<script async>globalThis.order=['inline'];globalThis.phase=document.readyState</script>
+      <script async defer>order.push('next')</script>
+      <script type="application/json" async>{}</script>`),
+    async (worker) => {
+      const response = await scrape(worker, "({order,phase,ready:document.readyState})");
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({
+        value: { order: ["inline", "next"], phase: "loading", ready: "complete" },
+      });
+    },
+  );
+});
+
 test("explicit script skipping extracts server HTML without running or loading page scripts", async () => {
   const requests: string[] = [];
   await fixture(

@@ -1064,7 +1064,9 @@ fn collect_scripts(dom: &Dom, execute_scripts: bool) -> Result<VecDeque<Script>>
         if kind != "module" && node.null_attribute("nomodule").is_some() {
             continue;
         }
-        if node.null_attribute("async").is_some() {
+        if node.null_attribute("async").is_some()
+            && (kind == "module" || node.null_attribute("src").is_some())
+        {
             return Err(Error::Unsupported("async script scheduling".into()));
         }
         let deferred = kind == "module"
