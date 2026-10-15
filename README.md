@@ -69,6 +69,9 @@ Local celld A/B results, same HTTP adapter and limits, fresh pages, concurrency 
 
 ## Test
 
+The native TLS/HTTP2 regression uses Node.js 22 or newer and OpenSSL to host
+a synthetic trusted origin. Bun remains the command runner and Worker host.
+
 ```sh
 bun run check         # formatting, build, lint, tests, docs, release tests
 bun run test:stealth  # real HTTP through Worker/Wasm

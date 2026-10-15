@@ -44,7 +44,12 @@ unicode-segmentation = "=1.13.3"
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 futures-util = { version = "=0.3.34", default-features = false, features = ["std"] }
 tokio = { version = "=1.53.1", features = ["rt", "time", "sync", "net"] }
-reqwest = { version = "=0.13.5", default-features = false, features = ["rustls", "socks"] }
+reqwest = { version = "=0.13.5", default-features = false, features = [
+  "gzip",
+  "http2",
+  "rustls",
+  "socks",
+] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "=0.2.129"

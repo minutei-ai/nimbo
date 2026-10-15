@@ -67,6 +67,12 @@ environment variable; a Worker reads its binding. Leave it unset for direct
 host fetch. An alternative `EGRESS` binding supplies `fetch(Request)`; configuring
 both bindings is an explicit error.
 
+The native CLI uses reqwest HTTP/2 negotiation and gzip decoding for navigation
+and subresources; HTTP/1.1 origins remain supported. The TLS regression verifies
+the negotiated protocol, compressed HTML/script/CSS/JSON, cookies and POST bytes
+against a trusted synthetic origin. Worker direct fetch uses its host transport;
+this native test does not establish HTTP/2 support for Worker proxy tunnels.
+
 Nimbo implements HTTP forwarding, HTTP CONNECT and SOCKS5 remote DNS over
 `cloudflare:sockets`, with optional Basic or SOCKS username/password
 authentication. Navigation, redirects, CSS, scripts, module imports and page
