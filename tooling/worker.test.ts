@@ -1290,3 +1290,36 @@ test("generic collection forEach remains bounded by original JavaScript fuel", a
     },
   );
 });
+
+test("Window names follow subtree moves and native attribute nodes", async () => {
+  const expression = await Bun.file(
+    join(root, "crates/engine/tests/fixtures/window-named-mutations.txt"),
+  ).text();
+  await fixture(
+    () => html("<main>Document</main>"),
+    async (worker) => {
+      const response = await scrape(worker, expression);
+      expect(response.status).toBe(200);
+      const result = await json(response);
+      if (typeof result !== "object" || result === null) throw new Error("Missing response");
+      const checks: unknown = Reflect.get(result, "value");
+      if (typeof checks !== "object" || checks === null) throw new Error("Missing Window checks");
+      expect(Object.keys(checks)).toHaveLength(17);
+      expect(Object.values(checks).every((value) => value === true)).toBe(true);
+    },
+  );
+});
+
+test("detached DOM mutations retain Window name lookup within the default budget", async () => {
+  const expression = await Bun.file(
+    join(root, "crates/engine/tests/fixtures/window-named-detached.txt"),
+  ).text();
+  await fixture(
+    () => html("<main>Document</main>"),
+    async (worker) => {
+      const response = await scrape(worker, expression);
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({ value: true });
+    },
+  );
+});

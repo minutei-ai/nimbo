@@ -323,8 +323,18 @@ impl Dom {
                     "style" | "setControlValue" | "setInputState" | "inputActivate" | "formReset"
                 )
             };
-            if names_changed {
-                self.named = None;
+            if names_changed
+                && self.named.is_some()
+                && !matches!(self.handles.get(handle), Some(Handle::Attribute))
+            {
+                let connected = self.in_window_document(handle)?
+                    || (matches!(operation, "append" | "insert" | "replace")
+                        && self.in_window_document(value.parse().map_err(
+                            |error: std::num::ParseIntError| Error::Dom(error.to_string()),
+                        )?)?);
+                if connected {
+                    self.named = None;
+                }
             }
             self.layout_version = self.layout_version.saturating_add(1);
             self.computed_styles.clear();
@@ -1239,6 +1249,18 @@ impl Dom {
             .find(|candidate| candidate.is_element() && matcher.matches(*candidate, Some(&view)))
             .map(|candidate| candidate.id);
         Ok(json!(id.map(|id| self.handle(id))))
+    }
+
+    fn in_window_document(&self, handle: usize) -> Result<bool> {
+        let node = self.node(handle)?;
+        let view = self.control_view();
+        for ancestor in std::iter::once(node).chain(node.ancestors_it(None)) {
+            view.charge()?;
+            if ancestor.id == self.document.root().id {
+                return Ok(true);
+            }
+        }
+        Ok(false)
     }
 
     fn ensure_window_names(&mut self) -> Result<()> {

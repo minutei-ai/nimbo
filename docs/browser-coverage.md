@@ -3151,10 +3151,21 @@ and [StyleSheetList](https://drafts.csswg.org/cssom/#the-stylesheetlist-interfac
 
 Window, self and bare global identifiers resolve document element IDs across
 namespaces, and HTML embed/form/img/object names. Rust indexes the connected
-native document in tree order and invalidates the index after mutations. A
-single match returns the actual element; multiple matches return a live
+native document in tree order and invalidates the index when mutations affect
+that document. A single match returns the actual element; multiple matches return a live
 HTMLCollection, deduplicating an element with the same ID and name. Renaming,
 removal and reordering affect both subsequent lookups and retained collections.
+
+Detached and shadow-tree mutations preserve the existing document index. Moving
+an indexed node into a detached subtree, fragment or shadow root still invalidates
+it; reconnecting a subtree makes its names visible again. Native and Worker tests
+share 17 movement and attribute-node contracts. The shared 400-node regression
+performs 40 rounds of detached writes and global lookups under the unchanged
+10,000-operation default: the previous implementation exhausted that budget;
+the candidate uses 983 native operations and 975 Worker operations. Profiling
+both Worker versions with a 50,000-operation cap measures 16,575 versus 975
+operations for the same successful extraction. This measures charged DOM work,
+not latency or full application compatibility.
 
 The Window prototype chain contains a named-properties object above
 EventTarget.prototype. Global own properties and inherited prototype members

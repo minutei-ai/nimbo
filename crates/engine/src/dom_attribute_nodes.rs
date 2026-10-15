@@ -332,7 +332,13 @@ impl Dom {
         self.layout_version = self.layout_version.saturating_add(1);
         self.computed_styles.clear();
         self.cascade = None;
-        self.named = None;
+        if self.named.is_some()
+            && namespace.is_empty()
+            && matches!(local, "id" | "name")
+            && self.in_window_document(owner)?
+        {
+            self.named = None;
+        }
         if namespace.is_empty() && local == "style" {
             let id = self.node_id(owner)?;
             if let Some(previous) = self.styles.remove(&id) {

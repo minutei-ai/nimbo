@@ -1,0 +1,12 @@
+(() => {
+  document.body.innerHTML = '<div id=keptName></div>' + '<div></div>'.repeat(400);
+  const kept = document.getElementById('keptName');
+  const detached = document.createElement('section');
+  for (let i = 0; i < 40; i++) {
+    detached.innerHTML = '<span></span>';
+    detached.id = 'detached' + i;
+    detached.appendChild(document.createElement('i'));
+    if (window.keptName !== kept || typeof window.missingDetachedName !== 'undefined') return false;
+  }
+  return true;
+})()

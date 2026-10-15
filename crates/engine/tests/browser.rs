@@ -4441,6 +4441,31 @@ fn window_named_properties_follow_real_dom() -> TestResult {
 }
 
 #[test]
+fn detached_mutations_preserve_window_name_index() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    assert_eq!(
+        page.evaluate(include_str!("fixtures/window-named-detached.txt"))?,
+        json!(true)
+    );
+    Ok(())
+}
+
+#[test]
+fn window_names_follow_subtree_moves_and_attribute_nodes() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    let result = page.evaluate(include_str!("fixtures/window-named-mutations.txt"))?;
+    let checks = result.as_object().ok_or("missing Window mutation checks")?;
+    assert_eq!(checks.len(), 17);
+    assert!(
+        checks.values().all(|value| value == &json!(true)),
+        "{result}"
+    );
+    Ok(())
+}
+
+#[test]
 fn window_named_properties_mass_real_http() -> TestResult {
     let fixture = Fixture::new()?;
     each_variant(&fixture, |browser, variant| {
