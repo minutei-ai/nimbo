@@ -109,39 +109,84 @@ impl Page {
     }
 
     fn drive(&self) -> Result<Option<String>> {
+        self.transport.run(self.drive_async())
+    }
+
+    async fn drive_async(&self) -> Result<Option<String>> {
+        use futures_util::{FutureExt as _, StreamExt as _, stream::FuturesUnordered};
         let base = parse_url(&self.url)?;
+        let mut requests = FuturesUnordered::<
+            futures_util::future::LocalBoxFuture<'_, (usize, Result<Response>)>,
+        >::new();
         loop {
             self.transport.check_deadline()?;
             self.machine
                 .borrow()
                 .advance(self.epoch.elapsed().as_secs_f64() * 1000.0)?;
-            let action = self.machine.borrow_mut().step()?;
-            match action {
-                Action::Ready => return Ok(None),
-                Action::Result { json } => return Ok(Some(json)),
-                Action::Wait { milliseconds } => {
-                    let remaining = self
-                        .transport
-                        .deadline
-                        .saturating_duration_since(std::time::Instant::now());
-                    self.transport.wait(
-                        std::time::Duration::from_secs_f64(milliseconds / 1000.0).min(remaining),
-                    )?;
+            let completed = if let Some(completed) = requests.next().now_or_never().flatten() {
+                Some(completed)
+            } else {
+                let action = self.machine.borrow_mut().step()?;
+                match action {
+                    Action::Ready => return Ok(None),
+                    Action::Result { json } => return Ok(Some(json)),
+                    Action::Wait { milliseconds } => {
+                        tokio::time::sleep(std::time::Duration::from_secs_f64(
+                            milliseconds / 1000.0,
+                        ))
+                        .await;
+                        continue;
+                    }
+                    Action::Request {
+                        id,
+                        url,
+                        method,
+                        body,
+                        binary,
+                        options,
+                    } => {
+                        let transport = Rc::clone(&self.transport);
+                        let base = base.clone();
+                        requests.push(Box::pin(async move {
+                            (
+                                id,
+                                transport
+                                    .request_async(&base, &url, &method, &body, binary, &options)
+                                    .await,
+                            )
+                        }));
+                        continue;
+                    }
+                    Action::Await { milliseconds } => {
+                        if requests.is_empty() {
+                            return Err(Error::Unsupported("missing in-flight request".into()));
+                        }
+                        if let Some(milliseconds) = milliseconds {
+                            match futures_util::future::select(
+                                Box::pin(requests.next()),
+                                Box::pin(tokio::time::sleep(std::time::Duration::from_secs_f64(
+                                    milliseconds / 1000.0,
+                                ))),
+                            )
+                            .await
+                            {
+                                futures_util::future::Either::Left((completed, _timer)) => {
+                                    completed
+                                }
+                                futures_util::future::Either::Right(((), _request)) => None,
+                            }
+                        } else {
+                            requests.next().await
+                        }
+                    }
                 }
-                Action::Request {
-                    url,
-                    method,
-                    body,
-                    binary,
-                    options,
-                } => match self
-                    .transport
-                    .request(&base, &url, &method, &body, binary, &options)
-                {
-                    Ok(response) => self.machine.borrow_mut().respond(response)?,
+            };
+            if let Some((id, result)) = completed {
+                match result {
+                    Ok(response) => self.machine.borrow_mut().respond(id, response)?,
                     Err(error @ (Error::Limit(_) | Error::Cancelled)) => return Err(error),
-                    Err(error) => self.machine.borrow_mut().reject(&error.to_string())?,
-                },
+                    Err(error) => self.machine.borrow_mut().reject(id, &error.to_string())?,
+                }
             }
         }
     }

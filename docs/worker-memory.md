@@ -5,8 +5,10 @@ small JSON metadata. The host does not expand bytes into a numeric JSON array.
 `WasmPage.respond_binary` consumes the received Rust `Vec<u8>`; the shared
 machine transfers its ownership to QuickJS's safe `ArrayBuffer` constructor.
 This removes the second Rust response-buffer copy. Text responses keep their
-existing protocol. Response byte budgets, origin checks and page isolation are
-unchanged. The original serialized response API remains available.
+text encoding. Both response APIs take the request action's ID as their first
+argument so concurrent replies reach the right operation. Response byte budgets,
+origin checks and page isolation are unchanged. Serialized text responses remain
+available alongside binary responses.
 
 [Local evidence](evidence/worker-binary-memory-local.json) records a synthetic
 single-isolate run on celld 0.6.1. Each extraction fetches deterministic bytes

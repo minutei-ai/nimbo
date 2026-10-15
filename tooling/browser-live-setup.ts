@@ -885,7 +885,7 @@ export const origin = Bun.serve({
           "import {a} from './cycle-a.js'; export function getB() {return 'b';} export function readAAgain() {return a;}",
         "defer.js": "moduleOrder.push('defer'); moduleStates.push(document.readyState);",
         "nested/entry.js": `import value, {count,bump} from '../shared.js'; import {again} from '../reexport.js'; import {readA} from '../cycle-a.js';
-          moduleOrder.push('entry'); moduleStates.push(document.readyState); bump(); await new Promise(resolve => setTimeout(resolve, 15));
+          moduleOrder.push('entry'); moduleStates.push(document.readyState); bump(); await Promise.all([new Promise(resolve => setTimeout(resolve, 15)), new Promise(resolve => addEventListener('load', resolve, {once:true}))]);
           const namespace = await import('../shared.js'); moduleOrder.push('after'); moduleStates.push(document.readyState);
           globalThis.comparison = {order:moduleOrder.join(','),readyStates:moduleStates.join(','),live:count === 2,identity:namespace.default === value && again === value,
             once:sharedLoads === 1,namespace:Object.getPrototypeOf(namespace) === null,cycle:readA() === 'ab',

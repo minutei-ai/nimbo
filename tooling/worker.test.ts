@@ -695,6 +695,109 @@ test("guest JS cannot access Worker credentials or host bindings", async () => {
   );
 });
 
+test("async scripts fetch concurrently without blocking parsing or DOMContentLoaded", async () => {
+  const slow = Promise.withResolvers<Response>();
+  const fast = Promise.withResolvers<Response>();
+  const requests: string[] = [];
+  await fixture(
+    (request) => {
+      const path = new URL(request.url).pathname;
+      requests.push(path);
+      if (path === "/slow.js") return slow.promise;
+      if (path === "/fast.js") return fast.promise;
+      if (path === "/parsed") {
+        fast.resolve(
+          new Response("order.push('fast');fetch('/fast-ran')", {
+            headers: { "content-type": "text/javascript" },
+          }),
+        );
+        return new Response("parsed");
+      }
+      if (path === "/fast-ran") {
+        slow.resolve(
+          new Response("order.push('slow')", {
+            headers: { "content-type": "text/javascript" },
+          }),
+        );
+        return new Response("released");
+      }
+      return html(`<script>globalThis.order=[];document.addEventListener('DOMContentLoaded',()=>{order.push('dom');fetch('/parsed')});addEventListener('load',()=>order.push('load'))</script>
+        <script async src="/slow.js"></script><script async defer src="/fast.js"></script>
+        <script>order.push('parser')</script>`);
+    },
+    async (worker) => {
+      const response = await scrape(worker, "({order,ready:document.readyState})");
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({
+        value: { order: ["parser", "dom", "fast", "slow", "load"], ready: "complete" },
+      });
+      expect(requests).toContain("/slow.js");
+      expect(requests).toContain("/fast.js");
+      expect(requests).toContain("/parsed");
+      expect(requests).toContain("/fast-ran");
+    },
+  );
+});
+
+test("async microtasks can release a pending parser-blocking script", async () => {
+  const asynchronous = Promise.withResolvers<Response>();
+  const blocking = Promise.withResolvers<Response>();
+  await fixture(
+    (request) => {
+      const path = new URL(request.url).pathname;
+      if (path === "/async.js") return asynchronous.promise;
+      if (path === "/blocking.js") {
+        asynchronous.resolve(
+          new Response("Promise.resolve().then(()=>{order.push('async');fetch('/release')})", {
+            headers: { "content-type": "text/javascript" },
+          }),
+        );
+        return blocking.promise;
+      }
+      if (path === "/release") {
+        blocking.resolve(
+          new Response("order.push('blocking')", {
+            headers: { "content-type": "text/javascript" },
+          }),
+        );
+        return new Response("released");
+      }
+      return html(`<script>globalThis.order=[]</script><script async src="/async.js"></script>
+        <script src="/blocking.js"></script><script>order.push('after')</script>`);
+    },
+    async (worker) => {
+      const response = await scrape(worker, "order");
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({ value: ["async", "blocking", "after"] });
+    },
+  );
+});
+
+test("timers continue while a parser-blocking external script is pending", async () => {
+  const deferred = Promise.withResolvers<Response>();
+  await fixture(
+    (request) => {
+      const path = new URL(request.url).pathname;
+      if (path === "/defer.js") return deferred.promise;
+      if (path === "/release") {
+        deferred.resolve(
+          new Response("order.push('defer')", {
+            headers: { "content-type": "text/javascript" },
+          }),
+        );
+        return new Response("released");
+      }
+      return html(`<script>globalThis.order=[];setTimeout(()=>{order.push('timer');fetch('/release')},10)</script>
+        <script defer src="/defer.js"></script>`);
+    },
+    async (worker) => {
+      const response = await scrape(worker, "order");
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({ value: ["timer", "defer"] });
+    },
+  );
+});
+
 test("inline classic async and defer attributes preserve parser execution", async () => {
   await fixture(
     () =>
@@ -717,7 +820,7 @@ test("explicit script skipping extracts server HTML without running or loading p
     (request) => {
       requests.push(new URL(request.url).pathname);
       return html(`<h1>Published document</h1><a href="/documents/one">Read document</a>
-        <script type="module" src="/app.js"></script>
+        <script type="module" async src="/app.js"></script>
         <script async src="/tracking.js"></script>
         <script>document.querySelector('h1').textContent = 'changed'; fetch('/side-effect');</script>`);
     },
@@ -739,7 +842,9 @@ test("explicit script skipping extracts server HTML without running or loading p
       expect(requests).toEqual(["/"]);
       const normal = await scrape(worker, "1");
       expect(normal.status).toBe(422);
-      expect(await json(normal)).toMatchObject({ error: "unsupported: async script scheduling" });
+      expect(await json(normal)).toMatchObject({
+        error: "unsupported: async module script scheduling",
+      });
       const invalid = await worker.dispatchFetch("https://nimbo.test/scrape", {
         method: "POST",
         headers: { authorization: "Bearer test-secret" },

@@ -235,11 +235,15 @@ impl Transport {
         self.run(self.request_async(base, value, method, body, binary, options))
     }
 
-    fn run<T>(&self, work: impl Future<Output = Result<T>>) -> Result<T> {
+    pub(crate) fn run<T>(&self, work: impl Future<Output = Result<T>>) -> Result<T> {
         self.check_deadline()?;
         self.runtime.block_on(async {
             match futures_util::future::select(
-                Box::pin(work),
+                Box::pin(async {
+                    tokio::time::timeout_at(tokio::time::Instant::from_std(self.deadline), work)
+                        .await
+                        .map_err(|_elapsed| Error::Limit("navigation deadline"))?
+                }),
                 Box::pin(self.cancellation.cancelled()),
             )
             .await
@@ -250,14 +254,7 @@ impl Transport {
         })
     }
 
-    pub(crate) fn wait(&self, duration: std::time::Duration) -> Result<()> {
-        self.run(async {
-            tokio::time::sleep(duration).await;
-            self.check_deadline()
-        })
-    }
-
-    async fn request_async(
+    pub(crate) async fn request_async(
         &self,
         base: &Url,
         value: &str,

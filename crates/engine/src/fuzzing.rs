@@ -50,8 +50,8 @@ fn drive(machine: &mut Machine, clock: &mut f64) -> Result<Option<String>> {
         match machine.step()? {
             Action::Ready => return Ok(None),
             Action::Result { json } => return Ok(Some(json)),
-            Action::Wait { .. } => {}
-            Action::Request { .. } => machine.reject("fuzz subrequest blocked")?,
+            Action::Wait { .. } | Action::Await { .. } => {}
+            Action::Request { id, .. } => machine.reject(id, "fuzz subrequest blocked")?,
         }
     }
     Err(Error::Limit("fuzz host steps"))

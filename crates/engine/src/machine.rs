@@ -46,6 +46,7 @@ pub(crate) struct FetchOptions {
 #[serde(tag = "type", rename_all = "camelCase")]
 pub(crate) enum Action {
     Request {
+        id: usize,
         url: String,
         method: String,
         body: String,
@@ -54,6 +55,9 @@ pub(crate) enum Action {
         options: FetchOptions,
     },
     Ready,
+    Await {
+        milliseconds: Option<f64>,
+    },
     Wait {
         milliseconds: f64,
     },
@@ -95,6 +99,7 @@ struct Script {
     source: String,
     module: bool,
     deferred: bool,
+    asynchronous: bool,
 }
 
 pub(crate) struct Machine {
@@ -106,7 +111,10 @@ pub(crate) struct Machine {
     clock: Rc<Cell<f64>>,
     evaluation: Option<Persistent<Promise<'static>>>,
     waiting: Option<crate::readiness::Waiting>,
-    active: Option<Request>,
+    active: HashMap<usize, Request>,
+    blocked: Option<usize>,
+    next_request: usize,
+    content_loaded: bool,
     pending: Rc<RefCell<VecDeque<Request>>>,
     scripts: VecDeque<Script>,
     modules: Modules,
@@ -265,7 +273,10 @@ impl Machine {
             resource: None,
             clock: Rc::new(Cell::new(0.0)),
             evaluation: None,
-            active: None,
+            active: HashMap::new(),
+            blocked: None,
+            next_request: 0,
+            content_loaded: false,
             waiting: None,
             pending: Rc::default(),
             scripts,
@@ -490,12 +501,15 @@ impl Machine {
         if let Some(root) = self.module_root.clone() {
             if let Some(url) = self.modules.prepare(&self.runtime, &root)? {
                 resolve(&self.base, &url)?;
-                return Ok(Some(self.activate(Request {
-                    url: url.clone(),
-                    method: "GET".into(),
-                    body: String::new(),
-                    purpose: RequestPurpose::Module(url),
-                })));
+                return Ok(Some(self.activate(
+                    Request {
+                        url: url.clone(),
+                        method: "GET".into(),
+                        body: String::new(),
+                        purpose: RequestPurpose::Module(url),
+                    },
+                    false,
+                )));
             }
             if !self.module_evaluations.contains_key(&root) {
                 let promise = self.context.with(|ctx| -> Result<_> {
@@ -523,7 +537,7 @@ impl Machine {
                         .ok_or_else(|| Error::JavaScript("missing lifecycle callback".into()))?;
                     js(
                         &ctx,
-                        js(&ctx, callback.clone().restore(&ctx))?.call::<_, ()>((false,)),
+                        js(&ctx, callback.clone().restore(&ctx))?.call::<_, ()>(("interactive",)),
                     )
                 })?;
                 self.parsed = true;
@@ -555,12 +569,15 @@ impl Machine {
                         .map_err(|error| Error::InvalidUrl(error.to_string()))?
                         .as_str(),
                 )?;
-                return Ok(Some(self.activate(Request {
-                    url: url.to_string(),
-                    method: "GET".into(),
-                    body: String::new(),
-                    purpose: RequestPurpose::ClassicScript,
-                })));
+                return Ok(Some(self.activate(
+                    Request {
+                        url: url.to_string(),
+                        method: "GET".into(),
+                        body: String::new(),
+                        purpose: RequestPurpose::ClassicScript,
+                    },
+                    script.asynchronous,
+                )));
             }
             self.execute(&script.source, self.base.as_str())?;
         } else {
@@ -572,21 +589,19 @@ impl Machine {
     fn next_sheet(&mut self) -> Result<Option<Action>> {
         let sheet = self.dom.borrow_mut().next_sheet()?;
         Ok(sheet.map(|(handle, url)| {
-            self.activate(Request {
-                url,
-                method: "GET".into(),
-                body: String::new(),
-                purpose: RequestPurpose::Stylesheet(handle),
-            })
+            self.activate(
+                Request {
+                    url,
+                    method: "GET".into(),
+                    body: String::new(),
+                    purpose: RequestPurpose::Stylesheet(handle),
+                },
+                false,
+            )
         }))
     }
 
     pub(crate) fn step(&mut self) -> Result<Action> {
-        if self.active.is_some() {
-            return Err(Error::Unsupported(
-                "response required before next step".into(),
-            ));
-        }
         loop {
             self.check_budget()?;
             while self.runtime.is_job_pending() {
@@ -608,15 +623,25 @@ impl Machine {
                     Ok(())
                 })?;
             }
-            if let Some(action) = self.next_sheet()? {
+            if self.blocked.is_none()
+                && let Some(action) = self.next_sheet()?
+            {
                 return Ok(action);
             }
             let request = self.pending.borrow_mut().pop_front();
             if let Some(request) = request {
-                return Ok(self.activate(request));
+                return Ok(self.activate(request, true));
             }
             if self.rejections.get() != 0 {
                 return Err(Error::JavaScript("unhandled Promise rejection".into()));
+            }
+            if self.blocked.is_some()
+                || (!self.active.is_empty()
+                    && !matches!(self.phase, Phase::Scripts | Phase::Lifecycle))
+            {
+                return Ok(Action::Await {
+                    milliseconds: self.timer_step(true)?,
+                });
             }
             match self.phase {
                 Phase::Scripts => {
@@ -625,16 +650,9 @@ impl Machine {
                     }
                 }
                 Phase::Lifecycle => {
-                    let ready = self
-                        .ready
-                        .take()
-                        .ok_or_else(|| Error::JavaScript("missing lifecycle callback".into()))?;
-                    let result = self
-                        .context
-                        .with(|ctx| js(&ctx, js(&ctx, ready.restore(&ctx))?.call::<_, ()>(())));
-                    self.check_budget()?;
-                    result?;
-                    self.phase = Phase::Ready;
+                    if let Some(action) = self.lifecycle_step()? {
+                        return Ok(action);
+                    }
                 }
                 Phase::Ready => {
                     if self.intersection_step()? {
@@ -657,6 +675,42 @@ impl Machine {
                 }
             }
         }
+    }
+
+    fn lifecycle_step(&mut self) -> Result<Option<Action>> {
+        if !self.content_loaded {
+            let ready = self
+                .ready
+                .as_ref()
+                .ok_or_else(|| Error::JavaScript("missing lifecycle callback".into()))?;
+            self.context.with(|ctx| {
+                js(
+                    &ctx,
+                    js(&ctx, ready.clone().restore(&ctx))?.call::<_, ()>(("content",)),
+                )
+            })?;
+            self.content_loaded = true;
+            return Ok(None);
+        }
+        if !self.active.is_empty() {
+            return Ok(Some(Action::Await {
+                milliseconds: self.timer_step(true)?,
+            }));
+        }
+        let ready = self
+            .ready
+            .take()
+            .ok_or_else(|| Error::JavaScript("missing lifecycle callback".into()))?;
+        let result = self.context.with(|ctx| {
+            js(
+                &ctx,
+                js(&ctx, ready.restore(&ctx))?.call::<_, ()>(("complete",)),
+            )
+        });
+        self.check_budget()?;
+        result?;
+        self.phase = Phase::Ready;
+        Ok(None)
     }
 
     fn evaluation_step(&mut self) -> Result<Option<Action>> {
@@ -695,11 +749,14 @@ impl Machine {
         Ok(Some(Action::Result { json }))
     }
 
-    fn activate(&mut self, request: Request) -> Action {
+    fn activate(&mut self, request: Request, background: bool) -> Action {
         if let Some(waiting) = &mut self.waiting {
             waiting.idle_since = None;
         }
+        let id = self.next_request;
+        self.next_request = self.next_request.saturating_add(1);
         let action = Action::Request {
+            id,
             url: request.url.clone(),
             method: request.method.clone(),
             body: request.body.clone(),
@@ -709,16 +766,22 @@ impl Machine {
                 _ => FetchOptions::default(),
             },
         };
-        self.active = Some(request);
+        self.active.insert(id, request);
+        if !background {
+            self.blocked = Some(id);
+        }
         action
     }
 
-    pub(crate) fn respond(&mut self, response: Response) -> Result<()> {
+    pub(crate) fn respond(&mut self, id: usize, response: Response) -> Result<()> {
         self.check_budget()?;
         let request = self
             .active
-            .take()
+            .remove(&id)
             .ok_or_else(|| Error::Unsupported("no pending request".into()))?;
+        if self.blocked == Some(id) {
+            self.blocked = None;
+        }
         resolve(&self.base, &response.url)?;
         if response
             .body
@@ -766,11 +829,14 @@ impl Machine {
         Ok(())
     }
 
-    pub(crate) fn reject(&mut self, message: &str) -> Result<()> {
+    pub(crate) fn reject(&mut self, id: usize, message: &str) -> Result<()> {
         let request = self
             .active
-            .take()
+            .remove(&id)
             .ok_or_else(|| Error::Unsupported("no pending request".into()))?;
+        if self.blocked == Some(id) {
+            self.blocked = None;
+        }
         if let RequestPurpose::Stylesheet(handle) = request.purpose {
             return self.sheet_response(handle, request.url, None);
         }
@@ -1064,18 +1130,21 @@ fn collect_scripts(dom: &Dom, execute_scripts: bool) -> Result<VecDeque<Script>>
         if kind != "module" && node.null_attribute("nomodule").is_some() {
             continue;
         }
-        if node.null_attribute("async").is_some()
-            && (kind == "module" || node.null_attribute("src").is_some())
-        {
-            return Err(Error::Unsupported("async script scheduling".into()));
+        if node.null_attribute("async").is_some() && kind == "module" {
+            return Err(Error::Unsupported("async module script scheduling".into()));
         }
+        let asynchronous =
+            node.null_attribute("async").is_some() && node.null_attribute("src").is_some();
         let deferred = kind == "module"
-            || (node.null_attribute("src").is_some() && node.null_attribute("defer").is_some());
+            || (!asynchronous
+                && node.null_attribute("src").is_some()
+                && node.null_attribute("defer").is_some());
         let script = Script {
             src: node.null_attribute("src"),
             source: node.text().to_string(),
             module: kind == "module",
             deferred,
+            asynchronous,
         };
         if deferred {
             modules.push_back(script);

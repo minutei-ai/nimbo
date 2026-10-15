@@ -38,7 +38,8 @@ and should avoid side effects. The predicate is compiled once per wait.
 Network idle means no engine HTTP requests during a continuous quiet interval.
 Its clock starts when the wait first observes an empty request queue and restarts
 after each subsequent request completes or fails. This covers the machine's
-serialized fetch/module/stylesheet/script requests. It does not predict requests
+in-flight fetch/module/stylesheet/script requests, including concurrent async
+scripts. It does not predict requests
 from future timers or establish that an application has finished rendering.
 The polling interval applies to selectors and predicates; network idle sleeps
 until the next timer, quiet-window boundary or waiting deadline.
@@ -72,8 +73,11 @@ let value = page.evaluate("document.querySelector('#result').textContent")?;
 A native page whose wait fails should be disposed. Repeated successful waits are
 supported while the original page deadline remains available. The Wasm ABI
 exposes `WasmPage.wait_for(serialized_options)`; hosts continue the existing
-`step`/`advance`/`respond`/`reject` protocol until `ready` and then evaluate.
+`step`/`advance` protocol until `ready` and then evaluate. Request actions carry
+an ID; `respond`, `respond_binary` and `reject` take that ID before their response
+arguments. An `await` action waits for a request completion or its optional timer
+delay. Only the engine decides when parser execution can continue.
 
 Real HTTP regressions run in native browser tests and `tooling/readiness.test.ts`
-against Worker/Wasm in workerd. External cancellation, page-fetch AbortSignal
-cancellation and a broader phase error taxonomy remain roadmap work.
+against Worker/Wasm in workerd. See [cancellation](cancellation.md) for external
+cancellation and the remaining limits of synchronous guest execution.

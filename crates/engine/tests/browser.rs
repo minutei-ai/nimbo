@@ -548,7 +548,7 @@ fn serve_page(mut request: Request) -> io::Result<()> {
             content_type = "text/javascript";
             "export {default as again} from './shared.js';".into()
         }
-        "/async" => "<script async src='/assets/app.js'></script>".into(),
+        "/async-module" => "<script type='module' async src='/assets/app.js'></script>".into(),
         "/iframe" => "<iframe src='/static'></iframe>".into(),
         "/base" => "<base href='/other/'><script src='app.js'></script>".into(),
         "/other/app.js" => "globalThis.baseClassic = true".into(),
@@ -716,7 +716,7 @@ fn invalid_urls_http_errors_scripts_and_promises_fail_explicitly() -> TestResult
         browser.navigate(&fixture.path("/missing")),
         Err(Error::HttpStatus(404))
     ));
-    for path in ["/async", "/iframe"] {
+    for path in ["/async-module", "/iframe"] {
         assert!(matches!(
             browser.navigate(&fixture.path(path)),
             Err(Error::Unsupported(_))

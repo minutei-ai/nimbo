@@ -1,5 +1,5 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
-import { Effect, Exit, Option, Schema, Semaphore } from "effect";
+import { Effect, Exit, Option, Queue, Schema, Semaphore } from "effect";
 import wasm from "nimbo:wasm";
 import {
   initSync,
@@ -165,11 +165,46 @@ const scrape = (
               }
             }),
         );
+        const completions =
+          yield* Queue.unbounded<
+            readonly [number, Exit.Exit<Awaited<ReturnType<Transport["request"]>>, ScrapeError>]
+          >();
+        let completed = yield* Queue.poll(completions);
         let evaluating = false;
         let waiting = false;
         const epoch = performance.now();
         state.phase = "execution";
         while (true) {
+          if (Option.isNone(completed)) completed = yield* Queue.poll(completions);
+          if (Option.isSome(completed)) {
+            const [id, result] = completed.value;
+            completed = Option.none();
+            const resume: FailureState["phase"] = state.phase;
+            state.phase = "resource";
+            if (Exit.isFailure(result)) {
+              yield* Effect.failCause(result.cause).pipe(
+                Effect.catchIf(
+                  (error) => error.status === 502,
+                  (error) =>
+                    Effect.try({
+                      try: () => page.reject(id, error.reason),
+                      catch: (cause) => failure(cause),
+                    }),
+                ),
+              );
+            } else {
+              yield* Effect.try({
+                try: () => {
+                  const { raw_body, ...metadata } = result.value;
+                  if (raw_body === undefined) page.respond(id, JSON.stringify(metadata));
+                  else page.respond_binary(id, JSON.stringify(metadata), raw_body);
+                },
+                catch: (cause) => failure(cause),
+              });
+            }
+            state.phase = resume;
+            continue;
+          }
           const action = yield* Effect.try({
             try: () => {
               page.advance(performance.now() - epoch);
@@ -188,8 +223,6 @@ const scrape = (
               yield* Effect.sleep(action.milliseconds);
               break;
             case "request": {
-              const resume: FailureState["phase"] = state.phase;
-              state.phase = "resource";
               yield* Effect.tryPromise({
                 try: (signal) =>
                   transport.request(
@@ -202,25 +235,22 @@ const scrape = (
                   ),
                 catch: (cause) => failure(cause, 502),
               }).pipe(
-                Effect.flatMap((result) =>
-                  Effect.try({
-                    try: () => {
-                      const { raw_body, ...metadata } = result;
-                      if (raw_body === undefined) page.respond(JSON.stringify(metadata));
-                      else page.respond_binary(JSON.stringify(metadata), raw_body);
-                    },
-                    catch: (cause) => failure(cause),
-                  }),
-                ),
-                Effect.catchIf(
-                  (error) => error.status === 502,
-                  (error) =>
-                    Effect.try({
-                      try: () => page.reject(error.reason),
-                      catch: (cause) => failure(cause),
-                    }),
-                ),
+                Effect.exit,
+                Effect.flatMap((result) => Queue.offer(completions, [action.id, result])),
+                Effect.forkChild({ startImmediately: true }),
               );
+              break;
+            }
+            case "await": {
+              const resume: FailureState["phase"] = state.phase;
+              state.phase = "resource";
+              if (action.milliseconds === null) {
+                completed = Option.some(yield* Queue.take(completions));
+              } else {
+                completed = yield* Queue.take(completions).pipe(
+                  Effect.timeoutOption(action.milliseconds),
+                );
+              }
               state.phase = resume;
               break;
             }

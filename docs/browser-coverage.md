@@ -157,8 +157,9 @@ callbacks. The native integration tests verify the
 pending-timer capacity, callback budget and navigation deadline. Defaults allow
 1024 pending timers and 10000 timer callbacks. A pending evaluation Promise drives
 future timer tasks; a settled extraction does not implicitly wait for all future
-timers. HTTP remains serialized, and frames/idle scheduling and complete HTML
-event-loop conformance are not implemented. The pinned comparator separately
+timers. Classic async scripts and page fetches can have concurrent requests;
+parser-blocking scripts retain their execution order. Frames/idle scheduling and
+complete HTML event-loop conformance are not implemented. The pinned comparator separately
 records different interval completion, error reporting and argument guards.
 An additional real HTTP/workerd case waits past the page deadline and then
 successfully extracts another page, checking that timeout releases isolate
@@ -174,12 +175,16 @@ module namespaces. Native tests also verify repeated roots execute once.
 The pinned comparator returns null for the completed graph fixture; the suite
 records that separately and requires a complete result from Nimbo.
 
-Import maps and JSON modules remain missing. Dynamic import currently works for
-already loaded sources; fetching new dynamic dependencies remains missing and
-fails explicitly. Inline classic scripts ignore `async` and `defer`, execute in
+Scoped import maps resolve native module graphs and are covered by real HTTP
+browser tests. JSON modules and dynamic imports requiring new network sources
+remain missing and fail explicitly. Inline classic scripts ignore `async` and `defer`, execute in
 parser order with loading readyState, and are covered in native and Worker tests.
-External and module async script scheduling and full HTML module lifecycle/WPT
-conformance remain incomplete. These tests do not prove application hydration
+External classic async scripts use concurrent host requests and execute as
+responses arrive. They do not block parser scripts or DOMContentLoaded; window
+load waits for their completion. The native and Worker regressions gate two
+script responses on parser/lifecycle requests and require reverse completion
+order. Async module scripts and full HTML module lifecycle/WPT conformance
+remain incomplete. These tests do not prove application hydration
 or production compatibility.
 
 Web Storage values live in Rust and preserve UTF-16 code units. The default
@@ -551,7 +556,7 @@ evidence cannot establish it.
 | Node/Text/Comment/Fragment, live collections         | Subset     | Live child collections and static selector lists; remaining Node APIs and full WPT                                                           |
 | Event dispatch and lifecycle                         | Subset     | Capture/bubble, cancellation, once/passive, native input ordering                                                                            |
 | Classic scripts and Promise jobs                     | Subset     | Source ordering, exception propagation, resource exhaustion                                                                                  |
-| Modules, import maps, JSON modules, dynamic import   | Subset     | Native graphs tested; import maps, JSON and new dynamic fetching missing                                                                     |
+| Modules, import maps, JSON modules, dynamic import   | Subset     | Native graphs and scoped import maps tested; JSON modules and new dynamic fetching missing                                                   |
 | Timers, animation frames and scheduling              | Subset     | Real-clock timers and animation callback batches tested; multi-realm frames, idle and full event loop pending                                |
 | Custom elements autônomos                            | Subset     | Native upgrades, lifecycle and failed construction; scoped/built-in/form gaps                                                                |
 | Shadow DOM                                           | Subset     | Owned imperative roots, isolated queries, named slots and composed events; scoped styles, flat-tree geometry and declarative parsing pending |

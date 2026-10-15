@@ -8411,12 +8411,15 @@
     sessionStorage: { get: () => sessionStorage, enumerable: true, configurable: true },
   });
 
-  const ready = (complete = true) => {
+  const ready = (stage: "interactive" | "content" | "complete") => {
+    if (stage === "complete") {
+      readyState = "complete";
+      dispatch(globalThis, new Event("load"), true, true);
+      return;
+    }
     readyState = "interactive";
-    if (!complete) return;
-    dispatch(document, new Event("DOMContentLoaded", { bubbles: true }), true);
-    readyState = "complete";
-    dispatch(globalThis, new Event("load"), true, true);
+    if (stage === "content")
+      dispatch(document, new Event("DOMContentLoaded", { bubbles: true }), true);
   };
   const resource = (handle: number, success: boolean) => {
     if (timerTasks >= timerTaskLimit) throw new Error("timer task limit");

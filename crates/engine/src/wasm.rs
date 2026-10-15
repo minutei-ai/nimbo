@@ -279,10 +279,10 @@ impl WasmPage {
     ///
     /// # Errors
     /// Retorna erro para JSON, origem, status, protocolo ou execução inválidos.
-    pub fn respond(&mut self, response: &str) -> Result<(), String> {
+    pub fn respond(&mut self, id: usize, response: &str) -> Result<(), String> {
         serde_json::from_str(response)
             .map_err(crate::Error::from)
-            .and_then(|response| self.machine.respond(response))
+            .and_then(|response| self.machine.respond(id, response))
             .map_err(|error| error.to_string())
     }
 
@@ -291,7 +291,12 @@ impl WasmPage {
     ///
     /// # Errors
     /// Rejects invalid metadata, origin, protocol state or response budgets.
-    pub fn respond_binary(&mut self, metadata: &str, bytes: Vec<u8>) -> Result<(), String> {
+    pub fn respond_binary(
+        &mut self,
+        id: usize,
+        metadata: &str,
+        bytes: Vec<u8>,
+    ) -> Result<(), String> {
         let mut response: crate::machine::Response =
             serde_json::from_str(metadata).map_err(|error| error.to_string())?;
         if !response.body.is_empty() || response.raw_body.is_some() {
@@ -299,7 +304,7 @@ impl WasmPage {
         }
         response.raw_body = Some(bytes);
         self.machine
-            .respond(response)
+            .respond(id, response)
             .map_err(|error| error.to_string())
     }
 
@@ -307,9 +312,9 @@ impl WasmPage {
     ///
     /// # Errors
     /// Retorna falha para protocolo ou resolução de Promise inválidos.
-    pub fn reject(&mut self, message: &str) -> Result<(), String> {
+    pub fn reject(&mut self, id: usize, message: &str) -> Result<(), String> {
         self.machine
-            .reject(message)
+            .reject(id, message)
             .map_err(|error| error.to_string())
     }
 

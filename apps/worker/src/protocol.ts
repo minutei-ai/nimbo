@@ -18,6 +18,7 @@ export function completionFailure(cause: unknown, cancelled: boolean): ScrapeErr
 export const Action = Schema.Union([
   Schema.Struct({
     type: Schema.Literal("request"),
+    id: Schema.Int,
     url: Schema.String,
     method: Schema.Literals(["GET", "POST"]),
     body: Schema.String,
@@ -26,6 +27,7 @@ export const Action = Schema.Union([
     rejectRedirects: Schema.Boolean,
   }),
   Schema.Struct({ type: Schema.Literal("ready") }),
+  Schema.Struct({ type: Schema.Literal("await"), milliseconds: Schema.NullOr(Schema.Finite) }),
   Schema.Struct({ type: Schema.Literal("wait"), milliseconds: Schema.Finite }),
   Schema.Struct({ type: Schema.Literal("result"), json: Schema.String }),
 ]);
