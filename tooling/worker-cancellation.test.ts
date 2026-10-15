@@ -136,19 +136,6 @@ test.each([
       const started = performance.now();
       client.abort();
       expect(await pending).toBe(0);
-      const recovered = await fetch(endpoint, {
-        ...options,
-        signal: AbortSignal.timeout(2000),
-        body: JSON.stringify({
-          url: origin.url.href,
-          expression: "({title:document.title,entered:typeof entered})",
-        }),
-      });
-      expect(recovered.status).toBe(200);
-      expect(await recovered.json()).toMatchObject({
-        value: { title: "fresh", entered: "undefined" },
-      });
-      expect(performance.now() - started).toBeLessThan(2000);
       if (diagnostics) {
         const message = await Promise.race([record.promise, Bun.sleep(2000).then(() => "missing")]);
         const hostPhase =
@@ -168,6 +155,19 @@ test.each([
         expect(message).not.toContain("test-secret");
         expect(messages).toHaveLength(1);
       } else expect(messages).toHaveLength(0);
+      const recovered = await fetch(endpoint, {
+        ...options,
+        signal: AbortSignal.timeout(2000),
+        body: JSON.stringify({
+          url: origin.url.href,
+          expression: "({title:document.title,entered:typeof entered})",
+        }),
+      });
+      expect(recovered.status).toBe(200);
+      expect(await recovered.json()).toMatchObject({
+        value: { title: "fresh", entered: "undefined" },
+      });
+      expect(performance.now() - started).toBeLessThan(2000);
     } finally {
       client.abort();
       await worker.dispose();
