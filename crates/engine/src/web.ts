@@ -5471,6 +5471,10 @@
     }
   }
   class DocumentType extends Node {
+    get name(): string {
+      if (!(this instanceof DocumentType)) throw new TypeError("Illegal invocation");
+      return this.nodeName;
+    }
     before(...values: unknown[]): void {
       if (!(this instanceof DocumentType)) throw new TypeError("Illegal invocation");
       childOperation(this, "before", values);
@@ -5890,6 +5894,11 @@
     return result;
   }
   class Document extends ParentNode {
+    get doctype(): DocumentType | null {
+      if (!(this instanceof Document)) throw new TypeError("Illegal invocation");
+      for (const child of this.childNodes) if (child instanceof DocumentType) return child;
+      return null;
+    }
     get implementation(): DOMImplementation {
       if (!(this instanceof Document)) throw new TypeError("Illegal invocation");
       let result = implementations.get(this);
