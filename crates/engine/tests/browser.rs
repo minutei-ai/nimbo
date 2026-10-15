@@ -238,6 +238,15 @@ fn layout_fixture(path: &str) -> String {
 
 fn serve_sheet(request: Request) -> io::Result<()> {
     let path = request.url().split('?').next().unwrap_or_default();
+    let imported: std::collections::HashMap<String, String> =
+        serde_json::from_str(include_str!("fixtures/stylesheet-imports.json"))
+            .map_err(io::Error::other)?;
+    if let Some(body) = path
+        .strip_prefix("/sheets-css/")
+        .and_then(|key| imported.get(key))
+    {
+        return respond(request, body.clone(), 200, "text/css", Vec::new());
+    }
     let name = path.rsplit('/').next().unwrap_or_default();
     let (body, status, mime) = match name {
         "main" => ("#target{width:40px;height:30px}", 200, "text/css"),
@@ -5590,5 +5599,89 @@ fn console_buffers_bound_utf8_records_and_reset_for_fresh_pages() -> TestResult 
     );
     let fresh = browser.navigate(&fixture.path("/static"))?;
     assert!(fresh.console_messages().is_empty());
+    Ok(())
+}
+
+#[test]
+fn unsupported_stylesheet_rules_preserve_their_names_and_recover() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for (name, source) in [
+        ("import", "@import url('/extra.css');"),
+        ("page", "@page { margin: 1cm; }"),
+        (
+            "-moz-document",
+            "@-moz-document url-prefix() { body { color: red; } }",
+        ),
+    ] {
+        let page = browser.navigate(&fixture.path("/static"))?;
+        let error = page.evaluate(&format!("(()=>{{const style=document.createElement('style');style.textContent={};document.head.append(style);return getComputedStyle(document.body).display}})()",json!(source))).err().ok_or("unsupported rule was accepted")?;
+        assert!(
+            error
+                .to_string()
+                .contains(&format!("stylesheet at-rule: {name}")),
+            "{error}"
+        );
+        let fresh = browser.navigate(&fixture.path("/static"))?;
+        assert_eq!(
+            fresh.evaluate("getComputedStyle(document.body).display")?,
+            json!("block")
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn external_imports_load_relative_resources_before_the_parent_event() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/empty-layout"))?;
+    let result = page.evaluate(include_str!("fixtures/stylesheet-imports.txt"))?;
+    let checks = result.as_object().ok_or("missing import checks")?;
+    assert_eq!(checks.len(), 16);
+    assert!(
+        checks.values().all(|value| value == &json!(true)),
+        "{result}"
+    );
+    Ok(())
+}
+
+#[test]
+fn external_imports_share_request_byte_and_depth_limits() -> TestResult {
+    let fixture = Fixture::new()?;
+    for (path, limits, expected) in [
+        (
+            "import-large.css",
+            Limits {
+                max_stylesheet_bytes: 1024,
+                ..Limits::default()
+            },
+            "stylesheet total bytes",
+        ),
+        (
+            "import-root.css",
+            Limits {
+                max_requests: 2,
+                ..Limits::default()
+            },
+            "request count",
+        ),
+        (
+            "depth-0.css",
+            Limits {
+                max_requests: 128,
+                ..Limits::default()
+            },
+            "stylesheet import depth",
+        ),
+    ] {
+        let browser = Browser::new(&fixture.url, limits)?;
+        let page = browser.navigate(&fixture.path("/empty-layout"))?;
+        let error = page.evaluate(&format!("new Promise(resolve=>{{const link=document.createElement('link');link.rel='stylesheet';link.href='/sheets-css/{path}';link.onload=()=>resolve(true);link.onerror=()=>resolve(false);document.head.append(link);}})")).err().ok_or("import exceeded its limit")?;
+        assert!(error.to_string().contains(expected), "{error}");
+        let fresh = browser.navigate(&fixture.path("/empty-layout"))?;
+        assert_eq!(fresh.evaluate("document.styleSheets.length")?, json!(0));
+    }
     Ok(())
 }

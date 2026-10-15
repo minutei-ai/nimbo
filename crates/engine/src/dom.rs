@@ -660,9 +660,17 @@ impl Dom {
         handle: usize,
         url: String,
         response: Option<&crate::machine::Response>,
-    ) -> Result<bool> {
+    ) -> Result<Option<bool>> {
         let id = self.node(handle)?.id;
-        let success = self.sheets.respond(id, url, response)?;
+        let base = self.base_href()?;
+        let node = self
+            .document
+            .tree
+            .get(&id)
+            .ok_or_else(|| Error::Dom("missing stylesheet owner".into()))?;
+        let success = self
+            .sheets
+            .respond(node, url, response, base.as_deref(), &self.media)?;
         self.layout_version = self.layout_version.saturating_add(1);
         self.computed_styles.clear();
         self.cascade = None;

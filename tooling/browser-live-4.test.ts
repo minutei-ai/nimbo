@@ -375,3 +375,19 @@ test.each([
     });
   },
 );
+
+test.each([
+  ["import", '@import url("/extra.css");'],
+  ["page", "@page { margin: 1cm; }"],
+  ["-moz-document", "@-moz-document url-prefix() { body { color: red; } }"],
+])("unsupported stylesheet rules preserve their name: %s", async (name, source) => {
+  const expression = `(()=>{const style=document.createElement('style');style.textContent=${JSON.stringify(source)};document.head.append(style);return getComputedStyle(document.body).display})()`;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url: new URL("geometry-empty", origin.url).href, expression }),
+  });
+  expect(response.status).toBe(422);
+  const error: unknown = expect.stringContaining(`stylesheet at-rule: ${name}`);
+  expect(await response.json()).toMatchObject({ error });
+});

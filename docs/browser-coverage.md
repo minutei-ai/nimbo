@@ -504,8 +504,19 @@ selector comparisons charge the shared operation budget before doing the work,
 including failed geometry queries. CSS parsing is separately bounded by the
 listed input/tree limits; this is not a total-process CPU or memory claim.
 
+External linked stylesheets load relative `@import` resources through the same
+bounded native transport before the parent load/error event. The cascade preserves
+source ordering, nested imports, layers and important declarations. Media and
+supports conditions use the existing native evaluators; nonmatching imports are
+not fetched. Imported failures emit the parent error event while preserving its
+local rules. Cycles are deduplicated, and imports share request/byte budgets with
+32 levels and 1024 resources. The shared synthetic real-HTTP fixture checks
+cascade values and parent events in native Rust, Wasm and Chromium. Inline imports
+and CSSImportRule remain explicit gaps. This follows the
+[conditional import rules](https://www.w3.org/TR/css-cascade-5/#at-import).
+
 This is author style-rule ordering for supported box properties, not a complete
-cascade/computed-style implementation. Missing: stylesheet imports, origins
+cascade/computed-style implementation. Missing: inline stylesheet imports and CSSImportRule, origins
 and stylesheet sets, full style/link/sheet interfaces, scope/full container groups, nesting, full selector state/scope/WPT behavior, defaulting and
 inheritance for ordinary properties, complete variable semantics, full registered-property semantics, presentational hints,
 full UA defaults, getComputedStyle, animations/transitions and paint. Font/text

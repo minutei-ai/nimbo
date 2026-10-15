@@ -1,18 +1,42 @@
 use crate::dom_attributes::NativeAttributes;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use dom_query::{Document, NodeId, NodeRef};
 use url::Url;
 
-use crate::{Error, Result, layout::Work, machine::Response};
+use crate::stylesheet_imports::Import;
+use crate::{Error, MediaEnvironment, Result, layout::Work, machine::Response};
+
+pub(crate) struct Source {
+    pub body: String,
+    pub base: String,
+    pub imports: Vec<Import>,
+    pub available: bool,
+}
 
 struct Sheet {
     url: String,
-    source: String,
-    base: String,
-    accessible: bool,
-    received: bool,
+    resource: Source,
+    access: Option<bool>,
     frozen: bool,
+    revision: usize,
+    success: bool,
+    imports: HashMap<String, Source>,
+    known: HashSet<String>,
+    pending: VecDeque<(String, usize)>,
+}
+
+enum Pending {
+    Main {
+        owner: NodeId,
+        url: String,
+    },
+    Import {
+        owner: NodeId,
+        url: String,
+        revision: usize,
+        depth: usize,
+    },
 }
 
 pub(crate) struct Sheets {
@@ -20,6 +44,8 @@ pub(crate) struct Sheets {
     loaded: HashMap<NodeId, Sheet>,
     bytes: usize,
     max_bytes: usize,
+    pending: Option<Pending>,
+    revision: usize,
 }
 
 pub(crate) fn is_stylesheet(node: NodeRef<'_>) -> bool {
@@ -37,6 +63,8 @@ impl Sheets {
             loaded: HashMap::new(),
             bytes: 0,
             max_bytes,
+            pending: None,
+            revision: 0,
         }
     }
 
@@ -76,11 +104,14 @@ impl Sheets {
     }
 
     pub(crate) fn next(
-        &self,
+        &mut self,
         document: &Document,
         base: Option<&str>,
         work: &mut Work<'_>,
     ) -> Result<Option<(NodeId, String)>> {
+        if self.pending.is_some() {
+            return Ok(None);
+        }
         for node in document.root().descendants_it() {
             work.charge()?;
             if !is_stylesheet(node) {
@@ -108,6 +139,21 @@ impl Sheets {
                 .get(&node.id)
                 .is_none_or(|sheet| sheet.url != url)
             {
+                self.pending = Some(Pending::Main {
+                    owner: node.id,
+                    url: url.clone(),
+                });
+                return Ok(Some((node.id, url)));
+            }
+            if let Some(sheet) = self.loaded.get_mut(&node.id)
+                && let Some((url, depth)) = sheet.pending.pop_front()
+            {
+                self.pending = Some(Pending::Import {
+                    owner: node.id,
+                    url: url.clone(),
+                    revision: sheet.revision,
+                    depth,
+                });
                 return Ok(Some((node.id, url)));
             }
         }
@@ -122,7 +168,7 @@ impl Sheets {
             .loaded
             .get(&node.id)
             .filter(|sheet| sheet.url == url)
-            .map(|sheet| sheet.source.as_str()))
+            .map(|sheet| sheet.resource.body.as_str()))
     }
 
     pub(crate) fn associated_source(
@@ -136,8 +182,14 @@ impl Sheets {
         Ok(self
             .loaded
             .get(&node.id)
-            .filter(|sheet| sheet.url == url && sheet.received)
-            .map(|sheet| (sheet.source.as_str(), sheet.base.as_str(), sheet.accessible)))
+            .filter(|sheet| sheet.url == url && sheet.access.is_some())
+            .map(|sheet| {
+                (
+                    sheet.resource.body.as_str(),
+                    sheet.resource.base.as_str(),
+                    sheet.access.unwrap_or(false),
+                )
+            }))
     }
 
     pub(crate) fn source_base(
@@ -152,7 +204,7 @@ impl Sheets {
             .loaded
             .get(&node.id)
             .filter(|sheet| sheet.url == url)
-            .map(|sheet| sheet.base.as_str()))
+            .map(|sheet| sheet.resource.base.as_str()))
     }
     pub(crate) fn document_base(&self, base: Option<&str>) -> String {
         crate::links::base(base, self.origin.as_str())
@@ -185,61 +237,191 @@ impl Sheets {
 
     pub(crate) fn invalidate(&mut self, id: NodeId) {
         if let Some(sheet) = self.loaded.remove(&id) {
-            self.bytes = self.bytes.saturating_sub(sheet.source.len());
+            self.bytes = self.bytes.saturating_sub(
+                sheet.resource.body.len().saturating_add(
+                    sheet
+                        .imports
+                        .values()
+                        .map(|source| source.body.len())
+                        .sum::<usize>(),
+                ),
+            );
         }
+    }
+
+    pub(crate) fn imported_bytes(&self, owner: NodeId) -> usize {
+        self.loaded.get(&owner).map_or(0, |sheet| {
+            sheet.imports.values().map(|source| source.body.len()).sum()
+        })
+    }
+
+    fn check_resources(&self) -> Result<()> {
+        let count = self.loaded.len().saturating_add(
+            self.loaded
+                .values()
+                .map(|sheet| sheet.imports.len().saturating_add(sheet.pending.len()))
+                .sum::<usize>(),
+        );
+        if count > 1024 {
+            return Err(Error::Limit("stylesheet resources"));
+        }
+        Ok(())
+    }
+
+    pub(crate) fn imported(&self, owner: NodeId, url: &str) -> Option<&Source> {
+        let sheet = self.loaded.get(&owner)?;
+        sheet
+            .imports
+            .get(url)
+            .or_else(|| sheet.imports.values().find(|source| source.base == url))
     }
 
     pub(crate) fn respond(
         &mut self,
-        id: NodeId,
+        node: NodeRef<'_>,
         url: String,
         response: Option<&Response>,
-    ) -> Result<bool> {
-        if !self.loaded.contains_key(&id) && self.loaded.len() >= 1024 {
-            return Err(Error::Limit("stylesheet resources"));
+        base: Option<&str>,
+        media: &MediaEnvironment,
+    ) -> Result<Option<bool>> {
+        let Some(pending) = self.pending.take() else {
+            return Err(Error::Unsupported("no pending stylesheet".into()));
+        };
+        let owner = node.id;
+        if !node.ancestors_it(None).any(|parent| parent.is_document()) {
+            self.invalidate(owner);
+            return Ok(None);
         }
-        let received = response.is_some();
-        let accessible = response.is_some_and(|response| {
-            response
-                .content_type
-                .split(';')
-                .next()
-                .unwrap_or_default()
-                .trim()
-                .eq_ignore_ascii_case("text/css")
-        });
-        let response = response.filter(|response| {
-            (200..300).contains(&response.status)
-                && response
-                    .content_type
-                    .split(';')
-                    .next()
-                    .unwrap_or_default()
-                    .trim()
-                    .eq_ignore_ascii_case("text/css")
-        });
-        let source = response.map_or_else(String::new, |response| response.body.clone());
-        let previous = self.loaded.get(&id).map_or(0, |sheet| sheet.source.len());
-        let bytes = self
-            .bytes
-            .saturating_sub(previous)
-            .saturating_add(source.len());
-        if bytes > self.max_bytes {
+        match pending {
+            Pending::Main {
+                owner: expected,
+                url: expected_url,
+            } => {
+                if owner != expected || url != expected_url {
+                    return Err(Error::Unsupported("stylesheet response identity".into()));
+                }
+                if self.url(node, base)?.as_deref() != Some(url.as_str()) {
+                    return Ok(None);
+                }
+                if !self.loaded.contains_key(&owner) && self.loaded.len() >= 1024 {
+                    return Err(Error::Limit("stylesheet resources"));
+                }
+                self.invalidate(owner);
+                let resource = self.resource(&url, response)?;
+                self.revision = self.revision.saturating_add(1);
+                let mut sheet = Sheet {
+                    url: url.clone(),
+                    access: response.map(css_mime),
+                    frozen: false,
+                    revision: self.revision,
+                    success: resource.available,
+                    known: HashSet::from([url, resource.base.clone()]),
+                    imports: HashMap::new(),
+                    pending: VecDeque::new(),
+                    resource,
+                };
+                sheet.discover(
+                    &sheet.resource.base.clone(),
+                    sheet.resource.imports.clone(),
+                    media,
+                    0,
+                )?;
+                let complete = sheet.pending.is_empty().then_some(sheet.success);
+                self.loaded.insert(owner, sheet);
+                self.check_resources()?;
+                Ok(complete)
+            }
+            Pending::Import {
+                owner: expected,
+                url: expected_url,
+                revision,
+                depth,
+            } => {
+                if owner != expected || url != expected_url {
+                    return Err(Error::Unsupported("stylesheet response identity".into()));
+                }
+                if self
+                    .loaded
+                    .get(&owner)
+                    .is_none_or(|sheet| sheet.revision != revision)
+                {
+                    return Ok(None);
+                }
+                let resource = self.resource(&url, response)?;
+                let Some(sheet) = self.loaded.get_mut(&owner) else {
+                    return Ok(None);
+                };
+                sheet.known.insert(resource.base.clone());
+                sheet.pending.retain(|(url, _depth)| url != &resource.base);
+                sheet.success &= resource.available;
+                sheet.discover(&resource.base, resource.imports.clone(), media, depth)?;
+                sheet.imports.insert(url, resource);
+                let complete = sheet.pending.is_empty().then_some(sheet.success);
+                self.check_resources()?;
+                Ok(complete)
+            }
+        }
+    }
+
+    fn resource(&mut self, url: &str, response: Option<&Response>) -> Result<Source> {
+        let response =
+            response.filter(|response| (200..300).contains(&response.status) && css_mime(response));
+        let body = response.map_or_else(String::new, |response| response.body.clone());
+        if self.bytes.saturating_add(body.len()) > self.max_bytes {
             return Err(Error::Limit("stylesheet total bytes"));
         }
-        self.bytes = bytes;
-        let base = response.map_or_else(|| url.clone(), |response| response.url.clone());
-        self.loaded.insert(
-            id,
-            Sheet {
-                url,
-                source,
-                base,
-                accessible,
-                received,
-                frozen: false,
-            },
-        );
-        Ok(response.is_some())
+        self.bytes = self.bytes.saturating_add(body.len());
+        let imports = crate::stylesheet_imports::parse(&body)?;
+        Ok(Source {
+            body,
+            base: response.map_or_else(|| url.to_owned(), |response| response.url.clone()),
+            imports,
+            available: response.is_some(),
+        })
+    }
+}
+
+fn css_mime(response: &Response) -> bool {
+    response
+        .content_type
+        .split(';')
+        .next()
+        .unwrap_or_default()
+        .trim()
+        .eq_ignore_ascii_case("text/css")
+}
+
+impl Sheet {
+    fn discover(
+        &mut self,
+        base: &str,
+        imports: Vec<Import>,
+        media: &MediaEnvironment,
+        depth: usize,
+    ) -> Result<()> {
+        if imports.is_empty() {
+            return Ok(());
+        }
+        let base = crate::machine::parse_url(base)?;
+        for import in imports {
+            if !import.enabled(media)? {
+                continue;
+            }
+            let mut url = base
+                .join(&import.url)
+                .map_err(|error| Error::InvalidUrl(error.to_string()))?;
+            url.set_fragment(None);
+            let url = url.to_string();
+            if self.known.insert(url.clone()) {
+                if self.known.len() > 1024 {
+                    return Err(Error::Limit("stylesheet resources"));
+                }
+                if depth >= 32 {
+                    return Err(Error::Limit("stylesheet import depth"));
+                }
+                self.pending.push_back((url, depth.saturating_add(1)));
+            }
+        }
+        Ok(())
     }
 }

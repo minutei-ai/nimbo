@@ -1,0 +1,32 @@
+(async () => {
+  const result = {};
+  const target = document.createElement('div');
+  target.id = 'target';
+  document.body.append(target);
+  const cases = [
+    ['nested','import-root.css',71,'load'],
+    ['cycle','import-cycle.css',67,'load'],
+    ['foreign','import-foreign.css',71,'error'],
+    ['failure','import-missing.css',71,'error'],
+    ['media','import-media.css',67,'load'],
+    ['supports','import-supports.css',67,'load'],
+    ['layer','import-layer.css',67,'load'],
+    ['late','import-late.css',71,'load']
+  ];
+  for (const [name,path,width,event] of cases) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = '/sheets-css/' + path;
+    const loaded = new Promise(resolve=>{
+      link.addEventListener('load',event=>resolve(event.type), {once:true});
+      link.addEventListener('error',event=>resolve(event.type), {once:true});
+    });
+    document.head.append(link);
+    result[name+'Load'] = await loaded === event;
+    const style = getComputedStyle(target);
+    result[name+'Cascade'] = parseFloat(style.width) === width && parseFloat(style.height) === 30 && parseFloat(style.marginLeft) === 11;
+    link.remove();
+  }
+  target.remove();
+  return result;
+})()

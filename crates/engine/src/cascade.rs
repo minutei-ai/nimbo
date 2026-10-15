@@ -1,11 +1,12 @@
+use crate::css_syntax::consume;
 use crate::dom_attributes::NativeAttributes;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use cssparser::{
     AtRuleParser, CowRcStr, ParseError, Parser, ParserInput, ParserState, QualifiedRuleParser,
-    StyleSheetParser, Token,
+    StyleSheetParser,
 };
-use dom_query::{Document, NodeRef};
+use dom_query::{Document, NodeId, NodeRef};
 use lightningcss::{
     selector::{Component, PseudoClass, PseudoElement, SelectorList},
     stylesheet::{ParserOptions, PrinterOptions},
@@ -39,7 +40,7 @@ struct Rule {
 type Matches = std::rc::Rc<Vec<(usize, u32)>>;
 
 pub(crate) struct Cascade {
-    matches: std::cell::RefCell<HashMap<(dom_query::NodeId, Option<Generated>), Matches>>,
+    matches: std::cell::RefCell<HashMap<(NodeId, Option<Generated>), Matches>>,
     rules: Vec<Rule>,
     attributes: BTreeSet<String>,
     index: Index,
@@ -58,7 +59,7 @@ struct Index {
     universal: Vec<Position>,
     dynamic: Vec<Position>,
     ancestor_classes: HashMap<String, Vec<Position>>,
-    ancestry: std::cell::RefCell<HashMap<dom_query::NodeId, std::rc::Rc<BTreeSet<String>>>>,
+    ancestry: std::cell::RefCell<HashMap<NodeId, std::rc::Rc<BTreeSet<String>>>>,
 }
 impl Index {
     fn new(rules: &[Rule]) -> Self {
@@ -217,42 +218,6 @@ pub(crate) fn forgiving_unknown(selector: &lightningcss::selector::Selector<'_>)
         })
 }
 
-// Scan nesting before recursive selector parsing. Invalid declaration syntax is
-// still handled by the declaration parser rather than poisoning the whole sheet.
-fn consume<'i>(
-    input: &mut Parser<'i, '_>,
-    depth: usize,
-) -> std::result::Result<bool, ParseError<'i, &'static str>> {
-    if depth > 32 {
-        return Err(input.new_custom_error("stylesheet nesting"));
-    }
-    let mut curly = false;
-    while !input.is_exhausted() {
-        match input.next_including_whitespace_and_comments()?.clone() {
-            Token::CurlyBracketBlock => {
-                curly = true;
-                input.parse_nested_block(|input| consume(input, depth.saturating_add(1)))?;
-            }
-            Token::Function(_) | Token::ParenthesisBlock | Token::SquareBracketBlock => {
-                curly |=
-                    input.parse_nested_block(|input| consume(input, depth.saturating_add(1)))?;
-            }
-            _ => {}
-        }
-    }
-    Ok(curly)
-}
-
-fn unknown_at_rule(name: &str) -> &'static str {
-    if name.eq_ignore_ascii_case("font-face") {
-        "stylesheet at-rule: font-face"
-    } else if name.eq_ignore_ascii_case("property") {
-        "stylesheet at-rule: property"
-    } else {
-        "stylesheet at-rule"
-    }
-}
-
 enum ParsedRule {
     Style(Rule),
     Group(Vec<Rule>),
@@ -265,6 +230,7 @@ struct Definitions {
     font_faces: crate::font_faces::Definitions,
 }
 enum Prelude {
+    Import(crate::stylesheet_imports::Import),
     FontFace,
     Media(bool),
     Layers(Vec<Vec<String>>),
@@ -272,7 +238,43 @@ enum Prelude {
     Property(String),
     Container(std::rc::Rc<crate::containers::Query>),
 }
+struct SheetContext<'a> {
+    resources: &'a crate::stylesheets::Sheets,
+    owner: Option<NodeId>,
+    base: &'a str,
+    identity: &'a str,
+    path: &'a [String],
+}
+
+impl SheetContext<'_> {
+    fn parse(
+        &self,
+        source: &str,
+        media: &MediaEnvironment,
+        definitions: &mut Definitions,
+        parent: &[usize],
+        containers: &[std::rc::Rc<crate::containers::Query>],
+        imports_allowed: bool,
+    ) -> Result<Vec<Rule>> {
+        definitions
+            .font_faces
+            .sheet(self.identity.to_owned(), self.base.to_owned());
+        sheet(
+            source,
+            media,
+            definitions,
+            parent,
+            containers,
+            self,
+            imports_allowed,
+        )
+    }
+}
+
 struct Rules<'a> {
+    source: &'a SheetContext<'a>,
+    imports_allowed: bool,
+    import_ordinal: usize,
     media: &'a MediaEnvironment,
     definitions: &'a mut Definitions,
     parent: &'a [usize],
@@ -288,6 +290,25 @@ impl<'i> AtRuleParser<'i> for Rules<'_> {
         name: CowRcStr<'i>,
         input: &mut Parser<'i, 't>,
     ) -> std::result::Result<Prelude, ParseError<'i, Self::Error>> {
+        if name.eq_ignore_ascii_case("import") {
+            if !self.imports_allowed {
+                return Err(input.new_error(cssparser::BasicParseErrorKind::AtRuleInvalid(name)));
+            }
+            let start = input.position();
+            consume(input, 0)?;
+            let source = format!("@import {};", input.slice_from(start));
+            let imports = crate::stylesheet_imports::parse(&source).map_err(|error| {
+                self.failure = Some(error);
+                input.new_custom_error("stylesheet import")
+            })?;
+            return imports
+                .into_iter()
+                .next()
+                .map(Prelude::Import)
+                .ok_or_else(|| {
+                    input.new_error(cssparser::BasicParseErrorKind::AtRuleInvalid(name))
+                });
+        }
         if name.eq_ignore_ascii_case("font-face") {
             input.expect_exhausted()?;
             return Ok(Prelude::FontFace);
@@ -327,11 +348,13 @@ impl<'i> AtRuleParser<'i> for Rules<'_> {
             return crate::supports::condition(input, 0).map(Prelude::Media);
         }
         if !name.eq_ignore_ascii_case("media") {
-            return Err(input.new_custom_error(unknown_at_rule(&name)));
+            self.failure = Some(unsupported(&format!("stylesheet at-rule: {name}")));
+            return Err(input.new_custom_error("stylesheet at-rule"));
         }
         let start = input.position();
         consume(input, 0)?;
-        matches_media(self.media, input.slice_from(start))
+        self.media
+            .matches(input.slice_from(start))
             .map(Prelude::Media)
             .map_err(|_error| input.new_custom_error("stylesheet media query"))
     }
@@ -341,10 +364,14 @@ impl<'i> AtRuleParser<'i> for Rules<'_> {
         _start: &ParserState,
         input: &mut Parser<'i, 't>,
     ) -> std::result::Result<ParsedRule, ParseError<'i, Self::Error>> {
+        self.imports_allowed = false;
         let start = input.position();
         consume(input, 0)?;
         let mut containers = self.containers.to_vec();
         let parent = match prelude {
+            Prelude::Import(_) => {
+                return Err(input.new_error(cssparser::BasicParseErrorKind::QualifiedRuleInvalid));
+            }
             Prelude::FontFace => {
                 self.definitions
                     .font_faces
@@ -399,6 +426,8 @@ impl<'i> AtRuleParser<'i> for Rules<'_> {
             self.definitions,
             &parent,
             &containers,
+            self.source,
+            false,
         )
         .map_err(|error| {
             // Keep the original engine error across cssparser's static
@@ -414,6 +443,15 @@ impl<'i> AtRuleParser<'i> for Rules<'_> {
         prelude: Prelude,
         _start: &ParserState,
     ) -> std::result::Result<ParsedRule, ()> {
+        if let Prelude::Import(import) = prelude {
+            self.import_ordinal = self.import_ordinal.saturating_add(1);
+            return self
+                .imported(&import)
+                .map(ParsedRule::Group)
+                .map_err(|error| {
+                    self.failure = Some(error);
+                });
+        }
         let Prelude::Layers(names) = prelude else {
             return Err(());
         };
@@ -455,7 +493,8 @@ impl<'i> QualifiedRuleParser<'i> for Rules<'_> {
         if list.0.iter().any(unknown_selector) {
             return Err(input.new_error(cssparser::BasicParseErrorKind::QualifiedRuleInvalid));
         }
-        list.0
+        let selectors = list
+            .0
             .iter()
             .map(|selector| {
                 let source = selector
@@ -501,7 +540,9 @@ impl<'i> QualifiedRuleParser<'i> for Rules<'_> {
                     generated,
                 })
             })
-            .collect()
+            .collect::<std::result::Result<Vec<_>, ParseError<'i, Self::Error>>>()?;
+        self.imports_allowed = false;
+        Ok(selectors)
     }
     fn parse_block<'t>(
         &mut self,
@@ -529,12 +570,78 @@ impl<'i> QualifiedRuleParser<'i> for Rules<'_> {
     }
 }
 
+impl Rules<'_> {
+    fn imported(&mut self, import: &crate::stylesheet_imports::Import) -> Result<Vec<Rule>> {
+        let Some(owner) = self.source.owner else {
+            return Err(unsupported("stylesheet at-rule: import"));
+        };
+        if !import.enabled(self.media)? {
+            return Ok(Vec::new());
+        }
+        if self.source.path.len() > 64 {
+            return Err(Error::Limit("stylesheet import depth"));
+        }
+        let mut url = crate::machine::parse_url(self.source.base)?
+            .join(&import.url)
+            .map_err(|error| Error::InvalidUrl(error.to_string()))?;
+        url.set_fragment(None);
+        let url = url.to_string();
+        let parent = match &import.layer {
+            crate::stylesheet_imports::Layer::Unlayered => self.parent.to_vec(),
+            crate::stylesheet_imports::Layer::Anonymous => self
+                .definitions
+                .layers
+                .register(self.parent, None)
+                .map_err(Error::Limit)?,
+            crate::stylesheet_imports::Layer::Named(name) => self
+                .definitions
+                .layers
+                .register(self.parent, Some(name))
+                .map_err(Error::Limit)?,
+        };
+        let Some(source) = self.source.resources.imported(owner, &url) else {
+            return Ok(Vec::new());
+        };
+        if !source.available
+            || self.source.path.contains(&url)
+            || self.source.path.contains(&source.base)
+        {
+            return Ok(Vec::new());
+        }
+        let mut path = self.source.path.to_vec();
+        path.push(url);
+        path.push(source.base.clone());
+        let identity = format!("{}:{}", self.source.identity, self.import_ordinal);
+        let context = SheetContext {
+            resources: self.source.resources,
+            owner: Some(owner),
+            base: &source.base,
+            identity: &identity,
+            path: &path,
+        };
+        let rules = context.parse(
+            &source.body,
+            self.media,
+            self.definitions,
+            &parent,
+            self.containers,
+            true,
+        );
+        self.definitions
+            .font_faces
+            .sheet(self.source.identity.to_owned(), self.source.base.to_owned());
+        rules
+    }
+}
+
 fn sheet(
     source: &str,
     media: &MediaEnvironment,
     definitions: &mut Definitions,
     parent: &[usize],
     containers: &[std::rc::Rc<crate::containers::Query>],
+    source_context: &SheetContext<'_>,
+    imports_allowed: bool,
 ) -> Result<Vec<Rule>> {
     // Cascade::collect validates the whole sheet; nested groups are slices of it.
     let mut input = ParserInput::new(source);
@@ -544,6 +651,9 @@ fn sheet(
     let mut parser = Parser::new(&mut input);
     let mut rules = Vec::new();
     let mut rule_parser = Rules {
+        source: source_context,
+        imports_allowed,
+        import_ordinal: 0,
         media,
         definitions,
         parent,
@@ -572,8 +682,8 @@ fn sheet(
             return Err(Error::Limit("stylesheet rules"));
         }
     }
-    if let Some(error) = failure {
-        return Err(rule_parser.failure.unwrap_or(error));
+    if let Some(error) = rule_parser.failure.or(failure) {
+        return Err(error);
     }
     if let Some(message) = definitions.layers.failure {
         return Err(Error::Limit(message));
@@ -581,9 +691,18 @@ fn sheet(
     Ok(rules)
 }
 
-fn matches_media(media: &MediaEnvironment, source: &str) -> Result<bool> {
-    let result: serde_json::Value = serde_json::from_str(&media.query(source)?)?;
-    Ok(result.get("matches").and_then(serde_json::Value::as_bool) == Some(true))
+fn append(rules: &mut Vec<Rule>, selectors: &mut usize, parsed: Vec<Rule>) -> Result<()> {
+    *selectors = selectors.saturating_add(
+        parsed
+            .iter()
+            .map(|rule| rule.selectors.len())
+            .sum::<usize>(),
+    );
+    if *selectors > SELECTOR_LIMIT {
+        return Err(Error::Limit("stylesheet selectors"));
+    }
+    rules.extend(parsed);
+    Ok(())
 }
 
 impl Cascade {
@@ -616,10 +735,7 @@ impl Cascade {
             {
                 continue;
             }
-            if !matches_media(
-                media,
-                node.null_attribute("media").as_deref().unwrap_or_default(),
-            )? {
+            if !media.matches(node.null_attribute("media").as_deref().unwrap_or_default())? {
                 continue;
             }
             if node.null_attribute("title").is_some() {
@@ -641,7 +757,13 @@ impl Cascade {
             if source.len() > sheets.max_bytes() {
                 return Err(Error::Limit("stylesheet bytes"));
             }
-            bytes = bytes.saturating_add(source.len());
+            bytes = bytes
+                .saturating_add(source.len())
+                .saturating_add(if external {
+                    sheets.imported_bytes(node.id)
+                } else {
+                    0
+                });
             if bytes > sheets.max_bytes() {
                 return Err(Error::Limit("stylesheet total bytes"));
             }
@@ -653,20 +775,17 @@ impl Cascade {
             } else {
                 sheets.document_base(base)
             };
-            definitions
-                .font_faces
-                .sheet(format!("{:?}", node.id), source_base);
-            let parsed = sheet(&source, media, &mut definitions, &[], &[])?;
-            selectors = selectors.saturating_add(
-                parsed
-                    .iter()
-                    .map(|rule| rule.selectors.len())
-                    .sum::<usize>(),
-            );
-            if selectors > SELECTOR_LIMIT {
-                return Err(Error::Limit("stylesheet selectors"));
-            }
-            rules.extend(parsed);
+            let identity = format!("{:?}", node.id);
+            let path = vec![source_base.clone()];
+            let context = SheetContext {
+                resources: sheets,
+                owner: external.then_some(node.id),
+                base: &source_base,
+                identity: &identity,
+                path: &path,
+            };
+            let parsed = context.parse(&source, media, &mut definitions, &[], &[], true)?;
+            append(&mut rules, &mut selectors, parsed)?;
         }
         for source in constructed.sources() {
             work.charge()?;
@@ -674,17 +793,17 @@ impl Cascade {
             if source.len() > sheets.max_bytes() || bytes > sheets.max_bytes() {
                 return Err(Error::Limit("stylesheet total bytes"));
             }
-            let parsed = sheet(&source, media, &mut definitions, &[], &[])?;
-            selectors = selectors.saturating_add(
-                parsed
-                    .iter()
-                    .map(|rule| rule.selectors.len())
-                    .sum::<usize>(),
-            );
-            if selectors > SELECTOR_LIMIT {
-                return Err(Error::Limit("stylesheet selectors"));
-            }
-            rules.extend(parsed);
+            let source_base = sheets.document_base(base);
+            let path = vec![source_base.clone()];
+            let context = SheetContext {
+                resources: sheets,
+                owner: None,
+                base: &source_base,
+                identity: "constructed",
+                path: &path,
+            };
+            let parsed = context.parse(&source, media, &mut definitions, &[], &[], true)?;
+            append(&mut rules, &mut selectors, parsed)?;
         }
         Ok(Self::parsed(rules, definitions))
     }

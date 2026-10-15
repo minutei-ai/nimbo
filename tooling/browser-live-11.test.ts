@@ -100,9 +100,9 @@ test.each(["value", "attribute", "entries"])(
   },
 );
 
-test("real HTTP → workerd → Wasm: external imports remain explicit layout failures", async () => {
+test("real HTTP → workerd → Wasm: external imports preserve the parent cascade", async () => {
   const url = new URL("geometry-empty", origin.url).href;
-  const expression = `${sheetPromise("/sheets-css/has-import")}.then(()=>{try{document.body.getBoundingClientRect();return false;}catch(error){return error.message.includes('layout unsupported: stylesheet at-rule');}})`;
+  const expression = `${sheetPromise("/sheets-css/has-import")}.then(()=>{return Number.isFinite(document.body.getBoundingClientRect().height);})`;
   const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
     method: "POST",
     headers: { authorization: "Bearer test-secret" },
@@ -377,3 +377,43 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     });
   },
 );
+
+test("external imports load relative resources before the parent event", async () => {
+  const expression = await Bun.file(
+    new URL("../crates/engine/tests/fixtures/stylesheet-imports.txt", import.meta.url),
+  ).text();
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url: new URL("geometry-empty", origin.url).href, expression }),
+  });
+  expect(response.status).toBe(200);
+  const result: unknown = await response.json();
+  if (typeof result !== "object" || result === null) throw new Error("missing import response");
+  const value: unknown = Reflect.get(result, "value");
+  if (typeof value !== "object" || value === null) throw new Error("missing import checks");
+  expect(Object.keys(value)).toHaveLength(16);
+  expect(Object.values(value).every((check) => check === true)).toBe(true);
+});
+
+test.each([
+  ["import-large.css", { maxStylesheetBytes: 1024 }, "stylesheet total bytes"],
+  ["depth-0.css", {}, "request count"],
+])("external imports enforce shared limits: %s", async (path, limits, message) => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const expression = `new Promise(resolve=>{const link=document.createElement('link');link.rel='stylesheet';link.href='/sheets-css/${path}';link.onload=()=>resolve(true);link.onerror=()=>resolve(false);document.head.append(link);})`;
+  const failed = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression, ...limits }),
+  });
+  expect(failed.status).toBe(422);
+  expect(await failed.text()).toContain(message);
+  const fresh = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: "document.styleSheets.length" }),
+  });
+  expect(fresh.status).toBe(200);
+  expect(await fresh.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: 0 });
+});

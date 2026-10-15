@@ -1,8 +1,15 @@
+import { Schema } from "effect";
 import { join } from "node:path";
 
 const script = await Bun.file(
   join(import.meta.dir, "../crates/engine/tests/fixtures/external-styles.txt"),
 ).text();
+
+const importSheets = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.String))(
+  await Bun.file(
+    new URL("../crates/engine/tests/fixtures/stylesheet-imports.json", import.meta.url),
+  ).json(),
+);
 
 export function externalStylePage(variant: number): Response {
   return new Response(
@@ -14,6 +21,9 @@ export function externalStylePage(variant: number): Response {
 export function externalStyleResponse(request: Request): Response | null {
   const url = new URL(request.url);
   if (!url.pathname.startsWith("/sheets-css/")) return null;
+  const imported = importSheets[url.pathname.slice("/sheets-css/".length)];
+  if (imported !== undefined)
+    return new Response(imported, { headers: { "content-type": "text/css" } });
   const variant = Number(url.searchParams.get("v"));
   const name = url.pathname.split("/").at(-1);
   if (name === "redirect")

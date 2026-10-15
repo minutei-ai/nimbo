@@ -444,7 +444,10 @@ impl Machine {
             .dom
             .borrow_mut()
             .sheet_response(handle, url, response)?;
-        self.resource_event(handle, success)
+        if let Some(success) = success {
+            self.resource_event(handle, success)?;
+        }
+        Ok(())
     }
 
     fn resource_event(&self, handle: usize, success: bool) -> Result<()> {

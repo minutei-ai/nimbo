@@ -4,7 +4,7 @@ globalThis.comparison = (() => {
   document.body.appendChild(target);
   const result = {};
   const cases = [
-    ['atRule', '@unknown{}', 'layout unsupported: stylesheet at-rule'],
+    ['atRule', '@unknown{}', 'layout unsupported: stylesheet at-rule: unknown'],
     ['nesting', '.item{& span{width:1px}}', 'layout unsupported: nested stylesheet rule'],
     ['forgiving', ':is(.item,:unknown){width:1px}', 'layout unsupported: forgiving selector recovery'],
     ['selectors', Array.from({length:65},(_,i)=>'.item'+i).join(',')+'{width:1px}', 'layout unsupported: stylesheet selectors'],

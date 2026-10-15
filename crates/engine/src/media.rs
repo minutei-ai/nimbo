@@ -33,6 +33,12 @@ impl Default for MediaEnvironment {
     }
 }
 
+#[derive(Serialize)]
+struct QueryResult {
+    media: String,
+    matches: bool,
+}
+
 impl MediaEnvironment {
     pub(crate) fn validate(&self) -> Result<()> {
         if self.width == 0
@@ -49,6 +55,14 @@ impl MediaEnvironment {
     }
 
     pub(crate) fn query(&self, source: &str) -> Result<String> {
+        Ok(serde_json::to_string(&self.evaluate(source)?)?)
+    }
+
+    pub(crate) fn matches(&self, source: &str) -> Result<bool> {
+        Ok(self.evaluate(source)?.matches)
+    }
+
+    fn evaluate(&self, source: &str) -> Result<QueryResult> {
         if source.len() > 64 * 1024 {
             return Err(Error::Limit("media query bytes"));
         }
@@ -56,7 +70,10 @@ impl MediaEnvironment {
         let mut parser = Parser::new(&mut input);
         let tokens = lex(&mut parser, 0).map_err(|()| Error::Limit("media query nesting"))?;
         if tokens.is_empty() {
-            return Ok(serde_json::json!({"media":"", "matches":true}).to_string());
+            return Ok(QueryResult {
+                media: String::new(),
+                matches: true,
+            });
         }
         let mut matches = false;
         let mut queries = Vec::new();
@@ -73,7 +90,10 @@ impl MediaEnvironment {
                 None => queries.push("not all".into()),
             }
         }
-        Ok(serde_json::json!({"media":queries.join(", "), "matches":matches}).to_string())
+        Ok(QueryResult {
+            media: queries.join(", "),
+            matches,
+        })
     }
 }
 
