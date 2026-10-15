@@ -219,7 +219,7 @@ impl Dom {
         }
     }
 
-    fn handle(&mut self, id: NodeId) -> usize {
+    pub(crate) fn handle(&mut self, id: NodeId) -> usize {
         register_handle(&mut self.handles, &mut self.ids, id)
     }
 

@@ -61,11 +61,16 @@ test.each(["classic", "module"])(
     const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
       method: "POST",
       headers: { authorization: "Bearer test-secret" },
-      body: JSON.stringify({ url, expression: "document.URL" }),
+      body: JSON.stringify({ url, expression: "({url:document.URL,denied})" }),
     });
-    expect(response.status).toBe(422);
     const result: unknown = await response.json();
-    expect(JSON.stringify(result)).toContain("origin policy");
+    if (mode === "classic") {
+      expect(response.status).toBe(200);
+      expect(result).toMatchObject({ value: { url, denied: 1 } });
+    } else {
+      expect(response.status).toBe(422);
+      expect(JSON.stringify(result)).toContain("origin policy");
+    }
     expect(requests).toContain(`GET /base-origin/${mode}`);
   },
 );

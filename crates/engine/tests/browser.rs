@@ -438,6 +438,24 @@ fn variant_source(url: &str) -> Option<&'static str> {
 }
 
 fn serve(request: Request) -> io::Result<()> {
+    if request.url() == "/script-resources" {
+        return respond(
+            request,
+            "<script>globalThis.order=[];for(const type of ['load','error'])document.addEventListener(type,event=>{if(event.target.tagName==='SCRIPT')order.push(event.target.id+':'+type)},true);addEventListener('load',()=>order.push('window-load'))</script><script id=missing src=/missing></script><script id=ok src=/script-resource.js></script><script>order.push('after')</script>".into(),
+            200,
+            "text/html",
+            Vec::new(),
+        );
+    }
+    if request.url() == "/script-resource.js" {
+        return respond(
+            request,
+            "order.push('script');Promise.resolve().then(()=>order.push('microtask'))".into(),
+            200,
+            "text/javascript",
+            Vec::new(),
+        );
+    }
     if request.url() == "/async-inline" {
         return respond(
             request,
@@ -522,7 +540,7 @@ fn serve_page(mut request: Request) -> io::Result<()> {
             "<script>Promise.reject(new Error('expected')).catch(() => {});</script><main>ok</main>"
                 .into()
         }
-        "/cross-script" => "<script src='http://localhost:9/blocked'></script>".into(),
+        "/cross-script" => "<script>globalThis.blocked=false;document.addEventListener('error',()=>blocked=true,true)</script><script src='http://localhost:9/blocked'></script>".into(),
         "/cross-fetch" => "<script>fetch('http://localhost:9/blocked');</script>".into(),
         "/module" => "<script type='module'>export {};</script>".into(),
         "/import-map" => r#"<script type="importmap">{"imports":{"value":"/modules/shared.js","pkg/":"/mapped/","blocked":null},"scopes":{"/mapped/":{"value":"/mapped/value.js"}}}</script><script type="module" src="/mapped/root.js"></script>"#.into(),
@@ -662,15 +680,15 @@ fn globals_and_dom_are_fresh_on_every_navigation() -> TestResult {
 }
 
 #[test]
-fn rejects_cross_origin_navigation_scripts_redirects_and_fetch() -> TestResult {
+fn blocks_cross_origin_requests_and_reports_denied_script_resources() -> TestResult {
     let fixture = Fixture::new()?;
     let browser = fixture.browser()?;
-    for path in ["/redirect-cross", "/cross-script"] {
-        assert!(matches!(
-            browser.navigate(&fixture.path(path)),
-            Err(Error::Origin(_))
-        ));
-    }
+    assert!(matches!(
+        browser.navigate(&fixture.path("/redirect-cross")),
+        Err(Error::Origin(_))
+    ));
+    let denied = browser.navigate(&fixture.path("/cross-script"))?;
+    assert_eq!(denied.evaluate("blocked")?, json!(true));
     assert!(matches!(
         browser.navigate("http://localhost:9/blocked"),
         Err(Error::Origin(_))
@@ -683,6 +701,26 @@ fn rejects_cross_origin_navigation_scripts_redirects_and_fetch() -> TestResult {
     assert!(
         page.evaluate("fetch('http://localhost:9/blocked')")
             .is_err()
+    );
+    Ok(())
+}
+
+#[test]
+fn script_resource_failures_and_load_events_preserve_execution_order() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/script-resources"))?;
+    assert_eq!(
+        page.evaluate("order")?,
+        json!([
+            "missing:error",
+            "script",
+            "microtask",
+            "ok:load",
+            "after",
+            "window-load"
+        ])
     );
     Ok(())
 }
@@ -904,9 +942,11 @@ fn repeated_failure_cleanup_and_session_cycles_remain_usable() -> TestResult {
     let fixture = Fixture::new()?;
     for _ in 0..20 {
         let browser = fixture.browser()?;
-        for path in ["/cross-script", "/bad-js", "/rejected"] {
+        for path in ["/cross-fetch", "/bad-js", "/rejected"] {
             assert!(browser.navigate(&fixture.path(path)).is_err());
         }
+        let denied = browser.navigate(&fixture.path("/cross-script"))?;
+        assert_eq!(denied.evaluate("blocked")?, json!(true));
         let page = browser.navigate(&fixture.path("/dynamic"))?;
         assert_eq!(
             page.evaluate("document.getElementById('result').textContent")?,

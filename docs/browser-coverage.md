@@ -86,8 +86,10 @@ inline-module dependencies and fetch responses through 64 document bases. It
 also rejects fetch after changing the base to another origin. The eighteenth set
 compares nine URL forms and nine mutations at 64 variants with Bun's real URL
 parser (5,760 snapshots of eleven components). Other cases check link parser
-limits, fresh-page recovery and forbidden classic/module loads via a cross-origin
-base. The same native fixture passes in the native HTTP adapter.
+limits, fresh-page recovery and denied classic/module loads via a cross-origin
+base. Denied classic loads dispatch an element error event; module graph failures
+remain explicit extraction errors. The same native fixture passes in the native
+HTTP adapter.
 
 The parser is the existing pinned Rust url crate and its WHATWG component API.
 The first connected HTML base[href] determines Node.baseURI and relative link,
@@ -186,6 +188,16 @@ script responses on parser/lifecycle requests and require reverse completion
 order. Async module scripts and full HTML module lifecycle/WPT conformance
 remain incomplete. These tests do not prove application hydration
 or production compatibility.
+
+Classic external scripts dispatch trusted, non-bubbling `load` or `error` events
+at the original element. HTTP and transport failures, invalid URLs and policy-denied
+origins report resource errors without aborting the document. The same-origin
+restriction still prevents those requests and their code from executing. Success
+events follow the script's microtask checkpoint; window load follows pending
+resource events. Navigation, module, budget, cancellation and JavaScript execution
+failures retain their existing error contracts. Native and Worker tests cover
+HTTP failures, denied origins, recovery and event ordering against the
+[HTML script execution model](https://html.spec.whatwg.org/multipage/scripting.html#execute-the-script-element).
 
 Web Storage values live in Rust and preserve UTF-16 code units. The default
 quota is 64 KiB per area, counting keys and values as two bytes per code unit.

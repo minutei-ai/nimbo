@@ -185,7 +185,7 @@ const scrape = (
             if (Exit.isFailure(result)) {
               yield* Effect.failCause(result.cause).pipe(
                 Effect.catchIf(
-                  (error) => error.status === 502,
+                  (error) => error.status === 502 || error.code === "url-policy",
                   (error) =>
                     Effect.try({
                       try: () => page.reject(id, error.reason),

@@ -5,6 +5,7 @@ export { Input, Media, Readiness } from "@nimbo/client/schema";
 export class ScrapeError extends Data.TaggedError("ScrapeError")<{
   readonly status: number;
   readonly reason: string;
+  readonly code?: "url-policy";
 }> {}
 
 export function completionFailure(cause: unknown, cancelled: boolean): ScrapeError {

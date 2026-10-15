@@ -695,6 +695,83 @@ test("guest JS cannot access Worker credentials or host bindings", async () => {
   );
 });
 
+test.each([
+  ["classic HTTP failure", "", "/missing.js"],
+  ["async HTTP failure", "async", "/missing.js"],
+  ["classic origin denial", "", "https://blocked.test/blocked.js"],
+  ["async origin denial", "async", "https://blocked.test/blocked.js"],
+  ["classic invalid URL", "", "javascript:globalThis.ran=false"],
+  ["async invalid URL", "async", "javascript:globalThis.ran=false"],
+  ["classic redirect denial", "", "/redirect.js"],
+  ["async redirect denial", "async", "/redirect.js"],
+  ["classic redirect scheme denial", "", "/redirect-scheme.js"],
+  ["async redirect scheme denial", "async", "/redirect-scheme.js"],
+] as const)("script resource events: %s", async (_name, attributes, source) => {
+  const requests: string[] = [];
+  await fixture(
+    (request) => {
+      const path = new URL(request.url).pathname;
+      requests.push(path);
+      if (path === "/missing.js") return new Response("missing", { status: 404 });
+      if (path === "/redirect.js")
+        return new Response(null, {
+          status: 302,
+          headers: { location: "https://blocked.test/redirected.js" },
+        });
+      if (path === "/redirect-scheme.js")
+        return new Response(null, {
+          status: 302,
+          headers: { location: "javascript:globalThis.ran=false" },
+        });
+      return html(`<script>
+        globalThis.error=null;globalThis.ran=false;globalThis.loaded=false;
+        document.addEventListener('error',event=>{globalThis.error={id:event.target.id,bubbles:event.bubbles,trusted:event.isTrusted}},true);
+        addEventListener('load',()=>{globalThis.loaded=globalThis.error!==null});
+        </script><script id="resource" ${attributes} src="${source}"></script>
+        <script>globalThis.ran=true</script><main>Published document</main>`);
+    },
+    async (worker) => {
+      const response = await scrape(
+        worker,
+        "({error,ran,loaded,text:document.querySelector('main').textContent})",
+      );
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({
+        value: {
+          error: { id: "resource", bubbles: false, trusted: true },
+          ran: true,
+          loaded: true,
+          text: "Published document",
+        },
+      });
+      if (source.startsWith("/")) expect(requests).toEqual(["/", source]);
+      else expect(requests).toEqual(["/"]);
+    },
+  );
+});
+
+test("external script load follows its microtasks and precedes window load", async () => {
+  await fixture(
+    (request) => {
+      if (new URL(request.url).pathname === "/script.js")
+        return new Response(
+          "order.push('script');Promise.resolve().then(()=>order.push('microtask'))",
+          { headers: { "content-type": "text/javascript" } },
+        );
+      return html(
+        `<script>globalThis.order=[];document.addEventListener('load',event=>{if(event.target.id==='resource')order.push('script-load')},true);addEventListener('load',()=>order.push('window-load'))</script><script id="resource" src="/script.js"></script>`,
+      );
+    },
+    async (worker) => {
+      const response = await scrape(worker, "order");
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({
+        value: ["script", "microtask", "script-load", "window-load"],
+      });
+    },
+  );
+});
+
 test("configured scrape deadlines above ten seconds reach the Wasm scheduler", async () => {
   await fixture(
     () => html("<title>Configured deadline</title>"),

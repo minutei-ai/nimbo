@@ -89,12 +89,13 @@ struct Request {
 
 enum RequestPurpose {
     Fetch(Resolver, FetchOptions),
-    ClassicScript,
+    ClassicScript(usize),
     Stylesheet(usize),
     Module(String),
 }
 
 struct Script {
+    node: dom_query::NodeId,
     src: Option<String>,
     source: String,
     module: bool,
@@ -117,6 +118,7 @@ pub(crate) struct Machine {
     content_loaded: bool,
     pending: Rc<RefCell<VecDeque<Request>>>,
     scripts: VecDeque<Script>,
+    script_events: VecDeque<(usize, bool)>,
     modules: Modules,
     module_root: Option<String>,
     module_evaluations: HashMap<String, Persistent<Promise<'static>>>,
@@ -280,6 +282,7 @@ impl Machine {
             waiting: None,
             pending: Rc::default(),
             scripts,
+            script_events: VecDeque::new(),
             modules,
             module_root: None,
             module_evaluations: HashMap::new(),
@@ -429,6 +432,10 @@ impl Machine {
             .dom
             .borrow_mut()
             .sheet_response(handle, url, response)?;
+        self.resource_event(handle, success)
+    }
+
+    fn resource_event(&self, handle: usize, success: bool) -> Result<()> {
         let callback = self
             .resource
             .as_ref()
@@ -562,28 +569,48 @@ impl Machine {
                 return Ok(None);
             }
             if let Some(src) = script.src {
-                let url = resolve(
-                    &self.base,
-                    document_base
-                        .join(&src)
-                        .map_err(|error| Error::InvalidUrl(error.to_string()))?
-                        .as_str(),
-                )?;
-                return Ok(Some(self.activate(
-                    Request {
-                        url: url.to_string(),
-                        method: "GET".into(),
-                        body: String::new(),
-                        purpose: RequestPurpose::ClassicScript,
-                    },
+                return self.external_script(
+                    &src,
+                    script.node,
                     script.asynchronous,
-                )));
+                    &document_base,
+                );
             }
             self.execute(&script.source, self.base.as_str())?;
         } else {
             self.phase = Phase::Lifecycle;
         }
         Ok(None)
+    }
+
+    fn external_script(
+        &mut self,
+        src: &str,
+        node: dom_query::NodeId,
+        asynchronous: bool,
+        document_base: &Url,
+    ) -> Result<Option<Action>> {
+        let handle = self.dom.borrow_mut().handle(node);
+        let url = document_base
+            .join(src)
+            .map_err(|error| Error::InvalidUrl(error.to_string()))
+            .and_then(|url| resolve(&self.base, url.as_str()));
+        match url {
+            Ok(url) => Ok(Some(self.activate(
+                Request {
+                    url: url.to_string(),
+                    method: "GET".into(),
+                    body: String::new(),
+                    purpose: RequestPurpose::ClassicScript(handle),
+                },
+                asynchronous,
+            ))),
+            Err(Error::Origin(_) | Error::InvalidUrl(_)) => {
+                self.script_events.push_back((handle, false));
+                Ok(None)
+            }
+            Err(error) => Err(error),
+        }
     }
 
     fn next_sheet(&mut self) -> Result<Option<Action>> {
@@ -612,6 +639,10 @@ impl Machine {
                 let job = self.runtime.execute_pending_job();
                 self.check_budget()?;
                 job.map_err(|error| Error::JavaScript(format!("microtask failed: {error:?}")))?;
+            }
+            if let Some((handle, success)) = self.script_events.pop_front() {
+                self.resource_event(handle, success)?;
+                continue;
             }
             self.timer_step(false)?;
             for promise in self.module_evaluations.values() {
@@ -791,40 +822,44 @@ impl Machine {
         {
             return Err(Error::Limit("response bytes"));
         }
-        if let RequestPurpose::Stylesheet(handle) = request.purpose {
-            self.sheet_response(handle, request.url, Some(&response))?;
-        } else if let RequestPurpose::Module(name) = request.purpose {
-            self.modules.respond(name, &response)?;
-        } else if let RequestPurpose::Fetch(resolver, _) = request.purpose {
-            self.context.with(|ctx| {
-                let payload = js(&ctx, rquickjs::Object::new(ctx.clone()))?;
-                js(&ctx, payload.set("status", response.status))?;
-                let headers: Vec<Vec<String>> = response
-                    .headers
-                    .into_iter()
-                    .map(|(name, value)| vec![name, value])
-                    .collect();
-                js(&ctx, payload.set("headers", headers))?;
-                js(&ctx, payload.set("url", response.url.as_str()))?;
-                if matches!(response.status, 204 | 205 | 304) {
-                    js(&ctx, payload.set("body", rquickjs::Null))?;
-                } else {
-                    let bytes = response
-                        .raw_body
-                        .unwrap_or_else(|| response.body.into_bytes());
-                    let body = js(&ctx, rquickjs::ArrayBuffer::new(ctx.clone(), bytes))?;
-                    js(&ctx, payload.set("body", body))?;
-                }
-                js(
-                    &ctx,
-                    js(&ctx, resolver.resolve.restore(&ctx))?.call::<_, ()>((payload,)),
-                )
-            })?;
-        } else {
-            if !(200..300).contains(&response.status) {
-                return Err(Error::HttpStatus(response.status));
+        match request.purpose {
+            RequestPurpose::Stylesheet(handle) => {
+                self.sheet_response(handle, request.url, Some(&response))?;
             }
-            self.execute(&response.body, &response.url)?;
+            RequestPurpose::Module(name) => self.modules.respond(name, &response)?,
+            RequestPurpose::Fetch(resolver, _) => {
+                self.context.with(|ctx| {
+                    let payload = js(&ctx, rquickjs::Object::new(ctx.clone()))?;
+                    js(&ctx, payload.set("status", response.status))?;
+                    let headers: Vec<Vec<String>> = response
+                        .headers
+                        .into_iter()
+                        .map(|(name, value)| vec![name, value])
+                        .collect();
+                    js(&ctx, payload.set("headers", headers))?;
+                    js(&ctx, payload.set("url", response.url.as_str()))?;
+                    if matches!(response.status, 204 | 205 | 304) {
+                        js(&ctx, payload.set("body", rquickjs::Null))?;
+                    } else {
+                        let bytes = response
+                            .raw_body
+                            .unwrap_or_else(|| response.body.into_bytes());
+                        let body = js(&ctx, rquickjs::ArrayBuffer::new(ctx.clone(), bytes))?;
+                        js(&ctx, payload.set("body", body))?;
+                    }
+                    js(
+                        &ctx,
+                        js(&ctx, resolver.resolve.restore(&ctx))?.call::<_, ()>((payload,)),
+                    )
+                })?;
+            }
+            RequestPurpose::ClassicScript(handle) => {
+                let success = (200..300).contains(&response.status);
+                if success {
+                    self.execute(&response.body, &response.url)?;
+                }
+                self.script_events.push_back((handle, success));
+            }
         }
         Ok(())
     }
@@ -839,6 +874,10 @@ impl Machine {
         }
         if let RequestPurpose::Stylesheet(handle) = request.purpose {
             return self.sheet_response(handle, request.url, None);
+        }
+        if let RequestPurpose::ClassicScript(handle) = request.purpose {
+            self.script_events.push_back((handle, false));
+            return Ok(());
         }
         let RequestPurpose::Fetch(resolver, _) = request.purpose else {
             return Err(Error::JavaScript(message.to_owned()));
@@ -1140,6 +1179,7 @@ fn collect_scripts(dom: &Dom, execute_scripts: bool) -> Result<VecDeque<Script>>
                 && node.null_attribute("src").is_some()
                 && node.null_attribute("defer").is_some());
         let script = Script {
+            node: node.id,
             src: node.null_attribute("src"),
             source: node.text().to_string(),
             module: kind == "module",

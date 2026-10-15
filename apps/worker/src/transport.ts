@@ -74,9 +74,17 @@ export class Transport {
   private resolve(value: string): URL {
     const url = new URL(value);
     if (!["http:", "https:"].includes(url.protocol) || url.username || url.password)
-      throw new ScrapeError({ status: 400, reason: "only HTTP(S) without URL credentials" });
+      throw new ScrapeError({
+        status: 400,
+        reason: "only HTTP(S) without URL credentials",
+        code: "url-policy",
+      });
     if (this.origin && this.origin !== url.origin)
-      throw new ScrapeError({ status: 422, reason: "cross-origin request blocked" });
+      throw new ScrapeError({
+        status: 422,
+        reason: "cross-origin request blocked",
+        code: "url-policy",
+      });
     return url;
   }
 
