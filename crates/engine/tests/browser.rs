@@ -438,6 +438,19 @@ fn variant_source(url: &str) -> Option<&'static str> {
 }
 
 fn serve(request: Request) -> io::Result<()> {
+    if request.url() == "/rejected-dom" {
+        return respond(request, "<script>Promise.reject(new DOMException('native-rejected-dom','NotAllowedError'));</script>".into(), 200, "text/html", Vec::new());
+    }
+    if request.url() == "/rejected-value" {
+        return respond(
+            request,
+            "<script>Promise.reject('native-rejected-value');</script>".into(),
+            200,
+            "text/html",
+            Vec::new(),
+        );
+    }
+
     if request.url() == "/current-script" {
         return respond(
             request,
@@ -738,6 +751,31 @@ fn current_script_and_source_reflection_follow_execution_lifetime() -> TestResul
         checks.values().all(|value| value == &json!(true)),
         "{result}"
     );
+    Ok(())
+}
+
+#[test]
+fn promise_rejection_reasons_preserve_native_diagnostics_and_recovery() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    for _ in 0..5 {
+        for (path, reason) in [
+            ("/rejected", "failed"),
+            ("/rejected-dom", "NotAllowedError: native-rejected-dom"),
+            ("/rejected-value", "native-rejected-value"),
+        ] {
+            let error = browser
+                .navigate(&fixture.path(path))
+                .err()
+                .ok_or("expected rejected promise")?;
+            assert!(error.to_string().contains(reason), "{error}");
+            if path == "/rejected" {
+                assert!(error.to_string().contains(&fixture.path(path)), "{error}");
+            }
+        }
+        let page = browser.navigate(&fixture.path("/static"))?;
+        assert_eq!(page.evaluate("document.title")?, json!("Página estática"));
+    }
     Ok(())
 }
 

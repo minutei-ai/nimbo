@@ -9,7 +9,7 @@ use std::{
     },
 };
 
-use rquickjs::{Context, Ctx, Exception, Function, Persistent, Promise, Runtime};
+use rquickjs::{Context, Ctx, Exception, Function, Persistent, Promise, Runtime, Value};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -122,10 +122,10 @@ pub(crate) struct Machine {
     modules: Modules,
     module_root: Option<String>,
     module_evaluations: HashMap<String, Persistent<Promise<'static>>>,
+    rejections: Rc<RefCell<HashMap<Persistent<Value<'static>>, Persistent<Value<'static>>>>>,
     parsed: bool,
     context: Context,
     runtime: Runtime,
-    rejections: Rc<Cell<usize>>,
     ticks: Arc<AtomicUsize>,
     check: Check,
     jobs: usize,
@@ -138,7 +138,9 @@ pub(crate) struct Machine {
 impl Drop for Machine {
     fn drop(&mut self) {
         // Native callbacks also retain this queue: explicitly break that reference cycle.
+        self.runtime.set_host_promise_rejection_tracker(None);
         self.pending.borrow_mut().clear();
+        self.rejections.borrow_mut().clear();
     }
 }
 
@@ -257,15 +259,20 @@ impl Machine {
                     })
                     .is_err()
         })));
-        let rejections = Rc::new(Cell::new(0_usize));
+        let rejections = Rc::new(RefCell::new(HashMap::new()));
         let tracker = Rc::clone(&rejections);
-        runtime.set_host_promise_rejection_tracker(Some(Box::new(move |_, _, _, handled| {
-            tracker.set(if handled {
-                tracker.get().saturating_sub(1)
-            } else {
-                tracker.get().saturating_add(1)
-            });
-        })));
+        runtime.set_host_promise_rejection_tracker(Some(Box::new(
+            move |ctx, promise, reason, handled| {
+                let promise = Persistent::save(&ctx, promise);
+                if handled {
+                    tracker.borrow_mut().remove(&promise);
+                } else {
+                    tracker
+                        .borrow_mut()
+                        .insert(promise, Persistent::save(&ctx, reason));
+                }
+            },
+        )));
         let context =
             Context::full(&runtime).map_err(|error| Error::JavaScript(error.to_string()))?;
         let mut machine = Self {
@@ -666,8 +673,12 @@ impl Machine {
             if let Some(request) = request {
                 return Ok(self.activate(request, true));
             }
-            if self.rejections.get() != 0 {
-                return Err(Error::JavaScript("unhandled Promise rejection".into()));
+            let rejected = self.rejections.borrow().values().next().cloned();
+            if let Some(reason) = rejected {
+                return self.context.with(|ctx| {
+                    let value = js(&ctx, reason.restore(&ctx))?;
+                    js(&ctx, Err(ctx.throw(value)))
+                });
             }
             if self.blocked.is_some()
                 || (!self.active.is_empty()
@@ -1023,7 +1034,7 @@ impl Machine {
                 let satisfied = self.context.with(|ctx| -> Result<bool> {
                     let value = js(
                         &ctx,
-                        js(&ctx, test.clone().restore(&ctx))?.call::<_, rquickjs::Value<'_>>(()),
+                        js(&ctx, test.clone().restore(&ctx))?.call::<_, Value<'_>>(()),
                     )?;
                     value.as_bool().ok_or_else(|| {
                         Error::JavaScript("readiness predicate must return a boolean".into())
@@ -1041,7 +1052,7 @@ impl Machine {
 }
 
 fn install_proxy_brand(ctx: &Ctx<'_>) -> Result<()> {
-    let predicate = Function::new(ctx.clone(), |value: rquickjs::Value<'_>| value.is_proxy());
+    let predicate = Function::new(ctx.clone(), |value: Value<'_>| value.is_proxy());
     js(ctx, ctx.globals().set("nimboIsProxy", js(ctx, predicate)?))
 }
 

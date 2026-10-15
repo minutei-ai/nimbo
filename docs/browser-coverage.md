@@ -1224,7 +1224,12 @@ replace malformed sequences. Null-body statuses retain an undisturbed null body.
 The engine also observes its evaluation Promise's rejection without changing
 its result, so asynchronous capability errors retain their original reason
 rather than becoming a generic unhandled-rejection report. Unrelated unhandled
-page rejections still fail.
+page rejections still fail with their original reason through the existing QuickJS
+exception boundary, including Error stacks, primitive values and DOMException
+names/messages. The native rejection tracker roots each promise and its reason;
+handling one promise removes only its entry. Page disposal disables the tracker
+and releases those values before the context/runtime. Native and Worker cases
+exercise shared reasons, late handlers and repeated error/recovery cycles.
 
 The public binary-fetch fixture performs 26 checks at each of 64 distinct real
 HTTP URLs through workerd/Wasm and across 64 actual native HTTP navigations.

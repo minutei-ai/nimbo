@@ -1448,3 +1448,48 @@ test("cached tag collection reads retain the native operation budget", async () 
     },
   );
 });
+
+test.each([
+  ["Error", "Promise.reject(new Error('rejected-error-fixture'))", "rejected-error-fixture"],
+  ["string", "Promise.reject('rejected-string-fixture')", "rejected-string-fixture"],
+  [
+    "DOMException",
+    "Promise.reject(new DOMException('rejected-dom-fixture','NotAllowedError'))",
+    "NotAllowedError: rejected-dom-fixture",
+  ],
+  [
+    "matching promise",
+    "Promise.reject(new Error('caught-only-fixture')).catch(()=>{});Promise.reject(new Error('unobserved-only-fixture'))",
+    "unobserved-only-fixture",
+  ],
+  [
+    "shared reason",
+    "const reason=new Error('shared-rejected-fixture');Promise.reject(reason).catch(()=>{});Promise.reject(reason)",
+    "shared-rejected-fixture",
+  ],
+] as const)("unhandled rejection reasons retain %s diagnostics", async (_kind, source, reason) => {
+  await fixture(
+    () => html(`<script>${source}</script><main>Recovered</main>`),
+    async (worker) => {
+      const response = await scrape(worker, "1");
+      expect(response.status).toBe(422);
+      const result = await json(response);
+      expect(JSON.stringify(result)).toContain(reason);
+      expect(JSON.stringify(result)).not.toContain("caught-only-fixture");
+    },
+  );
+});
+
+test("a late rejection handler clears only its own native promise", async () => {
+  await fixture(
+    () =>
+      html(
+        "<script>const rejected=Promise.reject(new Error('observed-later-fixture'));Promise.resolve().then(()=>rejected.catch(()=>{}))</script><main>Handled</main>",
+      ),
+    async (worker) => {
+      const response = await scrape(worker, "document.querySelector('main').textContent");
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({ value: "Handled" });
+    },
+  );
+});
