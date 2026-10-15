@@ -2,11 +2,17 @@
   "name": "@nimbo/client",
   "version": "0.1.0",
   "private": true,
+  "files": [
+    "src",
+    "worker"
+  ],
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
     "./schema": "./src/schema.ts",
-    "./binding": "./src/binding.ts"
+    "./binding": "./src/binding.ts",
+    "./worker": "./worker/index.js",
+    "./worker/wasm": "./worker/nimbo_engine_bg.wasm"
   },
   "dependencies": {
     "effect": "4.0.0"

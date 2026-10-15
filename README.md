@@ -28,7 +28,7 @@ curl "$NIMBO_URL/scrape" \
 
 The response contains `url`, `value` and `engine: "rust-wasm-quickjs"`. Errors return an HTTP status and `error`. `GET /health` reports engine health.
 
-Page scripts execute by default. `"scripts":"skip"` parses received HTML and runs only the extraction expression. `maxStylesheetBytes`, `maxLayoutNodes` and `maxDomOperations` configure bounded CSS/DOM work. `timeoutMs` (up to 60 s), `maxResponseBytes` (up to 4 MiB) and `headers` (for example `user-agent` or `accept-language`, sent with every page request) are per-scrape inputs.
+Page scripts execute by default. `"scripts":"skip"` parses received HTML and runs only the extraction expression. `maxStylesheetBytes`, `maxStylesheetSelectors` (1–32,768; default 4,096), `maxLayoutNodes` and `maxDomOperations` configure bounded CSS/DOM work. `timeoutMs` (up to 60 s), `maxResponseBytes` (up to 4 MiB) and `headers` (for example `user-agent` or `accept-language`, sent with every page request) are per-scrape inputs.
 
 Set `captureConsole: true` to include the page's bounded `console` records in success or error responses. Records are omitted by default, including when `diagnostics` is enabled. The supported logging methods, buffer bounds and native inspection APIs are described in [console coverage](docs/browser-coverage.md#bounded-native-console).
 
@@ -37,6 +37,22 @@ Page `fetch` is same-origin and sends the page's cookies. It accepts `method` (G
 Optional `waitFor` waits for a selector, synchronous boolean predicate or quiet
 network interval before extraction. See [readiness options](docs/readiness.md)
 for Worker JSON, native usage and shared timeout/resource semantics.
+
+## Native client package
+
+Releases include `nimbo-client.tgz` for Bun and TypeScript bundlers. It contains
+`@nimbo/client`, its shared request/response schemas and the built Worker assets.
+Install a pinned release with Bun so the lockfile owns artifact integrity:
+
+```sh
+bun add https://github.com/minutei-ai/nimbo/releases/download/v0.1.6/nimbo-client.tgz
+```
+
+Import the native client from `@nimbo/client`, schemas from
+`@nimbo/client/schema`, and the service-binding contract from
+`@nimbo/client/binding`. Provisioners resolve `@nimbo/client/worker` and
+`@nimbo/client/worker/wasm` without executing the Worker module. The package
+contains the same Worker assets as the standalone release archive.
 
 ## Scope
 

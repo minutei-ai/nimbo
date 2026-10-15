@@ -32,9 +32,18 @@ jobs:
         run: |
           tar -czf nimbo-worker.tar.gz -C dist worker
           sha256sum nimbo-worker.tar.gz > nimbo-worker.tar.gz.sha256
+      - name: Package the native client and Worker assets
+        run: |
+          mkdir -p dist/client
+          cp packages/client/package.json dist/client/package.json
+          cp -R packages/client/src dist/client/src
+          cp -R dist/worker dist/client/worker
+          cd dist/client
+          bun pm pkg set version="${GITHUB_REF_NAME#v}"
+          bun pm pack --filename ../nimbo-client.tgz --ignore-scripts
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" nimbo-worker.tar.gz nimbo-worker.tar.gz.sha256 \
-            --title "$GITHUB_REF_NAME" --notes "Worker bundle: dist/worker (index.js and nimbo_engine_bg.wasm)."
+          gh release create "$GITHUB_REF_NAME" nimbo-worker.tar.gz nimbo-worker.tar.gz.sha256 dist/nimbo-client.tgz \
+            --title "$GITHUB_REF_NAME" --notes "Native client package with Worker assets, plus the standalone Worker bundle."
