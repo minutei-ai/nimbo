@@ -5494,6 +5494,14 @@
       if (!(this instanceof DocumentType)) throw new TypeError("Illegal invocation");
       return this.nodeName;
     }
+    get publicId(): string {
+      if (!(this instanceof DocumentType)) throw new TypeError("Illegal invocation");
+      return call("get", idOf(this), "publicId");
+    }
+    get systemId(): string {
+      if (!(this instanceof DocumentType)) throw new TypeError("Illegal invocation");
+      return call("get", idOf(this), "systemId");
+    }
     before(...values: unknown[]): void {
       if (!(this instanceof DocumentType)) throw new TypeError("Illegal invocation");
       childOperation(this, "before", values);
@@ -5561,7 +5569,9 @@
       case 8:
         return new Comment("", internal, id);
       case 9:
-        return new XMLDocument(internal, id);
+        return call<boolean>("get", id, "htmlDocument")
+          ? new Document(internal, id)
+          : new XMLDocument(internal, id);
       case 10:
         return new DocumentType(internal, id);
       case 11:
@@ -5882,6 +5892,12 @@
       if (key !== internal) throw new TypeError("Illegal constructor");
       implementationDocuments.set(this, owner);
     }
+    createHTMLDocument(title?: unknown): Document {
+      const owner = implementationDocuments.get(this);
+      if (!owner) throw new TypeError("Illegal invocation");
+      const text = title === undefined ? null : domString(title);
+      return documentNode(raw("newHTMLDocument", idOf(owner), "", JSON.stringify(text)));
+    }
     createDocument(
       namespace: unknown,
       qualifiedName: unknown,
@@ -6128,6 +6144,8 @@
     [DocumentFragment.prototype, ["getElementById", "firstElementChild", "lastElementChild"]],
     [Document.prototype, ["firstElementChild", "lastElementChild", "currentScript"]],
     [HTMLScriptElement.prototype, ["src"]],
+    [DocumentType.prototype, ["name", "publicId", "systemId"]],
+    [DOMImplementation.prototype, ["createHTMLDocument"]],
     [HTMLSlotElement.prototype, ["name", "assignedNodes", "assignedElements", "assign"]],
   ] as const) {
     for (const key of keys) {

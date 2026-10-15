@@ -3387,8 +3387,16 @@ charges cumulative node, operation and write budgets and preserves the source
 when a limit interrupts copying. Native and Worker fixtures cover mutations of
 clean and dirty textarea clones, namespace attributes and independent documents.
 
+`DOMImplementation.createHTMLDocument` builds an independent native HTML tree
+with its doctype, html, head and body. An omitted or undefined title creates no
+title element; supplied values become a text node without HTML parsing. Existing
+HTML factories, parsing, adoption and cloning retain the new document's ownership.
+The factory uses cumulative operation, write and node budgets. The shared native
+and Worker fixture follows the [DOM factory contract](https://dom.spec.whatwg.org/#dom-domimplementation-createhtmldocument);
+its 17 checks also pass in the collaborative Chromium comparator.
+
 This is partial document support. XML parsing/serialization conformance,
-DOMParser, createHTMLDocument, public Document construction, non-null doctype
+DOMParser, public Document construction, non-null doctype
 transfer, XML-specific selector case behavior and independent frame realms
 remain pending. Supplying a doctype currently raises NotSupportedError.
 Independent roots do not add a new JS realm, active stylesheet context or

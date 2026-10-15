@@ -393,6 +393,7 @@ impl Dom {
                 self.control_call(operation, handle, arg, value)?
             }
             "newDocument" => self.new_document(handle, value)?,
+            "newHTMLDocument" => self.new_html_document(handle, value)?,
             "attachShadow" | "shadowRoot" | "shadowInfo" | "rootNode" | "shadowContains"
             | "elementById" | "assignedSlot" | "slotNodes" | "slotChanges" => {
                 self.shadow_call(operation, handle, arg)?
@@ -1818,7 +1819,7 @@ impl Dom {
                 NodeData::Doctype { .. } => json!(10),
                 NodeData::Fragment => json!(11),
             }),
-            "nodeName" => node.query_or(Value::Null, |node| match &node.data {
+            "nodeName" | "tagName" => node.query_or(Value::Null, |node| match &node.data {
                 NodeData::Element(element) => json!(if element.name.ns.as_ref()
                     == "http://www.w3.org/1999/xhtml"
                     && self.html_document(node.id)
@@ -1827,6 +1828,7 @@ impl Dom {
                 } else {
                     qualified_name(element)
                 }),
+                _ if property == "tagName" => Value::Null,
                 NodeData::Text { .. } => json!("#text"),
                 NodeData::Comment { .. } => json!("#comment"),
                 NodeData::Document => json!("#document"),
@@ -1834,15 +1836,11 @@ impl Dom {
                 NodeData::Doctype { name, .. } => json!(name.to_string()),
                 NodeData::ProcessingInstruction { target, .. } => json!(target.to_string()),
             }),
-            "tagName" => node.query_or(Value::Null, |node| match &node.data {
-                NodeData::Element(element) => json!(if element.name.ns.as_ref()
-                    == "http://www.w3.org/1999/xhtml"
-                    && self.html_document(node.id)
-                {
-                    qualified_name(element).to_ascii_uppercase()
-                } else {
-                    qualified_name(element)
-                }),
+            "publicId" | "systemId" => node.query_or(Value::Null, |node| match &node.data {
+                NodeData::Doctype { public_id, .. } if property == "publicId" => {
+                    json!(public_id.to_string())
+                }
+                NodeData::Doctype { system_id, .. } => json!(system_id.to_string()),
                 _ => Value::Null,
             }),
             "localName" => node.query_or(Value::Null, |node| match &node.data {

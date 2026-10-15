@@ -599,6 +599,7 @@ test("cumulative DOM quotas bound native factories and preserve failed writes", 
         "comment",
         "fragment",
         "document",
+        "htmlDocument",
         "shadow",
         "textContent",
       ]) {
@@ -1536,3 +1537,22 @@ test.each([32, 64])(
     );
   },
 );
+
+test("native HTML document factories preserve structure, titles and ownership", async () => {
+  const expression = await Bun.file(
+    join(root, "crates/engine/tests/fixtures/html-document.txt"),
+  ).text();
+  await fixture(
+    () => html("<main>Active document</main>"),
+    async (worker) => {
+      const response = await scrape(worker, expression);
+      expect(response.status).toBe(200);
+      const result = await json(response);
+      if (typeof result !== "object" || result === null) throw new Error("Missing response");
+      const checks: unknown = Reflect.get(result, "value");
+      if (typeof checks !== "object" || checks === null) throw new Error("Missing document checks");
+      expect(Object.keys(checks)).toHaveLength(17);
+      expect(Object.values(checks).every((value) => value === true)).toBe(true);
+    },
+  );
+});

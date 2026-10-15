@@ -1,0 +1,31 @@
+(() => {
+  const checks = {};
+  const impl = document.implementation;
+  const empty = impl.createHTMLDocument();
+  checks.identity = empty !== document && empty instanceof Document && !(empty instanceof XMLDocument);
+  checks.structure = empty.childNodes.length === 2 && empty.documentElement.localName === 'html' && empty.head.parentNode === empty.documentElement && empty.body.parentNode === empty.documentElement;
+  checks.doctype = empty.doctype.name === 'html' && empty.doctype.publicId === '' && empty.doctype.systemId === '' && empty.doctype.ownerDocument === empty;
+  checks.kind = empty.contentType === 'text/html' && empty.defaultView === null;
+  checks.omittedTitle = empty.head.childNodes.length === 0;
+  const titled = impl.createHTMLDocument('<b>title & text</b>');
+  checks.titleText = titled.head.firstChild.localName === 'title' && titled.head.firstChild.textContent === '<b>title & text</b>' && titled.head.firstChild.childNodes.length === 1;
+  checks.emptyTitle = impl.createHTMLDocument('').head.firstChild.childNodes.length === 1;
+  checks.undefinedTitle = impl.createHTMLDocument(undefined).head.childNodes.length === 0;
+  checks.nullTitle = impl.createHTMLDocument(null).head.firstChild.textContent === 'null';
+  checks.owner = titled.body.ownerDocument === titled && titled.head.firstChild.firstChild.ownerDocument === titled;
+  const input = titled.createElement('INPUT');
+  checks.htmlFactories = input.tagName === 'INPUT' && input.localName === 'input' && input.namespaceURI === 'http://www.w3.org/1999/xhtml';
+  titled.body.innerHTML = '<form></form><form></form>';
+  checks.parserForms = titled.body.children.length === 2 && titled.body.children[0].ownerDocument === titled;
+  const child = titled.createElement('span');
+  titled.body.appendChild(child);
+  document.body.appendChild(child);
+  checks.adoption = child.ownerDocument === document && child.isConnected;
+  const nested = empty.implementation.createHTMLDocument('nested');
+  checks.nested = nested !== empty && nested.head.firstChild.textContent === 'nested' && nested.body.ownerDocument === nested;
+  const cloned = titled.cloneNode(true);
+  checks.clone = cloned.contentType === 'text/html' && cloned.body.ownerDocument === cloned && cloned.head.firstChild.textContent === '<b>title & text</b>';
+  try { impl.createHTMLDocument.call({}, 'bad'); checks.brand = false; } catch(error) { checks.brand = error.name === 'TypeError'; }
+  checks.activeUnchanged = document.implementation === impl && empty.defaultView === null;
+  return checks;
+})()

@@ -3577,6 +3577,7 @@ fn cumulative_dom_nodes_bound_factories_and_preserve_failed_html_writes() -> Tes
         "comment",
         "fragment",
         "document",
+        "htmlDocument",
         "shadow",
         "textContent",
     ] {
@@ -4557,6 +4558,40 @@ fn cloning_respects_cumulative_node_and_write_budgets() -> TestResult {
             json!("DIV")
         );
     }
+    Ok(())
+}
+
+#[test]
+fn html_document_factory_preserves_structure_title_and_ownership() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    let result = page.evaluate(include_str!("fixtures/html-document.txt"))?;
+    let checks = result.as_object().ok_or("missing HTML document checks")?;
+    assert_eq!(checks.len(), 17);
+    assert!(
+        checks.values().all(|value| value == &json!(true)),
+        "{result}"
+    );
+    Ok(())
+}
+
+#[test]
+fn html_document_factory_bounds_title_writes_and_recovers() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = Browser::new(
+        &fixture.url,
+        Limits {
+            max_dom_write_bytes: 32,
+            ..Limits::default()
+        },
+    )?;
+    let page = browser.navigate(&fixture.path("/static"))?;
+    assert_eq!(page.evaluate("(()=>{const before=document.body.firstChild;let failed=false;try{document.implementation.createHTMLDocument('x'.repeat(64))}catch(error){failed=error.message.includes('resource limit: DOM write bytes')}return failed&&document.body.firstChild===before})()")?, json!(true));
+    let fresh = browser.navigate(&fixture.path("/static"))?;
+    assert_eq!(
+        fresh.evaluate("document.implementation.createHTMLDocument().doctype.name")?,
+        json!("html")
+    );
     Ok(())
 }
 

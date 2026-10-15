@@ -86,6 +86,55 @@ impl Dom {
         }
         Ok(())
     }
+    pub(super) fn new_html_document(&mut self, owner: usize, request: &str) -> Result<Value> {
+        self.document_id(owner)?;
+        let title: Option<String> = serde_json::from_str(request)?;
+        let (nodes, bytes) = title
+            .as_ref()
+            .map_or((5, 16), |text| (7, 21_usize.saturating_add(text.len())));
+        self.charge_write(bytes)?;
+        for _ in 0..nodes {
+            self.control_view().charge()?;
+            self.allocate_node()?;
+        }
+        let tree = &self.document.tree;
+        let id = tree.create_node(NodeData::Document);
+        let root = tree
+            .get(&id)
+            .ok_or_else(|| Error::Dom("invalid HTML document root".into()))?;
+        let doctype = tree.create_node(NodeData::Doctype {
+            name: "html".into(),
+            public_id: "".into(),
+            system_id: "".into(),
+        });
+        root.append_child(&doctype);
+        let html = tree.new_element("html");
+        let head = tree.new_element("head");
+        let body = tree.new_element("body");
+        root.append_child(&html.id);
+        html.append_child(&head.id);
+        html.append_child(&body.id);
+        let mut ids = vec![id, doctype, html.id, head.id, body.id];
+        if let Some(title) = title {
+            let element = tree.new_element("title");
+            let text = tree.new_text(title.as_str());
+            head.append_child(&element.id);
+            element.append_child(&text.id);
+            ids.extend([element.id, text.id]);
+        }
+        self.documents.kinds.insert(
+            id,
+            Kind {
+                html: true,
+                content_type: "text/html",
+            },
+        );
+        for child in ids {
+            self.documents.owners.borrow_mut().insert(child, id);
+        }
+        Ok(json!(self.handle(id)))
+    }
+
     pub(super) fn new_document(&mut self, owner: usize, request: &str) -> Result<Value> {
         self.document_id(owner)?;
         let (namespace, name): (String, String) = serde_json::from_str(request)?;
