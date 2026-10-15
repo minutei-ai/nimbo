@@ -21,6 +21,14 @@ bun run deploy:worker --profile your-profile
 
 The stack lives in `apps/infrastructure/alchemy.run.ts`. Preserve the ignored `.alchemy/` state between operations. A successful plan proves configuration, not deployment or live extraction. Local workerd tests also do not establish deployed Cloudflare behavior.
 
+### Released bundles
+
+Pushing a `v*` tag runs `.github/workflows/release.yml`, which builds
+`dist/worker` and attaches `nimbo-worker.tar.gz` with its SHA-256 to the
+GitHub release. A caller stack can download a pinned version, verify the
+checksum, and deploy `worker/index.js` with `@nimbo/alchemy`'s `Engine`
+without a Rust or Wasm toolchain.
+
 ## Verify the deployed API
 
 Set `NIMBO_URL` to the deployed endpoint privately, then:

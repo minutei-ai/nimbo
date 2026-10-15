@@ -1,0 +1,38 @@
+name: Release
+
+# Publishes the built Worker bundle so deployments pin a reviewed artifact by
+# version and SHA-256 instead of building Rust and Wasm themselves.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  worker:
+    runs-on: ubuntu-latest
+    env:
+      CARGO_HTTP_MULTIPLEXING: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          targets: wasm32-unknown-unknown
+      - run: sudo apt-get update && sudo apt-get install -y clang llvm lld
+      - run: cargo install wasm-bindgen-cli --version 0.2.129 --locked
+      - run: bun install --frozen-lockfile
+      - run: bun run build:worker
+      - name: Package the Worker bundle
+        run: |
+          tar -czf nimbo-worker.tar.gz -C dist worker
+          sha256sum nimbo-worker.tar.gz > nimbo-worker.tar.gz.sha256
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" nimbo-worker.tar.gz nimbo-worker.tar.gz.sha256 \
+            --title "$GITHUB_REF_NAME" --notes "Worker bundle: dist/worker (index.js and nimbo_engine_bg.wasm)."
