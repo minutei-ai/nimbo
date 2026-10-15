@@ -7,7 +7,7 @@ globalThis.comparison = (() => {
     ['atRule', '@unknown{}', 'layout unsupported: stylesheet at-rule: unknown'],
     ['nesting', '.item{& span{width:1px}}', 'layout unsupported: nested stylesheet rule'],
     ['forgiving', ':is(.item,:unknown){width:1px}', 'layout unsupported: forgiving selector recovery'],
-    ['selectors', Array.from({length:65},(_,i)=>'.item'+i).join(',')+'{width:1px}', 'layout unsupported: stylesheet selectors'],
+    ['selectors', Array.from({length:4097},(_,i)=>'.item'+i).join(',')+'{width:1px}', 'resource limit: stylesheet selectors'],
     ['rules', '.item{width:1px}'.repeat(4097), 'resource limit: stylesheet rules'],
     ['declarations', '.item{'+Array.from({length:1025},(_,i)=>'--item'+i+':1px;').join('')+'}', 'layout unsupported: CSS declaration limit'],
   ];

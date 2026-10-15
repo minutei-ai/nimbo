@@ -113,6 +113,8 @@ pub struct Limits {
     pub max_dom_nodes: usize,
     /// Bytes máximos por stylesheet e no conjunto de stylesheets ativos/carregados.
     pub max_stylesheet_bytes: usize,
+    /// Maximum selectors across all active stylesheets, including imports.
+    pub max_stylesheet_selectors: usize,
     /// Requests físicos máximos, contando redirects e subrequests.
     pub max_requests: usize,
     /// Chamadas máximas da ponte DOM, incluindo leituras.
@@ -140,6 +142,7 @@ impl Default for Limits {
             max_initial_dom_nodes: 65_536,
             max_dom_nodes: 65_536,
             max_stylesheet_bytes: 256 * 1024,
+            max_stylesheet_selectors: 4096,
             max_requests: 32,
             max_dom_operations: 10_000,
             max_layout_nodes: 1024,

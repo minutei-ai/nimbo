@@ -71,8 +71,8 @@ test.each([
   ["bytes", "'x'.repeat(262145)", "resource limit: stylesheet bytes"],
   [
     "selectors",
-    "Array.from({length:65},(_,i)=>'.x'+i).join(',')+'{width:1px}'",
-    "layout unsupported: stylesheet selectors",
+    "Array.from({length:4097},(_,i)=>'.x'+i).join(',')+'{width:1px}'",
+    "resource limit: stylesheet selectors",
   ],
   [
     "rules",
@@ -396,3 +396,116 @@ test.each([
     expect(Object.values(value).every((check) => check === true)).toBe(true);
   },
 );
+
+const selectorBudget = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/stylesheet-selector-budget.txt", import.meta.url),
+).text();
+
+test.each([
+  [undefined, 81, 1, true],
+  [undefined, 4096, 1, true],
+  [undefined, 4097, 1, false],
+  [undefined, 2049, 2, false],
+  [8192, 8192, 1, true],
+  [8192, 8193, 1, false],
+  [8192, 4096, 2, true],
+  [8192, 4097, 2, false],
+  [32768, 8192, 4, true],
+  [32768, 8193, 4, false],
+])(
+  "native stylesheet selector budget %s: %i selectors across %i sheets",
+  async (maxStylesheetSelectors, count, sheets, accepted) => {
+    const url = new URL("geometry-empty", origin.url).href;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url,
+        expression: `${selectorBudget}(${count},${sheets})`,
+        maxStylesheetSelectors,
+        maxStylesheetBytes: 2 * 1024 * 1024,
+        maxDomOperations: 1_000_000,
+      }),
+    });
+    if (accepted) {
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: "73px" });
+    } else {
+      expect(response.status).toBe(422);
+      expect(await response.text()).toContain("resource limit: stylesheet selectors");
+    }
+    const recovered = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({ url, expression: "document.styleSheets.length" }),
+    });
+    expect(recovered.status).toBe(200);
+    expect(await recovered.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: 0 });
+  },
+);
+
+test.each([0, -1, 1.5, 32769, "8192", true, null, {}])(
+  "invalid stylesheet selector budget is rejected before navigation: %s",
+  async (maxStylesheetSelectors) => {
+    const before = requests.length;
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL("geometry-empty", origin.url).href,
+        expression: "1",
+        maxStylesheetSelectors,
+      }),
+    });
+    expect(response.status).toBe(400);
+    expect(requests.length).toBe(before);
+  },
+);
+
+const importedSelectorBudget = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/stylesheet-selector-import.txt", import.meta.url),
+).text();
+
+test.each([
+  [162, true],
+  [161, false],
+])(
+  "native stylesheet selector budget includes imports: %i",
+  async (maxStylesheetSelectors, accepted) => {
+    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+      body: JSON.stringify({
+        url: new URL("geometry-empty", origin.url).href,
+        expression: importedSelectorBudget,
+        maxStylesheetSelectors,
+      }),
+    });
+    if (accepted) {
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({ value: "73px" });
+    } else {
+      expect(response.status).toBe(422);
+      expect(await response.text()).toContain("resource limit: stylesheet selectors");
+    }
+  },
+);
+
+test("stylesheet selector budgets stay request-local in the shared Worker", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const expression = `${selectorBudget}(4097)`;
+  const configured = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression, maxStylesheetSelectors: 8192 }),
+  });
+  expect(configured.status).toBe(200);
+  expect(await configured.json()).toMatchObject({ value: "73px" });
+  const defaults = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression }),
+  });
+  expect(defaults.status).toBe(422);
+  expect(await defaults.text()).toContain("resource limit: stylesheet selectors");
+});

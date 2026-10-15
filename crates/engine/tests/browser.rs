@@ -5685,3 +5685,81 @@ fn external_imports_share_request_byte_and_depth_limits() -> TestResult {
     }
     Ok(())
 }
+
+#[test]
+fn stylesheet_selector_budget_is_shared_across_rules_and_sheets() -> TestResult {
+    let fixture = Fixture::new()?;
+    for (budget, count, sheets, accepted) in [
+        (4096, 81, 1, true),
+        (4096, 4096, 1, true),
+        (4096, 4097, 1, false),
+        (4096, 2049, 2, false),
+        (8192, 8192, 1, true),
+        (8192, 8193, 1, false),
+        (8192, 4096, 2, true),
+        (8192, 4097, 2, false),
+        (32768, 8192, 4, true),
+        (32768, 8193, 4, false),
+    ] {
+        let browser = Browser::new(
+            &fixture.url,
+            Limits {
+                max_stylesheet_selectors: budget,
+                max_stylesheet_bytes: 2 * 1024 * 1024,
+                max_dom_operations: 1_000_000,
+                ..Limits::default()
+            },
+        )?;
+        let page = browser.navigate(&fixture.path("/empty-layout"))?;
+        let result = page.evaluate(&format!(
+            "{}({count},{sheets})",
+            include_str!("fixtures/stylesheet-selector-budget.txt")
+        ));
+        if accepted {
+            assert_eq!(result?, json!("73px"));
+        } else {
+            let error = result.err().ok_or("selector budget was exceeded")?;
+            assert!(
+                error
+                    .to_string()
+                    .contains("resource limit: stylesheet selectors"),
+                "{error}"
+            );
+        }
+        let fresh = browser.navigate(&fixture.path("/empty-layout"))?;
+        assert_eq!(fresh.evaluate("document.styleSheets.length")?, json!(0));
+    }
+    Ok(())
+}
+
+#[test]
+fn stylesheet_selector_budget_includes_imported_rules() -> TestResult {
+    let fixture = Fixture::new()?;
+    for (budget, accepted) in [(162, true), (161, false)] {
+        let browser = Browser::new(
+            &fixture.url,
+            Limits {
+                max_stylesheet_selectors: budget,
+                ..Limits::default()
+            },
+        )?;
+        let page = browser.navigate(&fixture.path("/empty-layout"))?;
+        let result = page.evaluate(include_str!("fixtures/stylesheet-selector-import.txt"));
+        if accepted {
+            assert_eq!(result?, json!("73px"));
+        } else {
+            let error = result
+                .err()
+                .ok_or("imported selectors exceeded the budget")?;
+            assert!(
+                error
+                    .to_string()
+                    .contains("resource limit: stylesheet selectors"),
+                "{error}"
+            );
+        }
+        let fresh = browser.navigate(&fixture.path("/empty-layout"))?;
+        assert_eq!(fresh.evaluate("document.styleSheets.length")?, json!(0));
+    }
+    Ok(())
+}

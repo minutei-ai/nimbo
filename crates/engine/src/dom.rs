@@ -694,6 +694,7 @@ impl Dom {
             base.as_deref(),
             &self.media,
             &mut work,
+            self.limits.max_stylesheet_selectors,
         )?);
         self.cascade = Some(std::rc::Rc::clone(&cascade));
         Ok(cascade)

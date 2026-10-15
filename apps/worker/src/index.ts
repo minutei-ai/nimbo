@@ -126,6 +126,7 @@ const scrape = (
                 input.maxDomNodes,
                 input.maxResponseBytes,
                 pageLimits.timeoutMs,
+                input.maxStylesheetSelectors,
               ),
             catch: (cause) => failure(cause),
           }),

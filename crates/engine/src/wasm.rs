@@ -50,6 +50,7 @@ impl WasmPageLoader {
         max_dom_nodes: Option<usize>,
         max_response_bytes: Option<usize>,
         timeout_ms: Option<u32>,
+        max_stylesheet_selectors: Option<usize>,
     ) -> Result<Self, String> {
         let media: MediaEnvironment = media
             .map_or_else(
@@ -91,6 +92,12 @@ impl WasmPageLoader {
                 return Err("resource limit: invalid stylesheet byte configuration".into());
             }
             limits.max_stylesheet_bytes = bytes;
+        }
+        if let Some(selectors) = max_stylesheet_selectors {
+            if selectors == 0 || selectors > 32768 {
+                return Err("resource limit: invalid stylesheet selector configuration".into());
+            }
+            limits.max_stylesheet_selectors = selectors;
         }
         if let Some(nodes) = max_layout_nodes {
             if nodes == 0 || nodes > 4096 {
@@ -232,6 +239,7 @@ impl WasmPage {
         max_dom_operations: Option<usize>,
         max_initial_dom_nodes: Option<usize>,
         max_dom_nodes: Option<usize>,
+        max_stylesheet_selectors: Option<usize>,
     ) -> Result<Self, String> {
         if html.len() > Limits::default().max_response_bytes {
             return Err("resource limit: HTML bytes".into());
@@ -248,6 +256,7 @@ impl WasmPage {
             max_dom_nodes,
             None,
             None,
+            max_stylesheet_selectors,
         )?;
         for bytes in html.as_bytes().chunks(8192) {
             loader.feed(bytes)?;

@@ -16,7 +16,6 @@ use lightningcss::{
 use crate::selectors::{Key, Matcher};
 
 const RULE_LIMIT: usize = 4096;
-const SELECTOR_LIMIT: usize = 4096;
 use crate::{Error, MediaEnvironment, Result, layout::Work, styles::Declarations};
 
 struct Selector {
@@ -239,6 +238,7 @@ enum Prelude {
     Container(std::rc::Rc<crate::containers::Query>),
 }
 struct SheetContext<'a> {
+    max_selectors: usize,
     resources: &'a crate::stylesheets::Sheets,
     owner: Option<NodeId>,
     base: &'a str,
@@ -482,7 +482,8 @@ impl<'i> QualifiedRuleParser<'i> for Rules<'_> {
             ParserOptions::default(),
         )
         .map_err(|_error| input.new_error(cssparser::BasicParseErrorKind::QualifiedRuleInvalid))?;
-        if list.0.len() > 64 {
+        if list.0.len() > self.source.max_selectors {
+            self.failure = Some(Error::Limit("stylesheet selectors"));
             return Err(input.new_custom_error("stylesheet selectors"));
         }
         // The transformer preserves unknown pseudo syntax for future CSS. A
@@ -613,6 +614,7 @@ impl Rules<'_> {
         path.push(source.base.clone());
         let identity = format!("{}:{}", self.source.identity, self.import_ordinal);
         let context = SheetContext {
+            max_selectors: self.source.max_selectors,
             resources: self.source.resources,
             owner: Some(owner),
             base: &source.base,
@@ -691,14 +693,19 @@ fn sheet(
     Ok(rules)
 }
 
-fn append(rules: &mut Vec<Rule>, selectors: &mut usize, parsed: Vec<Rule>) -> Result<()> {
+fn append(
+    rules: &mut Vec<Rule>,
+    selectors: &mut usize,
+    parsed: Vec<Rule>,
+    limit: usize,
+) -> Result<()> {
     *selectors = selectors.saturating_add(
         parsed
             .iter()
             .map(|rule| rule.selectors.len())
             .sum::<usize>(),
     );
-    if *selectors > SELECTOR_LIMIT {
+    if *selectors > limit {
         return Err(Error::Limit("stylesheet selectors"));
     }
     rules.extend(parsed);
@@ -713,6 +720,7 @@ impl Cascade {
         base: Option<&str>,
         media: &MediaEnvironment,
         work: &mut Work<'_>,
+        max_selectors: usize,
     ) -> Result<Self> {
         let mut rules = Vec::new();
         let mut bytes = 0_usize;
@@ -778,6 +786,7 @@ impl Cascade {
             let identity = format!("{:?}", node.id);
             let path = vec![source_base.clone()];
             let context = SheetContext {
+                max_selectors,
                 resources: sheets,
                 owner: external.then_some(node.id),
                 base: &source_base,
@@ -785,7 +794,7 @@ impl Cascade {
                 path: &path,
             };
             let parsed = context.parse(&source, media, &mut definitions, &[], &[], true)?;
-            append(&mut rules, &mut selectors, parsed)?;
+            append(&mut rules, &mut selectors, parsed, max_selectors)?;
         }
         for source in constructed.sources() {
             work.charge()?;
@@ -796,6 +805,7 @@ impl Cascade {
             let source_base = sheets.document_base(base);
             let path = vec![source_base.clone()];
             let context = SheetContext {
+                max_selectors,
                 resources: sheets,
                 owner: None,
                 base: &source_base,
@@ -803,7 +813,7 @@ impl Cascade {
                 path: &path,
             };
             let parsed = context.parse(&source, media, &mut definitions, &[], &[], true)?;
-            append(&mut rules, &mut selectors, parsed)?;
+            append(&mut rules, &mut selectors, parsed, max_selectors)?;
         }
         Ok(Self::parsed(rules, definitions))
     }

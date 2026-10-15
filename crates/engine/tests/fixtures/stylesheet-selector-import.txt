@@ -1,0 +1,13 @@
+(async () => {
+  const target = document.createElement('div');
+  target.className = 'budget-target';
+  document.body.append(target);
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = '/sheets-css/selector-import-root.css';
+  await new Promise(resolve => {
+    link.onload = resolve;
+    document.head.append(link);
+  });
+  return getComputedStyle(target).width;
+})()

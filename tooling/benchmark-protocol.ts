@@ -13,6 +13,7 @@ export const Budget = Schema.Struct({
   max_initial_dom_nodes: Positive,
   max_dom_nodes: Positive,
   max_stylesheet_bytes: Positive,
+  max_stylesheet_selectors: Positive,
   max_requests: Positive,
   max_dom_operations: Positive,
   max_layout_nodes: Positive,

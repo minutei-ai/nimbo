@@ -1,0 +1,13 @@
+((count, sheets = 1) => {
+  const target = document.createElement('div');
+  target.className = 'budget-target';
+  document.body.append(target);
+  for (const sheetIndex of Array.from({length:sheets}, (_, index) => index)) {
+    const selectors = Array.from({length:count}, (_, index) => '.budget-' + sheetIndex + '-' + index);
+    selectors[selectors.length - 1] = '.budget-target';
+    const style = document.createElement('style');
+    style.textContent = selectors.join(',') + '{width:73px}';
+    document.head.append(style);
+  }
+  return getComputedStyle(target).width;
+})

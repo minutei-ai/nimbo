@@ -498,7 +498,7 @@ verify a fresh request; a separate case removes an oversized sheet and reuses
 the same page while preserving inline state and old rectangle snapshots.
 The default byte limits are 256 KiB per active sheet and 256 KiB total active
 sheet text, configurable through the stylesheet budget described below; other limits are 4096 rules
-per sheet, 64 selectors per rule, 4096 selectors across active sheets, 32 nested
+per sheet, 4096 selectors across active sheets by default, 32 nested
 blocks and 1024 winning expanded declarations per element. DOM traversal and
 selector comparisons charge the shared operation budget before doing the work,
 including failed geometry queries. CSS parsing is separately bounded by the
@@ -514,6 +514,14 @@ local rules. Cycles are deduplicated, and imports share request/byte budgets wit
 cascade values and parent events in native Rust, Wasm and Chromium. Inline imports
 and CSSImportRule remain explicit gaps. This follows the
 [conditional import rules](https://www.w3.org/TR/css-cascade-5/#at-import).
+
+The native selector budget is shared across rules, active sheets and imported
+resources. A comma-separated rule consumes the same budget as separate rules;
+there is no separate 64-selector restriction. Worker input
+`maxStylesheetSelectors` selects 1 through 32,768 selectors, with a default of
+4,096. Native and real Worker cases cover exact and exceeded budgets within one
+rule and across two sheets, fresh-page recovery and invalid settings rejected
+before navigation. Byte, nesting and DOM-operation budgets still apply.
 
 This is author style-rule ordering for supported box properties, not a complete
 cascade/computed-style implementation. Missing: inline stylesheet imports and CSSImportRule, origins

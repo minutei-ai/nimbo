@@ -16,6 +16,7 @@ const limits = {
   max_initial_dom_nodes: 65536,
   max_dom_nodes: 65536,
   max_stylesheet_bytes: 262144,
+  max_stylesheet_selectors: 4096,
   max_requests: 32,
   max_dom_operations: 10000,
   max_layout_nodes: 1024,

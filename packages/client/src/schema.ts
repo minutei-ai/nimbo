@@ -38,6 +38,9 @@ export const Input = Schema.Struct({
   maxStylesheetBytes: Schema.optional(
     Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 2 * 1024 * 1024 })),
   ),
+  maxStylesheetSelectors: Schema.optional(
+    Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 32768 })),
+  ),
   maxLayoutNodes: Schema.optional(
     Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 4096 })),
   ),
