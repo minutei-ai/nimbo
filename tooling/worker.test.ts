@@ -1393,3 +1393,17 @@ test.each(["shadow", "detached"] as const)(
     );
   },
 );
+
+test("native tag collection reads fit the default operation budget", async () => {
+  const expression = await Bun.file(
+    join(root, "crates/engine/tests/fixtures/tag-collection-budget.txt"),
+  ).text();
+  await fixture(
+    () => html("<main>Document</main>"),
+    async (worker) => {
+      const response = await scrape(worker, expression);
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({ value: true });
+    },
+  );
+});

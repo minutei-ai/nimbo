@@ -411,6 +411,7 @@ impl Dom {
             "observerMargin" => serde_json::to_value(crate::layout::Margins::parse(arg)?)?,
             "observerMeasure" => self.observe(handle, arg)?,
             "query" => self.query(handle, arg)?,
+            "tagElements" => self.tag_elements(handle, arg)?,
             "customCandidates" => self.custom_candidates(handle, arg)?,
             "queryOne" => self.query_one(handle, arg)?,
             "children" => self.children(handle, arg)?,
@@ -442,10 +443,9 @@ impl Dom {
                 self.attribute_call(operation, handle, arg, value)?
             }
             "style" => self.style(handle, arg, value)?,
-            "set" | "setAttr" | "removeAttr" => {
-                self.write_value(operation, handle, arg, value)?;
-                Value::Null
-            }
+            "set" | "setAttr" | "removeAttr" => self
+                .write_value(operation, handle, arg, value)
+                .map(|()| Value::Null)?,
             "append" | "insert" | "replace" => self.insert(operation, handle, arg, value)?,
             "removeChild" => self.remove_child(handle, value)?,
             "remove" => self.remove_node(handle)?,
@@ -1621,6 +1621,38 @@ impl Dom {
         };
         Ok(json!(
             candidates
+                .into_iter()
+                .map(|id| self.handle(id))
+                .collect::<Vec<_>>()
+        ))
+    }
+
+    fn tag_elements(&mut self, handle: usize, name: &str) -> Result<Value> {
+        let owner = self.node(handle)?;
+        let html = self.html_document(owner.id);
+        let lower = name.to_ascii_lowercase();
+        let view = self.control_view();
+        let mut nodes = Vec::new();
+        for node in owner.descendants_it() {
+            view.charge()?;
+            let matched = node.query_or(false, |node| match &node.data {
+                NodeData::Element(element) => {
+                    let expected =
+                        if html && element.name.ns.as_ref() == "http://www.w3.org/1999/xhtml" {
+                            lower.as_str()
+                        } else {
+                            name
+                        };
+                    name == "*" || qualified_name(element) == expected
+                }
+                _ => false,
+            });
+            if matched {
+                nodes.push(node.id);
+            }
+        }
+        Ok(json!(
+            nodes
                 .into_iter()
                 .map(|id| self.handle(id))
                 .collect::<Vec<_>>()

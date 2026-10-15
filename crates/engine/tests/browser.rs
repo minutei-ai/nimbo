@@ -4456,6 +4456,17 @@ fn grouped_sheet_metadata_does_not_parse_unsupported_cssom_rules() -> TestResult
 }
 
 #[test]
+fn tag_collection_reads_fit_the_default_operation_budget() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    assert_eq!(
+        page.evaluate(include_str!("fixtures/tag-collection-budget.txt"))?,
+        json!(true)
+    );
+    Ok(())
+}
+
+#[test]
 fn window_named_properties_follow_real_dom() -> TestResult {
     let fixture = Fixture::new()?;
     let page = fixture.browser()?.navigate(&fixture.path("/static"))?;

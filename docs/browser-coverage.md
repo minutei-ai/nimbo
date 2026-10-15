@@ -2281,7 +2281,16 @@ still load and affect computed styles. Potential links retain bounded discovery.
 Static `querySelectorAll` lists keep native handles and create JavaScript node
 wrappers when accessed. Reading `length` or iterating `keys()` does not create all
 wrappers. Membership remains a snapshot while node identity and later mutations
-remain observable. Live collections are not optimized by this change.
+remain observable.
+
+Live `getElementsByTagName` collections select qualified names directly in the
+native DOM and transfer only matching handles to JavaScript. HTML matching uses
+ASCII lowercase names; foreign namespaces and XML documents retain qualified-name
+case. Membership and tree order remain live across insertion, removal and
+iteration. The shared thousand-element budget fixture reads collection length
+five times under the unchanged 10,000-operation default; the previous JavaScript
+filter exhausted that budget. Existing URL, namespace and arena fixtures retain
+the collection behavior checks.
 
 The real HTTP fixture contains 5000 rows and executes 200 selectors, text/ID
 mutations, indexed access, `item`, key iteration and removal. Its 64 variants

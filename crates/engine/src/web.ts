@@ -1912,24 +1912,9 @@
   function tagElements(owner: Element | Document, qualifiedName: unknown): HTMLCollection {
     const id = idOf(owner);
     const name = domString(qualifiedName);
-    const lower = name.replace(/[A-Z]/g, (letter) => letter.toLowerCase());
     return makeCollection(
       new HTMLCollection(internal),
-      () =>
-        call<number[]>("query", id, "*").filter((candidate) => {
-          if (name === "*") return true;
-          const namespace = call<string | null>("get", candidate, "namespaceURI");
-          const local = call<string>("get", candidate, "localName");
-          const prefix = call<string | null>("get", candidate, "prefix");
-          const qualified = prefix === null ? local : `${prefix}:${local}`;
-          return (
-            qualified ===
-            (namespace === "http://www.w3.org/1999/xhtml" &&
-            raw<boolean>("get", candidate, "htmlDocument")
-              ? lower
-              : name)
-          );
-        }),
+      () => call<number[]>("tagElements", id, name),
       "elements",
       { named: true, live: true },
     );
