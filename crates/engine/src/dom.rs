@@ -48,6 +48,7 @@ pub(crate) struct Dom {
     // Cache compiled selectors only; DOM results must always reflect mutations.
     matchers: HashMap<String, Matcher>,
     named: Option<NamedProperties>,
+    pub(crate) current_script: Option<usize>,
     attribute_nodes: attribute_nodes::Arena,
     documents: documents::Arena,
     shadow: shadow::Arena,
@@ -117,6 +118,7 @@ impl Dom {
             ids: HashMap::from([(root, 0)]),
             matchers: HashMap::new(),
             named: None,
+            current_script: None,
             attribute_nodes: attribute_nodes::Arena::default(),
             documents: documents::Arena::default(),
             shadow: shadow::Arena::default(),
@@ -1251,6 +1253,16 @@ impl Dom {
         Ok(json!(id.map(|id| self.handle(id))))
     }
 
+    pub(crate) fn enter_script(&mut self, handle: usize) -> Result<Option<usize>> {
+        let root = self.tree_root(self.node_id(handle)?, false)?;
+        let current = if self.shadow.roots.contains_key(&root) {
+            None
+        } else {
+            Some(handle)
+        };
+        Ok(std::mem::replace(&mut self.current_script, current))
+    }
+
     fn in_window_document(&self, handle: usize) -> Result<bool> {
         let node = self.node(handle)?;
         let view = self.control_view();
@@ -1706,6 +1718,12 @@ impl Dom {
     fn get(&self, handle: usize, property: &str) -> Result<Value> {
         let node = self.node(handle)?;
         Ok(match property {
+            "currentScript" if node.is_document() => {
+                json!(
+                    self.current_script
+                        .filter(|_| node.id == self.document.root().id)
+                )
+            }
             "ownerDocument" => {
                 if node.is_document() {
                     Value::Null

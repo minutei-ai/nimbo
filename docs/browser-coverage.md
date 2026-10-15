@@ -199,6 +199,19 @@ failures retain their existing error contracts. Native and Worker tests cover
 HTTP failures, denied origins, recovery and event ordering against the
 [HTML script execution model](https://html.spec.whatwg.org/multipage/scripting.html#execute-the-script-element).
 
+Parser-discovered classic scripts expose their original element through the
+read-only `Document.currentScript` getter during synchronous execution. The
+scheduler restores the previous value before microtasks, timers, resource events
+and extraction; modules and other documents observe null. A removed script still
+has its execution identity, while a script entering execution in a shadow root
+observes null. `HTMLScriptElement` has a native element brand and a reflected
+`src` URL resolved against the document base. Native and Worker lifecycle tests
+cover inline, external and async classic scripts, source reflection, receiver
+validation and cleanup. Supplemental Chromium checks confirm the synchronous,
+microtask and timer observations plus reflected source and interface identity.
+These contracts follow [script execution](https://html.spec.whatwg.org/multipage/scripting.html#execute-the-script-element)
+and do not add dynamic script scheduling or the remaining script element APIs.
+
 Web Storage values live in Rust and preserve UTF-16 code units. The default
 quota is 64 KiB per area, counting keys and values as two bytes per code unit.
 Writes validate the new total before mutating state and throw a native

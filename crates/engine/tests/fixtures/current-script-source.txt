@@ -1,0 +1,23 @@
+(() => {
+  const active = document.currentScript;
+  const label = active.id;
+  scriptChecks[label + "Identity"] = active === document.getElementById(label);
+  scriptChecks[label + "Brand"] =
+    active instanceof HTMLScriptElement &&
+    Object.prototype.toString.call(active) === "[object HTMLScriptElement]";
+  scriptChecks[label + "Source"] =
+    active.src === new URL(active.getAttribute("src"), document.baseURI).href;
+  Promise.resolve().then(() => {
+    scriptChecks[label + "MicrotaskNull"] = document.currentScript === null;
+  });
+  setTimeout(() => {
+    scriptChecks[label + "TimerNull"] = document.currentScript === null;
+  }, 0);
+  active.addEventListener("load", () => {
+    scriptChecks[label + "LoadNull"] = document.currentScript === null;
+  });
+  if (label === "external") {
+    active.remove();
+    scriptChecks.externalRemoved = document.currentScript === active;
+  }
+})();

@@ -4794,6 +4794,27 @@
     value: "HTMLAnchorElement",
     configurable: true,
   });
+  const scripts = new WeakSet<object>();
+  class HTMLScriptElement extends HTMLElement {
+    constructor(key?: symbol, id?: number) {
+      if (key !== internal || id === undefined) throw new TypeError("Illegal constructor");
+      super(internal, id);
+      scripts.add(this);
+    }
+    get src(): string {
+      if (!scripts.has(this)) throw new TypeError("Illegal invocation");
+      const value = call<string | null>("attr", idOf(this), "src");
+      return linkValue("get", "href", value, documentBase()) ?? "";
+    }
+    set src(value: unknown) {
+      if (!scripts.has(this)) throw new TypeError("Illegal invocation");
+      call("setAttr", idOf(this), "src", usvString(value));
+    }
+  }
+  Object.defineProperty(HTMLScriptElement.prototype, Symbol.toStringTag, {
+    value: "HTMLScriptElement",
+    configurable: true,
+  });
   const iframes = new WeakSet<object>();
   function iframeId(owner: object): number {
     if (!iframes.has(owner)) throw new TypeError("Illegal invocation");
@@ -5520,6 +5541,7 @@
           if (name === "a") return new HTMLAnchorElement(internal, id);
           if (name === "link") return new HTMLLinkElement(internal, id);
           if (name === "iframe") return new HTMLIFrameElement(internal, id);
+          if (name === "script") return new HTMLScriptElement(internal, id);
           if (name === "slot") return new HTMLSlotElement(internal, id);
           if (name === "input") return new HTMLInputElement(internal, id);
           if (name === "form") return new HTMLFormElement(internal, id);
@@ -5894,6 +5916,11 @@
     return result;
   }
   class Document extends ParentNode {
+    get currentScript(): Element | null {
+      if (!(this instanceof Document)) throw new TypeError("Illegal invocation");
+      const id = call<number | null>("get", idOf(this), "currentScript");
+      return id === null ? null : element(id);
+    }
     get doctype(): DocumentType | null {
       if (!(this instanceof Document)) throw new TypeError("Illegal invocation");
       for (const child of this.childNodes) if (child instanceof DocumentType) return child;
@@ -6101,7 +6128,8 @@
     ],
     [Text.prototype, ["assignedSlot"]],
     [DocumentFragment.prototype, ["getElementById", "firstElementChild", "lastElementChild"]],
-    [Document.prototype, ["firstElementChild", "lastElementChild"]],
+    [Document.prototype, ["firstElementChild", "lastElementChild", "currentScript"]],
+    [HTMLScriptElement.prototype, ["src"]],
     [HTMLSlotElement.prototype, ["name", "assignedNodes", "assignedElements", "assign"]],
   ] as const) {
     for (const key of keys) {
@@ -8333,6 +8361,7 @@
     HTMLStyleElement,
     HTMLLinkElement,
     HTMLIFrameElement,
+    HTMLScriptElement,
     HTMLSlotElement,
     HTMLInputElement,
     HTMLFormElement,

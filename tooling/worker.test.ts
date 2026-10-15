@@ -1323,3 +1323,73 @@ test("detached DOM mutations retain Window name lookup within the default budget
     },
   );
 });
+
+test("classic currentScript and reflected script source follow execution lifetime", async () => {
+  const page = await Bun.file(
+    join(root, "crates/engine/tests/fixtures/current-script.html"),
+  ).text();
+  const script = await Bun.file(
+    join(root, "crates/engine/tests/fixtures/current-script-source.txt"),
+  ).text();
+  await fixture(
+    (request) => {
+      if (new URL(request.url).pathname === "/current-script.js")
+        return new Response(script, { headers: { "content-type": "text/javascript" } });
+      return html(page);
+    },
+    async (worker) => {
+      const response = await scrape(
+        worker,
+        "({...scriptChecks,extractionNull:document.currentScript===null})",
+      );
+      expect(response.status).toBe(200);
+      const result = await json(response);
+      if (typeof result !== "object" || result === null) throw new Error("Missing response");
+      const checks: unknown = Reflect.get(result, "value");
+      if (typeof checks !== "object" || checks === null) throw new Error("Missing script checks");
+      expect(Object.keys(checks)).toHaveLength(27);
+      expect(Object.values(checks).every((value) => value === true)).toBe(true);
+    },
+  );
+});
+
+test.each(["shadow", "detached"] as const)(
+  "currentScript respects the %s root at execution entry",
+  async (kind) => {
+    const pending = Promise.withResolvers<Response>();
+    await fixture(
+      (request) => {
+        const path = new URL(request.url).pathname;
+        if (path === "/delayed-current.js") return pending.promise;
+        if (path === "/release") {
+          pending.resolve(
+            new Response(
+              `globalThis.currentMatches=document.currentScript===${kind === "shadow" ? "null" : "movedScript"}`,
+              { headers: { "content-type": "text/javascript" } },
+            ),
+          );
+          return new Response("released");
+        }
+        const container =
+          kind === "shadow"
+            ? "document.getElementById('host').attachShadow({mode:'open'})"
+            : "document.createElement('section')";
+        return html(`<div id=host></div><script>globalThis.loadedNull=false</script>
+          <script id=delayed async src=/delayed-current.js></script>
+          <script>globalThis.movedScript=document.getElementById('delayed');
+          movedScript.addEventListener('load',()=>{loadedNull=document.currentScript===null});
+          (${container}).appendChild(movedScript);fetch('/release')</script>`);
+      },
+      async (worker) => {
+        const response = await scrape(
+          worker,
+          "({currentMatches,loadedNull,extractionNull:document.currentScript===null})",
+        ).finally(() => pending.resolve(new Response("released")));
+        expect(response.status).toBe(200);
+        expect(await json(response)).toMatchObject({
+          value: { currentMatches: true, loadedNull: true, extractionNull: true },
+        });
+      },
+    );
+  },
+);

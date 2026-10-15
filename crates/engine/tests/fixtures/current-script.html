@@ -1,0 +1,53 @@
+<!doctype html>
+<html>
+  <head>
+    <base href="/assets/" />
+    <script id="inline">
+      (() => {
+        globalThis.scriptChecks = {};
+        const active = document.currentScript;
+        scriptChecks.inlineIdentity = active === document.getElementById("inline");
+        scriptChecks.inlineBrand = active instanceof HTMLScriptElement;
+        Promise.resolve().then(() => {
+          scriptChecks.inlineMicrotaskNull = document.currentScript === null;
+        });
+        setTimeout(() => {
+          scriptChecks.inlineTimerNull = document.currentScript === null;
+        }, 0);
+        const separate = document.implementation.createDocument(null, "separate", null);
+        scriptChecks.separateDocument = separate.currentScript === null;
+        const current = Object.getOwnPropertyDescriptor(Document.prototype, "currentScript");
+        scriptChecks.readonly = current.set === undefined;
+        try {
+          current.get.call({});
+          scriptChecks.getterReceiver = false;
+        } catch (error) {
+          scriptChecks.getterReceiver = error instanceof TypeError;
+        }
+        const source = document.createElement("script");
+        scriptChecks.sourceMissing = source.src === "";
+        source.src = "../reflected.js";
+        scriptChecks.sourceResolved = source.src === new URL("/reflected.js", document.URL).href;
+        scriptChecks.sourceAttribute = source.getAttribute("src") === "../reflected.js";
+        const src = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, "src");
+        try {
+          src.get.call(document.createElement("div"));
+          scriptChecks.sourceReceiver = false;
+        } catch (error) {
+          scriptChecks.sourceReceiver = error instanceof TypeError;
+        }
+      })();
+    </script>
+    <script id="external" src="/current-script.js"></script>
+    <script id="async" async src="/current-script.js?async"></script>
+    <script type="module">
+      scriptChecks.moduleNull = document.currentScript === null;
+    </script>
+    <script id="last">
+      scriptChecks.lastInline = document.currentScript === document.getElementById("last");
+    </script>
+  </head>
+  <body>
+    <main>Script lifecycle</main>
+  </body>
+</html>

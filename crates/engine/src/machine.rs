@@ -492,14 +492,16 @@ impl Machine {
         Ok(())
     }
 
-    fn execute(&self, source: &str, filename: &str) -> Result<()> {
+    fn execute(&self, source: &str, filename: &str, script: usize) -> Result<()> {
         self.check_budget()?;
+        let previous = self.dom.borrow_mut().enter_script(script)?;
         let result = self.context.with(|ctx| {
             let mut options = rquickjs::context::EvalOptions::default();
             options.strict = false;
             options.filename = Some(filename.to_owned());
             js(&ctx, ctx.eval_with_options::<(), _>(source, options))
         });
+        self.dom.borrow_mut().current_script = previous;
         self.check_budget()?;
         result
     }
@@ -576,7 +578,8 @@ impl Machine {
                     &document_base,
                 );
             }
-            self.execute(&script.source, self.base.as_str())?;
+            let handle = self.dom.borrow_mut().handle(script.node);
+            self.execute(&script.source, self.base.as_str(), handle)?;
         } else {
             self.phase = Phase::Lifecycle;
         }
@@ -856,7 +859,7 @@ impl Machine {
             RequestPurpose::ClassicScript(handle) => {
                 let success = (200..300).contains(&response.status);
                 if success {
-                    self.execute(&response.body, &response.url)?;
+                    self.execute(&response.body, &response.url, handle)?;
                 }
                 self.script_events.push_back((handle, success));
             }

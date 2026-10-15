@@ -438,6 +438,25 @@ fn variant_source(url: &str) -> Option<&'static str> {
 }
 
 fn serve(request: Request) -> io::Result<()> {
+    if request.url() == "/current-script" {
+        return respond(
+            request,
+            include_str!("fixtures/current-script.html").into(),
+            200,
+            "text/html",
+            Vec::new(),
+        );
+    }
+    if request.url().starts_with("/current-script.js") {
+        return respond(
+            request,
+            include_str!("fixtures/current-script-source.txt").into(),
+            200,
+            "text/javascript",
+            Vec::new(),
+        );
+    }
+
     if request.url() == "/script-resources" {
         return respond(
             request,
@@ -701,6 +720,23 @@ fn blocks_cross_origin_requests_and_reports_denied_script_resources() -> TestRes
     assert!(
         page.evaluate("fetch('http://localhost:9/blocked')")
             .is_err()
+    );
+    Ok(())
+}
+
+#[test]
+fn current_script_and_source_reflection_follow_execution_lifetime() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/current-script"))?;
+    let result =
+        page.evaluate("({...scriptChecks,extractionNull:document.currentScript===null})")?;
+    let checks = result.as_object().ok_or("missing script checks")?;
+    assert_eq!(checks.len(), 27);
+    assert!(
+        checks.values().all(|value| value == &json!(true)),
+        "{result}"
     );
     Ok(())
 }
