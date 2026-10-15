@@ -1,5 +1,4 @@
 (() => {
   document.body.innerHTML = '<main><span>Only</span>' + '<div></div>'.repeat(1000) + '</main>';
-  const tags = document.getElementsByTagName('span');
-  return Array.from({length: 20}, () => tags.length === 1).every(Boolean);
+  return Array.from({length: 20}, () => document.getElementsByTagName('span').length === 1).every(Boolean);
 })()

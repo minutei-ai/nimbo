@@ -1914,12 +1914,23 @@
       return id === null ? null : element(id);
     }
   }
+  const tagCollections = new WeakMap<
+    Element | Document,
+    { mode: string; values: Map<string, HTMLCollection> }
+  >();
   function tagElements(owner: Element | Document, qualifiedName: unknown): HTMLCollection {
     const id = idOf(owner);
     const name = domString(qualifiedName);
     const mode = JSON.stringify(raw<boolean>("get", id, "htmlDocument"));
+    let owned = tagCollections.get(owner);
+    if (owned === undefined || owned.mode !== mode) {
+      owned = { mode, values: new Map() };
+      tagCollections.set(owner, owned);
+    }
+    const existing = owned.values.get(name);
+    if (existing !== undefined) return existing;
     let snapshot: { version: number; ids: readonly number[] } | undefined;
-    return makeCollection(
+    const collection = makeCollection(
       new HTMLCollection(internal),
       () => {
         const version = raw<number>("layoutVersion", 0);
@@ -1931,6 +1942,8 @@
       "elements",
       { named: true, live: true },
     );
+    owned.values.set(name, collection);
+    return collection;
   }
   const tokenElements = new WeakMap<object, { id: number; attribute: string }>();
   const classLists = new WeakMap<Element, Map<string, DOMTokenList>>();
