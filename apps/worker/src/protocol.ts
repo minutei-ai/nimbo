@@ -22,11 +22,17 @@ export const Action = Schema.Union([
     method: Schema.Literals(["GET", "POST"]),
     body: Schema.String,
     binary: Schema.Boolean,
+    headers: Schema.Array(Schema.Tuple([Schema.String, Schema.String])),
+    rejectRedirects: Schema.Boolean,
   }),
   Schema.Struct({ type: Schema.Literal("ready") }),
   Schema.Struct({ type: Schema.Literal("wait"), milliseconds: Schema.Finite }),
   Schema.Struct({ type: Schema.Literal("result"), json: Schema.String }),
 ]);
+export interface FetchOptions {
+  readonly headers: ReadonlyArray<readonly [string, string]>;
+  readonly rejectRedirects: boolean;
+}
 export const Limits = Schema.Struct({
   timeoutMs: Schema.Finite,
   maxResponseBytes: Schema.Finite,

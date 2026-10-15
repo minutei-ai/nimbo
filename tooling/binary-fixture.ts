@@ -1,8 +1,15 @@
 import { join } from "node:path";
 
-export function binaryFixture(path: string): Response | undefined {
+export function binaryFixture(path: string, request: Request): Response | undefined {
   if (!path.startsWith("/binary/")) return undefined;
   const headers = { "content-type": "application/octet-stream" };
+  if (path === "/binary/echo") {
+    const sent = (name: string) => request.headers.get(name);
+    return Response.json(
+      { nimbo: sent("x-nimbo"), cookie: sent("cookie"), host: sent("host") },
+      { headers: { "x-echo": "yes", "set-cookie": "echoed=1; Path=/" } },
+    );
+  }
   if (path.startsWith("/binary/data/")) {
     const variant = Number(path.split("/").at(-1));
     return new Response(

@@ -48,6 +48,7 @@ impl WasmPageLoader {
         max_dom_operations: Option<usize>,
         max_initial_dom_nodes: Option<usize>,
         max_dom_nodes: Option<usize>,
+        max_response_bytes: Option<usize>,
     ) -> Result<Self, String> {
         let media: MediaEnvironment = media
             .map_or_else(
@@ -57,6 +58,15 @@ impl WasmPageLoader {
             .map_err(|error| error.to_string())?;
         media.validate().map_err(|error| error.to_string())?;
         let mut limits = Limits::default();
+        if let Some(bytes) = max_response_bytes {
+            if bytes == 0 || bytes > MAX_RESPONSE_BYTES {
+                return Err("resource limit: invalid response byte configuration".into());
+            }
+            limits.max_response_bytes = bytes;
+            // Fetch bodies and their JavaScript copies must fit in the heap.
+            limits.javascript_memory_bytes =
+                limits.javascript_memory_bytes.max(bytes.saturating_mul(12));
+        }
         if let Some(nodes) = max_dom_nodes {
             if nodes == 0 || nodes > limits.max_dom_nodes {
                 return Err("resource limit: invalid DOM node configuration".into());
@@ -222,6 +232,7 @@ impl WasmPage {
             max_dom_operations,
             max_initial_dom_nodes,
             max_dom_nodes,
+            None,
         )?;
         for bytes in html.as_bytes().chunks(8192) {
             loader.feed(bytes)?;
@@ -324,6 +335,9 @@ impl WasmPage {
     }
 }
 
+/// Largest per-page response budget a host may request.
+const MAX_RESPONSE_BYTES: usize = 4 * 1024 * 1024;
+
 /// Limites padrão do motor, compartilhados com a camada de transporte do Worker.
 #[wasm_bindgen]
 #[must_use]
@@ -335,10 +349,10 @@ pub fn engine_limits() -> String {
 /// Decodes bounded HTTP text using BOM precedence and a transport charset label.
 ///
 /// # Errors
-/// Rejects encoded or decoded bodies exceeding the default response-byte budget.
+/// Rejects bodies above the largest page budget; hosts bound reads per page.
 #[wasm_bindgen]
 pub fn decode_response(bytes: &[u8], content_type: &str) -> Result<String, String> {
-    crate::response_encoding::decode(bytes, content_type, Limits::default().max_response_bytes)
+    crate::response_encoding::decode(bytes, content_type, MAX_RESPONSE_BYTES)
         .map_err(|error| error.to_string())
 }
 

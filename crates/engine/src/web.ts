@@ -6551,6 +6551,117 @@
     return true;
   }
 
+  const headerName = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
+  const headerValue = /^[^\0\r\n]*$/;
+  // Request headers the page cannot set; browsers drop them silently.
+  const forbiddenHeaders = new Set([
+    "accept-charset",
+    "accept-encoding",
+    "access-control-request-headers",
+    "access-control-request-method",
+    "connection",
+    "content-length",
+    "cookie",
+    "cookie2",
+    "date",
+    "dnt",
+    "expect",
+    "host",
+    "keep-alive",
+    "origin",
+    "referer",
+    "set-cookie",
+    "te",
+    "trailer",
+    "transfer-encoding",
+    "upgrade",
+    "via",
+  ]);
+  const headerLists = new WeakMap<object, [string, string][]>();
+  function headerList(value: object): [string, string][] {
+    const list = headerLists.get(value);
+    if (!list) throw new TypeError("Illegal Headers invocation");
+    return list;
+  }
+  function normalizeHeader(name: unknown, value: unknown): [string, string] {
+    const key = String(name).toLowerCase();
+    const text = String(value).replace(/^[\t\n\r ]+|[\t\n\r ]+$/g, "");
+    if (!headerName.test(key) || !headerValue.test(text))
+      throw new TypeError(`invalid header: ${key}`);
+    return [key, text];
+  }
+  const iteratorKey = Symbol.iterator;
+  const headerPairs = (value: object): value is Iterable<unknown> => iteratorKey in value;
+  class Headers {
+    constructor(init?: unknown) {
+      headerLists.set(this, []);
+      if (init === undefined || init === null) return;
+      if (init instanceof Headers) {
+        for (const [name, value] of headerList(init)) this.append(name, value);
+      } else if (typeof init === "object" && headerPairs(init)) {
+        for (const pair of init) {
+          if (!Array.isArray(pair) || pair.length !== 2)
+            throw new TypeError("header pairs must have two items");
+          this.append(pair[0], pair[1]);
+        }
+      } else if (typeof init === "object") {
+        for (const [name, value] of Object.entries(init)) this.append(name, value);
+      } else throw new TypeError("invalid headers init");
+    }
+    append(name: unknown, value: unknown): void {
+      headerList(this).push(normalizeHeader(name, value));
+    }
+    set(name: unknown, value: unknown): void {
+      const pair = normalizeHeader(name, value);
+      const list = headerList(this).filter(([key]) => key !== pair[0]);
+      list.push(pair);
+      headerLists.set(this, list);
+    }
+    delete(name: unknown): void {
+      const key = String(name).toLowerCase();
+      headerLists.set(
+        this,
+        headerList(this).filter(([item]) => item !== key),
+      );
+    }
+    get(name: unknown): string | null {
+      const key = String(name).toLowerCase();
+      const values = headerList(this)
+        .filter(([item]) => item === key)
+        .map(([, value]) => value);
+      return values.length === 0 ? null : values.join(", ");
+    }
+    has(name: unknown): boolean {
+      const key = String(name).toLowerCase();
+      return headerList(this).some(([item]) => item === key);
+    }
+    getSetCookie(): string[] {
+      return headerList(this)
+        .filter(([key]) => key === "set-cookie")
+        .map(([, value]) => value);
+    }
+    *entries(): IterableIterator<[string, string]> {
+      const names = [...new Set(headerList(this).map(([key]) => key))].toSorted();
+      for (const name of names) yield [name, this.get(name) ?? ""];
+    }
+    *keys(): IterableIterator<string> {
+      for (const [name] of this.entries()) yield name;
+    }
+    *values(): IterableIterator<string> {
+      for (const [, value] of this.entries()) yield value;
+    }
+    forEach(callback: (value: string, name: string, headers: Headers) => void, self?: unknown) {
+      for (const [name, value] of this.entries()) callback.call(self, value, name, this);
+    }
+    [Symbol.iterator](): IterableIterator<[string, string]> {
+      return this.entries();
+    }
+  }
+  Object.defineProperty(Headers.prototype, Symbol.toStringTag, {
+    value: "Headers",
+    configurable: true,
+  });
+
   const responseKey = {};
   interface ResponseState extends NimboResponse {
     used: boolean;
@@ -6612,9 +6723,8 @@
       responseState(this);
       throw new Error("response streams are not implemented");
     }
-    get headers(): never {
-      responseState(this);
-      throw new Error("response headers are not implemented");
+    get headers(): Headers {
+      return new Headers(responseState(this).headers);
     }
     async arrayBuffer(): Promise<ArrayBuffer> {
       return responseBody(this);
@@ -6638,17 +6748,39 @@
     value: "Response",
     configurable: true,
   });
-  const fetch = async (url: string, options: { method?: string; body?: string } = {}) => {
+  type FetchInit = {
+    method?: string;
+    body?: string;
+    headers?: unknown;
+    credentials?: string;
+    redirect?: string;
+  };
+  const fetch = async (url: string, options: FetchInit = {}) => {
     for (const key of Object.keys(options)) {
-      if (!["method", "body"].includes(key))
+      if (!["method", "body", "headers", "credentials", "redirect"].includes(key))
         throw new TypeError(`unsupported fetch option: ${key}`);
     }
     const method = (options.method ?? "GET").toUpperCase();
     if (method === "GET" && options.body !== undefined)
       throw new TypeError("GET cannot have a body");
+    // Requests are same-origin, so "same-origin" and "include" both send cookies.
+    if (![undefined, "same-origin", "include"].includes(options.credentials))
+      throw new TypeError(`unsupported fetch credentials: ${options.credentials}`);
+    if (![undefined, "follow", "error"].includes(options.redirect))
+      throw new TypeError(`unsupported fetch redirect: ${options.redirect}`);
+    const headers = [...new Headers(options.headers)].filter(
+      ([name]) => !forbiddenHeaders.has(name) && !/^(proxy|sec)-/.test(name),
+    );
+    if (headers.length > 64 || JSON.stringify(headers).length > 16_384)
+      throw new TypeError("fetch header limit");
     let state: Awaited<ReturnType<typeof nativeRequest>>;
     try {
-      state = await nativeRequest(url, method, options.body ?? "");
+      state = await nativeRequest(
+        url,
+        method,
+        options.body ?? "",
+        JSON.stringify({ headers, rejectRedirects: options.redirect === "error" }),
+      );
     } catch (error) {
       // Fetch reports network and policy failures as TypeError; keep the host detail.
       throw new TypeError(error instanceof Error ? error.message : String(error), {
@@ -6753,7 +6885,7 @@
         const url = linkValue("get", "href", resource.url, state.base) ?? resource.url;
         // Fallback sources must be requested in order, after the preceding source fails.
         // oxlint-disable-next-line eslint/no-await-in-loop
-        const response = await nativeRequest(url, "GET", "");
+        const response = await nativeRequest(url, "GET", "", "{}");
         if (response.status < 200 || response.status >= 300 || response.body === null) continue;
         const data = fontBytes(response.body);
         const fontId = nativeFontData(data);
@@ -8233,6 +8365,7 @@
     Text,
     Comment,
     fetch,
+    Headers,
     Response,
     OffscreenCanvas,
     OffscreenCanvasRenderingContext2D,

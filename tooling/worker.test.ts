@@ -18,7 +18,7 @@ async function fixture(
   run: (worker: Miniflare) => Promise<void>,
   egress = false,
 ) {
-  const origin = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: serve });
+  const origin = Bun.serve({ hostname: "127.0.0.1", port: 0, idleTimeout: 0, fetch: serve });
   const main = {
     name: "nimbo",
     modules: [
@@ -829,6 +829,45 @@ test("aggregate HTTP byte limit and input validation release resources", async (
     },
   );
 });
+
+test("page headers, response budget and deadline are per-scrape inputs", async () => {
+  await fixture(
+    (request) => {
+      const path = new URL(request.url).pathname;
+      if (path === "/slow") return Bun.sleep(10_500).then(() => html("<title>late</title>"));
+      if (path === "/challenge")
+        return new Response("wait", { status: 202, headers: { "x-amzn-waf-action": "challenge" } });
+      if (path === "/api")
+        return Response.json({ language: request.headers.get("accept-language") });
+      return html(
+        `<title>${request.headers.get("user-agent")}</title>${"x".repeat(2 * 1024 * 1024)}`,
+      );
+    },
+    async (worker) => {
+      const send = (input: Record<string, unknown>) =>
+        worker.dispatchFetch("https://nimbo.test/scrape", {
+          method: "POST",
+          headers: { authorization: "Bearer test-secret" },
+          body: JSON.stringify({ url: originFor(worker), ...input }),
+        });
+      const headers = { "user-agent": "Example/1.0", "accept-language": "pt-BR" };
+      expect((await send({ expression: "document.title", headers })).status).toBe(413);
+      const page = await send({
+        expression:
+          "Promise.all([fetch('/api').then(r=>r.json()),fetch('/challenge').then(r=>[r.status,r.headers.get('x-amzn-waf-action')])]).then(([api,challenge])=>[document.title,api.language,challenge])",
+        headers,
+        maxResponseBytes: 3 * 1024 * 1024,
+      });
+      expect(await json(page)).toMatchObject({
+        value: ["Example/1.0", "pt-BR", [202, "challenge"]],
+      });
+      const slow = new URL("/slow", originFor(worker)).href;
+      const late = await send({ url: slow, expression: "document.title", timeoutMs: 20_000 });
+      expect(await json(late)).toMatchObject({ value: "late" });
+      expect((await send({ maxResponseBytes: 5 * 1024 * 1024, expression: "1" })).status).toBe(400);
+    },
+  );
+}, 30_000);
 
 test("repeated pages have fresh cookies and guest globals", async () => {
   const cookies: (string | null)[] = [];

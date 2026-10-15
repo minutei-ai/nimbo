@@ -153,7 +153,6 @@ for (const defaultFontSize of [0, 513, 1.5, "16"]) {
 test.each([
   ["new Response('text')", "Response construction"],
   ["fetch('/binary/data/0').then(response=>response.body)", "response streams"],
-  ["fetch('/binary/data/0').then(response=>response.headers)", "response headers"],
 ] as const)(
   "real HTTP → workerd → Wasm: explicit response diagnostic %s",
   async (expression, reason) => {

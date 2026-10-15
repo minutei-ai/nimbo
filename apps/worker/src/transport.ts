@@ -1,6 +1,6 @@
 import { ProxyTransport } from "./proxy";
 import { decode_response, WasmCookies } from "../../../dist/wasm/nimbo_engine.js";
-import { ScrapeError, type Egress, type EngineLimits } from "./protocol";
+import { ScrapeError, type Egress, type EngineLimits, type FetchOptions } from "./protocol";
 
 export async function readBytes(message: Request | Response, maximum: number): Promise<Uint8Array> {
   const reader = message.body?.getReader();
@@ -62,6 +62,7 @@ export class Transport {
     private readonly limits: EngineLimits,
     private readonly egress?: Egress,
     proxy?: string,
+    private readonly headers: Readonly<Record<string, string>> = {},
   ) {
     if (proxy !== undefined && egress !== undefined)
       throw new ScrapeError({ status: 400, reason: "configure either proxy or EGRESS" });
@@ -85,6 +86,7 @@ export class Transport {
     body: string,
     signal: AbortSignal,
     binary = false,
+    fetch: FetchOptions = { headers: [], rejectRedirects: false },
   ) {
     let url = this.resolve(value);
     if (this.encode.encode(body).byteLength > this.limits.maxResponseBytes)
@@ -93,7 +95,8 @@ export class Transport {
       if (this.requests >= this.limits.maxRequests)
         throw new ScrapeError({ status: 422, reason: "request count limit" });
       this.requests++;
-      const headers = new Headers({ "user-agent": "Nimbo/0.1", accept: "*/*" });
+      const headers = new Headers({ "user-agent": "Nimbo/0.1", accept: "*/*", ...this.headers });
+      for (const [name, header] of fetch.headers) headers.set(name, header);
       const cookie = this.cookies.header(url.href);
       if (cookie) headers.set("cookie", cookie);
       const request = new Request(url, {
@@ -109,7 +112,7 @@ export class Transport {
         ? this.proxy.fetch(request, this.limits.maxResponseBytes - this.bytes)
         : this.egress
           ? this.egress.fetch(request)
-          : fetch(request));
+          : globalThis.fetch(request));
       try {
         for (const setCookie of response.headers.getSetCookie()) {
           try {
@@ -119,6 +122,8 @@ export class Transport {
           }
         }
         if ([301, 302, 303, 307, 308].includes(response.status)) {
+          if (fetch.rejectRedirects)
+            throw new ScrapeError({ status: 502, reason: "redirect rejected by fetch" });
           const location = response.headers.get("location");
           if (!location)
             throw new ScrapeError({ status: 502, reason: "redirect without location" });
@@ -132,9 +137,11 @@ export class Transport {
           }
           continue;
         }
+        // Page fetches observe challenge responses themselves; navigations fail fast.
         if (
-          response.headers.get("cf-mitigated") === "challenge" ||
-          response.headers.get("x-amzn-waf-action") === "challenge"
+          !binary &&
+          (response.headers.get("cf-mitigated") === "challenge" ||
+            response.headers.get("x-amzn-waf-action") === "challenge")
         )
           throw new ScrapeError({ status: 422, reason: "upstream challenge" });
         // oxlint-disable-next-line eslint/no-await-in-loop
@@ -146,6 +153,7 @@ export class Transport {
           body: binary ? "" : decode_response(result, response.headers.get("content-type") ?? ""),
           raw_body: binary ? result : undefined,
           content_type: response.headers.get("content-type") ?? "",
+          headers: [...response.headers].filter(([name]) => name !== "set-cookie"),
         };
       } finally {
         // A redirect or policy failure must not retain a connection slot.

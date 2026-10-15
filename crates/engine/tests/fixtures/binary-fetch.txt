@@ -41,6 +41,14 @@ globalThis.comparison = (async () => {
   Object.defineProperty(ArrayBuffer.prototype,'constructor',{configurable:true,get(){hooks++;return {[Symbol.species]:ArrayBuffer};}});
   const safe=await intrinsic.arrayBuffer();Object.defineProperty(ArrayBuffer.prototype,'constructor',descriptor);
   result.intrinsicIsolation=hooks===0 && new Uint8Array(safe).every((v,i)=>v===((i+variant)%256));
+  document.cookie='page=1; path=/';
+  const echo=await fetch('/binary/echo',{headers:{'X-Nimbo':' '+variant+' ',cookie:'evil=1',host:'evil.test'},credentials:'same-origin'});const sent=await echo.json();
+  result.requestHeaders=sent.nimbo===String(variant) && String(sent.cookie).split('; ').includes('page=1') && !String(sent.cookie).includes('evil') && sent.host!=='evil.test';
+  result.responseHeaders=echo.headers instanceof Headers && echo.headers.get('X-Echo')==='yes' && !echo.headers.has('set-cookie') && [...echo.headers.keys()].includes('x-echo');
+  const merged=new Headers([['A','1'],['a','2']]);merged.set('b','3');
+  result.headersClass=merged.get('a')==='1, 2' && [...merged].length===2 && new Headers(merged).get('b')==='3' && await rejectType(async()=>new Headers({'bad name':'x'}));
+  result.redirectError=await rejectType(()=>fetch('/binary/redirect/'+variant,{redirect:'error'}));
+  result.unsupportedCredentials=await rejectType(()=>fetch('/binary/empty',{credentials:'omit'}));
   result.healthy=document.documentElement instanceof Element;
   return result;
 })()

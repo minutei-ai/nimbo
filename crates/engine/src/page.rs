@@ -133,7 +133,11 @@ impl Page {
                     method,
                     body,
                     binary,
-                } => match self.transport.request(&base, &url, &method, &body, binary) {
+                    options,
+                } => match self
+                    .transport
+                    .request(&base, &url, &method, &body, binary, &options)
+                {
                     Ok(response) => self.machine.borrow_mut().respond(response)?,
                     Err(error @ (Error::Limit(_) | Error::Cancelled)) => return Err(error),
                     Err(error) => self.machine.borrow_mut().reject(&error.to_string())?,

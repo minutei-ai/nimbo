@@ -1,6 +1,6 @@
 use std::{cell::Cell, rc::Rc, sync::Arc, time::Instant};
 
-use crate::machine::{Response, parse_url};
+use crate::machine::{FetchOptions, Response, parse_url};
 use reqwest::{
     Client, Url,
     header::{COOKIE, LOCATION, SET_COOKIE},
@@ -159,7 +159,14 @@ impl Browser {
         });
         let started = Instant::now();
         let response = transport
-            .request(&self.origin, url, "GET", "", false)
+            .request(
+                &self.origin,
+                url,
+                "GET",
+                "",
+                false,
+                &FetchOptions::default(),
+            )
             .map_err(|error| Failure::new(Stage::Request, error))?;
         if !(200..300).contains(&response.status) {
             return Err(Failure::new(
@@ -223,8 +230,9 @@ impl Transport {
         method: &str,
         body: &str,
         binary: bool,
+        options: &FetchOptions,
     ) -> Result<Response> {
-        self.run(self.request_async(base, value, method, body, binary))
+        self.run(self.request_async(base, value, method, body, binary, options))
     }
 
     fn run<T>(&self, work: impl Future<Output = Result<T>>) -> Result<T> {
@@ -256,6 +264,7 @@ impl Transport {
         method: &str,
         body: &str,
         binary: bool,
+        options: &FetchOptions,
     ) -> Result<Response> {
         let mut url = self.resolve(base, value)?;
         let mut method = match method {
@@ -276,6 +285,9 @@ impl Transport {
                 .client
                 .request(method.clone(), url.clone())
                 .timeout(self.deadline.saturating_duration_since(Instant::now()));
+            for (name, value) in &options.headers {
+                request = request.header(name.as_str(), value.as_str());
+            }
             let cookies = self.cookies.header(&url, false);
             if !cookies.is_empty() {
                 request = request.header(COOKIE, cookies);
@@ -291,6 +303,9 @@ impl Transport {
             }
             let status = response.status();
             if matches!(status.as_u16(), 301 | 302 | 303 | 307 | 308) {
+                if options.reject_redirects {
+                    return Err(Error::Unsupported("redirect rejected by fetch".into()));
+                }
                 let location = response
                     .headers()
                     .get(LOCATION)
@@ -322,6 +337,12 @@ impl Transport {
             .and_then(|header| header.to_str().ok())
             .unwrap_or_default()
             .to_ascii_lowercase();
+        let headers = response
+            .headers()
+            .iter()
+            .filter(|(name, _)| *name != SET_COOKIE)
+            .filter_map(|(name, value)| Some((name.to_string(), value.to_str().ok()?.to_owned())))
+            .collect();
         let remaining = self
             .limits
             .max_response_bytes
@@ -357,6 +378,7 @@ impl Transport {
             body,
             raw_body,
             content_type,
+            headers,
         })
     }
 }

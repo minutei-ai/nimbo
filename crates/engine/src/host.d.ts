@@ -4,8 +4,14 @@ interface NimboResponse {
   readonly status: number;
   readonly url: string;
   readonly body: ArrayBuffer | null;
+  readonly headers: [string, string][];
 }
-declare function nimboRequest(url: string, method: string, body: string): Promise<NimboResponse>;
+declare function nimboRequest(
+  url: string,
+  method: string,
+  body: string,
+  options: string,
+): Promise<NimboResponse>;
 declare function nimboStorage(area: number, operation: string, key: string, value: string): string;
 declare function nimboCookie(write: boolean, value: string): string;
 declare function nimboMedia(query: string): string;

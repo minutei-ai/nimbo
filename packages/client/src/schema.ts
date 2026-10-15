@@ -44,6 +44,18 @@ export const Input = Schema.Struct({
   ),
   scripts: Schema.optional(Schema.Literals(["execute", "skip"])),
   waitFor: Schema.optional(Readiness),
+  /** Whole-scrape deadline; defaults to the engine's 10 seconds. */
+  timeoutMs: Schema.optional(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 60_000 }))),
+  /** Response byte budget for the page and its requests; defaults to 2 MiB. */
+  maxResponseBytes: Schema.optional(
+    Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 4 * 1024 * 1024 })),
+  ),
+  /** Headers sent with every page request, such as `user-agent` or `accept-language`. */
+  headers: Schema.optional(
+    Schema.Record(Schema.String, Schema.String).check(
+      Schema.makeFilter((headers) => Object.keys(headers).length <= 32 || "at most 32 headers"),
+    ),
+  ),
 });
 
 export type ScrapeInput = typeof Input.Encoded;

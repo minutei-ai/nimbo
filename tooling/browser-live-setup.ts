@@ -547,7 +547,7 @@ export const origin = Bun.serve({
     if (cssBudget) return cssBudget;
     const font = await fontFixture(path);
     if (font) return font;
-    const binary = binaryFixture(path);
+    const binary = binaryFixture(path, request);
     if (binary) return binary;
     if (path.startsWith("/font-cases/")) {
       const variant = Number(path.split("/").at(-1));

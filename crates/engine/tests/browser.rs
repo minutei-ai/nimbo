@@ -1858,6 +1858,19 @@ fn serve_binary(request: Request) -> io::Result<()> {
         (0_u16..512)
             .map(|i| u8::try_from(i.saturating_add(variant) % 256).map_err(io::Error::other))
             .collect::<io::Result<Vec<_>>>()?
+    } else if path == "/binary/echo" {
+        let value = |name: &'static str| {
+            request
+                .headers()
+                .iter()
+                .find(|header| header.field.equiv(name))
+                .map(|header| header.value.as_str().to_owned())
+        };
+        headers.push(header("X-Echo", "yes")?);
+        headers.push(header("Set-Cookie", "echoed=1; Path=/")?);
+        json!({ "nimbo": value("X-Nimbo"), "cookie": value("Cookie"), "host": value("Host") })
+            .to_string()
+            .into_bytes()
     } else if let Some(variant) = path.strip_prefix("/binary/redirect/") {
         status = 302;
         headers.push(header("Location", &format!("/binary/data/{variant}"))?);
@@ -1903,7 +1916,7 @@ fn binary_fetch_preserves_bytes_and_body_consumption() -> TestResult {
             include_str!("fixtures/binary-fetch.txt")
         ))?;
         let fields = result.as_object().ok_or("missing binary result")?;
-        assert_eq!(fields.len(), 26);
+        assert_eq!(fields.len(), 31);
         assert!(
             fields.values().all(|value| *value == json!(true)),
             "variant {variant}: {result}"

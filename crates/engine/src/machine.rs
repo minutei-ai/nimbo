@@ -27,6 +27,19 @@ pub(crate) struct Response {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub raw_body: Option<Vec<u8>>,
     pub content_type: String,
+    /// Response headers in arrival order, exposed to fetch callers.
+    #[serde(default)]
+    pub headers: Vec<(String, String)>,
+}
+
+/// Page-supplied fetch options carried to the host.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub(crate) struct FetchOptions {
+    /// Validated request headers; forbidden names are rejected by the bindings.
+    pub headers: Vec<(String, String)>,
+    /// `redirect: "error"`: fail instead of following a redirect.
+    pub reject_redirects: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -37,6 +50,8 @@ pub(crate) enum Action {
         method: String,
         body: String,
         binary: bool,
+        #[serde(flatten)]
+        options: FetchOptions,
     },
     Ready,
     Wait {
@@ -52,6 +67,15 @@ struct Resolver {
     reject: Persistent<Function<'static>>,
 }
 
+impl Resolver {
+    fn save<'js>(ctx: &Ctx<'js>, resolve: Function<'js>, reject: Function<'js>) -> Self {
+        Self {
+            resolve: Persistent::save(ctx, resolve),
+            reject: Persistent::save(ctx, reject),
+        }
+    }
+}
+
 struct Request {
     url: String,
     method: String,
@@ -60,7 +84,7 @@ struct Request {
 }
 
 enum RequestPurpose {
-    Fetch(Resolver),
+    Fetch(Resolver, FetchOptions),
     ClassicScript,
     Stylesheet(usize),
     Module(String),
@@ -303,7 +327,7 @@ impl Machine {
             js(&ctx, globals.set("nimboDom", js(&ctx, dom_function)?))?;
             let request = Function::new(
                 ctx.clone(),
-                move |ctx: Ctx<'_>, url: String, method: String, body: String| {
+                move |ctx: Ctx<'_>, url: String, method: String, body: String, options: String| {
                     let url = resolve_document(&request_base, &request_dom.borrow(), &url)
                         .map_err(|error| Exception::throw_message(&ctx, &error.to_string()))?;
                     if !matches!(method.as_str(), "GET" | "POST") {
@@ -314,16 +338,18 @@ impl Machine {
                     {
                         return Err(Exception::throw_message(&ctx, "request budget"));
                     }
+                    let options: FetchOptions = serde_json::from_str(&options)
+                        .map_err(|error| Exception::throw_message(&ctx, &error.to_string()))?;
                     requests.set(requests.get().saturating_add(1));
                     let (promise, resolve, reject) = ctx.promise()?;
                     pending.borrow_mut().push_back(Request {
                         url: url.to_string(),
                         method,
                         body,
-                        purpose: RequestPurpose::Fetch(Resolver {
-                            resolve: Persistent::save(&ctx, resolve),
-                            reject: Persistent::save(&ctx, reject),
-                        }),
+                        purpose: RequestPurpose::Fetch(
+                            Resolver::save(&ctx, resolve, reject),
+                            options,
+                        ),
                     });
                     Ok(Persistent::save(&ctx, promise))
                 },
@@ -677,7 +703,11 @@ impl Machine {
             url: request.url.clone(),
             method: request.method.clone(),
             body: request.body.clone(),
-            binary: matches!(&request.purpose, RequestPurpose::Fetch(_)),
+            binary: matches!(&request.purpose, RequestPurpose::Fetch(..)),
+            options: match &request.purpose {
+                RequestPurpose::Fetch(_, options) => options.clone(),
+                _ => FetchOptions::default(),
+            },
         };
         self.active = Some(request);
         action
@@ -702,10 +732,16 @@ impl Machine {
             self.sheet_response(handle, request.url, Some(&response))?;
         } else if let RequestPurpose::Module(name) = request.purpose {
             self.modules.respond(name, &response)?;
-        } else if let RequestPurpose::Fetch(resolver) = request.purpose {
+        } else if let RequestPurpose::Fetch(resolver, _) = request.purpose {
             self.context.with(|ctx| {
                 let payload = js(&ctx, rquickjs::Object::new(ctx.clone()))?;
                 js(&ctx, payload.set("status", response.status))?;
+                let headers: Vec<Vec<String>> = response
+                    .headers
+                    .into_iter()
+                    .map(|(name, value)| vec![name, value])
+                    .collect();
+                js(&ctx, payload.set("headers", headers))?;
                 js(&ctx, payload.set("url", response.url.as_str()))?;
                 if matches!(response.status, 204 | 205 | 304) {
                     js(&ctx, payload.set("body", rquickjs::Null))?;
@@ -738,7 +774,7 @@ impl Machine {
         if let RequestPurpose::Stylesheet(handle) = request.purpose {
             return self.sheet_response(handle, request.url, None);
         }
-        let RequestPurpose::Fetch(resolver) = request.purpose else {
+        let RequestPurpose::Fetch(resolver, _) = request.purpose else {
             return Err(Error::JavaScript(message.to_owned()));
         };
         self.context.with(|ctx| {
