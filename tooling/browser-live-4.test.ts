@@ -113,7 +113,6 @@ test.each([
     "new Promise(()=>{const link=document.createElement('link');link.setAttribute('rel','stylesheet');link.setAttribute('href','/sheets-css/main');link.setAttribute('integrity','sha256-invalid');document.head.appendChild(link);})",
     "stylesheet integrity is not implemented",
   ],
-  ["origin", sheetPromise("https://example.com/stylesheet.css"), "origin"],
 ])(
   "real HTTP → workerd → Wasm: external stylesheets reject %s and recover",
   async (_name, expression, detail) => {

@@ -5496,3 +5496,19 @@ fn diagnosed_navigation_preserves_failure_stages_and_recovers() -> TestResult {
     assert_eq!(fresh.execution_phase(), ExecutionPhase::Ready);
     Ok(())
 }
+
+#[test]
+fn blocked_stylesheets_report_errors_and_recover_without_leaving_the_origin() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    let result = page.evaluate(include_str!("fixtures/stylesheet-origin-policy.txt"))?;
+    let checks = result
+        .as_object()
+        .ok_or("missing stylesheet policy checks")?;
+    assert_eq!(checks.len(), 6);
+    assert!(
+        checks.values().all(|value| value == &json!(true)),
+        "{result}"
+    );
+    Ok(())
+}

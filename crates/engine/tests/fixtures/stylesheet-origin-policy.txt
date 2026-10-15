@@ -1,0 +1,32 @@
+(async () => {
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  const outcomes = [];
+  const change = href => new Promise(resolve => {
+    const finish = event => {
+      outcomes.push([event.type, event.target === link, event.isTrusted, event.bubbles]);
+      link.removeEventListener('load', finish);
+      link.removeEventListener('error', finish);
+      resolve(event.type);
+    };
+    link.addEventListener('load', finish);
+    link.addEventListener('error', finish);
+    link.href = href;
+    if (!link.isConnected) document.head.append(link);
+  });
+  const denied = await change('https://foreign.test/blocked.css');
+  const failedSheet = link.sheet === null;
+  const recovered = await change('/document-stylesheets-assets/0.css');
+  const loadedSheet = link.sheet !== null;
+  const deniedAgain = await change('https://foreign.test/blocked-again.css');
+  const result = {
+    denied: denied === 'error',
+    failedSheet,
+    recovered: recovered === 'load' && loadedSheet,
+    deniedAgain: deniedAgain === 'error' && link.sheet === null,
+    events: outcomes.length === 3 && outcomes.every(event => event[1] && event[2] && !event[3]),
+    lifecycle: document.readyState === 'complete'
+  };
+  link.remove();
+  return result;
+})()

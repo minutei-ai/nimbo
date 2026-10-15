@@ -384,3 +384,36 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     expect(Object.values(value).every((check) => check === true)).toBe(true);
   },
 );
+
+test("blocked stylesheets emit recoverable errors without leaving the authorized origin", async () => {
+  const expression = await Bun.file(
+    new URL("../crates/engine/tests/fixtures/stylesheet-origin-policy.txt", import.meta.url),
+  ).text();
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url: new URL("geometry-empty", origin.url).href, expression }),
+  });
+  expect(response.status).toBe(200);
+  const body: unknown = await response.json();
+  expect(body).toMatchObject({
+    value: {
+      denied: true,
+      failedSheet: true,
+      recovered: true,
+      deniedAgain: true,
+      events: true,
+      lifecycle: true,
+    },
+  });
+  const recovered = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url: new URL("geometry-empty", origin.url).href,
+      expression: "document.readyState",
+    }),
+  });
+  expect(recovered.status).toBe(200);
+  expect(await recovered.json()).toMatchObject({ value: "complete" });
+});

@@ -11,6 +11,7 @@ struct Sheet {
     source: String,
     base: String,
     accessible: bool,
+    received: bool,
     frozen: bool,
 }
 
@@ -65,8 +66,7 @@ impl Sheets {
         }
         let base =
             crate::links::base(base, self.origin.as_str()).unwrap_or_else(|| self.origin.clone());
-        let mut url = crate::machine::resolve(
-            &self.origin,
+        let mut url = crate::machine::parse_url(
             base.join(&href)
                 .map_err(|error| Error::InvalidUrl(error.to_string()))?
                 .as_str(),
@@ -136,7 +136,7 @@ impl Sheets {
         Ok(self
             .loaded
             .get(&node.id)
-            .filter(|sheet| sheet.url == url)
+            .filter(|sheet| sheet.url == url && sheet.received)
             .map(|sheet| (sheet.source.as_str(), sheet.base.as_str(), sheet.accessible)))
     }
 
@@ -198,6 +198,7 @@ impl Sheets {
         if !self.loaded.contains_key(&id) && self.loaded.len() >= 1024 {
             return Err(Error::Limit("stylesheet resources"));
         }
+        let received = response.is_some();
         let accessible = response.is_some_and(|response| {
             response
                 .content_type
@@ -235,6 +236,7 @@ impl Sheets {
                 source,
                 base,
                 accessible,
+                received,
                 frozen: false,
             },
         );
