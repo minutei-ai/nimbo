@@ -1407,3 +1407,44 @@ test("native tag collection reads fit the default operation budget", async () =>
     },
   );
 });
+
+test("tag collection membership follows native mutations and adoption", async () => {
+  const expression = await Bun.file(
+    join(root, "crates/engine/tests/fixtures/tag-collection-mutations.txt"),
+  ).text();
+  await fixture(
+    () => html("<main>Document</main>"),
+    async (worker) => {
+      const response = await scrape(worker, expression);
+      expect(response.status).toBe(200);
+      const result = await json(response);
+      if (typeof result !== "object" || result === null) throw new Error("Missing response");
+      const checks: unknown = Reflect.get(result, "value");
+      if (typeof checks !== "object" || checks === null)
+        throw new Error("Missing collection checks");
+      expect(Object.keys(checks)).toHaveLength(23);
+      expect(Object.values(checks).every((value) => value === true)).toBe(true);
+    },
+  );
+});
+
+test("cached tag collection reads retain the native operation budget", async () => {
+  await fixture(
+    () => html("<i>Only</i>"),
+    async (worker) => {
+      const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+        method: "POST",
+        headers: { authorization: "Bearer test-secret" },
+        body: JSON.stringify({
+          url: originFor(worker),
+          maxDomOperations: 40,
+          expression:
+            "(()=>{const tags=document.getElementsByTagName('i');for(let i=0;i<60;i++)if(tags.length!==1)return false;return true})()",
+        }),
+      });
+      expect(response.status).toBe(422);
+      expect(JSON.stringify(await json(response))).toContain("DOM operations");
+      expect(await json(await scrape(worker, "1"))).toMatchObject({ value: 1 });
+    },
+  );
+});

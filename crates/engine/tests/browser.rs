@@ -4467,6 +4467,20 @@ fn tag_collection_reads_fit_the_default_operation_budget() -> TestResult {
 }
 
 #[test]
+fn tag_collection_membership_tracks_native_mutations_and_adoption() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    let result = page.evaluate(include_str!("fixtures/tag-collection-mutations.txt"))?;
+    let checks = result.as_object().ok_or("missing tag collection checks")?;
+    assert_eq!(checks.len(), 23);
+    assert!(
+        checks.values().all(|value| value == &json!(true)),
+        "{result}"
+    );
+    Ok(())
+}
+
+#[test]
 fn window_named_properties_follow_real_dom() -> TestResult {
     let fixture = Fixture::new()?;
     let page = fixture.browser()?.navigate(&fixture.path("/static"))?;

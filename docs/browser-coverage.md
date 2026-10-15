@@ -2286,11 +2286,21 @@ remain observable.
 Live `getElementsByTagName` collections select qualified names directly in the
 native DOM and transfer only matching handles to JavaScript. HTML matching uses
 ASCII lowercase names; foreign namespaces and XML documents retain qualified-name
-case. Membership and tree order remain live across insertion, removal and
-iteration. The shared thousand-element budget fixture reads collection length
-five times under the unchanged 10,000-operation default; the previous JavaScript
-filter exhausted that budget. Existing URL, namespace and arena fixtures retain
-the collection behavior checks.
+case. Each collection captures its matching mode after argument coercion and
+retains that mode when its root moves between HTML and XML documents. A fresh
+collection uses its root's current document mode, following the
+[qualified-name collection algorithm](https://dom.spec.whatwg.org/#concept-getelementsbytagname).
+
+A collection reuses its matching handles while the existing native DOM revision
+is unchanged. Every lookup still reads that revision through the native bridge;
+mutations refresh membership and tree order. The cache belongs to the collection's
+own JavaScript lifetime and does not create another native query registry. Shared
+native/Worker fixtures cover 23 mutation, identity and adoption contracts, also
+checked in Chromium. Twenty length reads over a thousand-element document fit
+the unchanged 10,000-operation default; the earlier uncached paths exhausted it.
+A separate Worker case verifies that repeated cached reads still exhaust their
+configured operation budget and that the next page recovers. Existing URL,
+namespace and arena fixtures retain the collection behavior checks.
 
 The real HTTP fixture contains 5000 rows and executes 200 selectors, text/ID
 mutations, indexed access, `item`, key iteration and removal. Its 64 variants

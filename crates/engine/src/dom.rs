@@ -411,7 +411,7 @@ impl Dom {
             "observerMargin" => serde_json::to_value(crate::layout::Margins::parse(arg)?)?,
             "observerMeasure" => self.observe(handle, arg)?,
             "query" => self.query(handle, arg)?,
-            "tagElements" => self.tag_elements(handle, arg)?,
+            "tagElements" => self.tag_elements(handle, arg, value)?,
             "customCandidates" => self.custom_candidates(handle, arg)?,
             "queryOne" => self.query_one(handle, arg)?,
             "children" => self.children(handle, arg)?,
@@ -1627,9 +1627,9 @@ impl Dom {
         ))
     }
 
-    fn tag_elements(&mut self, handle: usize, name: &str) -> Result<Value> {
+    fn tag_elements(&mut self, handle: usize, name: &str, mode: &str) -> Result<Value> {
+        let html = serde_json::from_str::<bool>(mode)?;
         let owner = self.node(handle)?;
-        let html = self.html_document(owner.id);
         let lower = name.to_ascii_lowercase();
         let view = self.control_view();
         let mut nodes = Vec::new();

@@ -1912,9 +1912,17 @@
   function tagElements(owner: Element | Document, qualifiedName: unknown): HTMLCollection {
     const id = idOf(owner);
     const name = domString(qualifiedName);
+    const mode = JSON.stringify(raw<boolean>("get", id, "htmlDocument"));
+    let snapshot: { version: number; ids: readonly number[] } | undefined;
     return makeCollection(
       new HTMLCollection(internal),
-      () => call<number[]>("tagElements", id, name),
+      () => {
+        const version = raw<number>("layoutVersion", 0);
+        if (snapshot === undefined || snapshot.version !== version) {
+          snapshot = { version, ids: call<number[]>("tagElements", id, name, mode) };
+        }
+        return snapshot.ids;
+      },
       "elements",
       { named: true, live: true },
     );
