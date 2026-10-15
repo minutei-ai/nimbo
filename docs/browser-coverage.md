@@ -3387,6 +3387,12 @@ charges cumulative node, operation and write budgets and preserves the source
 when a limit interrupts copying. Native and Worker fixtures cover mutations of
 clean and dirty textarea clones, namespace attributes and independent documents.
 
+Each document exposes an own, non-configurable `location` accessor. The active
+document shares the existing window location object, including same-document
+history updates; independent and cloned documents return null. The accessor
+validates its receiver. Cross-document navigation remains unsupported and fails
+explicitly. Nine shared native/Worker read contracts also pass in Chromium.
+
 `DOMImplementation.createHTMLDocument` builds an independent native HTML tree
 with its doctype, html, head and body. An omitted or undefined title creates no
 title element; supplied values become a text node without HTML parsing. Existing

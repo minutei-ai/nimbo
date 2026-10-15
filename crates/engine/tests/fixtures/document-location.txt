@@ -1,0 +1,18 @@
+(() => {
+  const checks = {};
+  const descriptor = Object.getOwnPropertyDescriptor(document, 'location');
+  checks.active = document.location === window.location && document.location.protocol === location.protocol;
+  checks.descriptor = descriptor.enumerable && !descriptor.configurable && typeof descriptor.get === 'function';
+  checks.prototype = !Object.hasOwn(Document.prototype, 'location');
+  checks.htmlDetached = document.implementation.createHTMLDocument().location === null;
+  checks.xmlDetached = document.implementation.createDocument(null, 'root').location === null;
+  checks.cloneDetached = document.cloneNode().location === null;
+  const initial = location.href;
+  const stable = document.location;
+  history.pushState(null, '', '#location-fixture');
+  checks.history = document.location === stable && document.location.hash === '#location-fixture' && document.location.href === location.href;
+  history.replaceState(null, '', initial);
+  checks.restored = document.location.href === initial;
+  try { descriptor.get.call({}); checks.brand = false; } catch (error) { checks.brand = error.name === 'TypeError'; }
+  return checks;
+})()

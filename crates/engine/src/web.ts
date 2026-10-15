@@ -5943,6 +5943,25 @@
     return result;
   }
   class Document extends ParentNode {
+    declare readonly location: typeof browserLocation | null;
+    constructor(key: symbol, id: number) {
+      super(key, id);
+      Object.defineProperty(this, "location", {
+        enumerable: true,
+        configurable: false,
+        get(this: Document) {
+          if (!(this instanceof Document)) throw new TypeError("Illegal invocation");
+          idOf(this);
+          return this === document ? browserLocation : null;
+        },
+        set(this: Document, _value: unknown) {
+          if (!(this instanceof Document)) throw new TypeError("Illegal invocation");
+          idOf(this);
+          if (this !== document) throw new TypeError("Document has no browsing context");
+          throw new DOMException("Document navigation is not implemented", "NotSupportedError");
+        },
+      });
+    }
     get currentScript(): Element | null {
       if (!(this instanceof Document)) throw new TypeError("Illegal invocation");
       const id = call<number | null>("get", idOf(this), "currentScript");
@@ -8326,6 +8345,36 @@
     },
     ["popstate", "hashchange"],
   );
+  const browserLocation = Object.freeze({
+    get href() {
+      return href;
+    },
+    get origin() {
+      return linkValue("get", "origin", href, "");
+    },
+    get protocol() {
+      return linkValue("get", "protocol", href, "");
+    },
+    get host() {
+      return linkValue("get", "host", href, "");
+    },
+    get hostname() {
+      return linkValue("get", "hostname", href, "");
+    },
+    get port() {
+      return linkValue("get", "port", href, "");
+    },
+    get pathname() {
+      return linkValue("get", "pathname", href, "");
+    },
+    get search() {
+      return linkValue("get", "search", href, "");
+    },
+    get hash() {
+      return linkValue("get", "hash", href, "");
+    },
+    toString: () => href,
+  });
   Object.assign(globalThis, {
     document,
     Storage,
@@ -8342,36 +8391,7 @@
     History,
     PopStateEvent,
     HashChangeEvent,
-    location: Object.freeze({
-      get href() {
-        return href;
-      },
-      get origin() {
-        return linkValue("get", "origin", href, "");
-      },
-      get protocol() {
-        return linkValue("get", "protocol", href, "");
-      },
-      get host() {
-        return linkValue("get", "host", href, "");
-      },
-      get hostname() {
-        return linkValue("get", "hostname", href, "");
-      },
-      get port() {
-        return linkValue("get", "port", href, "");
-      },
-      get pathname() {
-        return linkValue("get", "pathname", href, "");
-      },
-      get search() {
-        return linkValue("get", "search", href, "");
-      },
-      get hash() {
-        return linkValue("get", "hash", href, "");
-      },
-      toString: () => href,
-    }),
+    location: browserLocation,
     Event,
     UIEvent,
     MouseEvent,

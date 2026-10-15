@@ -4596,6 +4596,23 @@ fn html_document_factory_bounds_title_writes_and_recovers() -> TestResult {
 }
 
 #[test]
+fn document_location_uses_the_active_window_and_excludes_detached_documents() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    let result = page.evaluate(include_str!("fixtures/document-location.txt"))?;
+    let checks = result
+        .as_object()
+        .ok_or("missing document location checks")?;
+    assert_eq!(checks.len(), 9);
+    assert!(
+        checks.values().all(|value| value == &json!(true)),
+        "{result}"
+    );
+    assert_eq!(page.evaluate("(()=>{try{document.location='https://example.test/';return false}catch(error){return error.name==='NotSupportedError'}})()")?, json!(true));
+    Ok(())
+}
+
+#[test]
 fn window_named_properties_follow_real_dom() -> TestResult {
     let fixture = Fixture::new()?;
     let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
