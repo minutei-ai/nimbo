@@ -19,24 +19,21 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
       headers: { authorization: "Bearer test-secret" },
       body: JSON.stringify({ url, expression: "globalThis.moduleDone" }),
     });
+    const expected = {
+      order: "classic,entry,defer,inline,dcl,after",
+      readyStates: "interactive,interactive,interactive,complete",
+      live: true,
+      identity: true,
+      once: true,
+      namespace: true,
+      cycle: true,
+      redirectedMeta: true,
+      inlineMeta: true,
+      value: true,
+      legacy: true,
+    };
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({
-      url,
-      engine: "rust-wasm-quickjs",
-      value: {
-        order: "classic,entry,defer,inline,dcl,after",
-        readyStates: "interactive,interactive,interactive,complete",
-        live: true,
-        identity: true,
-        once: true,
-        namespace: true,
-        cycle: true,
-        redirectedMeta: true,
-        inlineMeta: true,
-        value: true,
-        legacy: true,
-      },
-    });
+    expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: expected });
     const observed = requests.slice(before);
     for (const asset of [
       "shared.js",
@@ -50,7 +47,8 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
         observed.filter((request) => request === `GET /module-assets/${variant}/${asset}`).length,
       ).toBe(1);
     expect(observed).toContain(`GET /module-assets/${variant}/redirect.js`);
-    if (comparisonBinary) expect(await comparePage(comparisonBinary, url)).toBeNull();
+    if (comparisonBinary)
+      expect(await comparePage(comparisonBinary, url)).toEqual({ ...expected, legacy: false });
   },
 );
 

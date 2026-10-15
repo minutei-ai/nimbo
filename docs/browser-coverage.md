@@ -751,12 +751,17 @@ sources, and removing links or their containing subtree releases their sources.
 Reinsertion loads again. Native host tasks dispatch trusted, non-bubbling
 load/error events, including dynamic resources, without page API replacements.
 
+Cross-origin stylesheet URLs remain subject to the native transport origin policy.
+A denied link emits `error`, has no associated sheet, and does not abort the page.
+Changing it to an authorized stylesheet can load normally; blocked requests never
+leave the authorized origin.
+
 The shared synthetic fixture passes 29 aggregate checks at 64 actual Worker
 URLs and in the native HTTP suite. It covers initial loading, dynamic changes,
 reordering, inline/important precedence, inherited variables, media eligibility,
 disabling, removal/reinsertion, same-origin redirects, HTTP failures, MIME
 parameters, type/rel changes, base URLs and immutable geometry snapshots.
-Six further real Worker cases cover four explicit resource/security failures
+Five further real Worker cases cover three explicit resource/security failures
 with fresh-request recovery, successful 128 KiB CSS, and caught rejection of
 unsupported imports when geometry evaluates the sheet.
 
@@ -3467,10 +3472,14 @@ must not be reported as validated by skipping scripts or hiding that error.
 
 ## Navigator and stealth contracts
 
-The owned Navigator exposes identity, language, connectivity and concurrency metadata, cookie support, `webdriver`, `pdfViewerEnabled` and `javaEnabled()`. HTTP and `navigator.userAgent` identify Nimbo as `Nimbo/0.1`. Legacy identity fields follow the [HTML Navigator contract](https://html.spec.whatwg.org/multipage/system-state.html); languages are a frozen per-page array, the exposed execution concurrency is one, and the platform/vendor strings are empty. Nimbo does not implement WebDriver sessions; `webdriver` is false. Plugins, permission queries, client hints and WorkerNavigator remain unimplemented.
+The owned Navigator exposes identity, language, connectivity and concurrency metadata, cookie support, `webdriver`, `pdfViewerEnabled` and `javaEnabled()`. HTTP and `navigator.userAgent` identify Nimbo as `Mozilla/5.0 (compatible; Nimbo/0.1; like Gecko)`. Legacy identity fields follow the [HTML Navigator contract](https://html.spec.whatwg.org/multipage/system-state.html); languages are a frozen per-page array, the exposed execution concurrency is one, and the platform/vendor strings are empty. Nimbo does not implement WebDriver sessions; `webdriver` is false. Plugins, permission queries, client hints and WorkerNavigator remain unimplemented.
 
 The synthetic `stealth.txt` fixture checks 22 contracts in 64 fresh pages per runtime through `compare:stealth`: interface/instance identity, descriptors, constructor/getter arity, receiver validation, read-only attributes, language consistency, object brands, event trust, clock values, host-binding cleanup and visible driver artifacts. It retains the ordinary `Function.prototype.toString` behavior. These are bounded compatibility checks, not evidence of indistinguishability from Chromium or a pass against anti-bot services.
 
 `test:stealth` adds real Worker/Wasm HTTP checks for UA/header consistency, API credential separation, inaccessible host modules and page disposal after prototype poisoning or failure. Cookies, storage, globals and API prototypes start fresh on the next extraction. The existing proxy suite separately covers transport credentials and TLS failures.
 
 The three budget regressions in the native unit suite lock down named-window cache invalidation, identical namespaced class writes and ancestor selector indexing without increasing operation limits. [Local measurements](performance-v01.json) retain all latency/RSS samples and both Wasm hashes. Linux RSS covers the local host process tree after each request; it is not peak page allocation.
+
+### Pinned module comparator difference
+
+The Obscura v0.2.3 module-graph comparison returns its full result object, rather than `null`. Its classic `nomodule` script executes despite module support, so the comparator assertion records `legacy: false` while checking the remaining module results unchanged. Nimbo requires `legacy: true` (the script is skipped), consistent with the independent Chromium check. The comparator result does not establish parity for `nomodule`.
