@@ -15,6 +15,12 @@ function fragmentCase() {
  d.innerHTML='';checks.empty=d.childNodes.length===0;
  const root=document.createElement('div').attachShadow({mode:'open'});root.innerHTML='<p>shadow</p>';
  checks.shadow=root.firstChild.textContent==='shadow' && root.firstChild.parentNode===root;
+ const page=document.createElement('html');page.innerHTML='<head><title>t</title></head><body><p>b</p></body>';
+ checks.htmlContext=[...page.children].map(n=>n.tagName).join()==='HEAD,BODY' && page.lastChild.innerHTML==='<p>b</p>';
+ const table=document.createElement('table');table.innerHTML='<tr><td>1</td></tr>';
+ checks.tableContext=table.innerHTML==='<tbody><tr><td>1</td></tr></tbody>';
+ const area=document.createElement('textarea');area.innerHTML='<b>x</b>';
+ checks.rawTextContext=area.value==='<b>x</b>' && area.childNodes.length===1;
  return checks;
 }
 function arenaFactoryCase(mode) {

@@ -1783,9 +1783,26 @@ impl Dom {
             self.document.tree.remove_children_of(&parent);
             return self.mutation_replaced_children(parent, observed);
         }
+        // HTML elements are their own parsing context; other parents parse as body content.
+        let context = self
+            .document
+            .tree
+            .get(&parent)
+            .and_then(|node| {
+                node.query_or(None, |node| match &node.data {
+                    NodeData::Element(element) if element.name.ns == html5ever::ns!(html) => {
+                        Some(element.name.clone())
+                    }
+                    _ => None,
+                })
+            })
+            .unwrap_or_else(|| {
+                html5ever::QualName::new(None, html5ever::ns!(html), html5ever::local_name!("body"))
+            });
         let fragment = crate::html_parse::fragment(
             &self.document,
             value,
+            context,
             self.limits.max_dom_nodes,
             self.check.as_ref(),
             &self.allocated_nodes,

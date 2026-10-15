@@ -120,9 +120,11 @@ impl DocumentParser {
     }
 }
 
+/// Parses `html` as the children of `context`, per the HTML fragment algorithm.
 pub(crate) fn fragment(
     document: &Rc<Document>,
     html: &str,
+    context: QualName,
     maximum: usize,
     check: &dyn Fn() -> Result<()>,
     nodes: &Rc<Cell<usize>>,
@@ -143,14 +145,7 @@ pub(crate) fn fragment(
     let mut options = ParseOpts::default();
     options.tree_builder.scripting_enabled = false;
     options.tree_builder.drop_doctype = true;
-    let parser = html5ever::parse_fragment(
-        sink,
-        options,
-        QualName::new(None, html5ever::ns!(html), html5ever::local_name!("body")),
-        Vec::new(),
-        false,
-    )
-    .from_utf8();
+    let parser = html5ever::parse_fragment(sink, options, context, Vec::new(), false).from_utf8();
     feed(parser, html, maximum, check, nodes, "DOM nodes")?;
     document
         .tree
@@ -454,7 +449,12 @@ mod tests {
                 .ok_or_else(|| Error::Dom("missing target".into()))?
                 .id;
             let nodes = Rc::new(Cell::new(10));
-            let root = super::fragment(&actual, html, 100, &|| Ok(()), &nodes)?;
+            let body = html5ever::QualName::new(
+                None,
+                html5ever::ns!(html),
+                html5ever::local_name!("body"),
+            );
+            let root = super::fragment(&actual, html, body, 100, &|| Ok(()), &nodes)?;
             actual.tree.remove_children_of(&target);
             actual.tree.reparent_children_of(&root, Some(target));
             assert_eq!(actual.html(), expected.html());
