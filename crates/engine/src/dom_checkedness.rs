@@ -8,7 +8,7 @@ use std::{
 use super::Dom;
 use crate::{Error, Result, dom_attributes::NativeAttributes};
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct State {
     checked: Option<bool>,
     dirty: bool,
@@ -85,6 +85,15 @@ struct Activation {
 }
 
 impl Arena {
+    pub(super) fn clone_state(&mut self, source: NodeId, target: NodeId) {
+        if let Some(state) = self.states.get(&source).cloned() {
+            self.states.insert(target, state);
+        }
+        if self.radios.contains(&source) {
+            self.radios.insert(target);
+        }
+    }
+
     pub(super) fn checked(&self, node: NodeRef<'_>) -> bool {
         self.states
             .get(&node.id)

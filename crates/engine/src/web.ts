@@ -1739,6 +1739,11 @@
     get previousSibling(): Node | null {
       return this.relativeNode("previous");
     }
+    cloneNode(deep: unknown = false): Node {
+      const copy = node(call<number>("clone", idOf(this), String(Boolean(deep))));
+      if (definitions.size > 0) upgradeSubtree(copy);
+      return copy;
+    }
     get nodeType(): number {
       return call("get", idOf(this), "nodeType");
     }
@@ -2295,9 +2300,6 @@
     }
     override set textContent(value: string | number | null) {
       setAttrValue(this, domString(value ?? ""));
-    }
-    cloneNode(): Attr {
-      return attributeNode(raw("attributeNode", attrId(this), "clone"));
     }
   }
   function attrId(attribute: object): number {
@@ -5215,6 +5217,12 @@
       throw new TypeError("expected an iterable object");
     return Array.from(iterable, domString);
   }
+  function upgradeSubtree(root: Node): void {
+    const id = idOf(root);
+    reactions(() => {
+      for (const target of customTree(id)) enqueue(target, () => upgrade(target));
+    });
+  }
   class CustomElementRegistry {
     constructor(key?: symbol) {
       if (key !== internal)
@@ -5347,10 +5355,7 @@
     }
     upgrade(root: Node): void {
       registryBrand(this);
-      const id = idOf(root);
-      reactions(() => {
-        for (const target of customTree(id)) enqueue(target, () => upgrade(target));
-      });
+      upgradeSubtree(root);
     }
   }
   Object.defineProperty(CustomElementRegistry.prototype, Symbol.toStringTag, {
@@ -6107,7 +6112,7 @@
   }
   const document = new Document(internal, 0);
   for (const [prototype, keys] of [
-    [Node.prototype, ["getRootNode", "hasChildNodes"]],
+    [Node.prototype, ["getRootNode", "hasChildNodes", "cloneNode"]],
     [
       Element.prototype,
       [

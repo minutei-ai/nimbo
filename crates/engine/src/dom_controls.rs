@@ -1,7 +1,13 @@
-use dom_query::{NodeData, NodeRef};
+use dom_query::{NodeData, NodeId, NodeRef};
 use serde_json::Value;
 
 use crate::{Error, Result, dom::Dom, dom_attributes::NativeAttributes};
+
+#[derive(Clone)]
+pub(super) struct ControlValue {
+    pub(super) value: String,
+    pub(super) dirty: bool,
+}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum ValueMode {
@@ -59,6 +65,84 @@ fn sanitize(node: NodeRef<'_>, kind: &str, value: &str) -> Result<String> {
 }
 
 impl Dom {
+    pub(super) fn control_children_before(
+        &self,
+        operation: &str,
+        handle: usize,
+        arg: &str,
+        value: &str,
+    ) -> Result<Vec<NodeId>> {
+        if self.control_values.is_empty() || matches!(operation, "setAttr" | "removeAttr") {
+            return Ok(Vec::new());
+        }
+        let node = self.node(handle)?;
+        let mut candidates = Vec::new();
+        if matches!(operation, "append" | "insert" | "replace" | "removeChild")
+            || (operation == "set" && matches!(arg, "innerHTML" | "textContent"))
+        {
+            candidates.push(node.id);
+        }
+        if (operation == "remove"
+            || (operation == "set"
+                && matches!(arg, "nodeValue" | "textContent")
+                && node.query_or(false, |node| {
+                    matches!(
+                        node.data,
+                        NodeData::Text { .. }
+                            | NodeData::Comment { .. }
+                            | NodeData::ProcessingInstruction { .. }
+                    )
+                })))
+            && let Some(parent) = node.parent()
+        {
+            candidates.push(parent.id);
+        }
+        if matches!(operation, "append" | "insert" | "replace") {
+            let child = value
+                .parse()
+                .map_err(|error: std::num::ParseIntError| Error::Dom(error.to_string()))?;
+            if let Some(parent) = self.node(child)?.parent() {
+                candidates.push(parent.id);
+            }
+        }
+        candidates.retain(|id| {
+            self.control_values
+                .get(id)
+                .is_some_and(|state| !state.dirty)
+        });
+        candidates.sort_unstable();
+        candidates.dedup();
+        Ok(candidates)
+    }
+
+    pub(super) fn clone_control_value(&mut self, source: NodeId, target: NodeId) -> Result<()> {
+        if let Some(state) = self.control_values.get(&source).cloned() {
+            self.charge_write(state.value.len())?;
+            self.control_values.insert(target, state);
+        } else if self
+            .document
+            .tree
+            .get(&source)
+            .is_some_and(|node| super::checkedness::html_element(node, "textarea"))
+        {
+            let document = std::rc::Rc::clone(&self.document);
+            let node = document
+                .tree
+                .get(&source)
+                .ok_or_else(|| Error::Dom("invalid cloned control".into()))?;
+            let value = self.control_default_text(node)?;
+            self.charge_write(value.len())?;
+            self.control_values.insert(
+                target,
+                ControlValue {
+                    value,
+                    dirty: false,
+                },
+            );
+        }
+        Ok(())
+    }
+
     pub(super) fn control_before_type(
         &self,
         handle: usize,
@@ -72,7 +156,9 @@ impl Dom {
         if !node.query_or(false, |data| matches!(&data.data, NodeData::Element(element) if element.name.ns.as_ref()=="http://www.w3.org/1999/xhtml" && element.name.local.as_ref()=="input")) { return Ok(None); }
         let previous = mode(node);
         let value = if previous == ValueMode::Value {
-            self.control_values.get(&node.id).cloned()
+            self.control_values
+                .get(&node.id)
+                .map(|state| state.value.clone())
         } else {
             None
         };
@@ -121,8 +207,14 @@ impl Dom {
         } else {
             "input"
         };
-        let current = sanitize(node, kind, &previous).unwrap_or(previous);
-        self.control_values.insert(id, current);
+        let value = sanitize(node, kind, &previous.value).unwrap_or(previous.value);
+        self.control_values.insert(
+            id,
+            ControlValue {
+                value,
+                dirty: previous.dirty,
+            },
+        );
         Ok(())
     }
 
@@ -171,7 +263,8 @@ impl Dom {
             }
             self.charge_write(value.len())?;
             let value = sanitize(node, kind, value)?;
-            self.control_values.insert(id, value);
+            self.control_values
+                .insert(id, ControlValue { value, dirty: true });
             return Ok(Value::Null);
         }
         if kind == "input" && matches!(mode(node), ValueMode::Default | ValueMode::DefaultOn) {
@@ -186,7 +279,7 @@ impl Dom {
             )));
         }
         if let Some(value) = self.control_values.get(&id) {
-            return Ok(Value::String(sanitize(node, kind, value)?));
+            return Ok(Value::String(sanitize(node, kind, &value.value)?));
         }
         let value = if kind == "input" {
             node.null_attribute("value").unwrap_or_default()

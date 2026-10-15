@@ -1493,3 +1493,46 @@ test("a late rejection handler clears only its own native promise", async () => 
     },
   );
 });
+
+test("native cloning preserves detached identity, controls and owned documents", async () => {
+  const expression = await Bun.file(
+    join(root, "crates/engine/tests/fixtures/clone-node.txt"),
+  ).text();
+  await fixture(
+    () => html("<!doctype html><main>Document</main>"),
+    async (worker) => {
+      const response = await scrape(worker, expression);
+      expect(response.status).toBe(200);
+      const result = await json(response);
+      if (typeof result !== "object" || result === null) throw new Error("Missing response");
+      const checks: unknown = Reflect.get(result, "value");
+      if (typeof checks !== "object" || checks === null) throw new Error("Missing clone checks");
+      expect(Object.keys(checks)).toHaveLength(33);
+      expect(Object.values(checks).every((value) => value === true)).toBe(true);
+    },
+  );
+});
+
+test.each([32, 64])(
+  "native clone quota %i preserves the source and recovers on a fresh page",
+  async (maxDomNodes) => {
+    const expression = await Bun.file(
+      join(root, "crates/engine/tests/fixtures/clone-budget.txt"),
+    ).text();
+    await fixture(
+      () => html("<main>Document</main>"),
+      async (worker) => {
+        const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+          method: "POST",
+          headers: { authorization: "Bearer test-secret" },
+          body: JSON.stringify({ url: originFor(worker), expression, maxDomNodes }),
+        });
+        expect(response.status).toBe(200);
+        expect(await json(response)).toMatchObject({ value: true });
+        const fresh = await scrape(worker, "document.createElement('div').cloneNode().nodeName");
+        expect(fresh.status).toBe(200);
+        expect(await json(fresh)).toMatchObject({ value: "DIV" });
+      },
+    );
+  },
+);

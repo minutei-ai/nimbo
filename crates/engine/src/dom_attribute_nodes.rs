@@ -112,6 +112,24 @@ impl Arena {
     }
 }
 impl Dom {
+    pub(super) fn clone_attribute(&mut self, handle: usize) -> Result<Value> {
+        let record = self.attribute_nodes.record(handle)?;
+        let attribute = record.attribute.clone();
+        let document = record.document;
+        self.charge_write(
+            qualified(&attribute)
+                .len()
+                .saturating_add(attribute.value.len()),
+        )?;
+        self.allocate_node()?;
+        Ok(json!(self.attribute_nodes.allocate(
+            &mut self.handles,
+            attribute,
+            None,
+            document
+        )))
+    }
+
     pub(super) fn sync_attributes(&mut self, owner: NodeId) {
         if !self.attribute_nodes.owners.contains_key(&owner) {
             return;
@@ -262,17 +280,6 @@ impl Dom {
             "contains" => Ok(json!(arg.parse::<usize>().ok() == Some(handle))),
             "append" | "insert" | "replace" => Err(super::hierarchy_error()),
             "removeChild" => Err(super::not_found()),
-            "attributeNode" if arg == "clone" => {
-                let attribute = record.attribute.clone();
-                let document = record.document;
-                self.charge_write(attribute.value.len())?;
-                Ok(json!(self.attribute_nodes.allocate(
-                    &mut self.handles,
-                    attribute,
-                    None,
-                    document
-                )))
-            }
             _ => Err(Error::Dom("unsupported attribute node operation".into())),
         }
     }

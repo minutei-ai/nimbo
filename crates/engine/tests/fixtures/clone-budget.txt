@@ -1,0 +1,13 @@
+(() => {
+  const source = document.createElement('section');
+  source.innerHTML = '<textarea>retained value</textarea><span data-value="retained attribute">text</span>';
+  document.body.appendChild(source);
+  const before = source.outerHTML;
+  let failed = false;
+  try {
+    for (let index = 0; index < 128; index++) source.cloneNode(true);
+  } catch (error) {
+    failed = error.message.includes('resource limit: DOM');
+  }
+  return failed && source.isConnected && source.outerHTML === before && source.firstChild.value === 'retained value';
+})()

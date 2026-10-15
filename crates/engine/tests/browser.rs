@@ -4519,6 +4519,48 @@ fn tag_collection_membership_tracks_native_mutations_and_adoption() -> TestResul
 }
 
 #[test]
+fn cloning_preserves_detached_identity_controls_and_documents() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+    let result = page.evaluate(include_str!("fixtures/clone-node.txt"))?;
+    let checks = result.as_object().ok_or("missing clone checks")?;
+    assert_eq!(checks.len(), 33);
+    assert!(
+        checks.values().all(|value| value == &json!(true)),
+        "{result}"
+    );
+    Ok(())
+}
+
+#[test]
+fn cloning_respects_cumulative_node_and_write_budgets() -> TestResult {
+    let fixture = Fixture::new()?;
+    for limits in [
+        Limits {
+            max_dom_nodes: 64,
+            ..Limits::default()
+        },
+        Limits {
+            max_dom_write_bytes: 256,
+            ..Limits::default()
+        },
+    ] {
+        let browser = Browser::new(&fixture.url, limits)?;
+        let page = browser.navigate(&fixture.path("/static"))?;
+        assert_eq!(
+            page.evaluate(include_str!("fixtures/clone-budget.txt"))?,
+            json!(true)
+        );
+        let fresh = browser.navigate(&fixture.path("/static"))?;
+        assert_eq!(
+            fresh.evaluate("document.createElement('div').cloneNode().nodeName")?,
+            json!("DIV")
+        );
+    }
+    Ok(())
+}
+
+#[test]
 fn window_named_properties_follow_real_dom() -> TestResult {
     let fixture = Fixture::new()?;
     let page = fixture.browser()?.navigate(&fixture.path("/static"))?;

@@ -3377,6 +3377,16 @@ property difference remains in the retained comparison. The two original WPT
 cohorts now record 53/53 and 88/101 for Nimbo/celld. Assertions, upstream bytes
 and default engine budgets remain unchanged.
 
+Native `Node.cloneNode` copies shallow or deep trees with fresh node identities,
+detached ownership, attributes and document kinds. Input value, checkedness,
+indeterminateness and textarea raw value/dirty state follow their owning control
+arenas; option selectedness derives from the copied attributes. Listeners and
+JavaScript expandos are not copied. Custom element clones use the existing
+upgrade reactions; cloning a shadow root raises NotSupportedError. Tree copying
+charges cumulative node, operation and write budgets and preserves the source
+when a limit interrupts copying. Native and Worker fixtures cover mutations of
+clean and dirty textarea clones, namespace attributes and independent documents.
+
 This is partial document support. XML parsing/serialization conformance,
 DOMParser, createHTMLDocument, public Document construction, non-null doctype
 transfer, XML-specific selector case behavior and independent frame realms

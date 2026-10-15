@@ -11,6 +11,8 @@ use crate::{Error, Limits, Result};
 mod attribute_nodes;
 #[path = "dom_checkedness.rs"]
 mod checkedness;
+#[path = "dom_clone.rs"]
+mod cloning;
 #[path = "dom_control_selectors.rs"]
 pub(crate) mod control_selectors;
 #[path = "dom_controls.rs"]
@@ -62,7 +64,7 @@ pub(crate) struct Dom {
     style_bytes: usize,
     operations: usize,
     allocated_nodes: std::rc::Rc<std::cell::Cell<usize>>,
-    control_values: HashMap<NodeId, String>,
+    control_values: HashMap<NodeId, controls::ControlValue>,
     checkedness: checkedness::Arena,
     selection: std::cell::RefCell<selection::Arena>,
     selector_work: std::cell::Cell<usize>,
@@ -208,6 +210,7 @@ impl Dom {
         value: &str,
     ) -> Result<Option<Value>> {
         match operation {
+            "clone" => self.clone_node(handle, arg).map(Some),
             "history" if handle == 0 => self.history_call(arg, value).map(Some),
             "history" => Err(Error::Dom("invalid history receiver".into())),
             "mutation" => self.mutation_call(handle, arg, value).map(Some),
@@ -443,12 +446,8 @@ impl Dom {
                 self.attribute_call(operation, handle, arg, value)?
             }
             "style" => self.style(handle, arg, value)?,
-            "set" | "setAttr" | "removeAttr" => self
-                .write_value(operation, handle, arg, value)
-                .map(|()| Value::Null)?,
-            "append" | "insert" | "replace" => self.insert(operation, handle, arg, value)?,
-            "removeChild" => self.remove_child(handle, value)?,
-            "remove" => self.remove_node(handle)?,
+            "set" | "setAttr" | "removeAttr" | "append" | "insert" | "replace" | "removeChild"
+            | "remove" => self.mutate_tree(operation, handle, arg, value)?,
             _ => {
                 return Err(Error::Dom(format!(
                     "unsupported DOM operation: {operation}"
@@ -1458,6 +1457,29 @@ impl Dom {
         self.mutation_removing(self.node_id(handle)?, false)?;
         self.node(handle)?.remove_from_parent();
         Ok(Value::Null)
+    }
+
+    fn mutate_tree(
+        &mut self,
+        operation: &str,
+        handle: usize,
+        arg: &str,
+        value: &str,
+    ) -> Result<Value> {
+        let clean = self.control_children_before(operation, handle, arg, value)?;
+        let result = match operation {
+            "set" | "setAttr" | "removeAttr" => self
+                .write_value(operation, handle, arg, value)
+                .map(|()| Value::Null)?,
+            "append" | "insert" | "replace" => self.insert(operation, handle, arg, value)?,
+            "removeChild" => self.remove_child(handle, value)?,
+            "remove" => self.remove_node(handle)?,
+            _ => return Err(Error::Dom("invalid tree mutation".into())),
+        };
+        for id in clean {
+            self.control_values.remove(&id);
+        }
+        Ok(result)
     }
 
     fn remove_child(&self, handle: usize, value: &str) -> Result<Value> {
