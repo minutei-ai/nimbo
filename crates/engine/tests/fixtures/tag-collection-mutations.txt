@@ -52,7 +52,7 @@
   const htmlUpper = holder.getElementsByTagName('DIV');
   checks.htmlModeCreated = htmlUpper.length === 0;
   other.documentElement.appendChild(holder);
-  checks.xmlRestored = upper.length === 1 && upper[0] === xmlChild;
+  checks.xmlRestored = upper.length === 1 && upper[0] === xmlChild && holder.getElementsByTagName('DIV').length === 1;
   checks.htmlModeRetained = htmlUpper.length === 0;
   const gradients = scope.getElementsByTagName('linearGradient');
   const lower = scope.getElementsByTagName('lineargradient');
@@ -62,5 +62,16 @@
   checks.svgAppend = gradients.length === 1 && gradients[0] === svg && lower.length === 0;
   svg.remove();
   checks.svgRemove = gradients.length === 0;
+  let coercions = 0;
+  const qualifiedName = {toString() { coercions++; return 'i'; }};
+  const coerced = document.getElementsByTagName(qualifiedName);
+  const repeated = document.getElementsByTagName(qualifiedName);
+  checks.factoryCoercion = coercions === 2 && coerced.length === repeated.length;
+  const appended = document.createElement('i');
+  const mutated = document.getElementsByTagName({toString() {
+    document.body.appendChild(appended);
+    return 'i';
+  }});
+  checks.coercionMutation = mutated.length === 2 && mutated[1] === appended && coerced.length === 2;
   return checks;
 })()

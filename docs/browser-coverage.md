@@ -2296,13 +2296,17 @@ retains that mode when its root moves between HTML and XML documents. A fresh
 collection uses its root's current document mode, following the
 [qualified-name collection algorithm](https://dom.spec.whatwg.org/#concept-getelementsbytagname).
 
-A collection reuses its matching handles while the existing native DOM revision
-is unchanged. Every lookup still reads that revision through the native bridge;
-mutations refresh membership and tree order. The cache belongs to the collection's
-own JavaScript lifetime and does not create another native query registry. Shared
-native/Worker fixtures cover 23 mutation, identity and adoption contracts, also
-checked in Chromium. Twenty length reads over a thousand-element document fit
-the unchanged 10,000-operation default; the earlier uncached paths exhausted it.
+Repeated calls with the same root, qualified name and document mode reuse the
+existing collection, as permitted by the DOM contract. The weakly keyed owner
+starts a new collection set when its HTML/XML mode changes; retained collections
+keep their captured matching mode. A collection reuses matching handles while
+the existing native DOM revision is unchanged. Every lookup still reads that
+revision through the native bridge; mutations refresh membership and tree order.
+This does not create another native query registry. Shared native/Worker fixtures
+cover 25 mutation, identity, coercion and adoption contracts, also checked in
+Chromium. Twenty identical factory/length calls over a thousand-element HTTP
+document use 1,049 operations instead of 20,182, retaining two native handles in
+both versions. They now fit the unchanged 10,000-operation default.
 A separate Worker case verifies that repeated cached reads still exhaust their
 configured operation budget and that the next page recovers. Existing URL,
 namespace and arena fixtures retain the collection behavior checks.

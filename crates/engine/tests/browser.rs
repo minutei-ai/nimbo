@@ -4511,7 +4511,7 @@ fn tag_collection_membership_tracks_native_mutations_and_adoption() -> TestResul
     let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
     let result = page.evaluate(include_str!("fixtures/tag-collection-mutations.txt"))?;
     let checks = result.as_object().ok_or("missing tag collection checks")?;
-    assert_eq!(checks.len(), 23);
+    assert_eq!(checks.len(), 25);
     assert!(
         checks.values().all(|value| value == &json!(true)),
         "{result}"

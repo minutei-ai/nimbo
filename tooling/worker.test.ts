@@ -1423,7 +1423,7 @@ test("tag collection membership follows native mutations and adoption", async ()
       const checks: unknown = Reflect.get(result, "value");
       if (typeof checks !== "object" || checks === null)
         throw new Error("Missing collection checks");
-      expect(Object.keys(checks)).toHaveLength(23);
+      expect(Object.keys(checks)).toHaveLength(25);
       expect(Object.values(checks).every((value) => value === true)).toBe(true);
     },
   );
