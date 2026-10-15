@@ -28,7 +28,7 @@ impl fmt::Debug for WasmPageLoader {
 
 #[wasm_bindgen]
 impl WasmPageLoader {
-    /// Starts the native parser with the same optional settings as `WasmPage`.
+    /// Starts the native parser with optional page and clock budgets.
     /// No scripts run until `finish` transfers the parsed document into its machine.
     ///
     /// # Errors
@@ -49,6 +49,7 @@ impl WasmPageLoader {
         max_initial_dom_nodes: Option<usize>,
         max_dom_nodes: Option<usize>,
         max_response_bytes: Option<usize>,
+        timeout_ms: Option<u32>,
     ) -> Result<Self, String> {
         let media: MediaEnvironment = media
             .map_or_else(
@@ -58,6 +59,12 @@ impl WasmPageLoader {
             .map_err(|error| error.to_string())?;
         media.validate().map_err(|error| error.to_string())?;
         let mut limits = Limits::default();
+        if let Some(milliseconds) = timeout_ms {
+            if milliseconds == 0 {
+                return Err("resource limit: invalid timeout configuration".into());
+            }
+            limits.timeout = std::time::Duration::from_millis(u64::from(milliseconds));
+        }
         if let Some(bytes) = max_response_bytes {
             if bytes == 0 || bytes > MAX_RESPONSE_BYTES {
                 return Err("resource limit: invalid response byte configuration".into());
@@ -232,6 +239,7 @@ impl WasmPage {
             max_dom_operations,
             max_initial_dom_nodes,
             max_dom_nodes,
+            None,
             None,
         )?;
         for bytes in html.as_bytes().chunks(8192) {

@@ -5,7 +5,10 @@ counted tree sink between calls. Each `feed` accepts at most 8 KiB and shares th
 existing response-byte and initial/cumulative node budgets. `finish` transfers
 the owned document and allocation count into the Rust/QuickJS machine without
 cloning its arena. The existing synchronous `WasmPage` constructor remains
-available; the Worker uses the incremental loader.
+available; the Worker uses the incremental loader. The loader's final optional
+`timeoutMs` sets its engine-clock budget. The Worker passes the resolved scrape
+timeout so configured deadlines also apply inside the machine; direct callers
+omitting that option retain the engine default.
 Initial documents and replacement fragments use one concrete counted tree sink,
 avoiding duplicate html5ever tree-builder code in the Wasm artifact.
 

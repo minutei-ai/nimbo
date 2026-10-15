@@ -695,6 +695,25 @@ test("guest JS cannot access Worker credentials or host bindings", async () => {
   );
 });
 
+test("configured scrape deadlines above ten seconds reach the Wasm scheduler", async () => {
+  await fixture(
+    () => html("<title>Configured deadline</title>"),
+    async (worker) => {
+      const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+        method: "POST",
+        headers: { authorization: "Bearer test-secret" },
+        body: JSON.stringify({
+          url: originFor(worker),
+          timeoutMs: 14000,
+          expression: "new Promise(resolve=>setTimeout(()=>resolve(document.title),10500))",
+        }),
+      });
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({ value: "Configured deadline" });
+    },
+  );
+}, 16000);
+
 test("async scripts fetch concurrently without blocking parsing or DOMContentLoaded", async () => {
   const slow = Promise.withResolvers<Response>();
   const fast = Promise.withResolvers<Response>();
