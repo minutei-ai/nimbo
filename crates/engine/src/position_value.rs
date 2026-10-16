@@ -15,6 +15,36 @@ pub(crate) enum Value {
 }
 
 impl Value {
+    pub(crate) fn resolve(&self, basis: f64) -> Result<f64> {
+        let result = match self {
+            Self::Linear { percent, pixels } => {
+                pixels + percent.unwrap_or_default() * basis / 100.0
+            }
+            Self::Sum(a, b) => a.resolve(basis)? + b.resolve(basis)?,
+            Self::Product(factor, value) => factor * value.resolve(basis)?,
+            Self::Function(name, values) => {
+                let values = values
+                    .iter()
+                    .map(|value| value.resolve(basis))
+                    .collect::<Result<Vec<_>>>()?;
+                match *name {
+                    "min" => values.into_iter().reduce(f64::min),
+                    "max" => values.into_iter().reduce(f64::max),
+                    "clamp" => match values.as_slice() {
+                        [min, value, max] => Some(min.max(value.min(*max))),
+                        _ => None,
+                    },
+                    _ => None,
+                }
+                .ok_or_else(|| unsupported("math function"))?
+            }
+        };
+        if result.is_finite() {
+            Ok(result)
+        } else {
+            Err(unsupported("non-finite resolved value"))
+        }
+    }
     pub(crate) fn nonnegative(mut self) -> Self {
         if let Self::Linear { percent, pixels } = &mut self {
             if percent.is_none() {

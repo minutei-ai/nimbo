@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
 import { origin, requests, worker } from "./browser-live-setup";
+import { Schema } from "effect";
+import { Success } from "@nimbo/client/schema";
 
 test.each(Array.from({ length: 64 }, (_, variant) => variant))(
   "real HTTP → workerd: invalid media environments are rejected before navigation variant %i",
@@ -610,4 +612,34 @@ test("computed cascade traversal keeps DOM and layout budgets separate", async (
     engine: "rust-wasm-quickjs",
     value: { display: true, layoutLimited: true, recovered: true },
   });
+});
+
+const computedInsets = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/computed-insets.txt", import.meta.url),
+).text();
+
+test("computed insets use native positioning and live containing blocks", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: computedInsets }),
+  });
+  expect(response.status).toBe(200);
+  const result = Schema.decodeUnknownSync(Success)(await response.json());
+  expect(result.url).toBe(url);
+  expect(result.engine).toBe("rust-wasm-quickjs");
+  const checks = Schema.decodeUnknownSync(
+    Schema.Record(
+      Schema.String,
+      Schema.Struct({
+        actual: Schema.Array(Schema.String),
+        expected: Schema.Array(Schema.String),
+      }),
+    ),
+  )(result.value);
+  expect(Object.keys(checks)).toHaveLength(23);
+  for (const check of Object.values(checks)) {
+    expect(check.actual).toEqual(check.expected);
+  }
 });

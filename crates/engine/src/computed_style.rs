@@ -7,7 +7,7 @@ use crate::{
     styles::{Declarations, Variables},
 };
 
-pub(crate) const PROPERTIES: [&str; 48] = [
+pub(crate) const PROPERTIES: [&str; 56] = [
     "background-attachment",
     "background-clip",
     "background-color",
@@ -17,6 +17,7 @@ pub(crate) const PROPERTIES: [&str; 48] = [
     "background-repeat",
     "background-size",
     "block-size",
+    "bottom",
     "color",
     "direction",
     "display",
@@ -24,6 +25,11 @@ pub(crate) const PROPERTIES: [&str; 48] = [
     "font-size",
     "height",
     "inline-size",
+    "inset-block-end",
+    "inset-block-start",
+    "inset-inline-end",
+    "inset-inline-start",
+    "left",
     "line-height",
     "margin-block-end",
     "margin-block-start",
@@ -47,9 +53,11 @@ pub(crate) const PROPERTIES: [&str; 48] = [
     "padding-right",
     "padding-top",
     "position",
+    "right",
     "tab-size",
     "text-size-adjust",
     "text-transform",
+    "top",
     "transition-delay",
     "transition-duration",
     "transition-property",
@@ -71,6 +79,8 @@ pub(crate) struct Computed {
     family: crate::font_family::Family,
     display: crate::display::Computed,
     position: &'static str,
+    insets: crate::insets::Insets,
+    box_visible: bool,
     index: crate::z_index::Index,
     order: i32,
     transitions: crate::transitions::Controls,
@@ -82,10 +92,25 @@ pub(crate) fn property(name: &str) -> bool {
         || name == "transition"
         || crate::background_position::property(name)
         || crate::layout::resolved::property(name)
+        || crate::insets::index(name, false).is_some()
 }
 impl Computed {
+    pub(crate) fn needs_box(&self, name: &str) -> bool {
+        crate::layout::resolved::property(name)
+            || (crate::insets::index(name, false).is_some()
+                && self.position != "static"
+                && self.box_visible
+                && !self.display.none()
+                && !self.display.contents())
+    }
     pub(crate) fn value(&self, name: &str) -> Result<String> {
-        if crate::layout::resolved::property(name) {
+        if let Some(index) = crate::insets::index(name, self.fonts.rtl()) {
+            self.insets.value(
+                index,
+                self.position,
+                self.used_box.as_ref().filter(|_| self.needs_box(name)),
+            )
+        } else if crate::layout::resolved::property(name) {
             self.used_box
                 .as_ref()
                 .ok_or_else(|| Error::Dom("missing resolved box".into()))?
@@ -155,6 +180,8 @@ pub(crate) fn resolve(
     let mut family = crate::font_family::Family::default();
     let mut display = crate::display::Computed::default();
     let mut position = "static";
+    let mut insets = crate::insets::Insets::default();
+    let mut box_visible = true;
     let mut index = crate::z_index::Index::default();
     let mut order = 0;
     let mut transform = crate::text_transform::Transform::default();
@@ -202,7 +229,9 @@ pub(crate) fn resolve(
         index = index.compute(&declarations.value("z-index").0)?;
         order = crate::layout::order::compute(order, &declarations)?;
         position = computed_position(position, &declarations)?;
+        insets = insets.compute(&declarations, &fonts, work)?;
         display = display.compute(node, &declarations, depth == 0, false)?;
+        box_visible &= !display.none();
     }
     Ok(Computed {
         used_box: None,
@@ -217,6 +246,8 @@ pub(crate) fn resolve(
         family,
         display,
         position,
+        insets,
+        box_visible,
         index,
         order,
         transitions,

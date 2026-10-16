@@ -2962,6 +2962,24 @@ establish complete CSSOM or upstream browser parity.
 
 Reference: [CSSOM resolved values](https://drafts.csswg.org/cssom/#resolved-values).
 
+### Computed positioning insets
+
+Physical top/right/bottom/left and horizontal logical inset longhands use the
+same native computed-style and layout cache. Static elements and elements
+without a box retain computed lengths, percentages and auto. Positioned boxes
+resolve percentages against their native containing block; relative auto sides
+use the opposite inset, absolute/fixed auto sides use the native margin-box
+position, and sticky percentages use the nearest scrolling ancestor's content
+size or the viewport. Scrolling does not replace sticky thresholds with visual
+offsets. Geometry traversal retains its existing resource budgets.
+
+The shared synthetic fixture covers 23 cases, including all positioning modes,
+percentages, automatic and over-constrained sides, static math and relative
+units, hidden/contents boxes, logical aliases, RTL and live containing-block
+resize. The identical source was checked independently in Chromium. This does
+not add mixed percentage math to native layout, vertical writing modes,
+computed inset shorthands or pseudo-element computed styles.
+
 ## Outer SVG viewport sizing
 
 The native Rust layout engine now treats an outermost SVG element as a replaced

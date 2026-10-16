@@ -204,7 +204,7 @@ test.each([
 );
 
 test.each([
-  ["getComputedStyle(document.body).left", "computed style left"],
+  ["getComputedStyle(document.body).minWidth", "computed style min-width"],
   ["getComputedStyle(document.body).getPropertyValue('--custom')", "computed style --custom"],
   [
     "(()=>{document.body.style.color='color(display-p3 1 0 0)';return getComputedStyle(document.body).color})()",

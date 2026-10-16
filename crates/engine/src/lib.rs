@@ -39,6 +39,7 @@ pub mod fuzzing;
 mod html_boxes;
 mod html_parse;
 mod import_maps;
+mod insets;
 mod layers;
 mod layout;
 mod line_height;

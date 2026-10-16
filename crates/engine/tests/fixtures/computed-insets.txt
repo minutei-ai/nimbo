@@ -1,0 +1,62 @@
+(() => {
+  const parent = document.createElement('div');
+  parent.style.cssText = 'position:relative;width:200px;height:100px;padding:10px;border:5px solid';
+  document.body.append(parent);
+  const result = {};
+  const cases = [
+    ['staticAuto','static','',['auto','auto','auto','auto']],
+    ['staticPercent','static','top:10%;right:20%;bottom:30%;left:40%',['10%','20%','30%','40%']],
+    ['staticMath','static','top:calc(10% + 2px);left:2em',['calc(10% + 2px)','auto','auto','20px']],
+    ['relativeAuto','relative','',['0px','0px','0px','0px']],
+    ['relativeTop','relative','top:10px',['10px','0px','-10px','0px']],
+    ['relativeRight','relative','right:10px',['0px','10px','0px','-10px']],
+    ['relativePercent','relative','top:10%;left:20%',['10px','-40px','-10px','40px']],
+    ['relativeBoth','relative','top:10%;bottom:20%;left:10%;right:20%',['10px','40px','20px','20px']],
+    ['absoluteAuto','absolute','',['10px','164px','84px','10px']],
+    ['absoluteRight','absolute','right:10px',['10px','10px','84px','164px']],
+    ['absolutePercent','absolute','top:10%;left:20%',['12px','130px','82px','44px']],
+    ['absoluteBoth','absolute','top:10%;bottom:20%;left:10%;right:20%',['12px','44px','24px','22px']],
+    ['fixedPercent','fixed','top:10%;right:20%;bottom:30%;left:40%',[innerHeight/10+'px',innerWidth/5+'px',innerHeight*3/10+'px',innerWidth*0.4+'px']],
+    ['stickyAuto','sticky','',['auto','auto','auto','auto']],
+    ['stickyTop','sticky','top:10px',['10px','auto','auto','auto']],
+    ['stickyPercent','sticky','top:10%;left:20%',[innerHeight/10+'px','auto','auto',innerWidth/5+'px']],
+  ];
+  for (const [name,position,extra,expected] of cases) {
+    const target = document.createElement('div');
+    target.style.cssText = 'position:'+position+';width:40px;height:20px;margin:3px;font-size:10px;'+extra;
+    parent.append(target);
+    const style = getComputedStyle(target);
+    const actual = [style.top,style.right,style.bottom,style.left];
+    result[name] = {actual,expected};
+    target.remove();
+  }
+  for (const display of ['none','contents']) {
+    const target = document.createElement('div');
+    target.style.cssText = 'position:absolute;display:'+display+';top:10%;left:2em;font-size:10px';
+    parent.append(target);
+    const style = getComputedStyle(target);
+    result[display] = {actual:[style.top,style.left],expected:['10%','20px']};
+    target.remove();
+  }
+  const target = document.createElement('div');
+  target.style.cssText = 'position:relative;inset-inline-start:10%;inset-block-end:7px;width:40px;height:20px';
+  parent.append(target);
+  const live = getComputedStyle(target);
+  result.logical = {actual:[live.left,live.top,live.insetInlineStart,live.insetBlockEnd],expected:['20px','-7px','20px','7px']};
+  parent.style.direction = 'rtl';
+  result.rtl = {actual:[live.left,live.right,live.insetInlineStart],expected:['-20px','20px','20px']};
+  parent.style.width = '300px';
+  result.resized = {actual:[live.right,live.insetInlineStart],expected:['30px','30px']};
+  target.remove();
+  parent.style.direction = 'ltr';
+  parent.style.width = '200px';
+  parent.style.overflow = 'hidden';
+  target.style.cssText = 'position:sticky;top:10%;left:20%;width:40px;height:20px';
+  parent.append(target);
+  result.scrollport = {actual:[live.top,live.left],expected:['10px','40px']};
+  parent.style.display = 'none';
+  result.hiddenAncestor = {actual:[live.top,live.left],expected:['10%','20%']};
+  target.remove();
+  parent.remove();
+  return result;
+})()

@@ -783,11 +783,10 @@ impl Dom {
             )?;
             self.computed_styles.insert(id, values);
         }
-        if crate::layout::resolved::property(name)
-            && self
-                .computed_styles
-                .get(&id)
-                .is_some_and(|style| style.used_box.is_none())
+        if self
+            .computed_styles
+            .get(&id)
+            .is_some_and(|style| style.needs_box(name) && style.used_box.is_none())
         {
             let mut work = crate::layout::Work::new(
                 &mut self.operations,

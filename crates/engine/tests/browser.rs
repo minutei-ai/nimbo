@@ -5848,3 +5848,18 @@ fn computed_cascade_traversal_keeps_dom_and_layout_budgets_separate() -> TestRes
     );
     Ok(())
 }
+
+#[test]
+fn computed_insets_use_native_positioning_and_live_containing_blocks() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/empty-layout"))?;
+    let result = page.evaluate(include_str!("fixtures/computed-insets.txt"))?;
+    let checks = result.as_object().ok_or("missing inset checks")?;
+    assert_eq!(checks.len(), 23);
+    for (name, check) in checks {
+        assert_eq!(check["actual"], check["expected"], "{name}");
+    }
+    Ok(())
+}
