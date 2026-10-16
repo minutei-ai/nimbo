@@ -222,7 +222,7 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
   expect(await response.json()).toMatchObject({
     value: {
       font: "18px",
-      count: 56,
+      count: 58,
       names: [
         "background-attachment",
         "background-clip",
@@ -239,6 +239,8 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
         "display",
         "font-family",
         "font-size",
+        "font-style",
+        "font-weight",
         "height",
         "inline-size",
         "inset-block-end",

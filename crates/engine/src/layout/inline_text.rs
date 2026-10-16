@@ -54,11 +54,7 @@ impl Tree<'_, '_> {
             self.visit(depth)?;
             return Ok(true);
         }
-        if !["span", "a", "label", "abbr"]
-            .iter()
-            .any(|name| node.has_name(name))
-            || display.value()? != "inline"
-        {
+        if !crate::html_boxes::text_inline(node) || display.value()? != "inline" {
             return Ok(false);
         }
         self.visit(depth)?;

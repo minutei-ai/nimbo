@@ -1,0 +1,51 @@
+(() => {
+  const result={};
+  const node=document.createElement('div');
+  node.style.cssText='font:normal 500 16px/20px serif';
+  node.textContent='alpha beta';
+  document.body.append(node);
+  for(const weight of [-1,0,1001]){
+    node.style.fontWeight='500';
+    node.style.fontWeight=String(weight);
+    result['invalid-weight-'+weight]=node.style.fontWeight==='500' && getComputedStyle(node).fontWeight==='500' && !CSS.supports('font-weight',String(weight));
+  }
+  node.style.font='1001 16px serif';
+  result.invalidShorthand=getComputedStyle(node).fontWeight==='500' && !CSS.supports('font','1001 16px serif');
+  node.style.fontWeight='3.14';
+  result.fractional=getComputedStyle(node).fontWeight==='3.14';
+  node.style.fontStyle='italic';
+  node.style.fontStyle='oblique 91deg';
+  result.invalidAngle=getComputedStyle(node).fontStyle==='italic' && !CSS.supports('font-style','oblique 91deg');
+  node.style.fontStyle='oblique 0.25turn';
+  result.angle=getComputedStyle(node).fontStyle==='oblique 90deg';
+  try{node.getBoundingClientRect();result.oblique=false;}
+  catch(error){result.oblique=error.message.includes('text font synthesis or spacing');}
+  node.style.fontStyle='normal';
+  node.style.fontWeight='400';
+  node.innerHTML='alpha <i>beta</i>';
+  try{node.querySelector('i').getBoundingClientRect();result.fragment=false;}
+  catch(error){result.fragment=error.message.includes('inline fragment geometry');}
+  const sheet=document.createElement('style');sheet.textContent='i::before{content:"icon"}';document.head.append(sheet);
+  try{node.getBoundingClientRect();result.generated=false;}
+  catch(error){result.generated=error.message.includes('generated content in inline text');}
+  sheet.remove();
+  const foreign=document.createElementNS('http://www.w3.org/2000/svg','i');foreign.textContent='alpha';document.body.append(foreign);
+  result.namespaceDefault=getComputedStyle(foreign).fontStyle==='normal';
+  try{foreign.getBoundingClientRect();result.namespace=false;}
+  catch(error){result.namespace=error.message.includes('SVG');}
+  foreign.remove();
+  const unsupported=document.createElement('table');document.body.append(unsupported);
+  try{unsupported.getBoundingClientRect();result.table=false;}
+  catch(error){result.table=error.message.includes('unsupported HTML tag');}
+  unsupported.remove();
+  node.innerHTML='<i style="font-style:normal">alpha</i>';
+  node.style.display='inline-block';
+  node.firstElementChild.style.display='inline-block';
+  try{node.getBoundingClientRect();result.nestedAtomic=false;}
+  catch(error){result.nestedAtomic=error.message.includes('nested block inline formatting');}
+  node.style.display='block';
+  node.firstElementChild.style.cssText='font-style:italic';
+  result.recovery=node.getBoundingClientRect().height===20;
+  node.remove();
+  return result;
+})()

@@ -1000,18 +1000,12 @@ impl Cascade {
         if generated.is_none() {
             sources.push((inline, true, 0, [usize::MAX].as_slice()));
         }
-        Declarations::cascade(sources)
-            .and_then(|declarations| {
-                if generated.is_some() {
-                    return Ok(declarations);
-                }
-                let declarations =
-                    declarations.defaults(crate::html_boxes::heading_defaults(node))?;
-                match crate::html_boxes::direction_default(node) {
-                    Some(direction) => declarations.defaults(direction),
-                    None => Ok(declarations),
-                }
-            })
-            .map_err(|message| Error::Dom(message.into()))
+        let declarations =
+            Declarations::cascade(sources).map_err(|message| Error::Dom(message.into()))?;
+        if generated.is_some() {
+            Ok(declarations)
+        } else {
+            crate::html_boxes::defaults(node, declarations)
+        }
     }
 }

@@ -1,5 +1,8 @@
 use crate::dom_attributes::NativeAttributes;
 use dom_query::NodeRef;
+use lightningcss::{
+    properties::font::AbsoluteFontWeight, stylesheet::PrinterOptions, traits::ToCss,
+};
 
 use crate::{
     Error, MediaEnvironment, Result,
@@ -7,7 +10,7 @@ use crate::{
     styles::{Declarations, Variables},
 };
 
-pub(crate) const PROPERTIES: [&str; 56] = [
+pub(crate) const PROPERTIES: [&str; 58] = [
     "background-attachment",
     "background-clip",
     "background-color",
@@ -23,6 +26,8 @@ pub(crate) const PROPERTIES: [&str; 56] = [
     "display",
     "font-family",
     "font-size",
+    "font-style",
+    "font-weight",
     "height",
     "inline-size",
     "inset-block-end",
@@ -69,6 +74,7 @@ pub(crate) const PROPERTIES: [&str; 56] = [
 pub(crate) struct Computed {
     pub(crate) used_box: Option<crate::layout::resolved::BoxValues>,
     fonts: crate::fonts::Context,
+    font_traits: crate::font_traits::Computed,
     outlines: crate::outlines::Outlines,
     background: crate::backgrounds::Color,
     images: crate::backgrounds::Images,
@@ -139,6 +145,15 @@ impl Computed {
             Ok(self.index.value())
         } else if name == "display" {
             self.display.value()
+        } else if name == "font-style" {
+            self.font_traits
+                .style
+                .to_css_string(PrinterOptions::default())
+                .map_err(|error| Error::Dom(error.to_string()))
+        } else if name == "font-weight" {
+            AbsoluteFontWeight::Weight(self.font_traits.weight)
+                .to_css_string(PrinterOptions::default())
+                .map_err(|error| Error::Dom(error.to_string()))
         } else if name == "font-family" {
             self.family.value()
         } else if name == "line-height" {
@@ -170,6 +185,7 @@ pub(crate) fn resolve(
     let ancestors = ancestors(target)?;
     let mut variables = Variables::default();
     let mut fonts = crate::fonts::Context::new(media);
+    let mut font_traits = crate::font_traits::Computed::default();
     let mut outlines = crate::outlines::Outlines::default();
     let mut background = crate::backgrounds::Color::default();
     let mut images = crate::backgrounds::Images::default();
@@ -206,6 +222,7 @@ pub(crate) fn resolve(
         let (declarations, next_variables) =
             declarations.compute_registered(&variables, &cascade.registrations, work)?;
         variables = next_variables;
+        let declarations = crate::html_boxes::computed_defaults(node, declarations)?;
         let declarations =
             cascade
                 .animations
@@ -218,6 +235,7 @@ pub(crate) fn resolve(
                 .sample(node, declarations, sources.now)?;
         transform = transform.compute(&declarations)?;
         fonts = fonts.compute(&declarations, depth == 0, work)?;
+        font_traits = font_traits.compute(&declarations)?;
         outlines = outlines.compute(&declarations, &fonts, work)?;
         background = background.compute(&declarations, outlines.color(), work)?;
         images = images.compute(&declarations, &fonts, work)?;
@@ -236,6 +254,7 @@ pub(crate) fn resolve(
     Ok(Computed {
         used_box: None,
         fonts,
+        font_traits,
         outlines,
         background,
         images,

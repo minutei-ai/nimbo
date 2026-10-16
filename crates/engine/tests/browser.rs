@@ -5970,3 +5970,30 @@ fn native_user_select_property_family_does_not_change_geometry() -> TestResult {
     );
     Ok(())
 }
+
+#[test]
+fn semantic_inline_emphasis_uses_html_defaults_and_native_font_traits() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/empty-layout"))?;
+    let result = page.evaluate(include_str!("fixtures/semantic-emphasis.txt"))?;
+    let checks = result
+        .as_object()
+        .ok_or("missing semantic emphasis checks")?;
+    assert_eq!(checks.len(), 40);
+    assert!(
+        checks.values().all(|value| value == &json!(true)),
+        "{result}"
+    );
+    let result = page.evaluate(include_str!("fixtures/semantic-emphasis-boundary.txt"))?;
+    let checks = result
+        .as_object()
+        .ok_or("missing emphasis boundary checks")?;
+    assert_eq!(checks.len(), 15);
+    assert!(
+        checks.values().all(|value| value == &json!(true)),
+        "{result}"
+    );
+    Ok(())
+}

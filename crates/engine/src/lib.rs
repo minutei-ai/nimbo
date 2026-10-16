@@ -32,6 +32,7 @@ mod font_faces;
 mod font_family;
 mod font_matching;
 mod font_settings;
+mod font_traits;
 mod fonts;
 #[cfg(fuzzing)]
 #[doc(hidden)]

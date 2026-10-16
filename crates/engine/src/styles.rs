@@ -480,10 +480,7 @@ fn native_declaration(name: &str, value: &str) -> bool {
 fn expand(name: &str, value: &str, important: bool) -> Option<Vec<Entry>> {
     let value = trimmed(value)?;
     let id = PropertyId::from(name);
-    if (!known_name(name) && !custom_name(name))
-        || name == "--"
-        || (value.is_empty() && !custom_name(name))
-    {
+    if (!known_name(name) && !custom_name(name)) || (value.is_empty() && !custom_name(name)) {
         return None;
     }
     if let Some(wide) = wide_keyword(value) {
@@ -550,6 +547,7 @@ fn expand(name: &str, value: &str, important: bool) -> Option<Vec<Entry>> {
     // The transformer accepts invalid ordinary values as Unparsed. Only the
     // syntax-checked variable branch above may bypass a property's typed grammar.
     if matches!(parsed, Property::Unparsed(_))
+        || !crate::font_traits::valid(&parsed)
         || !crate::borders::valid_literals(name, value)
         || !crate::outlines::valid(&parsed)
         || !crate::transitions::valid(&parsed)
@@ -675,11 +673,14 @@ impl Declarations {
             shorthands: Vec::new(),
         })
     }
-    pub(crate) fn defaults(mut self, source: &str) -> Result<Self, &'static str> {
+    pub(crate) fn ua_defaults(mut self, source: &str) -> Result<Self, &'static str> {
         if source.is_empty() {
             return Ok(self);
         }
         let mut defaults = Self::parse(source)?.entries;
+        self.entries.retain(|entry| {
+            entry.value != "revert" || !defaults.iter().any(|fallback| fallback.name == entry.name)
+        });
         defaults.retain(|entry| {
             !self
                 .entries

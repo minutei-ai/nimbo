@@ -854,3 +854,42 @@ test("native user-select aliases preserve CSS grammar and unsupported layout bou
   expect(Object.keys(checks)).toHaveLength(16);
   expect(Object.values(checks).every((check) => check)).toBe(true);
 });
+
+const semanticEmphasis = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/semantic-emphasis.txt", import.meta.url),
+).text();
+const semanticEmphasisBoundary = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/semantic-emphasis-boundary.txt", import.meta.url),
+).text();
+
+test("semantic inline emphasis uses HTML defaults and native computed font traits", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: semanticEmphasis }),
+  });
+  expect(response.status).toBe(200);
+  const result = Schema.decodeUnknownSync(Success)(await response.json());
+  const checks = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Boolean))(
+    result.value,
+  );
+  expect(Object.keys(checks)).toHaveLength(40);
+  expect(Object.values(checks).every((check) => check)).toBe(true);
+});
+
+test("semantic emphasis validates font grammar and preserves unsupported formatting boundaries", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: semanticEmphasisBoundary }),
+  });
+  expect(response.status).toBe(200);
+  const result = Schema.decodeUnknownSync(Success)(await response.json());
+  const checks = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Boolean))(
+    result.value,
+  );
+  expect(Object.keys(checks)).toHaveLength(15);
+  expect(Object.values(checks).every((check) => check)).toBe(true);
+});

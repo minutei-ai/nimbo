@@ -206,3 +206,38 @@ cases. Invalid values keep the prior declaration, unknown properties follow
 native parser filtering, and unsupported prefixed transforms still fail.
 This evidence covers geometry and declarations; interactive selection and
 computed `user-select` values remain outside this geometry subset.
+
+## Semantic inline emphasis
+
+The HTML box owner defines the text-inline categories and their user-agent
+styles. `i`, `em`, `cite`, `dfn` and `var` use italic; `b` and `strong` use an
+inherited relative weight. The collector consumes that same category instead
+of maintaining a second tag list. These defaults follow the
+[HTML phrasing-content rules](https://html.spec.whatwg.org/multipage/rendering.html#phrasing-content-3).
+Author styles, font shorthands and inherited values override the defaults;
+`revert` restores them, including after variable substitution.
+
+Layout and `getComputedStyle` share native font traits. `font-style` and
+`font-weight` computed values are available. Weight inheritance uses the
+[CSS relative-weight ranges](https://www.w3.org/TR/css-fonts-4/#relative-weights),
+preserving the 1–1000 range. Invalid weights and oblique angles are rejected at
+the declaration boundary, including in font shorthands. Native font-number
+precision is retained: `3.14` remains `3.14`, whereas the observed Chromium
+computed value is quantized to `3`.
+
+The shared `semantic-emphasis` fixture has 40 checks independently compared
+with Chromium in standards mode, covering defaults, authored rules, relative
+weights, nesting, padding, block siblings, mutation and reattachment. Native
+Rust and Worker/Wasm additionally run 15 grammar and boundary checks. Oblique
+shaping, generated inline text, fragment rectangles, nested atomic formatting,
+unsupported HTML categories and foreign namespaces retain explicit boundaries;
+recovery is checked on the same page.
+
+The [retained-path benchmark](evidence/semantic-emphasis-2026-10-16.json) compares
+two local rounds with a separately rebuilt `4badfb2` baseline. Both builds
+complete 19/19 requests per round. Baseline/candidate p50 values are
+68.81/58.26ms and 66.66/74.95ms; p95 values are 103.82/80.86ms and
+117.34/105.86ms. The mixed p50 results do not establish a speedup or stable
+latency delta. Wasm grows by 8,025 bytes. RSS samples measure process-tree memory
+after requests, not peak memory or page heap. The semantic emphasis path has no
+equivalent baseline because that version rejects the input.

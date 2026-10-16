@@ -1,0 +1,75 @@
+(() => {
+  const result={};
+  const make=(html,css='')=>{
+    const node=document.createElement('div');
+    node.style.cssText='font:normal 400 16px/20px serif;display:inline-block;white-space:nowrap;'+css;
+    node.innerHTML=html;
+    document.body.append(node);
+    return node;
+  };
+  const equal=(a,b)=>{
+    const x=a.getBoundingClientRect(),y=b.getBoundingClientRect();
+    return Math.abs(x.width-y.width)<0.05 && Math.abs(x.height-y.height)<0.05;
+  };
+  for(const tag of ['i','em','cite','dfn','var','b','strong']){
+    const italic=!['b','strong'].includes(tag);
+    const actual=make('AA<'+tag+'>BB</'+tag+'>CC');
+    const expected=make('AA<span style="'+(italic?'font-style:italic':'font-weight:700')+'">BB</span>CC');
+    const style=getComputedStyle(actual.firstElementChild);
+    result['default-'+tag]=style.fontStyle===(italic?'italic':'normal') && style.fontWeight===(italic?'400':'700') && equal(actual,expected);
+    actual.remove();expected.remove();
+  }
+  for(const [keyword,expected] of [['normal','normal'],['inherit','normal'],['initial','normal'],['unset','normal'],['revert','italic'],['var(--missing,revert)','italic']]){
+    const node=make('alpha <i style="font-style:'+keyword+'">beta</i>');
+    result['style-'+keyword]=getComputedStyle(node.firstElementChild).fontStyle===expected && node.getBoundingClientRect().height===20;
+    node.remove();
+  }
+  const weights=[[1,400,700,1],[100,400,700,100],[349,400,700,100],[350,700,900,100],[549,700,900,100],[550,900,900,400],[749,900,900,400],[750,900,900,700],[900,900,900,700],[901,901,901,700],[1000,1000,1000,700]];
+  for(const [weight,bolder,nested,lighter] of weights){
+    const node=make('<b>A<strong>B</strong></b><span style="font-weight:lighter">C</span>','font-weight:'+weight);
+    result['relative-'+weight]=getComputedStyle(node).fontWeight===String(weight) && getComputedStyle(node.children[0]).fontWeight===String(bolder) && getComputedStyle(node.querySelector('strong')).fontWeight===String(nested) && getComputedStyle(node.children[1]).fontWeight===String(lighter);
+    node.remove();
+  }
+  for(const [keyword,expected] of [['inherit',500],['unset',500],['initial',400],['revert',700],['var(--missing,revert)',700]]){
+    const node=make('<b style="font-weight:'+keyword+'">alpha</b>','font-weight:500');
+    result['weight-'+keyword]=getComputedStyle(node.firstElementChild).fontWeight===String(expected);
+    node.remove();
+  }
+  const reset=make('al<i style="font:normal 400 16px/20px serif">pha be</i>ta');
+  const plain=make('alpha beta');
+  result.shorthand=equal(reset,plain) && getComputedStyle(reset.firstElementChild).fontStyle==='normal';
+  reset.remove();plain.remove();
+  const nested=make('<i>alpha <strong>beta</strong></i>');
+  result.nested=getComputedStyle(nested.querySelector('strong')).fontStyle==='italic' && getComputedStyle(nested.querySelector('strong')).fontWeight==='700' && nested.getBoundingClientRect().height===20;
+  nested.remove();
+  const padded=make('alpha <em style="padding:0 4px">beta</em>');
+  const expected=make('alpha <span style="font-style:italic;padding:0 4px">beta</span>');
+  result.padding=equal(padded,expected);
+  padded.remove();expected.remove();
+  const blocks=make('<i>alpha</i><div>beta</div><strong>gamma</strong>','display:block;width:160px');
+  result.blocks=blocks.getBoundingClientRect().height===60;
+  blocks.remove();
+  const sheet=document.createElement('style');
+  sheet.textContent='#semantic-test i{font-style:normal}';
+  document.head.append(sheet);
+  const styled=make('<i>alpha</i>');styled.id='semantic-test';
+  result.sheet=getComputedStyle(styled.firstElementChild).fontStyle==='normal';
+  sheet.textContent='#semantic-test i{font-style:italic;font-weight:700}';
+  result.mutation=getComputedStyle(styled.firstElementChild).fontStyle==='italic' && getComputedStyle(styled.firstElementChild).fontWeight==='700';
+  sheet.remove();
+  result.removal=getComputedStyle(styled.firstElementChild).fontStyle==='italic' && getComputedStyle(styled.firstElementChild).fontWeight==='400';
+  styled.remove();
+  document.body.append(styled);
+  result.reattach=getComputedStyle(styled.firstElementChild).fontStyle==='italic' && styled.getBoundingClientRect().height===20;
+  styled.remove();
+  const empty=make('<i></i>');
+  result.empty=empty.getBoundingClientRect().height===0;
+  empty.style.display='block';
+  empty.firstElementChild.style.cssText='display:inline-block;width:12px;height:10px;font-style:normal';
+  result.atomic=empty.getBoundingClientRect().height===20;
+  empty.remove();
+  const important=make('<i style="font-style:revert!important">alpha</i>');
+  result.important=getComputedStyle(important.firstElementChild).fontStyle==='italic' && important.firstElementChild.style.getPropertyPriority('font-style')==='important';
+  important.remove();
+  return result;
+})()

@@ -7,7 +7,27 @@ const BLOCK: [&str; 24] = [
     "html", "body", "div", "main", "section", "article", "aside", "header", "footer", "nav",
     "hgroup", "p", "ul", "ol", "h1", "h2", "h3", "h4", "h5", "h6", "form", "dl", "dt", "dd",
 ];
-const INLINE: [&str; 7] = ["span", "a", "abbr", "bdi", "data", "time", "label"];
+fn html(node: NodeRef<'_>) -> bool {
+    node.qual_name_ref()
+        .is_some_and(|name| name.ns.as_ref() == "http://www.w3.org/1999/xhtml")
+}
+
+fn inline_defaults(node: NodeRef<'_>) -> Option<&'static str> {
+    if !html(node) {
+        return None;
+    }
+    let name = node.qual_name_ref()?;
+    match name.local.as_ref() {
+        "span" | "a" | "abbr" | "data" | "time" | "label" => Some(""),
+        "i" | "em" | "cite" | "dfn" | "var" => Some("font-style:italic"),
+        "b" | "strong" => Some("font-weight:bolder"),
+        _ => None,
+    }
+}
+
+pub(crate) fn text_inline(node: NodeRef<'_>) -> bool {
+    inline_defaults(node).is_some()
+}
 
 pub(crate) fn block(node: NodeRef<'_>) -> bool {
     BLOCK.iter().any(|name| node.has_name(name))
@@ -123,7 +143,8 @@ pub(crate) fn validate(
     } else if namespace != Some("http://www.w3.org/1999/xhtml") {
         "element formatting: namespace"
     } else if block(node)
-        || INLINE.iter().any(|name| node.has_name(name))
+        || text_inline(node)
+        || node.has_name("bdi")
         || name.as_ref().is_some_and(|name| custom_name(&name.local))
     {
         return Ok(());
@@ -231,8 +252,13 @@ fn auto_rtl(node: NodeRef<'_>) -> bool {
     false
 }
 
-/// Modern HTML heading defaults, before authored declarations.
-pub(crate) fn heading_defaults(node: NodeRef<'_>) -> &'static str {
+fn text_defaults(node: NodeRef<'_>) -> &'static str {
+    if let Some(defaults) = inline_defaults(node) {
+        return defaults;
+    }
+    if !html(node) {
+        return "";
+    }
     if node.has_name("h1") {
         "font-size:2em;font-weight:bold;margin-block:.67em"
     } else if node.has_name("h2") {
@@ -247,5 +273,29 @@ pub(crate) fn heading_defaults(node: NodeRef<'_>) -> &'static str {
         "font-size:.67em;font-weight:bold;margin-block:2.33em"
     } else {
         ""
+    }
+}
+
+pub(crate) fn defaults(node: NodeRef<'_>, declarations: Declarations) -> Result<Declarations> {
+    declarations
+        .ua_defaults(text_defaults(node))
+        .and_then(|declarations| match direction_default(node) {
+            Some(direction) => declarations.ua_defaults(direction),
+            None => Ok(declarations),
+        })
+        .map_err(|message| Error::Dom(message.into()))
+}
+
+pub(crate) fn computed_defaults(
+    node: NodeRef<'_>,
+    declarations: Declarations,
+) -> Result<Declarations> {
+    if declarations
+        .layout_entries()
+        .any(|(_, value, _)| value == "revert")
+    {
+        defaults(node, declarations)
+    } else {
+        Ok(declarations)
     }
 }

@@ -858,6 +858,7 @@ impl Tree<'_, '_> {
             &self.cascade.registrations,
             self.work,
         )?;
+        let declarations = crate::html_boxes::computed_defaults(node, declarations)?;
         let declarations = self.animate(&declarations, &variables)?;
         let declarations = self
             .transitions
@@ -1025,11 +1026,7 @@ impl Tree<'_, '_> {
     ) -> Result<Option<text::Run>> {
         if !matches!(display, Display::Block | Display::FlowRoot)
             || node.children_it(false).any(|child| {
-                child.is_element()
-                    && !non_rendered(child)
-                    && !["span", "a", "label", "abbr"]
-                        .iter()
-                        .any(|name| child.has_name(name))
+                child.is_element() && !non_rendered(child) && !crate::html_boxes::text_inline(child)
             })
         {
             return Ok(None);

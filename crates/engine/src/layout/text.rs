@@ -7,6 +7,7 @@ use std::{
 
 use crate::font_data::Faces;
 use harfrust::Font;
+use lightningcss::{properties::font::FontStyle, stylesheet::PrinterOptions, traits::ToCss};
 use num_traits::ToPrimitive;
 use taffy::prelude::*;
 use unicode_segmentation::UnicodeSegmentation;
@@ -21,8 +22,7 @@ use taffy::util::ResolveOrZero;
 
 #[derive(Clone, PartialEq)]
 pub(super) struct Typography {
-    weight: String,
-    style: String,
+    traits: crate::font_traits::Computed,
     spacing: f64,
     stretch: String,
     variant: String,
@@ -35,8 +35,7 @@ pub(super) struct Typography {
 impl Default for Typography {
     fn default() -> Self {
         Self {
-            weight: "normal".into(),
-            style: "normal".into(),
+            traits: crate::font_traits::Computed::default(),
             spacing: 0.0,
             stretch: "normal".into(),
             variant: "normal".into(),
@@ -79,8 +78,11 @@ impl Typography {
         let font = arena.select(
             format!(
                 "{} {} {}px {}",
-                self.style,
-                self.weight,
+                self.traits
+                    .style
+                    .to_css_string(PrinterOptions::default())
+                    .map_err(|error| crate::Error::Dom(error.to_string()))?,
+                self.traits.weight,
                 fonts.size(),
                 family.value()?
             ),
@@ -141,8 +143,7 @@ impl Typography {
         Ok(Self {
             transform: self.transform.compute(declarations)?,
             language,
-            weight: inherited(declarations, "font-weight", &self.weight),
-            style: inherited(declarations, "font-style", &self.style),
+            traits: self.traits.compute(declarations)?,
             spacing,
             stretch: inherited(declarations, "font-stretch", &self.stretch),
             variant: inherited(declarations, "font-variant", &self.variant),
@@ -385,8 +386,10 @@ impl FontRun {
         fonts: &crate::font_data::Arena,
         budget: Rc<Budget>,
     ) -> Result<Self> {
-        if !matches!(typography.style.as_str(), "normal" | "italic")
-            || !matches!(typography.stretch.as_str(), "normal" | "100%")
+        if !matches!(
+            typography.traits.style,
+            FontStyle::Normal | FontStyle::Italic
+        ) || !matches!(typography.stretch.as_str(), "normal" | "100%")
             || typography.variant != "normal"
         {
             return Err(unsupported("text font synthesis or spacing"));
@@ -395,8 +398,12 @@ impl FontRun {
         let faces = fonts.select_faces(
             format!(
                 "{} {} {size}px {}",
-                typography.style,
-                typography.weight,
+                typography
+                    .traits
+                    .style
+                    .to_css_string(PrinterOptions::default())
+                    .map_err(|error| crate::Error::Dom(error.to_string()))?,
+                typography.traits.weight,
                 family.value()?
             ),
             source,
