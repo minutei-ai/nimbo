@@ -112,8 +112,9 @@ style, textarea and bdi elements and descendants with their own `dir`, and
 falls back to `ltr`. `text-align` `left`, `right`, `center`, `start` and `end`
 place atomic inline boxes on each line, with `start`/`end` resolved against
 the box's direction. Atomic inlines accept `vertical-align: baseline`,
-`top` and `middle`. Chromium moves the baseline-aligned set when a taller box is
-bottom-aligned, so `bottom` and other text-relative values fail
+`top`, `middle`, and explicit lengths or percentages (including supported CSS math).
+Chromium moves the baseline-aligned set when a taller box is bottom-aligned, so
+`bottom` and unsupported text-relative keywords fail
 explicitly. Inline fragment geometry, `justify`, transitions of
 logical properties under `rtl`, and vertical or sideways writing modes stay
 unsupported.
@@ -313,7 +314,9 @@ Wasm grows by 331 bytes. RSS measures process-tree memory after requests, not
 peak memory or page heap. The new static-inset path has no equivalent baseline
 because that version rejects the input.
 
-## Middle alignment of atomic inline boxes
+## Vertical alignment of atomic inline boxes
+
+### Middle alignment
 
 `inline-block` and `inline-flex` boxes accept `vertical-align: middle`. Taffy
 still sizes and positions the boxes. The native layout owner adjusts their
@@ -336,8 +339,7 @@ intrinsic sizing, resize, reattachment, parent-font changes, buttons,
 multiple boxes, wrapping, mixed baselines and contents. Its geometric criteria
 use each runtime's independently measured parent strut and the font profile's
 x-height; they do not assert identical absolute font-baseline rounding.
-Middle alignment of ordinary text inlines and other unsupported alignment
-values retain their existing boundaries.
+Middle alignment of ordinary non-replaced text inlines remains unsupported.
 
 The [retained-path comparison](evidence/atomic-middle-2026-10-16.json)
 uses the same baseline-aligned atomic boxes in both builds, real local HTTP,
@@ -349,3 +351,34 @@ in all three rounds; this small local comparison does not isolate the cause
 or establish a stable latency delta. This change claims coverage, not a
 speedup. Wasm grows by 8,311 bytes. Middle alignment itself has no equivalent
 baseline because that version rejects the input.
+
+### Length and percentage offsets
+
+Explicit `vertical-align` lengths raise or lower the native alignment baseline;
+percentages use the atomic element's own used line-height. Font-relative units
+use its own font context, not the parent's. CSS parsing comes from Lightning CSS,
+length/math resolution from the existing native value owner, and Taffy still
+owns box sizing, line placement, wrapping and overflow. Atomic boxes without an
+internal baseline synthesize it at the bottom margin edge, including the lower
+margin. Inline-block scroll-container baseline policy uses the original element
+style; inline-flex retains the baseline produced by its content.
+
+The [shared offset fixture](../crates/engine/tests/fixtures/atomic-offsets.txt)
+checks 40 contracts: explicit image/SVG boxes, text-bearing inline flex,
+positive/negative/fractional lengths, `em`, percentages, math, extreme offsets,
+margins, mutation of the element's own font/line-height, reattachment, wrapping,
+and the distinct clipped inline-block/inline-flex baseline policies.
+The [independent Chromium run](evidence/atomic-offsets-chromium-2026-10-16.json)
+loads the same public Liberation Sans font as the engine. Like the middle-alignment
+checks, these criteria use each runtime's measured parent strut; they do not
+assert identical font-baseline rounding.
+Inline wrappers around replaced elements, mixed text/image fragments and
+ordinary text-inline alignment still need their own formatting implementation.
+
+The [retained-workload measurements](evidence/atomic-offsets-2026-10-16.json)
+compare against the preceding committed engine with verified Worker/Wasm hashes.
+All three rounds complete 19/19 requests per version. Candidate p50 is lower in
+three rounds; p95 is lower in two and higher in one. These local samples do not
+establish a general speedup. The report retains all samples and process-tree
+RSS readings; Wasm grows by 2,454 bytes. The old build rejects explicit offsets,
+so this measures the existing atomic-inline path rather than new-offset throughput.

@@ -1,6 +1,12 @@
 //! Native atomic inline boxes arranged in baseline-aligned line boxes.
 use super::{BoxContext, Tree, layout_error, text, unsupported};
 use crate::{Result, styles::Declarations};
+use lightningcss::{
+    properties::font::{VerticalAlign, VerticalAlignKeyword},
+    stylesheet::PrinterOptions,
+    traits::{Parse, ToCss},
+};
+use num_traits::ToPrimitive;
 use taffy::{TaffyError, prelude::*};
 
 pub(super) fn baseline(value: &str) -> bool {
@@ -11,16 +17,25 @@ pub(super) fn atomic_style(
     style: &mut Style,
     display: &crate::display::Computed,
     declarations: &Declarations,
-) -> Result<()> {
+) -> Result<Option<VerticalAlign>> {
     if !display.inline_atomic() {
-        return Ok(());
+        return Ok(None);
     }
-    // Top aligns to the line box top, which is the flex line start. Bottom
-    // alignment moves the baseline set when it is taller, so it stays unsupported.
-    let alignment = match declarations.value("vertical-align").0.as_str() {
-        value if baseline(value) || value == "middle" => None,
-        "top" => Some(AlignItems::FLEX_START),
-        value => {
+    let value = declarations.value("vertical-align").0;
+    let vertical = match value.as_str() {
+        value if baseline(value) => None,
+        value => Some(
+            VerticalAlign::parse_string(value)
+                .map_err(|_error| unsupported("atomic inline vertical alignment"))?,
+        ),
+    };
+    style.align_self = match vertical {
+        None
+        | Some(VerticalAlign::Keyword(VerticalAlignKeyword::Middle) | VerticalAlign::Length(_)) => {
+            None
+        }
+        Some(VerticalAlign::Keyword(VerticalAlignKeyword::Top)) => Some(AlignItems::FLEX_START),
+        _ => {
             return Err(unsupported(&format!(
                 "atomic inline vertical alignment ({value})"
             )));
@@ -29,7 +44,6 @@ pub(super) fn atomic_style(
     style.flex_grow = 0.0;
     style.flex_basis = Dimension::AUTO;
     style.flex_shrink = if style.size.width.is_auto() { 1.0 } else { 0.0 };
-    style.align_self = alignment;
     style.margin = style.margin.map(|value| {
         if value.is_auto() {
             LengthPercentageAuto::length(0.0)
@@ -37,7 +51,7 @@ pub(super) fn atomic_style(
             value
         }
     });
-    Ok(())
+    Ok(vertical)
 }
 
 impl Tree<'_, '_> {
@@ -46,26 +60,49 @@ impl Tree<'_, '_> {
         id: NodeId,
         context: &BoxContext,
         parent: &BoxContext,
-        declarations: &Declarations,
+        vertical: Option<VerticalAlign>,
     ) -> Result<()> {
         self.orders.insert(id, context.order);
         if context.display.inline_atomic() {
             self.inline_atoms.insert(id);
-            if context
-                .display
-                .layout()
-                .is_ok_and(|display| display == Display::FlowRoot)
-            {
-                self.boxes.inline_block(id);
-            }
-            if declarations.value("vertical-align").0 == "middle" {
-                let height = parent.typography.x_height(
-                    &parent.fonts,
-                    &parent.family,
-                    &self.fonts.borrow(),
-                    self.work,
-                )?;
-                self.boxes.inline_middle(id, height);
+            self.boxes
+                .inline_align(id, super::native_tree::InlineAlignment::Baseline);
+            match vertical {
+                Some(VerticalAlign::Keyword(VerticalAlignKeyword::Middle)) => {
+                    let height = parent.typography.x_height(
+                        &parent.fonts,
+                        &parent.family,
+                        &self.fonts.borrow(),
+                        self.work,
+                    )?;
+                    self.boxes
+                        .inline_align(id, super::native_tree::InlineAlignment::Middle(height));
+                }
+                Some(VerticalAlign::Length(value)) => {
+                    let css = value
+                        .to_css_string(PrinterOptions::default())
+                        .map_err(|error| crate::Error::Dom(error.to_string()))?;
+                    let strut = text::Run::strut(
+                        &context.typography,
+                        context,
+                        &self.fonts.borrow(),
+                        std::rc::Rc::clone(&self.text_budget),
+                    )?;
+                    let offset = crate::position_value::Value::from_css(
+                        &css,
+                        &context.fonts,
+                        self.work,
+                        false,
+                    )?
+                    .resolve(strut.line_height())?;
+                    let offset = offset
+                        .to_f32()
+                        .filter(|value| value.is_finite())
+                        .ok_or_else(|| unsupported("atomic inline vertical alignment range"))?;
+                    self.boxes
+                        .inline_align(id, super::native_tree::InlineAlignment::Offset(offset));
+                }
+                _ => {}
             }
         }
         Ok(())

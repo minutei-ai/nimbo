@@ -6313,3 +6313,19 @@ fn computed_sizes_keep_vertical_layout_explicit() -> TestResult {
     assert!(matches!(result,Err(Error::JavaScript(message)) if message.contains("writing-mode")));
     Ok(())
 }
+
+#[test]
+fn atomic_inline_offsets_use_own_font_and_line_height() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/image-resources/empty"))?;
+    let result = page.evaluate(include_str!("fixtures/atomic-offsets.txt"))?;
+    let checks = result.as_object().ok_or("missing atomic offset checks")?;
+    assert_eq!(checks.len(), 40);
+    assert!(
+        checks.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    Ok(())
+}

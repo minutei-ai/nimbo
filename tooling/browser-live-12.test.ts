@@ -1123,3 +1123,29 @@ test("computed sizes keep unsupported vertical layout explicit", async () => {
   expect(response.status).toBe(422);
   expect(await response.text()).toContain("writing-mode");
 });
+
+const atomicOffsets = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/atomic-offsets.txt", import.meta.url),
+).text();
+
+test("atomic inline offsets use their own font and line height", async () => {
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url: new URL("image-resources/empty", origin.url).href,
+      expression: atomicOffsets,
+    }),
+  });
+  expect(response.status).toBe(200);
+  const result = Schema.decodeUnknownSync(Success)(await response.json());
+  const checks = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Boolean))(
+    result.value,
+  );
+  expect(Object.keys(checks)).toHaveLength(40);
+  expect(
+    Object.entries(checks)
+      .filter(([, passed]) => !passed)
+      .map(([name]) => name),
+  ).toEqual([]);
+});

@@ -961,7 +961,7 @@ impl Tree<'_, '_> {
         if node.has_name("input") {
             style.item_is_replaced = true;
         }
-        inline::atomic_style(&mut style, &context.display, &declarations)?;
+        let vertical = inline::atomic_style(&mut style, &context.display, &declarations)?;
         let fonts = context.fonts;
         let container = crate::containers::Container::apply(&declarations, &mut style, fonts)?;
         let (position, _) = declarations.value("position");
@@ -970,7 +970,7 @@ impl Tree<'_, '_> {
         let containing = self.containing_block(node, position, &declarations, &fonts)?;
         let id = self.build_box(node, depth, &variables, &context, style, intrinsic)?;
         self.record_box(node.id, id, position, &declarations, &fonts)?;
-        self.remember_inline_item(id, &context, formatting.context, &declarations)?;
+        self.remember_inline_item(id, &context, formatting.context, vertical)?;
         if out_of_flow {
             if position == "fixed" && containing.is_some() {
                 self.fixed.remove(&node.id);

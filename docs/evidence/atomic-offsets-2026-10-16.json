@@ -1,0 +1,202 @@
+{
+  "date": "2026-10-16",
+  "baseline_commit": "0f1e93ae1a6405ef00f93a85e0556e260f1d00cf",
+  "baseline_artifact": "Rebuilt the preceding committed engine with the same installed toolchain; both Worker and Wasm hashes match computed-sizes-2026-10-16.json before retaining the bundle. Not a release archive.",
+  "scope": "Retained baseline-aligned atomic inline workload, without the new offsets. The previous build rejects explicit offsets. Candidate p50 is lower in three rounds; p95 is lower in two and higher in one. Maximum sampled process-tree RSS is higher in two and lower in one. These local samples do not establish a general speedup or isolate the effect of individual source changes. RSS after requests is not peak/page heap.",
+  "wasm_bytes": {
+    "baseline": 16945093,
+    "candidate": 16947547,
+    "delta": 2454
+  },
+  "checks": {
+    "bun_worker": 8304,
+    "rust_debug": 281,
+    "rust_release": 281,
+    "host_clippy": true,
+    "wasm_clippy": true,
+    "rust_docs": true,
+    "format": true,
+    "typescript_lint": true,
+    "shared_atomic_offset_contracts": 40,
+    "chromium_failed": []
+  },
+  "rounds": [
+    {
+      "date": "2026-10-16",
+      "fixture_sha256": "354fce9dbcc93fb3b29849b408e46b2d5e329ea2e355f456129eff0824a9c6a1",
+      "mode": "local celld; real HTTP; fresh pages; alternating builds; concurrency 1; 3 warmups + 16 measured runs; Linux process-tree RSS sampled after requests, not peak/page heap; DOM budget 100000; layout nodes 4096",
+      "runtimes": [
+        {
+          "runtime": "baseline",
+          "host_version": "celld 0.6.1",
+          "wasm_sha256": "ea3f389670316ab3fbd537b6571fe6ccc6e805d17b25dab17c3cbe3bc4b6db2b",
+          "worker_sha256": "add143b491d37444d25785258c0544590317a38b7e56b5ef0981ef5e6b23ef70"
+        },
+        {
+          "runtime": "candidate",
+          "host_version": "celld 0.6.1",
+          "wasm_sha256": "f40cd76dfe00492169804b0bbe47825a61c57e6d0c1a51352dadd15d8f37e07b",
+          "worker_sha256": "add143b491d37444d25785258c0544590317a38b7e56b5ef0981ef5e6b23ef70"
+        }
+      ],
+      "results": [
+        {
+          "runtime": "baseline",
+          "scenario": "atomic-inline-layout",
+          "valid": 19,
+          "failures": {},
+          "samples_ms": [
+            81.88209899999993, 67.84672900000032, 93.13666399999966, 79.71063699999968,
+            105.56154000000015, 67.49820200000022, 93.3370160000004, 70.88794199999938,
+            100.87747899999977, 91.60978299999988, 75.44279600000027, 72.523142, 67.84092899999996,
+            52.448357999999644, 55.63295300000027, 82.10738499999934
+          ],
+          "rss_after_request_kib": [
+            503432, 503636, 503132, 506672, 507236, 509224, 510128, 510952, 511044, 511140, 511144,
+            511152, 511320, 511364, 511484, 513396
+          ],
+          "p50_ms": 79.71063699999968,
+          "p95_ms": 105.56154000000015,
+          "max_rss_after_request_kib": 513396
+        },
+        {
+          "runtime": "candidate",
+          "scenario": "atomic-inline-layout",
+          "valid": 19,
+          "failures": {},
+          "samples_ms": [
+            94.25390700000025, 63.34678399999984, 62.57133900000008, 98.70485099999996,
+            69.56278299999985, 107.3997989999998, 78.40775599999961, 90.89181600000029,
+            69.30677099999957, 88.63298500000019, 67.47001999999975, 66.27914000000055,
+            63.068600000000515, 84.52693399999953, 62.51421699999992, 69.0657169999995
+          ],
+          "rss_after_request_kib": [
+            508756, 508980, 509236, 510340, 510736, 510952, 511680, 511844, 512932, 513156, 515212,
+            515216, 515712, 515736, 515896, 516168
+          ],
+          "p50_ms": 69.56278299999985,
+          "p95_ms": 107.3997989999998,
+          "max_rss_after_request_kib": 516168
+        }
+      ]
+    },
+    {
+      "date": "2026-10-16",
+      "fixture_sha256": "354fce9dbcc93fb3b29849b408e46b2d5e329ea2e355f456129eff0824a9c6a1",
+      "mode": "local celld; real HTTP; fresh pages; alternating builds; concurrency 1; 3 warmups + 16 measured runs; Linux process-tree RSS sampled after requests, not peak/page heap; DOM budget 100000; layout nodes 4096",
+      "runtimes": [
+        {
+          "runtime": "baseline",
+          "host_version": "celld 0.6.1",
+          "wasm_sha256": "ea3f389670316ab3fbd537b6571fe6ccc6e805d17b25dab17c3cbe3bc4b6db2b",
+          "worker_sha256": "add143b491d37444d25785258c0544590317a38b7e56b5ef0981ef5e6b23ef70"
+        },
+        {
+          "runtime": "candidate",
+          "host_version": "celld 0.6.1",
+          "wasm_sha256": "f40cd76dfe00492169804b0bbe47825a61c57e6d0c1a51352dadd15d8f37e07b",
+          "worker_sha256": "add143b491d37444d25785258c0544590317a38b7e56b5ef0981ef5e6b23ef70"
+        }
+      ],
+      "results": [
+        {
+          "runtime": "baseline",
+          "scenario": "atomic-inline-layout",
+          "valid": 19,
+          "failures": {},
+          "samples_ms": [
+            93.89665799999966, 103.96863899999971, 75.99300300000004, 115.80153199999995,
+            84.9493080000002, 90.46921999999995, 79.0922470000005, 93.16624599999977,
+            85.08997900000031, 65.29275700000017, 93.5814990000008, 67.02905600000031,
+            63.6149089999999, 58.51489799999945, 94.6987450000006, 59.703435000000354
+          ],
+          "rss_after_request_kib": [
+            512568, 512780, 515556, 517692, 518116, 520004, 519248, 519988, 522164, 522164, 522172,
+            522176, 522184, 522496, 522808, 522928
+          ],
+          "p50_ms": 85.08997900000031,
+          "p95_ms": 115.80153199999995,
+          "max_rss_after_request_kib": 522928
+        },
+        {
+          "runtime": "candidate",
+          "scenario": "atomic-inline-layout",
+          "valid": 19,
+          "failures": {},
+          "samples_ms": [
+            78.34685499999978, 67.87035100000003, 80.33958299999995, 86.98244100000011,
+            65.0042669999998, 68.79929700000048, 84.40572100000009, 88.48454399999991,
+            64.16143899999952, 110.92167800000061, 63.21314500000062, 74.51436399999966,
+            63.89546800000062, 87.93453399999999, 94.0107280000002, 87.1762490000001
+          ],
+          "rss_after_request_kib": [
+            515948, 516172, 520120, 523836, 524308, 524468, 524600, 525292, 527344, 527352, 527356,
+            527368, 527376, 527452, 527576, 527700
+          ],
+          "p50_ms": 80.33958299999995,
+          "p95_ms": 110.92167800000061,
+          "max_rss_after_request_kib": 527700
+        }
+      ]
+    },
+    {
+      "date": "2026-10-16",
+      "fixture_sha256": "354fce9dbcc93fb3b29849b408e46b2d5e329ea2e355f456129eff0824a9c6a1",
+      "mode": "local celld; real HTTP; fresh pages; alternating builds; concurrency 1; 3 warmups + 16 measured runs; Linux process-tree RSS sampled after requests, not peak/page heap; DOM budget 100000; layout nodes 4096",
+      "runtimes": [
+        {
+          "runtime": "baseline",
+          "host_version": "celld 0.6.1",
+          "wasm_sha256": "ea3f389670316ab3fbd537b6571fe6ccc6e805d17b25dab17c3cbe3bc4b6db2b",
+          "worker_sha256": "add143b491d37444d25785258c0544590317a38b7e56b5ef0981ef5e6b23ef70"
+        },
+        {
+          "runtime": "candidate",
+          "host_version": "celld 0.6.1",
+          "wasm_sha256": "f40cd76dfe00492169804b0bbe47825a61c57e6d0c1a51352dadd15d8f37e07b",
+          "worker_sha256": "add143b491d37444d25785258c0544590317a38b7e56b5ef0981ef5e6b23ef70"
+        }
+      ],
+      "results": [
+        {
+          "runtime": "baseline",
+          "scenario": "atomic-inline-layout",
+          "valid": 19,
+          "failures": {},
+          "samples_ms": [
+            121.8611890000002, 64.22098199999982, 96.42897799999992, 107.50354199999992,
+            98.21829500000013, 91.81008099999963, 89.91073799999958, 92.73044799999934,
+            89.79839600000014, 65.01204699999926, 74.84096099999988, 61.94970899999953,
+            87.62374999999975, 62.865899000000354, 79.2316780000001, 57.712297000000035
+          ],
+          "rss_after_request_kib": [
+            524372, 524596, 527132, 528852, 529244, 530208, 532056, 531312, 534080, 534688, 534696,
+            534744, 534744, 535224, 536100, 537504
+          ],
+          "p50_ms": 89.79839600000014,
+          "p95_ms": 121.8611890000002,
+          "max_rss_after_request_kib": 537504
+        },
+        {
+          "runtime": "candidate",
+          "scenario": "atomic-inline-layout",
+          "valid": 19,
+          "failures": {},
+          "samples_ms": [
+            67.70917399999962, 100.6619539999997, 65.78371400000015, 97.75551300000006,
+            67.12107900000001, 77.62788599999931, 70.36840200000006, 89.88480600000003,
+            66.91744299999937, 79.80248200000005, 62.294974000000366, 66.30073699999957,
+            64.41034200000013, 92.95531800000026, 59.326678000000356, 86.84878899999967
+          ],
+          "rss_after_request_kib": [
+            514332, 514636, 514984, 514312, 514848, 518816, 518960, 519684, 521008, 521028, 521032,
+            521036, 521048, 521232, 521356, 522036
+          ],
+          "p50_ms": 70.36840200000006,
+          "p95_ms": 100.6619539999997,
+          "max_rss_after_request_kib": 522036
+        }
+      ]
+    }
+  ]
+}

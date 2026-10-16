@@ -1,7 +1,7 @@
 //! Native sizing containment layered over public Taffy layout algorithms.
 use super::text::Intrinsic;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     ops::{Deref, DerefMut},
 };
 use taffy::util::ResolveOrZero;
@@ -11,13 +11,49 @@ use taffy::{
     RunMode, TraversePartialTree, TraverseTree, prelude::*,
 };
 
+pub(super) enum InlineAlignment {
+    Baseline,
+    Middle(f32),
+    Offset(f32),
+}
+
+impl InlineAlignment {
+    fn apply(&self, output: &mut LayoutOutput, style: &Style, parent_width: Option<f32>) {
+        let margin = style.margin.resolve_or_zero(parent_width, |_, _| 0.0);
+        let fallback = output.size.height + margin.bottom;
+        let baselines = if style.display == Display::FlowRoot {
+            let baseline = if style.overflow.y.is_scroll_container() {
+                Some(fallback)
+            } else {
+                output.baselines.last
+            };
+            taffy::Baselines {
+                first: baseline,
+                last: baseline,
+            }
+        } else {
+            output.baselines
+        };
+        let align = |baseline: Option<f32>| match self {
+            Self::Baseline => baseline.unwrap_or(fallback),
+            Self::Middle(x_height) => {
+                (output.size.height + margin.bottom - margin.top + x_height) / 2.0
+            }
+            Self::Offset(value) => baseline.unwrap_or(fallback) + value,
+        };
+        output.baselines = taffy::Baselines {
+            first: Some(align(baselines.first)),
+            last: Some(align(baselines.last)),
+        };
+    }
+}
+
 pub(super) struct Boxes {
     tree: TaffyTree<Intrinsic>,
     layouts: HashMap<NodeId, Layout>,
     caches: HashMap<NodeId, Cache>,
     containment: HashMap<NodeId, u8>,
-    inline_blocks: HashSet<NodeId>,
-    inline_middle: HashMap<NodeId, f32>,
+    inline_alignment: HashMap<NodeId, InlineAlignment>,
     inline_flex_items: HashMap<NodeId, Style>,
     default_style: Style,
 }
@@ -28,17 +64,13 @@ impl Boxes {
             layouts: HashMap::new(),
             caches: HashMap::new(),
             containment: HashMap::new(),
-            inline_blocks: HashSet::new(),
-            inline_middle: HashMap::new(),
+            inline_alignment: HashMap::new(),
             inline_flex_items: HashMap::new(),
             default_style: Style::default(),
         }
     }
-    pub(super) fn inline_block(&mut self, id: NodeId) {
-        self.inline_blocks.insert(id);
-    }
-    pub(super) fn inline_middle(&mut self, id: NodeId, x_height: f32) {
-        self.inline_middle.insert(id, x_height);
+    pub(super) fn inline_align(&mut self, id: NodeId, alignment: InlineAlignment) {
+        self.inline_alignment.insert(id, alignment);
     }
     pub(super) fn contain(&mut self, id: NodeId, axes: u8) {
         if axes > 0 {
@@ -54,7 +86,7 @@ impl Boxes {
         self.caches.clear();
         self.layouts.clear();
         self.inline_flex_items = self
-            .inline_middle
+            .inline_alignment
             .keys()
             .filter_map(|id| {
                 let style = self.get_core_container_style(*id);
@@ -111,19 +143,12 @@ impl Boxes {
                     |intrinsic| intrinsic.layout(input, style),
                 ),
             };
-            if tree.inline_blocks.contains(&id) {
-                output.baselines.first = output.baselines.last;
-            }
-            if let Some(x_height) = tree.inline_middle.get(&id) {
-                let margin = tree
-                    .get_core_container_style(id)
-                    .margin
-                    .resolve_or_zero(input.parent_size.width, |_, _| 0.0);
-                let baseline = (output.size.height + margin.bottom - margin.top + x_height) / 2.0;
-                output.baselines = taffy::Baselines {
-                    first: Some(baseline),
-                    last: Some(baseline),
-                };
+            if let Some(alignment) = tree.inline_alignment.get(&id) {
+                alignment.apply(
+                    &mut output,
+                    tree.get_core_container_style(id),
+                    input.parent_size.width,
+                );
             }
             output
         })
