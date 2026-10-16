@@ -1,0 +1,16 @@
+(() => {
+  const checks={};
+  const box=document.createElement('div');box.style.cssText='font:16px/20px serif;width:100px';box.innerHTML='alpha <span>beta</span>';document.body.append(box);
+  const inline=box.firstElementChild;
+  for(const position of ['relative','sticky','inherit']){
+    inline.style.cssText='top:2px;position:'+position;
+    try{box.getBoundingClientRect();checks[position]=false;}
+    catch(error){checks[position]=error.message.includes('inline text property');}
+  }
+  inline.style.cssText='position:static;top:2px';
+  try{inline.getBoundingClientRect();checks.fragment=false;}
+  catch(error){checks.fragment=error.message.includes('inline fragment geometry');}
+  checks.recovery=box.getBoundingClientRect().height===20;
+  inline.style.top='not-an-inset';checks.invalid=inline.style.top==='2px';
+  box.remove();return checks;
+})()

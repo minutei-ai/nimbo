@@ -1,0 +1,28 @@
+(() => {
+  const checks={};
+  const near=(a,b)=>Math.abs(a-b)<0.05;
+  const make=(tag)=>{
+    const box=document.createElement('div');box.style.cssText='display:inline-block;font:16px/20px serif;max-width:100px';
+    const inline=document.createElement(tag);inline.textContent='alpha beta';box.append('A ',inline,' C');document.body.append(box);
+    return {box,inline};
+  };
+  const same=(a,b)=>{
+    const x=a.getBoundingClientRect(),y=b.getBoundingClientRect();
+    return near(x.width,y.width) && near(x.height,y.height) && a.scrollWidth===b.scrollWidth && a.scrollHeight===b.scrollHeight;
+  };
+  const insets=[['top','500px'],['right','200%'],['bottom','-500px'],['left','calc(100% + 20px)'],['inset-inline-start','200px'],['inset-inline-end','-80%'],['inset-block-start','50em'],['inset-block-end','calc(10px + 20%)'],['inset','500px 200% -500px -80%'],['inset-inline','300px -200px'],['inset-block','40em -40em']];
+  for(const position of ['', 'static','initial','unset','revert']){
+    for(const [name,value] of insets){
+      const a=make('span'),b=make('span');
+      a.inline.style.position=position;a.inline.style.setProperty(name,value);
+      checks[(position||'omitted')+'-'+name]=same(a.box,b.box) && getComputedStyle(a.inline).position==='static';
+      a.box.remove();b.box.remove();
+    }
+  }
+  const a=make('i'),b=make('i');a.box.style.position='relative';a.inline.style.top='2px';
+  checks.nonInherited=same(a.box,b.box) && getComputedStyle(a.inline).position==='static' && getComputedStyle(a.inline).top==='2px';
+  a.inline.style.cssText='--offset:500px;inset:var(--offset)';checks.variables=same(a.box,b.box);
+  a.box.remove();document.body.append(a.box);checks.reattach=same(a.box,b.box);
+  a.box.remove();b.box.remove();
+  return checks;
+})()

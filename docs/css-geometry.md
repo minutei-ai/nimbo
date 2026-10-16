@@ -284,3 +284,31 @@ requests per round. Baseline/candidate p50 values are 82.90/83.73ms,
 latency delta. Wasm grows by 681 bytes. RSS is sampled process-tree memory after
 requests, not peak memory or page heap. Ordinary button flow has no equivalent
 baseline because that version rejects the input.
+
+## Static inline insets
+
+Inline validation accepts physical and logical insets when the inline element
+uses static positioning, including omitted position, `initial`, `unset` and
+`revert`. The declarations remain available to CSSOM; they do not offset text,
+change line wrapping or enlarge scrollable geometry. This follows
+[CSS Positioned Layout](https://www.w3.org/TR/css-position-3/#position-property):
+inset properties do not apply to static boxes. The existing logical-property
+owner classifies inset declarations; there is no separate alias list or layout
+path.
+
+The shared `static-inline-insets` fixture checks 58 cases in Rust, Worker/Wasm
+and Chromium in standards mode, including percentages, contextual lengths,
+calculations, shorthands, variables, reattachment and a positioned parent.
+Six native boundary checks retain explicit failures for relative, sticky and
+inherited inline positioning and individual inline-fragment rectangles, and
+verify declaration validation and recovery. Positioned inline text remains
+outside this geometry subset.
+
+The [retained-path benchmark](evidence/static-inline-insets-2026-10-16.json)
+compares two local rounds with the verified `3ba9619` artifact. Both builds
+complete 19/19 requests per round. Baseline/candidate p50 values are
+72.24/72.04ms and 87.64/71.76ms; p95 values are 119.83/90.71ms and
+107.29/93.92ms. These repetitions do not establish a stable latency delta.
+Wasm grows by 331 bytes. RSS measures process-tree memory after requests, not
+peak memory or page heap. The new static-inset path has no equivalent baseline
+because that version rejects the input.

@@ -1,0 +1,133 @@
+{
+  "date": "2026-10-16",
+  "baseline_commit": "3ba96191c07316d0dabbbf22dc6b13f00c44a834",
+  "baseline_artifact": "Retained previously verified local Worker/Wasm artifact; matched to its recorded SHA-256 before copying and replayed before comparison.",
+  "baseline_identity_probe": {
+    "static_inline_inset_status": 422
+  },
+  "scope": "Retained same-font inline layout only; local repetitions do not establish a speedup or stable latency delta. Static inline inset geometry has no equivalent baseline because that version rejects the input. RSS is process-tree memory sampled after requests, not peak/page heap.",
+  "wasm_bytes": {
+    "baseline": 16285678,
+    "candidate": 16286009
+  },
+  "rounds": [
+    {
+      "date": "2026-10-16",
+      "fixture_sha256": "31b79e3695373e0e420b1c034198f21ab28580434ab9185a98ebca78483cbfb0",
+      "mode": "local celld; real HTTP; fresh pages; alternating builds; concurrency 1; 3 warmups + 16 measured runs; Linux process-tree RSS sampled after requests, not peak/page heap; DOM budget 100000; layout nodes 4096",
+      "runtimes": [
+        {
+          "runtime": "baseline",
+          "host_version": "celld 0.6.1",
+          "wasm_sha256": "a83395378792b1b6cc549bf7236d27b83b53d505cc6778e435a14fdd431edba1",
+          "worker_sha256": "add143b491d37444d25785258c0544590317a38b7e56b5ef0981ef5e6b23ef70"
+        },
+        {
+          "runtime": "candidate",
+          "host_version": "celld 0.6.1",
+          "wasm_sha256": "5c484454e8345465621dbd00b1c7ecc224084979b69b3cc040a0c2eeb3cac1d7",
+          "worker_sha256": "add143b491d37444d25785258c0544590317a38b7e56b5ef0981ef5e6b23ef70"
+        }
+      ],
+      "results": [
+        {
+          "runtime": "baseline",
+          "scenario": "inline-text-layout",
+          "valid": 19,
+          "failures": {},
+          "samples_ms": [
+            107.07547199999999, 89.23093499999959, 119.83481399999982, 91.0204560000002,
+            90.67921999999999, 72.2404460000007, 67.37762900000052, 66.00600099999974,
+            70.43900899999971, 56.77575800000068, 96.227218, 62.64702599999964, 62.26267800000005,
+            57.5601400000005, 88.32070999999996, 60.17550899999969
+          ],
+          "rss_after_request_kib": [
+            503592, 503832, 504808, 504964, 505296, 505808, 506640, 507360, 507636, 507796, 507800,
+            507816, 506992, 507044, 507180, 508256
+          ],
+          "p50_ms": 72.2404460000007,
+          "p95_ms": 119.83481399999982,
+          "max_rss_after_request_kib": 508256
+        },
+        {
+          "runtime": "candidate",
+          "scenario": "inline-text-layout",
+          "valid": 19,
+          "failures": {},
+          "samples_ms": [
+            66.99386099999992, 58.32111299999997, 85.34286699999984, 90.71445600000015,
+            69.63040000000001, 83.56581099999948, 62.12744700000076, 75.51543300000048,
+            86.14971100000002, 72.03997100000015, 82.44733300000007, 73.40895600000022,
+            50.16842799999995, 63.58781100000033, 61.771349999999984, 63.76180699999986
+          ],
+          "rss_after_request_kib": [
+            507396, 507596, 506976, 507660, 511008, 511392, 511528, 512216, 513672, 514364, 514372,
+            514372, 514392, 514460, 515164, 515296
+          ],
+          "p50_ms": 72.03997100000015,
+          "p95_ms": 90.71445600000015,
+          "max_rss_after_request_kib": 515296
+        }
+      ]
+    },
+    {
+      "date": "2026-10-16",
+      "fixture_sha256": "31b79e3695373e0e420b1c034198f21ab28580434ab9185a98ebca78483cbfb0",
+      "mode": "local celld; real HTTP; fresh pages; alternating builds; concurrency 1; 3 warmups + 16 measured runs; Linux process-tree RSS sampled after requests, not peak/page heap; DOM budget 100000; layout nodes 4096",
+      "runtimes": [
+        {
+          "runtime": "baseline",
+          "host_version": "celld 0.6.1",
+          "wasm_sha256": "a83395378792b1b6cc549bf7236d27b83b53d505cc6778e435a14fdd431edba1",
+          "worker_sha256": "add143b491d37444d25785258c0544590317a38b7e56b5ef0981ef5e6b23ef70"
+        },
+        {
+          "runtime": "candidate",
+          "host_version": "celld 0.6.1",
+          "wasm_sha256": "5c484454e8345465621dbd00b1c7ecc224084979b69b3cc040a0c2eeb3cac1d7",
+          "worker_sha256": "add143b491d37444d25785258c0544590317a38b7e56b5ef0981ef5e6b23ef70"
+        }
+      ],
+      "results": [
+        {
+          "runtime": "baseline",
+          "scenario": "inline-text-layout",
+          "valid": 19,
+          "failures": {},
+          "samples_ms": [
+            100.82269900000028, 60.13101199999983, 87.64310100000012, 72.64790900000025,
+            65.55260499999986, 65.3326049999996, 102.08533100000022, 69.18545600000016,
+            98.0238559999998, 107.28643000000011, 89.54154900000049, 59.32802400000037,
+            87.13753499999984, 61.192901999999776, 100.17501300000004, 88.81407099999979
+          ],
+          "rss_after_request_kib": [
+            500728, 500976, 503212, 503340, 503536, 503924, 505236, 505908, 505172, 505204, 505212,
+            505224, 505228, 505716, 506920, 508120
+          ],
+          "p50_ms": 87.64310100000012,
+          "p95_ms": 107.28643000000011,
+          "max_rss_after_request_kib": 508120
+        },
+        {
+          "runtime": "candidate",
+          "scenario": "inline-text-layout",
+          "valid": 19,
+          "failures": {},
+          "samples_ms": [
+            80.66707199999973, 84.12598000000025, 64.65432599999986, 71.49613700000009,
+            87.98767300000009, 71.76457699999992, 71.33372599999984, 67.46373299999959,
+            84.35444800000005, 93.07079200000044, 93.91859699999986, 56.54628599999978,
+            58.48990800000047, 83.09985099999994, 63.295186999999714, 62.19487200000003
+          ],
+          "rss_after_request_kib": [
+            511112, 511348, 511588, 511776, 512064, 512516, 514688, 514824, 515944, 515164, 515668,
+            515672, 515696, 517612, 517748, 517936
+          ],
+          "p50_ms": 71.76457699999992,
+          "p95_ms": 93.91859699999986,
+          "max_rss_after_request_kib": 517936
+        }
+      ]
+    }
+  ]
+}

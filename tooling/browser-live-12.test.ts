@@ -933,3 +933,42 @@ test("native appearance grammar preserves button formatting boundaries and recov
   expect(Object.keys(checks)).toHaveLength(15);
   expect(Object.values(checks).every((check) => check)).toBe(true);
 });
+
+const staticInlineInsets = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/static-inline-insets.txt", import.meta.url),
+).text();
+const staticInlineInsetsBoundary = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/static-inline-insets-boundary.txt", import.meta.url),
+).text();
+
+test("static inline insets preserve flow and scrollable geometry", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: staticInlineInsets }),
+  });
+  expect(response.status).toBe(200);
+  const result = Schema.decodeUnknownSync(Success)(await response.json());
+  const checks = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Boolean))(
+    result.value,
+  );
+  expect(Object.keys(checks)).toHaveLength(58);
+  expect(Object.values(checks).every((check) => check)).toBe(true);
+});
+
+test("static inline inset validation preserves positioned boundaries and recovery", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: staticInlineInsetsBoundary }),
+  });
+  expect(response.status).toBe(200);
+  const result = Schema.decodeUnknownSync(Success)(await response.json());
+  const checks = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Boolean))(
+    result.value,
+  );
+  expect(Object.keys(checks)).toHaveLength(6);
+  expect(Object.values(checks).every((check) => check)).toBe(true);
+});

@@ -58,12 +58,19 @@ impl Tree<'_, '_> {
             return Ok(false);
         }
         self.visit(depth)?;
+        let static_position = matches!(
+            declarations.value("position").0.as_str(),
+            "" | "static" | "initial" | "unset" | "revert"
+        );
         if let Some((name, value, _)) =
             declarations
                 .layout_entries()
                 .find(|(name, value, deferred)| {
                     *deferred
                         || !(inert(name, value)
+                            || static_position
+                                && (*name == "position"
+                                    || super::logical::group(name) == Some("inset"))
                             || matches!(
                                 super::logical::physical(name),
                                 "padding-left" | "padding-right"

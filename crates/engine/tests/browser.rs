@@ -6020,3 +6020,28 @@ fn button_flow_uses_native_fit_content_and_content_alignment() -> TestResult {
     );
     Ok(())
 }
+
+#[test]
+fn static_inline_insets_preserve_flow_and_scrollable_geometry() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/empty-layout"))?;
+    let result = page.evaluate(include_str!("fixtures/static-inline-insets.txt"))?;
+    let checks = result.as_object().ok_or("missing static inset checks")?;
+    assert_eq!(checks.len(), 58);
+    assert!(
+        checks.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    let result = page.evaluate(include_str!("fixtures/static-inline-insets-boundary.txt"))?;
+    let checks = result
+        .as_object()
+        .ok_or("missing static inset boundaries")?;
+    assert_eq!(checks.len(), 6);
+    assert!(
+        checks.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    Ok(())
+}
