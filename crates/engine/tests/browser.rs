@@ -5919,7 +5919,27 @@ fn mixed_inline_and_block_children_form_anonymous_blocks() -> TestResult {
     );
     assert_eq!(
         page.evaluate(include_str!("fixtures/mixed-inline-boundary.txt"))?,
-        json!({"font":true,"nestedBlock":true,"contents":true,"fragment":true,"limit":true,"recovery":true})
+        json!({"flow":true,"nestedBlock":true,"contents":true,"fragment":true,"limit":true,"recovery":true})
+    );
+    Ok(())
+}
+
+#[test]
+fn inline_font_metrics_follow_their_native_text_spans() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/empty-layout"))?;
+    let result = page.evaluate(include_str!("fixtures/inline-font-metrics.txt"))?;
+    let checks = result.as_object().ok_or("missing font metrics checks")?;
+    assert_eq!(checks.len(), 35);
+    assert!(
+        checks.values().all(|value| value == &json!(true)),
+        "{result}"
+    );
+    assert_eq!(
+        page.evaluate(include_str!("fixtures/inline-font-metrics-boundary.txt"))?,
+        json!({"whitespace":true,"direction":true,"transform":true,"transformedMetrics":true,"borders":true,"vertical":true,"source":true,"budget":true,"recovery":true,"rounding":true})
     );
     Ok(())
 }

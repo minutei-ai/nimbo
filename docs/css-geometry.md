@@ -86,9 +86,9 @@ spaces, Unicode, logical RTL sides, percentages, relative lengths, pure-length
 calculations, explicit breaks, mutation, removal and reattachment. Edge visits
 charge the existing text-work budget; source and layout bounds still apply.
 Boundary cases reject unsupported vertical padding and transformed padded text,
-enforce the source limit and recover on the same page. Those combinations,
-mixed fonts and individual inline-fragment geometry remain pending. Diagnostic
-errors retain a bounded excerpt of the unsupported declaration value.
+enforce the source limit and recover on the same page. Those combinations and
+individual inline-fragment geometry remain pending. Diagnostic errors retain a
+bounded excerpt of the unsupported declaration value.
 
 Ordinary text keeps a direct normalization and measurement path. The
 [synthetic text benchmark](evidence/inline-text-layout-2026-10-16.json) uses
@@ -149,7 +149,45 @@ do not split a text group. Flex and grid keep their native text-item handling.
 The shared `mixed-inline-blocks` fixture checks 21 cases in native Rust,
 Worker/Wasm and independently in Chromium, including sibling positions, margins,
 wrapping, resize, removal and reattachment. Boundary cases retain explicit
-rejection of mixed fonts, blocks inside inline wrappers, text through
-`display:contents` and inline-fragment geometry. They enforce the text source
+rejection of mixed inline flow policies, blocks inside inline wrappers, text
+through `display:contents` and inline-fragment geometry. They enforce the text source
 limit and check recovery on the same page. Anonymous text boxes charge the
 existing layout budget as well as text work.
+
+## Multiple inline font metrics
+
+Text collection preserves font-size, family, weight, style, letter spacing and
+line-height for each text span. Whitespace normalization remaps their UTF-8 byte
+boundaries along with padding edges. Ordinary same-font text retains its direct
+path; mixed spans share font selection and advance caches by their computed
+metrics within the text run. Registry comparisons, span visits and shaping
+charge the existing text-work budget with target-independent weights.
+
+Each line combines the container's font strut with the ascent and descent of
+its text and inline boxes, following the
+[CSS line-height model](https://www.w3.org/TR/CSS22/visudet.html#line-height).
+Empty wrappers can contribute to a nonempty line. A larger span affects the lines
+it occupies; it does not set one height for the entire paragraph. Taffy receives
+first and last baselines from those actual lines.
+
+The shared `inline-font-metrics` fixture checks 35 cases in native Rust,
+Worker/Wasm and Chromium in standards mode, including IntersectionObserver.
+The tight-line comparison allows one CSS pixel for font-metric rounding; the
+native boundary fixture separately requires its exact current 21px result.
+Other cases retain their explicit geometry assertions. Boundary cases also
+check source and shaping budgets and recovery on the same page.
+
+Mixed white-space, direction, transformation, language and alignment policies
+remain explicit unsupported boundaries. Applying text transformation to mixed
+metrics also remains unsupported. Per-glyph fallback with different line
+metrics and individual inline-fragment rectangles retain their existing
+boundaries.
+
+The [retained-path benchmark](evidence/inline-font-metrics-2026-10-16.json) compares
+two local rounds with a separately rebuilt `55a5156` baseline, using the same
+Worker JavaScript, celld version, HTTP fixture and limits. Each build completes
+19/19 requests per round. Baseline/candidate p50 values are 81.76/83.69ms and
+74.59/64.46ms; p95 values are 99.46/91.40ms and 109.25/105.43ms. These repetitions
+do not establish a speedup or stable latency delta. RSS is process-tree memory
+sampled after requests, not page heap or peak memory. Mixed-metric performance
+has no equivalent baseline because that version rejects the input.

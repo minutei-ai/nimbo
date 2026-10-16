@@ -8,7 +8,7 @@
     catch (error) { return error.message.includes(detail); }
   };
   const result={};
-  result.font=rejected('<a style="font-size:20px">alpha</a><div>beta</div>','mixed inline metrics');
+  result.flow=rejected('<a style="white-space:pre">alpha</a><div>beta</div>','mixed inline text flow');
   result.nestedBlock=rejected('<a>alpha<div>beta</div></a>','display formatting (inline)');
   result.contents=rejected('<a>alpha</a><span style="display:contents">beta</span><div>gamma</div>','text shaping');
   node.innerHTML='<a>alpha</a><div>beta</div>';

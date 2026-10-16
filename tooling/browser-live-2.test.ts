@@ -125,9 +125,9 @@ test.each([
     "layout unsupported: viewport overflow propagation",
   ],
   [
-    "mixed inline text layout",
-    "new Promise(()=>{const el=document.createElement('div');el.innerHTML='A<span style=\"font-size:20px\">B</span>';document.body.appendChild(el);new IntersectionObserver(()=>{}).observe(el);})",
-    "layout unsupported: text shaping",
+    "mixed inline text flow",
+    "new Promise(()=>{const el=document.createElement('div');el.innerHTML='A<span style=\"white-space:pre\">B</span>';document.body.appendChild(el);new IntersectionObserver(()=>{}).observe(el);})",
+    "layout unsupported: mixed inline text flow",
   ],
 ])(
   "real HTTP → workerd → Wasm: intersection rejects %s and recovers",

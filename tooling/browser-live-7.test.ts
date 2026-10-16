@@ -74,7 +74,7 @@ test.each(["classic", "module"])(
 );
 
 test.each([
-  ["text shaping", "el.innerHTML='A<span style=\"font-size:20px\">B</span>';"],
+  ["mixed inline text flow", "el.innerHTML='A<span style=\"white-space:pre\">B</span>';"],
   [
     "stylesheet at-rule",
     "const css=document.createElement('style');css.textContent='@scope {div {width: 50px;}}';document.body.appendChild(css);",

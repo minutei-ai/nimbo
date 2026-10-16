@@ -215,8 +215,8 @@ test.each([
     "relative query length",
   ],
   [
-    "(()=>{document.body.innerHTML='A<span style=\"font-size:20px\">B</span>';document.body.style.lineHeight='1.5';return document.body.getBoundingClientRect()})()",
-    "text shaping",
+    "(()=>{document.body.innerHTML='A<span style=\"white-space:pre\">B</span>';document.body.style.lineHeight='1.5';return document.body.getBoundingClientRect()})()",
+    "mixed inline text flow",
   ],
 ])(
   "real HTTP → workerd → Wasm: unsupported line metrics %s fail explicitly",

@@ -1416,9 +1416,9 @@ export const textLayoutBoundaries = [
     "text font synthesis or spacing",
   ],
   [
-    "mixed inline fonts",
-    "document.querySelector('div').innerHTML='A<span style=font-size:20px>B</span>'",
-    "text shaping",
+    "mixed inline text flow",
+    "document.querySelector('div').innerHTML='A<span style=white-space:pre>B</span>'",
+    "mixed inline text flow",
   ],
   [
     "generated box",

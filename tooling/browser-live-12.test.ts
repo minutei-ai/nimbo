@@ -757,12 +757,61 @@ test("anonymous blocks preserve unsupported boundaries and recover", async () =>
     url,
     engine: "rust-wasm-quickjs",
     value: {
-      font: true,
+      flow: true,
       nestedBlock: true,
       contents: true,
       fragment: true,
       limit: true,
       recovery: true,
+    },
+  });
+});
+
+const inlineFontMetrics = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/inline-font-metrics.txt", import.meta.url),
+).text();
+const inlineFontMetricsBoundary = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/inline-font-metrics-boundary.txt", import.meta.url),
+).text();
+
+test("inline text uses span metrics and per-line baselines", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: inlineFontMetrics }),
+  });
+  expect(response.status).toBe(200);
+  const result = Schema.decodeUnknownSync(Success)(await response.json());
+  const checks = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Boolean))(
+    result.value,
+  );
+  expect(Object.keys(checks)).toHaveLength(35);
+  expect(Object.values(checks).every((check) => check)).toBe(true);
+});
+
+test("inline font metrics enforce flow and resource boundaries and recover", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: inlineFontMetricsBoundary }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({
+    url,
+    engine: "rust-wasm-quickjs",
+    value: {
+      whitespace: true,
+      direction: true,
+      transform: true,
+      transformedMetrics: true,
+      borders: true,
+      vertical: true,
+      source: true,
+      budget: true,
+      recovery: true,
+      rounding: true,
     },
   });
 });

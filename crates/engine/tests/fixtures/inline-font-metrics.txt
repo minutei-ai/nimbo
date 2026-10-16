@@ -1,0 +1,69 @@
+(() => {
+  const result={};
+  const measure=(html,css='')=>{
+    const node=document.createElement('div');
+    node.style.cssText='font:16px/20px serif;display:inline-block;white-space:nowrap;'+css;
+    node.innerHTML=html;
+    document.body.append(node);
+    const rect=node.getBoundingClientRect();
+    node.remove();
+    return {width:rect.width,height:rect.height};
+  };
+  result.lineHeight=measure('alpha <a style="line-height:32px">beta</a>').height===32;
+  result.zeroBorder=measure('alpha <span style="border:0 solid;line-height:32px">beta</span>').height===32;
+  result.smallLine=measure('alpha <span style="line-height:10px">beta</span>').height===20;
+  result.fontSize=measure('alpha <span style="font-size:32px;line-height:40px">beta</span>').height===40;
+  result.tightFont=Math.abs(measure('alpha <span style="font-size:32px;line-height:10px">beta</span>').height-20)<=1;
+  result.empty=measure('alpha<span style="font-size:40px;line-height:50px"></span>').height===50;
+  result.onlyEmpty=measure('<span style="font-size:40px;line-height:50px"></span>').height===0;
+  result.collapsed=measure('alpha<span style="font-size:40px;line-height:50px"> </span>').height===50;
+  result.nested=measure('alpha <span style="line-height:40px"><span style="line-height:10px">beta</span></span>').height===40;
+  const variants=[['size','font-size:32px;line-height:40px'],['weight','font-weight:bold'],['italic','font-style:italic'],['family','font-family:sans-serif'],['spacing','letter-spacing:2px']];
+  for(const [name,css] of variants){
+    const expected=measure('AA').width+measure('BB',css).width;
+    result[name]=Math.abs(measure('AA<span style="'+css+'">BB</span>').width-expected)<0.04;
+  }
+  const big='font-size:32px;line-height:40px';
+  const limit=measure('alpha',big).width+1;
+  const wrapped='white-space:normal;width:'+limit+'px;';
+  result.bigFirst=measure('<span style="'+big+'">alpha</span> beta',wrapped).height===60;
+  result.bigLeadingSpace=measure('beta<span style="'+big+'"> alpha</span>',wrapped).height===80;
+  result.bigMiddle=measure('beta <span style="'+big+'">alpha</span> beta',wrapped).height===80;
+  result.bigMultiple=measure('<span style="'+big+'">alpha beta</span> gamma',wrapped).height===100;
+  result.closedAtBreak=measure('<span style="'+big+'">alpha\n</span>beta','white-space:pre-line').height===60;
+  result.openAtBreak=measure('alpha<span style="'+big+'">\nbeta</span>','white-space:pre-line').height===80;
+  result.closedBeforeBreak=measure('<span style="'+big+'">alpha\nbeta</span>\ngamma','white-space:pre-line').height===100;
+  result.emptyAtBreak=measure('alpha\n<span style="'+big+'"></span>beta','white-space:pre-line').height===60;
+  result.paragraphs=measure('alpha\n<span style="'+big+'">beta</span>\ngamma','white-space:pre-line').height===80;
+  result.utf8=Math.abs(measure('café<span style="'+big+'">ação</span>').width-measure('café').width-measure('ação',big).width)<0.04;
+  result.padding=measure('alpha<span style="font-size:40px;line-height:50px;padding:0 4px"></span>').height===50;
+  result.paddingSpace=measure('alpha<span style="font-size:40px;line-height:50px;padding:0 4px"> </span>').height===50;
+  result.paddingWidth=Math.abs(measure('AA<span style="'+big+';padding:0 4px">BB</span>').width-measure('AA').width-measure('BB',big).width-8)<0.04;
+  result.blocks=measure('<a style="'+big+'">alpha</a><div>beta</div>','display:block;width:200px').height===60;
+  result.strut=measure('<span style="font-size:16px;line-height:20px">alpha</span>','font:32px/40px serif').height===40;
+  result.unitlessInherited=measure('A<span style="font-size:20px">B</span>','line-height:1.5').height===30;
+  result.relativeHeight=measure('alpha <span style="font-size:32px;line-height:1.5">beta</span>').height===48;
+  const node=document.createElement('div');
+  node.style.cssText='font:16px/20px serif;width:'+limit+'px;';
+  node.innerHTML='<span style="'+big+'">alpha</span> beta';
+  document.body.append(node);
+  result.initial=node.getBoundingClientRect().height===60;
+  node.style.width='400px';
+  result.resize=node.getBoundingClientRect().height===40;
+  node.querySelector('span').style.cssText='font-size:16px;line-height:20px';
+  result.mutation=node.getBoundingClientRect().height===20;
+  node.remove();
+  const observed=document.createElement('div');
+  observed.style.cssText='font:16px/20px serif;width:120px';
+  observed.innerHTML='alpha <a style="line-height:32px">beta</a>';
+  document.body.append(observed);
+  return new Promise(resolve=>{
+    const observer=new IntersectionObserver(entries=>{
+      result.intersection=entries[0].boundingClientRect.height===32;
+      observer.disconnect();
+      observed.remove();
+      resolve(result);
+    });
+    observer.observe(observed);
+  });
+})()

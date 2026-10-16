@@ -1034,7 +1034,7 @@ impl Tree<'_, '_> {
         {
             return Ok(None);
         }
-        let mut source = text_source::Source::default();
+        let mut source = text_source::Source::new(context);
         let mut folded = Vec::new();
         if !self.inline_source(node, depth, variables, context, &mut source, &mut folded)? {
             return Ok(None);
@@ -1068,8 +1068,7 @@ impl Tree<'_, '_> {
             }
         }
         text::Run::new(
-            &source.text,
-            &source.padding,
+            &source,
             &context.typography,
             context,
             &self.fonts.borrow(),
@@ -1211,7 +1210,7 @@ impl Tree<'_, '_> {
     }
     fn text_item(
         &mut self,
-        source: &mut text_source::Source,
+        source: &mut text_source::Source<'_>,
         context: &BoxContext,
         output: &mut Vec<taffy::NodeId>,
     ) -> Result<()> {
@@ -1219,8 +1218,7 @@ impl Tree<'_, '_> {
             return Ok(());
         }
         let run = text::Run::new(
-            &source.text,
-            &source.padding,
+            source,
             &context.typography,
             context,
             &self.fonts.borrow(),
@@ -1228,6 +1226,8 @@ impl Tree<'_, '_> {
         )?;
         source.text.clear();
         source.padding.clear();
+        source.spans.clear();
+        source.boxes.clear();
         if let Some(run) = run {
             self.visit(0)?;
             let id = self
@@ -1265,7 +1265,7 @@ impl Tree<'_, '_> {
         }
         let anonymous = matches!(parent_display, Display::Flex | Display::Grid);
         let block_flow = matches!(parent_display, Display::Block | Display::FlowRoot);
-        let mut source = text_source::Source::default();
+        let mut source = text_source::Source::new(context);
         let mut folded = Vec::new();
         let mut child_boxes = Vec::new();
         for child in node.children_it(false) {
@@ -1288,11 +1288,7 @@ impl Tree<'_, '_> {
                     if context.display.contents() && !child.text().trim().is_empty() {
                         return Err(unsupported("anonymous text through display:contents"));
                     }
-                    let text = child.text();
-                    if source.text.len().saturating_add(text.len()) > 65_536 {
-                        return Err(Error::Limit("layout text source"));
-                    }
-                    source.text.push_str(&text);
+                    source.append(&child.text(), context)?;
                 }
                 continue;
             }

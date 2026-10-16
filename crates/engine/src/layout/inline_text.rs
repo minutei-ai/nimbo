@@ -13,7 +13,7 @@ impl Tree<'_, '_> {
         depth: usize,
         variables: &Variables,
         context: &BoxContext,
-        source: &mut super::text_source::Source,
+        source: &mut super::text_source::Source<'_>,
         folded: &mut Vec<NodeId>,
     ) -> Result<bool> {
         for child in node.children_it(false) {
@@ -36,16 +36,12 @@ impl Tree<'_, '_> {
         depth: usize,
         variables: &Variables,
         context: &BoxContext,
-        source: &mut super::text_source::Source,
+        source: &mut super::text_source::Source<'_>,
         folded: &mut Vec<NodeId>,
     ) -> Result<bool> {
         if node.is_text() {
             self.visit(depth)?;
-            let text = node.text();
-            if source.text.len().saturating_add(text.len()) > 65_536 {
-                return Err(Error::Limit("layout text source"));
-            }
-            source.text.push_str(&text);
+            source.append(&node.text(), context)?;
             return Ok(true);
         }
         if !node.is_element() || super::non_rendered(node) {
@@ -90,8 +86,17 @@ impl Tree<'_, '_> {
             &self.fonts.borrow(),
             self.work,
         )?;
-        if !same_metrics(&computed, context)? {
-            return Err(unsupported("text shaping: mixed inline metrics"));
+        let border = computed.borders.geometry()?;
+        if [border.left, border.right, border.top, border.bottom]
+            .iter()
+            .any(|width| *width != taffy::LengthPercentage::length(0.0))
+        {
+            return Err(unsupported("inline text borders"));
+        }
+        if !computed.typography.same_flow(&context.typography)
+            || computed.fonts.rtl() != context.fonts.rtl()
+        {
+            return Err(unsupported("mixed inline text flow"));
         }
         for kind in [
             crate::cascade::Generated::Before,
@@ -113,11 +118,12 @@ impl Tree<'_, '_> {
             }
         }
         let padding = horizontal_padding(&declarations, &computed.fonts, self.work)?;
-        let start = source.start_inline(padding.start);
+        let start = source.start_inline(padding.start, &computed);
         if !self.inline_source(node, depth, &inherited, &computed, source, folded)? {
             return Ok(false);
         }
-        source.end_inline(start, padding.end, computed.typography.preserves_breaks())?;
+        source.end_inline(start, padding.end, &computed)?;
+        source.record_inline(start, source.text.len(), &computed);
         folded.push(node.id);
         Ok(true)
     }
@@ -162,14 +168,4 @@ fn inert(name: &str, value: &str) -> bool {
         || name.starts_with("border-")
             && name.ends_with("-style")
             && matches!(value, "none" | "solid")
-}
-
-fn same_metrics(computed: &BoxContext, inherited: &BoxContext) -> Result<bool> {
-    let border = computed.borders.geometry()?;
-    Ok([border.left, border.right, border.top, border.bottom]
-        .iter()
-        .all(|width| *width == taffy::LengthPercentage::length(0.0))
-        && computed.fonts == inherited.fonts
-        && computed.typography == inherited.typography
-        && computed.family == inherited.family)
 }

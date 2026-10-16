@@ -9,37 +9,102 @@ pub(super) struct Padding {
     pub width: LengthPercentage,
 }
 
-#[derive(Default)]
-pub(super) struct Source {
-    pub text: String,
-    pub padding: Vec<Padding>,
+#[derive(Clone)]
+pub(super) struct Span {
+    pub start: usize,
+    pub end: usize,
+    pub metrics: super::text::Metrics,
 }
 
-impl Source {
-    pub(super) fn start_inline(&mut self, width: LengthPercentage) -> usize {
+pub(super) struct Source<'a> {
+    base: &'a super::BoxContext,
+    pub text: String,
+    pub padding: Vec<Padding>,
+    pub spans: Vec<Span>,
+    pub boxes: Vec<Span>,
+}
+
+impl<'a> Source<'a> {
+    pub(super) fn new(base: &'a super::BoxContext) -> Self {
+        Self {
+            base,
+            text: String::new(),
+            padding: Vec::new(),
+            spans: Vec::new(),
+            boxes: Vec::new(),
+        }
+    }
+    pub(super) fn append(&mut self, text: &str, context: &super::BoxContext) -> Result<()> {
+        let start = self.text.len();
+        if start.saturating_add(text.len()) > 65_536 {
+            return Err(crate::Error::Limit("layout text source"));
+        }
+        if text.is_empty() {
+            return Ok(());
+        }
+        self.text.push_str(text);
+        if self.spans.is_empty() && super::text::Metrics::same(context, self.base) {
+            return Ok(());
+        }
+        if self.spans.is_empty() && start > 0 {
+            self.spans.push(Span {
+                start: 0,
+                end: start,
+                metrics: super::text::Metrics::new(self.base),
+            });
+        }
+        if let Some(last) = self.spans.last_mut()
+            && last.metrics.matches(context)
+        {
+            last.end = self.text.len();
+            return Ok(());
+        }
+        self.spans.push(Span {
+            start,
+            end: self.text.len(),
+            metrics: super::text::Metrics::new(context),
+        });
+        Ok(())
+    }
+    pub(super) fn start_inline(
+        &mut self,
+        width: LengthPercentage,
+        context: &super::BoxContext,
+    ) -> usize {
         let index = self.text.len();
         if width != LengthPercentage::length(0.0) && width != LengthPercentage::percent(0.0) {
             self.padding.push(Padding { index, width });
+            self.record_inline(index, index, context);
         }
         index
+    }
+    pub(super) fn record_inline(&mut self, start: usize, end: usize, context: &super::BoxContext) {
+        if !super::text::Metrics::same(context, self.base) {
+            self.boxes.push(Span {
+                start,
+                end,
+                metrics: super::text::Metrics::new(context),
+            });
+        }
     }
     pub(super) fn end_inline(
         &mut self,
         start: usize,
         width: LengthPercentage,
-        preserve_breaks: bool,
+        context: &super::BoxContext,
     ) -> Result<()> {
+        let preserve_breaks = context.typography.preserves_breaks();
         if width == LengthPercentage::length(0.0) || width == LengthPercentage::percent(0.0) {
             return Ok(());
         }
-        let content = self
+        let fragment = self
             .text
             .get(start..)
             .ok_or_else(|| unsupported("inline text boundary"))?;
         let trimmed = if preserve_breaks {
-            content.trim_end_matches([' ', '\t', '\u{c}'])
+            fragment.trim_end_matches([' ', '\t', '\u{c}'])
         } else {
-            content.trim_end_matches([' ', '\t', '\n', '\r', '\u{c}'])
+            fragment.trim_end_matches([' ', '\t', '\n', '\r', '\u{c}'])
         };
         let trimmed = if preserve_breaks {
             trimmed
@@ -49,12 +114,18 @@ impl Source {
         } else {
             trimmed
         };
-        self.padding.push(Padding {
-            index: start.saturating_add(trimmed.len()),
-            width,
-        });
+        let index = start.saturating_add(trimmed.len());
+        self.padding.push(Padding { index, width });
+        self.record_inline(index, index, context);
         Ok(())
     }
+}
+
+pub(super) struct Normalized {
+    pub text: String,
+    pub padding: Vec<Padding>,
+    pub spans: Vec<Span>,
+    pub boxes: Vec<Span>,
 }
 
 fn trim_line(
@@ -75,8 +146,10 @@ fn trim_line(
     Ok(())
 }
 
-pub(super) fn normalize(raw: &str, padding: &[Padding], preserve_breaks: bool) -> Result<Source> {
-    if padding.is_empty() {
+pub(super) fn normalize(source: &Source<'_>, preserve_breaks: bool) -> Result<Normalized> {
+    let raw = &source.text;
+    let padding = &source.padding;
+    if padding.is_empty() && source.spans.is_empty() && source.boxes.is_empty() {
         let collapse = |line: &str| {
             line.split([' ', '\t', '\n', '\r', '\u{c}'])
                 .filter(|part| !part.is_empty())
@@ -93,11 +166,71 @@ pub(super) fn normalize(raw: &str, padding: &[Padding], preserve_breaks: bool) -
         } else {
             collapse(raw)
         };
-        return Ok(Source {
+        return Ok(Normalized {
             text,
             padding: Vec::new(),
+            spans: Vec::new(),
+            boxes: Vec::new(),
         });
     }
+    let (text, mappings) = mapped_whitespace(raw, preserve_breaks)?;
+    let mut result = Vec::with_capacity(padding.len());
+    for value in padding {
+        if !raw.is_char_boundary(value.index) {
+            return Err(unsupported("inline text boundary"));
+        }
+        let index = mappings
+            .get(value.index)
+            .copied()
+            .ok_or_else(|| unsupported("inline text boundary"))?;
+        result.push(Padding {
+            index,
+            width: value.width,
+        });
+    }
+    result.sort_by_key(|value| value.index);
+    let mut spans = Vec::with_capacity(source.spans.len());
+    for span in &source.spans {
+        let start = mappings
+            .get(span.start)
+            .copied()
+            .ok_or_else(|| unsupported("inline text boundary"))?;
+        let end = mappings
+            .get(span.end)
+            .copied()
+            .ok_or_else(|| unsupported("inline text boundary"))?;
+        if start < end {
+            spans.push(Span {
+                start,
+                end,
+                metrics: span.metrics.clone(),
+            });
+        }
+    }
+    let mut boxes = Vec::with_capacity(source.boxes.len());
+    for span in &source.boxes {
+        boxes.push(Span {
+            start: mappings
+                .get(span.start)
+                .copied()
+                .ok_or_else(|| unsupported("inline text boundary"))?,
+            end: mappings
+                .get(span.end)
+                .copied()
+                .ok_or_else(|| unsupported("inline text boundary"))?,
+            metrics: span.metrics.clone(),
+        });
+    }
+    boxes.sort_by_key(|span| span.end);
+    Ok(Normalized {
+        text,
+        padding: result,
+        spans,
+        boxes,
+    })
+}
+
+fn mapped_whitespace(raw: &str, preserve_breaks: bool) -> Result<(String, Vec<usize>)> {
     let mut text = String::with_capacity(raw.len());
     let mut mappings = vec![0; raw.len().saturating_add(1)];
     let mut trailing = None;
@@ -132,23 +265,5 @@ pub(super) fn normalize(raw: &str, padding: &[Padding], preserve_breaks: bool) -
     *mappings
         .last_mut()
         .ok_or_else(|| unsupported("inline text boundary"))? = text.len();
-    let mut result = Vec::with_capacity(padding.len());
-    for value in padding {
-        if !raw.is_char_boundary(value.index) {
-            return Err(unsupported("inline text boundary"));
-        }
-        let index = mappings
-            .get(value.index)
-            .copied()
-            .ok_or_else(|| unsupported("inline text boundary"))?;
-        result.push(Padding {
-            index,
-            width: value.width,
-        });
-    }
-    result.sort_by_key(|value| value.index);
-    Ok(Source {
-        text,
-        padding: result,
-    })
+    Ok((text, mappings))
 }
