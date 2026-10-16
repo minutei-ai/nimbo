@@ -6361,3 +6361,39 @@ fn inline_flow_keeps_unsupported_boundaries_explicit_and_recovers() -> TestResul
     );
     Ok(())
 }
+
+#[test]
+fn background_paint_state_does_not_block_native_box_geometry() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/image-resources/empty"))?;
+    let result = page.evaluate(include_str!("fixtures/background-geometry.txt"))?;
+    let checks = result
+        .as_object()
+        .ok_or("missing background geometry checks")?;
+    assert_eq!(checks.len(), 23);
+    assert!(
+        checks.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    Ok(())
+}
+
+#[test]
+fn background_geometry_preserves_explicit_cssom_and_paint_boundaries() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/image-resources/empty"))?;
+    let result = page.evaluate(include_str!("fixtures/background-geometry-boundaries.txt"))?;
+    let checks = result
+        .as_object()
+        .ok_or("missing background boundary checks")?;
+    assert_eq!(checks.len(), 8);
+    assert!(
+        checks.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    Ok(())
+}

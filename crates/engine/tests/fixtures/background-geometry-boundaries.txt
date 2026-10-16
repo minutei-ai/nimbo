@@ -1,0 +1,13 @@
+(()=>{
+  const root=document.createElement('div');root.style.cssText='width:40px;height:10px';document.body.append(root);const style=getComputedStyle(root),checks={};
+  const rejected=(css,property,detail)=>{root.style.cssText='width:40px;height:10px;'+css;try{style.getPropertyValue(property);return false;}catch(error){return error.message.includes(detail);}};
+  checks.image=rejected('background-image:url(/image-resources/small.png)','background-image','URL provenance and loading');
+  checks.imageGeometry=root.getBoundingClientRect().width===40;
+  checks.size=rejected('background-size:2ex','background-size','relative query length');
+  checks.sizeGeometry=root.getBoundingClientRect().height===10;
+  checks.position=rejected('background-position:2ex 30%','background-position-x','relative query length');
+  checks.positionGeometry=root.offsetWidth===40;
+  root.style.cssText='width:40px;height:10px;background-image:linear-gradient(red,blue);background-size:20px;background-position:10px 20%';
+  checks.recovery=style.backgroundImage==='linear-gradient(rgb(255, 0, 0), rgb(0, 0, 255))'&&style.backgroundSize==='20px auto'&&style.backgroundPositionX==='10px'&&root.getBoundingClientRect().width===40;
+  checks.paint=!CSS.supports('background-image','url(/image-resources/small.png)')&&!CSS.supports('background-repeat','space round');root.remove();return checks;
+})()

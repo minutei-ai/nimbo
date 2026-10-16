@@ -1,0 +1,34 @@
+(async()=>{
+  const checks={},near=(a,b)=>Math.abs(a-b)<.07;
+  const root=document.createElement('section'),child=document.createElement('div'),other=document.createElement('aside');
+  const base='display:block;width:120px;height:80px;margin:0;padding:7px;border:2px solid black;font:16px/24px serif;';
+  root.id='background-geometry-target';root.style.cssText=base;child.style.cssText='display:block;width:40px;height:10px;margin:0;padding:0;border:0';other.style.cssText='display:block;width:70px;height:11px;margin:0;padding:0;border:0';
+  root.append(child);document.body.append(root,other);
+  const geometry=()=>{const r=root.getBoundingClientRect(),c=child.getBoundingClientRect();return near(r.width,138)&&near(r.height,98)&&near(c.x-r.x,9)&&near(c.y-r.y,9)&&near(c.width,40)&&near(c.height,10)&&root.offsetWidth===138&&root.offsetHeight===98&&root.clientWidth===134&&root.clientHeight===94&&root.scrollWidth===134&&root.scrollHeight===94&&getComputedStyle(root).width==='120px'&&other.getBoundingClientRect().width===70;};
+  checks.base=geometry();
+  for(const [name,css] of [
+    ['url','background-image:url(/image-resources/small.png)'],
+    ['broken','background-image:url(/image-resources/missing.png)'],
+    ['radial','background-image:radial-gradient(red,blue)'],
+    ['conic','background-image:conic-gradient(red,blue)'],
+    ['metric','background-image:linear-gradient(red 2ex,blue)'],
+    ['mixed','background-image:linear-gradient(red calc(20% + 2px),blue)'],
+    ['color','background-image:linear-gradient(color(display-p3 1 0 0),blue)'],
+    ['position','background-position:2ex 30%'],
+    ['size','background-size:2ex'],
+    ['repeat','background-image:url(/image-resources/small.png);background-repeat:space round'],
+    ['layers','background-image:url(/image-resources/small.png),none;background-size:cover;background-origin:content-box;background-attachment:local'],
+    ['variable','--paint:url(/image-resources/small.png);background-image:var(--paint)']
+  ]){root.style.cssText=base+css;checks[name]=geometry();}
+  root.style.cssText=base+'background-image:url(/image-resources/small.png)';
+  child.style.backgroundImage='inherit';checks.inherit=geometry();child.style.backgroundImage='none';
+  root.style.width='140px';checks.resize=near(root.getBoundingClientRect().width,158)&&getComputedStyle(root).width==='140px';root.style.width='120px';
+  child.style.width='50%';checks.percentage=near(child.getBoundingClientRect().width,60);child.style.width='40px';
+  const sheet=document.createElement('style');sheet.textContent='#background-geometry-target{background-image:radial-gradient(red,blue)!important}';document.head.append(sheet);checks.sheet=geometry();sheet.textContent='#background-geometry-target{background-image:url(/image-resources/missing.png)!important}';checks.sheetMutation=geometry();sheet.remove();
+  const inline=document.createElement('a');inline.style.backgroundImage='url(/image-resources/small.png)';inline.textContent='A';root.append(inline);checks.inline=geometry();inline.remove();
+  const entry=await new Promise(resolve=>{const observer=new IntersectionObserver(entries=>{if(!entries.length)return;observer.disconnect();resolve(entries[0])},{root});observer.observe(child);});
+  checks.intersection=near(entry.boundingClientRect.width,40)&&near(entry.boundingClientRect.height,10)&&near(entry.intersectionRect.width,40)&&entry.isIntersecting;
+  root.remove();checks.detached=root.getBoundingClientRect().width===0&&child.getBoundingClientRect().height===0;document.body.append(root);checks.reattached=geometry();
+  root.style.cssText=base+'width:80px;height:20px;overflow:hidden;background-image:url(/image-resources/small.png)';child.style.cssText+=';width:120px;height:100px';root.scrollTop=10;const r=root.getBoundingClientRect(),c=child.getBoundingClientRect();checks.scroll=root.scrollTop===10&&near(c.y-r.y,-1)&&root.scrollHeight===114&&root.scrollWidth===134;
+  root.remove();other.remove();return checks;
+})()

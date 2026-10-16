@@ -253,18 +253,14 @@ impl Images {
         }
     }
 
-    pub(crate) fn validate(&self) -> Result<()> {
-        self.failure
-            .as_ref()
-            .map_or(Ok(()), |message| Err(Error::Dom(message.clone())))
-    }
-
     pub(crate) fn count(&self) -> usize {
         self.count
     }
 
     pub(crate) fn value(&self, current: &CssColor) -> Result<String> {
-        self.validate()?;
+        self.failure
+            .as_ref()
+            .map_or(Ok(()), |message| Err(Error::Dom(message.clone())))?;
         self.layers
             .iter()
             .map(|layer| match layer {

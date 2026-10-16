@@ -223,7 +223,7 @@ test.each([
   },
 );
 
-test("real HTTP → workerd → Wasm: unsupported image geometry stays explicit", async () => {
+test("real HTTP → workerd → Wasm: background image state does not block box geometry", async () => {
   const url = new URL("background-images/0", origin.url).href;
   const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
     method: "POST",
@@ -231,11 +231,11 @@ test("real HTTP → workerd → Wasm: unsupported image geometry stays explicit"
     body: JSON.stringify({
       url,
       expression:
-        "(()=>{document.body.style.backgroundImage='url(https://example.test/image.png)';return document.body.getBoundingClientRect()})()",
+        "(()=>{document.body.style.cssText='width:40px;height:10px;background-image:url(https://example.test/image.png)';return document.body.getBoundingClientRect()})()",
     }),
   });
-  expect(response.status).toBe(422);
-  expect(await response.text()).toContain("URL provenance and loading");
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ value: { width: 40, height: 10 } });
 });
 
 test.each([

@@ -1999,10 +1999,12 @@ and unsupported color serialization, then recover through fresh successful
 requests. Another Worker case verifies single-color gradients, lazy scalar
 access with an advanced image color or unsupported image URL, and conservative
 paint support reporting. Unsupported image state is retained as an explicit
-failure for image-value/geometry requests; it does not prevent unrelated scalar
-computed properties from being read. An additional real Worker request verifies
-that unsupported image geometry still fails explicitly. Operation/quota
-failures still propagate.
+failure for image-value requests; it does not prevent unrelated scalar
+computed properties or box geometry from being read. Worker requests verify
+that image URL and sizing failures do not change real box dimensions. The
+[background geometry contract](css-geometry.md#background-state-and-box-geometry)
+records the independent geometry and CSSOM checks. Operation/quota failures
+still propagate.
 
 Background layers do not affect empty box dimensions. The engine computes and
 retains image state rather than treating arbitrary background CSS as supported.
@@ -2031,9 +2033,9 @@ expressions. Percentage functions preserve shorthand declaration provenance:
 Chromium retains percentage comparisons from background-position while direct
 axis assignments can reduce them. Cascade, variables, inheritance and subsequent
 axis replacement retain the corresponding native state. Unsupported coordinates
-fail when their scalar or geometry is requested, without blocking unrelated font
-or other-axis reads. Non-finite values fail explicitly; expression nesting and
-expanded computed serialization are bounded at 32 levels and 2 MiB respectively,
+fail when their scalar is requested, without blocking unrelated font,
+other-axis or box geometry reads. Non-finite values fail explicitly; expression
+nesting and expanded computed serialization are bounded at 32 levels and 2 MiB respectively,
 in addition to the shared parsing/work limits.
 
 The public real-HTTP fixture runs 64 variants with 64 checks each in native Rust,
@@ -2063,9 +2065,9 @@ the shared work budget; computed serialization retains the 2 MiB output bound.
 
 The live getComputedStyle facade exposes background-repeat as its twelfth
 enumerated property. Empty non-text box geometry accepts the computed repeat
-state. An unsupported image still produces an explicit geometry error, while its
-repeat scalar remains readable. The native default is repeat on both axes;
-initial/unset and author-origin revert restore it. Layer rollback via revert-layer
+state. An unsupported image does not block the repeat scalar or box geometry;
+its own image-value request still fails explicitly. The native default is repeat
+on both axes; initial/unset and author-origin revert restore it. Layer rollback via revert-layer
 remains unsupported rather than being treated as an arbitrary repeat keyword.
 
 The shared public real-HTTP fixture executes 64 variants with 66 checks each in
@@ -2102,8 +2104,8 @@ inside inherited math retain the parent's resolved font context. Live mutations
 of parent/child image counts, fonts and style resources recompute this state.
 Each expression node copied into an expanded/inherited layer consumes shared work
 before allocation; the common 32-level expression and 2 MiB serialization bounds
-remain enforced. Unsupported sizing expressions fail when the size scalar or
-geometry is requested, while unrelated scalar reads remain available. Limit
+remain enforced. Unsupported sizing expressions fail when the size scalar is
+requested, while unrelated scalar and box geometry reads remain available. Limit
 errors propagate instead of being hidden in lazy state.
 
 The live getComputedStyle facade exposes background-size as its thirteenth

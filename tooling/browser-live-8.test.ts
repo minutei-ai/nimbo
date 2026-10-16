@@ -237,7 +237,7 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
   },
 );
 
-test("real HTTP → workerd → Wasm: unsupported sizing geometry stays explicit", async () => {
+test("real HTTP → workerd → Wasm: background sizing errors do not block geometry", async () => {
   const url = new URL("background-size/0", origin.url).href;
   const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
     method: "POST",
@@ -245,11 +245,11 @@ test("real HTTP → workerd → Wasm: unsupported sizing geometry stays explicit
     body: JSON.stringify({
       url,
       expression:
-        "(()=>{document.body.style.backgroundSize='2ex';return document.body.getBoundingClientRect()})()",
+        "(()=>{document.body.style.cssText='width:40px;height:10px;background-size:2ex';return document.body.getBoundingClientRect()})()",
     }),
   });
-  expect(response.status).toBe(422);
-  expect(await response.text()).toContain("relative query length");
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ value: { width: 40, height: 10 } });
 });
 
 test.each(["inline-block", "flow-root"])(

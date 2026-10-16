@@ -239,7 +239,7 @@ test.each([
   },
 );
 
-test("real HTTP → workerd → Wasm: image errors preserve repeat scalars and conservative tiling support", async () => {
+test("real HTTP → workerd → Wasm: background repeat scalars and geometry retain separate contracts", async () => {
   const url = new URL("background-repeat/0", origin.url).href;
   const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
     method: "POST",
@@ -260,11 +260,11 @@ test("real HTTP → workerd → Wasm: image errors preserve repeat scalars and c
     body: JSON.stringify({
       url,
       expression:
-        "(()=>{document.body.style.cssText='background-image:url(https://example.test/a);background-repeat:space round';return document.body.getBoundingClientRect()})()",
+        "(()=>{document.body.style.cssText='width:40px;height:10px;background-image:url(https://example.test/a);background-repeat:space round';return document.body.getBoundingClientRect()})()",
     }),
   });
-  expect(geometry.status).toBe(422);
-  expect(await geometry.text()).toContain("URL provenance and loading");
+  expect(geometry.status).toBe(200);
+  expect(await geometry.json()).toMatchObject({ value: { width: 40, height: 10 } });
 });
 
 test.each(Array.from({ length: 256 }, (_, index) => [Math.floor(index / 4), index % 4]))(

@@ -259,10 +259,7 @@ impl Positions {
             )?,
         })
     }
-    pub(crate) fn validate(&self) -> Result<()> {
-        self.x.validate()?;
-        self.y.validate()
-    }
+
     pub(crate) fn value(&self, name: &str, count: usize) -> Result<String> {
         match name {
             "background-position-x" => Ok(self.x.values(count)?.join(", ")),

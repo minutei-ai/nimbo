@@ -139,13 +139,11 @@ impl Sizes {
             _ => Self::parsed(&value, fonts, work)?.expanded(count, work),
         }
     }
-    pub(crate) fn validate(&self) -> Result<()> {
+
+    pub(crate) fn value(&self) -> Result<String> {
         self.failure
             .as_ref()
-            .map_or(Ok(()), |message| Err(Error::Dom(message.clone())))
-    }
-    pub(crate) fn value(&self) -> Result<String> {
-        self.validate()?;
+            .map_or(Ok(()), |message| Err(Error::Dom(message.clone())))?;
         let mut values = Vec::new();
         let mut bytes = 0_usize;
         for layer in &self.layers {

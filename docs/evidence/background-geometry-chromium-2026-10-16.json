@@ -1,0 +1,40 @@
+{
+  "date": "2026-10-16",
+  "method": "T3 collaborative browser, agent-owned incognito tab; real HTTP page; no geometry patch or external engine fallback",
+  "fixture": "crates/engine/tests/fixtures/background-geometry.txt",
+  "fixture_sha256": "4ccf8240ad419d86df79ace74d8d8e54909b3624b5dcbf36fe2d62d02f8c4067",
+  "environment": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+    "devicePixelRatio": 2,
+    "compatMode": "CSS1Compat"
+  },
+  "checks": {
+    "base": true,
+    "url": true,
+    "broken": true,
+    "radial": true,
+    "conic": true,
+    "metric": true,
+    "mixed": true,
+    "color": true,
+    "position": true,
+    "size": true,
+    "repeat": true,
+    "layers": true,
+    "variable": true,
+    "inherit": true,
+    "resize": true,
+    "percentage": true,
+    "sheet": true,
+    "sheetMutation": true,
+    "inline": true,
+    "intersection": true,
+    "detached": true,
+    "reattached": true,
+    "scroll": true
+  },
+  "limitations": [
+    "These are box geometry checks. Nimbo background URL loading/provenance and painting remain pending; this does not claim background resource or image-value parity.",
+    "Eight explicit native CSSOM failure/recovery and paint capability checks are separate from this Chromium geometry reference."
+  ]
+}

@@ -146,7 +146,7 @@ test("real HTTP → workerd → Wasm: container layout work is bounded and fresh
     body: JSON.stringify({ url, expression }),
   });
   expect(response.status).toBe(200);
-  const failure: unknown = expect.stringContaining("DOM operations");
+  const failure: unknown = expect.stringContaining("container layout passes");
   expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: failure });
   const healthy = await worker.dispatchFetch("https://nimbo.test/scrape", {
     method: "POST",

@@ -193,7 +193,7 @@ pub(crate) fn supports(declarations: &Declarations) -> bool {
     };
     if declarations
         .layout_entries()
-        .any(|(_, value, _)| value.contains("ch"))
+        .any(|(name, value, _)| !non_layout(name) && value.contains("ch"))
     {
         let Ok(font) = crate::builtin_fonts::select(&format!("{}px serif", fonts.size())) else {
             return false;
@@ -584,11 +584,6 @@ struct BoxContext {
     fonts: crate::fonts::Context,
     borders: crate::borders::Borders,
     outlines: crate::outlines::Outlines,
-    images: crate::backgrounds::Images,
-    positions: crate::background_position::Positions,
-    repeats: crate::background_repeat::Repeats,
-    sizes: crate::background_size::Sizes,
-    layers: crate::background_layers::Layers,
     family: crate::font_family::Family,
     clamp: Option<u32>,
     display: crate::display::Computed,
@@ -604,11 +599,6 @@ impl BoxContext {
             fonts: crate::fonts::Context::new(media),
             borders: crate::borders::Borders::default(),
             outlines: crate::outlines::Outlines::default(),
-            images: crate::backgrounds::Images::default(),
-            positions: crate::background_position::Positions::default(),
-            repeats: crate::background_repeat::Repeats::default(),
-            sizes: crate::background_size::Sizes::default(),
-            layers: crate::background_layers::Layers::default(),
             family: crate::font_family::Family::default(),
             clamp: None,
             display: crate::display::Computed::default(),
@@ -663,31 +653,16 @@ impl BoxContext {
         let typography = self.typography.compute(declarations, node, &fonts, work)?;
         if declarations
             .layout_entries()
-            .any(|(_, value, _)| value.contains("ch"))
+            .any(|(name, value, _)| !non_layout(name) && value.contains("ch"))
         {
             fonts = fonts.with_zero_advance(typography.zero_advance(&fonts, &family, arena, work)?);
         }
         let borders = self.borders.compute(declarations, &fonts, work)?;
         let outlines = self.outlines.compute(declarations, &fonts, work)?;
-        let images = self.images.compute(declarations, &fonts, work)?;
-        images.validate()?;
-        let positions = self.positions.compute(declarations, &fonts, work)?;
-        positions.validate()?;
-        let repeats = self.repeats.compute(declarations, images.count(), work)?;
-        let sizes = self
-            .sizes
-            .compute(declarations, images.count(), &fonts, work)?;
-        sizes.validate()?;
-        let layers = self.layers.compute(declarations, images.count(), work)?;
         Ok(Self {
             fonts,
             borders,
             outlines,
-            images,
-            positions,
-            repeats,
-            sizes,
-            layers,
             family,
             clamp: clamp::lines(declarations)?,
             row_flex: if display.contents() {

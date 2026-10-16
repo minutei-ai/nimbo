@@ -432,3 +432,43 @@ cost or establish a speedup. The report retains all samples, effective budgets
 and process-tree RSS; Wasm grows by 30,955 bytes. The old build rejects mixed
 inline wrappers, so these timings measure retained behavior rather than new
 mixed-flow throughput.
+
+## Background state and box geometry
+
+Background images, positions, repeats, sizes and layer painting do not change
+CSS box dimensions or scrollable overflow. Their computed state has one owner
+in the CSSOM pipeline. The native layout context no longer duplicates, clones
+or validates these five states for every box. It also excludes non-layout
+values from character-width dependency detection, so an image URL or background
+length cannot cause layout-only font measurement.
+
+The shared `background-geometry` fixture checks 23 contracts in native Rust,
+Worker/Wasm and independently in Chromium: valid/broken image URLs, unsupported
+gradient and color forms, metric lengths, variable substitution, inheritance,
+layer properties, stylesheet and inline changes, percentage sizing, resize,
+inline descendants, detachment/reattachment, scroll geometry and
+IntersectionObserver. The same unmodified fixture fails against the preceding
+engine at the first URL-backed geometry read. All measurements come from the
+native box layout; no geometry or resources are substituted.
+
+Eight native boundary/recovery checks retain explicit errors when callers ask
+for image URLs, unavailable image-size metrics or unsupported image-position
+values. Supported scalar recovery and conservative `CSS.supports` paint results
+remain checked. This separates box geometry from painting; it does not implement
+background URL provenance/loading, image tiling, image-set selection, additional
+gradient painting or scene composition. Those capabilities remain pending at
+their actual resource/value/painting owners.
+
+The [Chromium reference](evidence/background-geometry-chromium-2026-10-16.json)
+records the exact shared fixture. The [retained-path comparison](evidence/background-geometry-2026-10-16.json)
+uses the preceding commit's retained Worker/Wasm artifacts with verified hashes,
+real HTTP, fresh pages, alternating versions and three rounds per workload.
+Both builds complete 19/19 requests in every round. Ordinary-text candidate p50,
+p95 and maximum sampled process-tree RSS are lower in all three rounds;
+p50 baseline/candidate values are 73.05/63.86, 74.41/72.22 and 86.20/82.42 ms.
+Atomic p50 is higher in two rounds and lower in one; p95 is lower in two and
+higher in one. These local samples do not establish a general speedup or isolate
+individual source costs. The report retains every sample, effective budgets and
+RSS readings after requests, not peak/page heap. Wasm shrinks by 3,755 bytes.
+The old build rejects background-backed geometry, so these timings compare
+retained paths rather than throughput of the new capability.

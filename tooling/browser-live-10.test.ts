@@ -240,7 +240,7 @@ test.each(
     ].map((read) => [position, detail, read] as const),
   ),
 )(
-  "real HTTP → workerd → Wasm: explicit positioning limit %s / %s / %s",
+  "real HTTP → workerd → Wasm: background position scalar and geometry %s / %s / %s",
   async (position, detail, read) => {
     const url = new URL("background-position/0", origin.url).href;
     const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
@@ -248,11 +248,16 @@ test.each(
       headers: { authorization: "Bearer test-secret" },
       body: JSON.stringify({
         url,
-        expression: `(()=>{document.body.style.backgroundPositionX=${JSON.stringify(position)};return ${read}})()`,
+        expression: `(()=>{document.body.style.cssText='width:40px;height:10px';document.body.style.backgroundPositionX=${JSON.stringify(position)};return ${read}})()`,
       }),
     });
-    expect(response.status).toBe(422);
-    expect(await response.text()).toContain(detail);
+    if (read === "document.body.getBoundingClientRect()") {
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({ value: { width: 40, height: 10 } });
+    } else {
+      expect(response.status).toBe(422);
+      expect(await response.text()).toContain(detail);
+    }
     const healthy = await worker.dispatchFetch("https://nimbo.test/scrape", {
       method: "POST",
       headers: { authorization: "Bearer test-secret" },

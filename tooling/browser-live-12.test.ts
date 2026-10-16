@@ -1201,3 +1201,55 @@ test("inline flow keeps unsupported boundaries explicit and recovers", async () 
       .map(([name]) => name),
   ).toEqual([]);
 });
+
+const backgroundGeometry = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/background-geometry.txt", import.meta.url),
+).text();
+
+test("background paint state does not block native box geometry", async () => {
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url: new URL("image-resources/empty", origin.url).href,
+      expression: backgroundGeometry,
+    }),
+  });
+  expect(response.status).toBe(200);
+  const result = Schema.decodeUnknownSync(Success)(await response.json());
+  const checks = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Boolean))(
+    result.value,
+  );
+  expect(Object.keys(checks)).toHaveLength(23);
+  expect(
+    Object.entries(checks)
+      .filter(([, passed]) => !passed)
+      .map(([name]) => name),
+  ).toEqual([]);
+});
+
+const backgroundGeometryBoundaries = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/background-geometry-boundaries.txt", import.meta.url),
+).text();
+
+test("background geometry preserves explicit CSSOM and paint boundaries", async () => {
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url: new URL("image-resources/empty", origin.url).href,
+      expression: backgroundGeometryBoundaries,
+    }),
+  });
+  expect(response.status).toBe(200);
+  const result = Schema.decodeUnknownSync(Success)(await response.json());
+  const checks = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Boolean))(
+    result.value,
+  );
+  expect(Object.keys(checks)).toHaveLength(8);
+  expect(
+    Object.entries(checks)
+      .filter(([, passed]) => !passed)
+      .map(([name]) => name),
+  ).toEqual([]);
+});
