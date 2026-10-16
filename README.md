@@ -87,6 +87,12 @@ Local celld A/B results, same HTTP adapter and limits, fresh pages, concurrency 
 
 ## Test
 
+Checks and releases share the native Rust dependency and installed-tool cache.
+Compatible tag builds can restore the default branch's cache; caches saved
+under another tag are isolated by GitHub. The action retains its toolchain,
+environment and dependency hashes. A warm default-branch cache is required
+before evaluating the release-time benefit.
+
 The native TLS/HTTP2 regression uses Node.js 22 or newer and OpenSSL to host
 a synthetic trusted origin. Bun remains the command runner and Worker host.
 
