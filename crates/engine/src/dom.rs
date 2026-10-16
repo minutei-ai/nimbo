@@ -850,6 +850,7 @@ impl Dom {
     }
 
     fn computed_value(&mut self, id: NodeId, name: &str) -> Result<String> {
+        let image_base = self.base_href()?;
         let cascade = self.ensure_cascade()?;
         let node = self
             .document
@@ -865,6 +866,8 @@ impl Dom {
             let values = crate::computed_style::resolve(
                 node,
                 &crate::layout::Sources {
+                    images: &self.images,
+                    image_base: image_base.as_deref(),
                     scroll: &self.scroll,
                     transitions: &self.transitions,
                     now: self.now,
@@ -902,6 +905,8 @@ impl Dom {
                 &self.document,
                 node,
                 &crate::layout::Sources {
+                    images: &self.images,
+                    image_base: image_base.as_deref(),
                     scroll: &self.scroll,
                     transitions: &self.transitions,
                     now: self.now,
@@ -1053,6 +1058,7 @@ impl Dom {
         // Drop an invalidated scene before allocating its replacement.
         self.layout = None;
         let cascade = self.ensure_cascade()?;
+        let image_base = self.base_href()?;
         let mut work = crate::layout::Work::new(
             &mut self.operations,
             self.limits.max_dom_operations,
@@ -1061,6 +1067,8 @@ impl Dom {
         let layout = crate::layout::snapshot(
             &self.document,
             &crate::layout::Sources {
+                images: &self.images,
+                image_base: image_base.as_deref(),
                 scroll: &self.scroll,
                 transitions: &self.transitions,
                 now: self.now,

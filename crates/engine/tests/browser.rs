@@ -6257,3 +6257,32 @@ fn image_resources_defer_empty_source_error_until_parser_scripts() -> TestResult
     assert_eq!(page.evaluate("[imageErrors,document.getElementById('empty').complete,document.getElementById('empty').naturalWidth]")?, json!([1,true,0]));
     Ok(())
 }
+
+#[test]
+fn image_layout_uses_native_intrinsic_sizes_and_atomic_lines() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/image-resources/empty"))?;
+    let result = page.evaluate(include_str!("fixtures/image-layout.txt"))?;
+    let checks = result.as_object().ok_or("missing image layout checks")?;
+    assert_eq!(checks.len(), 59);
+    assert!(
+        checks.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    Ok(())
+}
+
+#[test]
+fn image_layout_rejects_unsized_alternate_text() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/image-resources/empty"))?;
+    let result=page.evaluate("(async()=>{const image=new Image();image.alt='fallback';const ready=new Promise(resolve=>image.onerror=resolve);image.src='/image-resources/broken.png';document.body.append(image);await ready;return image.getBoundingClientRect().width})()");
+    assert!(
+        matches!(result,Err(Error::JavaScript(message)) if message.contains("broken image or alternate text layout"))
+    );
+    Ok(())
+}

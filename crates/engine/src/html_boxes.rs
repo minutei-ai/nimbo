@@ -137,7 +137,10 @@ pub(crate) fn validate(
         }
         return Ok(());
     }
-    if node.has_name("canvas") || crate::layout::svg_viewport::root(node) {
+    if node.has_name("canvas")
+        || crate::images::element(node)
+        || crate::layout::svg_viewport::root(node)
+    {
         return Ok(());
     }
     let name = node.qual_name_ref();

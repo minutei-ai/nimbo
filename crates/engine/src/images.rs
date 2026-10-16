@@ -8,6 +8,7 @@ use dom_query::{Document, NodeId, NodeRef};
 use image::{ImageDecoder, ImageReader};
 use num_traits::ToPrimitive;
 use serde::Serialize;
+use taffy::Size;
 use url::Url;
 
 use crate::{Error, Result, dom_attributes::NativeAttributes, layout::Work, machine::Response};
@@ -25,15 +26,9 @@ struct Source {
     density: f64,
 }
 
-#[derive(Clone, Copy)]
-struct Dimensions {
-    width: u32,
-    height: u32,
-}
-
 struct Loaded {
     source: Source,
-    dimensions: Option<Dimensions>,
+    dimensions: Option<Size<f64>>,
     retry: bool,
 }
 
@@ -50,8 +45,10 @@ pub(crate) enum Action {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Info {
-    complete: bool,
-    current_src: String,
+    #[serde(skip)]
+    pub(crate) intrinsic: Option<Size<f64>>,
+    pub(crate) complete: bool,
+    pub(crate) current_src: String,
     natural_width: u32,
     natural_height: u32,
 }
@@ -320,17 +317,14 @@ impl Images {
         };
         let dimensions = dimensions
             .map(|size| {
-                let width = (f64::from(size.width) / source.density)
-                    .to_u32()
-                    .ok_or_else(|| {
-                        Error::Unsupported("image density-corrected width range".into())
-                    })?;
-                let height = (f64::from(size.height) / source.density)
-                    .to_u32()
-                    .ok_or_else(|| {
-                        Error::Unsupported("image density-corrected height range".into())
-                    })?;
-                Ok::<_, Error>(Dimensions { width, height })
+                let corrected = size.map(|value| value / source.density);
+                corrected.width.to_u32().ok_or_else(|| {
+                    Error::Unsupported("image density-corrected width range".into())
+                })?;
+                corrected.height.to_u32().ok_or_else(|| {
+                    Error::Unsupported("image density-corrected height range".into())
+                })?;
+                Ok::<_, Error>(corrected)
             })
             .transpose()?;
         let success = dimensions.is_some();
@@ -358,6 +352,7 @@ impl Images {
         if !active_document {
             self.settled.remove(&node.id);
             return Ok(Info {
+                intrinsic: None,
                 complete: true,
                 current_src: String::new(),
                 natural_width: 0,
@@ -377,15 +372,24 @@ impl Images {
                 .is_some_and(|loaded| Some(&loaded.source) == source.as_ref() && !loaded.retry);
         let dimensions = loaded.and_then(|loaded| loaded.dimensions);
         Ok(Info {
+            intrinsic: dimensions,
             complete,
             current_src: loaded.map_or_else(String::new, |loaded| loaded.source.url.clone()),
-            natural_width: dimensions.map_or(0, |size| size.width),
-            natural_height: dimensions.map_or(0, |size| size.height),
+            natural_width: dimensions.map_or(Ok(0), |size| {
+                size.width
+                    .to_u32()
+                    .ok_or_else(|| Error::Unsupported("image density-corrected width range".into()))
+            })?,
+            natural_height: dimensions.map_or(Ok(0), |size| {
+                size.height.to_u32().ok_or_else(|| {
+                    Error::Unsupported("image density-corrected height range".into())
+                })
+            })?,
         })
     }
 }
 
-fn decode(bytes: &[u8], maximum: usize) -> Result<Option<Dimensions>> {
+fn decode(bytes: &[u8], maximum: usize) -> Result<Option<Size<f64>>> {
     let reader = ImageReader::new(Cursor::new(bytes))
         .with_guessed_format()
         .map_err(|error| Error::Unsupported(error.to_string()))?;
@@ -414,7 +418,10 @@ fn decode(bytes: &[u8], maximum: usize) -> Result<Option<Dimensions>> {
             5..=8 => (bitmap.height(), bitmap.width()),
             _ => (bitmap.width(), bitmap.height()),
         };
-        Ok(Dimensions { width, height })
+        Ok(Size {
+            width: f64::from(width),
+            height: f64::from(height),
+        })
     })();
     match decoded {
         Ok(size) => Ok(Some(size)),

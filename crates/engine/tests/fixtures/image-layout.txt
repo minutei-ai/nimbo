@@ -1,0 +1,149 @@
+(async () => {
+  const checks = {};
+  const near = (a,b) => Math.abs(a-b) < 0.03;
+  const root = document.createElement('main');
+  root.style.cssText = 'display:block;width:240px;font:16px/20px "Liberation Sans"';
+  document.body.append(root);
+  const parent = (style = '') => {
+    const node = document.createElement('div');
+    node.style.cssText = 'display:block;width:240px;padding:0;border:0;margin:0;font:16px/20px "Liberation Sans";' + style;
+    root.append(node);
+    return node;
+  };
+  const path = name => new URL('/image-resources/' + name, location.href).href;
+  const image = async (owner, style = 'display:block', attributes = {}, name = 'small.png') => {
+    const node = new Image();
+    node.style.cssText = style;
+    for (const [key,value] of Object.entries(attributes)) node.setAttribute(key,value);
+    const ready = new Promise((resolve,reject) => {node.onload=resolve;node.onerror=reject;});
+    node.src = path(name);
+    owner.append(node);
+    await ready;
+    return node;
+  };
+  const size = (node,w,h) => {const r=node.getBoundingClientRect();return near(r.width,w) && near(r.height,h);};
+  const natural = await image(parent());
+  checks.natural = size(natural,32,16) && getComputedStyle(natural).width === '32px';
+  const oriented = await image(parent(),'display:block',{},'oriented.jpeg');
+  checks.orientation = size(oriented,16,32);
+  oriented.parentNode.remove();
+  const html = await image(parent(),'display:block',{width:'80'});
+  checks.attribute = size(html,80,40);
+  html.parentNode.remove();
+  const both = await image(parent(),'display:block',{width:'60',height:'70'});
+  checks.attributes = size(both,60,70);
+  both.parentNode.remove();
+  const override = await image(parent(),'display:block;width:20px;height:auto',{width:'40',height:'13'});
+  checks.override = size(override,20,10);
+  override.parentNode.remove();
+  const percent = await image(parent(),'display:block',{width:'50%'});
+  checks.percent = size(percent,120,60);
+  percent.parentNode.remove();
+  const max = await image(parent(),'display:block;width:80px;max-width:40px');
+  checks.maxWidth = size(max,40,20);
+  max.parentNode.remove();
+  const maxHeight = await image(parent(),'display:block;height:80px;max-height:40px');
+  checks.maxHeight = size(maxHeight,80,40);
+  maxHeight.parentNode.remove();
+  const content = await image(parent(),'display:block;padding:4px;border:2px solid black');
+  checks.contentBox = size(content,44,28) && getComputedStyle(content).width === '32px';
+  content.parentNode.remove();
+  const border = await image(parent(),'display:block;box-sizing:border-box;width:100px;padding:4px;border:1px solid black');
+  checks.borderBox = size(border,100,55) && getComputedStyle(border).width === '100px';
+  border.parentNode.remove();
+  for (const [attribute,width] of [['40px',40],['40x',40],['1e2',1],['+40',32],['-1',32],['',32],['20.5',20.5]]) {
+    const node = await image(parent(),'display:block',{width:attribute});
+    checks['legacy-'+attribute] = size(node,width,width/2);
+    node.parentNode.remove();
+  }
+  const line = parent();
+  const first = await image(line,'',{},'small.png');
+  const second = await image(line,'',{},'large.png');
+  const a = first.getBoundingClientRect(), b = second.getBoundingClientRect(), lineBox=line.getBoundingClientRect();
+  checks.inline = size(first,32,16) && size(second,64,32) && near(b.left,a.right) && near(a.bottom,b.bottom) && getComputedStyle(first).display === 'inline';
+  checks.line = lineBox.height > 32 && lineBox.height < 52;
+  line.remove();
+  const flex = parent('display:flex;align-items:flex-start;gap:8px');
+  const flexFirst = await image(flex,'',{},'small.png');
+  const flexSecond = await image(flex,'',{},'large.png');
+  checks.flex = size(flexFirst,32,16) && size(flexSecond,64,32) && near(flexSecond.getBoundingClientRect().left-flexFirst.getBoundingClientRect().right,8);
+  flex.remove();
+  const grid = parent('display:grid;grid-template-columns:120px 120px;align-items:start;justify-items:start');
+  const gridFirst = await image(grid,'',{},'small.png');
+  const gridSecond = await image(grid,'',{},'large.png');
+  checks.grid = size(gridFirst,32,16) && size(gridSecond,64,32) && near(gridSecond.getBoundingClientRect().left-gridFirst.getBoundingClientRect().left,120);
+  grid.remove();
+  natural.setAttribute('width','40');
+  checks.mutation = size(natural,40,20);
+  const replaced = new Promise((resolve,reject)=>{natural.onload=resolve;natural.onerror=reject});
+  natural.src = path('oriented.jpeg');
+  await replaced;
+  checks.replacement = size(natural,40,80);
+  const pendingParent = parent();
+  const pending = new Image();pending.style.cssText='display:block;width:40px';
+  const pendingReady = new Promise((resolve,reject)=>{pending.onload=resolve;pending.onerror=reject});
+  pending.src = path('slow.png') + '?layout=' + Math.random();pendingParent.append(pending);
+  checks.pending = !pending.complete && size(pending,40,0);
+  await pendingReady;
+  checks.loaded = size(pending,40,20);
+  pendingParent.remove();
+  const constrained = await image(parent());
+  const cases = [
+    ['max-width:16px',16,8], ['max-height:4px',8,4],
+    ['min-width:64px',64,32], ['min-height:40px',80,40],
+    ['max-width:16px;max-height:4px',8,4], ['max-width:4px;max-height:12px',4,2],
+    ['min-width:64px;min-height:24px',64,32], ['min-width:40px;min-height:40px',80,40],
+    ['min-width:64px;max-height:20px',64,20], ['max-width:16px;min-height:20px',16,20],
+    ['width:80px;max-height:10px',80,10], ['height:80px;max-width:10px',10,80],
+    ['width:80px;max-width:40px',40,20], ['height:80px;max-height:40px',80,40],
+    ['width:10px;height:10px;min-width:50px;max-height:5px',50,5],
+    ['min-width:80px;max-width:40px',80,40], ['width:0;height:auto',0,0],
+  ];
+  for (const [style,w,h] of cases) {
+    constrained.style.cssText='display:block;'+style;
+    checks['constraint-'+style]=size(constrained,w,h);
+  }
+  constrained.parentNode.remove();
+  for (const density of [1.5,100]) {
+    const owner = parent();
+    const node = new Image();node.style.display='block';
+    const ready = new Promise((resolve,reject)=>{node.onload=resolve;node.onerror=reject});
+    node.srcset=path('small.png')+' '+density+'x';owner.append(node);await ready;
+    checks['density-'+density]=size(node,32/density,16/density) && node.naturalWidth===Math.floor(32/density);
+    owner.remove();
+  }
+  const modes = parent();
+  const mode = await image(modes);
+  for (const display of ['inline','inline-block','inline-flex','inline-grid','block','flow-root','flex','grid']) {
+    mode.style.cssText='display:'+display+';width:40px';
+    checks['display-'+display]=size(mode,40,20) && getComputedStyle(mode).display===display;
+  }
+  const wrap=parent('width:8px');wrap.append(first);
+  checks.inlineOverflow=size(first,32,16) && near(wrap.getBoundingClientRect().width,8);
+  wrap.style.width='64px';wrap.append(second);
+  const wrappedFirst=first.getBoundingClientRect(),wrappedSecond=second.getBoundingClientRect();
+  checks.inlineWrap=wrappedSecond.top>wrappedFirst.bottom && near(wrappedSecond.left,wrappedFirst.left) && size(second,64,32);
+  wrap.remove();
+  const brokenParent=parent();
+  const broken=new Image();broken.style.cssText='display:block;width:40px;height:20px';broken.alt='fallback';
+  let failure=false;
+  const brokenReady=new Promise(resolve=>{broken.onerror=function(event){failure=this===broken && event.target===broken && event.type==='error' && event.isTrusted;resolve();}});broken.src=path('broken.png');brokenParent.append(broken);await brokenReady;
+  checks.fixedBroken=size(broken,40,20) && failure;
+  brokenParent.remove();
+  for (const [style,w,h] of [
+    ['padding:10px;border:2px solid black',240,132],
+    ['margin:10px',220,110],
+    ['padding:10px;border:2px solid black;box-sizing:border-box',240,132],
+  ]) {
+    const owner=parent();
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('viewBox','0 0 20 10');svg.style.cssText='display:block;'+style;owner.append(svg);
+    checks['svg-'+style]=size(svg,w,h);
+    owner.remove();
+  }
+  const emptyParent=parent();
+  const empty=new Image();emptyParent.append(empty);
+  checks.unsourced=empty.complete && size(empty,0,0);
+  emptyParent.remove();
+  return checks;
+})()

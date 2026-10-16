@@ -51,21 +51,59 @@ cache, configurable DPR or complete HTMLImageElement conformance. Reassigning an
 already successful source does not reproduce browser cache revalidation or
 repeated cached load events.
 
-Intrinsic resource metadata does not enable replaced-element layout. Image
-geometry still fails at the existing layout boundary until native sizing and
-inline placement are implemented and independently validated.
+## Intrinsic layout
+
+Images now share replaced-box sizing with SVG viewports and canvas through the
+existing native Taffy adapter. The page's loaded dimensions feed the layout directly;
+no second metadata or extraction pipeline is involved. Internal dimensions retain
+fractional density correction, while the public naturalWidth/naturalHeight values
+keep their integer DOM contract.
+
+The supported layout includes intrinsic dimensions and orientation, legacy HTML
+width/height hints, CSS overrides, percentages, min/max constraints, padding,
+borders and content-box/border-box sizing. The adapter resolves the replaced-box
+ratio constraints before native leaf layout so an early generic aspect-ratio
+calculation cannot override the final content size. This follows the
+[CSS replaced-element sizing rules](https://www.w3.org/TR/CSS22/visudet.html#min-max-heights).
+
+Block, flow-root, flex/grid items and atomic inline images use the existing native
+layout and line-box owners. Inline images retain their computed display, baseline,
+wrapping and overflow behavior. Mutations and completed loads invalidate the same
+page layout cache. Initial pending images without previous metadata have zero
+intrinsic dimensions and adopt the decoded size after loading.
+
+A failed image with definite CSS width and height still has that explicit box.
+Intrinsic broken-image icons and alternate text measurement remain unsupported and
+fail explicitly. Element onerror handlers now register through the existing shared
+DOM event-handler implementation; Window's special error-handler semantics are
+outside this change.
+
+Mixed text/image inline formatting and non-replaced inline wrappers around images
+remain unsupported. Image painting, object-fit rendering, full fragmentation and
+complete CSS/HTML image conformance are not provided by these box measurements.
 
 ## Verification
 
 The shared `image-resources.txt` fixture checks 27 contracts in native Rust and
-real HTTP → workerd → Wasm. The same fixture passes in [independent Chromium](evidence/image-resources-chromium-2026-10-16.json);
+real HTTP → workerd → Wasm. The same fixture passes in
+[independent Chromium](evidence/image-resources-chromium-2026-10-16.json);
 its DPR is 2, so the fallback case verifies each engine's effective selection
 rather than requiring the same selected URL at different DPRs. Separate tests
 cover decoded-output quotas, a page without initial image tags and parser-time
 empty-source errors. Fixtures contain generated images only.
 
-[Local before/after evidence](evidence/image-resources-2026-10-16.json) records
-artifact hashes, test totals and three celld rounds over retained atomic inline
-layout. The new codecs and bindings add 636,040 Wasm bytes (about 3.9%). Latency
-results are mixed; this feature does not claim a speedup. The retained workload
-contains no images and does not measure decoding throughput.
+[Resource-loading measurements](evidence/image-resources-2026-10-16.json) record
+the codec addition. [Intrinsic-layout measurements](evidence/image-layout-2026-10-16.json)
+compare this layout with the loader-only build. Layout adds 7,900 Wasm bytes;
+its measured p50 is higher in all three retained rounds. These are local
+observations over a retained workload without images, not decoding throughput
+or a speedup claim. Both records retain exact artifact hashes and test scope.
+
+The shared `image-layout.txt` fixture checks 59 layout contracts against the
+native engine, Worker/Wasm and
+[independent Chromium](evidence/image-layout-chromium-2026-10-16.json), including fractional
+`srcset` density, conflicting min/max constraints, eight display modes, inline
+overflow/wrapping, error-handler delivery, unsourced images and ratio-only SVG box
+regressions. Separate negative tests preserve
+the explicit alternate-text layout boundary. Each scenario removes its completed
+fixture nodes, keeping the test within the normal page budgets.

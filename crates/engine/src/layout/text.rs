@@ -13,7 +13,7 @@ use taffy::prelude::*;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{
-    svg_viewport,
+    replaced,
     text_source::{self, Padding},
     unsupported,
 };
@@ -222,10 +222,19 @@ impl Budget {
 }
 
 pub(super) enum Intrinsic {
-    Replaced(svg_viewport::Intrinsic),
+    Replaced(replaced::Intrinsic),
     Text(Run),
 }
 impl Intrinsic {
+    pub(super) fn layout(&self, inputs: taffy::LayoutInput, style: &Style) -> taffy::LayoutOutput {
+        match self {
+            Self::Replaced(value) => value.layout(inputs, style),
+            Self::Text(run) => run.layout(inputs, style),
+        }
+    }
+}
+
+impl Run {
     pub(super) fn layout(&self, inputs: taffy::LayoutInput, style: &Style) -> taffy::LayoutOutput {
         use taffy::util::ResolveOrZero;
         let mut measured = None;
@@ -233,119 +242,46 @@ impl Intrinsic {
             inputs,
             style,
             |_, _| 0.0,
-            |known, available| match self {
-                Self::Replaced(value) => {
-                    Self::replaced_size(value, known, available, inputs, style)
-                }
-                Self::Text(run) => {
-                    let value = run.measured(known, available);
-                    let size = value.size;
-                    measured = Some(value);
-                    size
-                }
+            |known, available| {
+                let value = self.measured(known, available);
+                let size = value.size;
+                measured = Some(value);
+                size
             },
         );
-        if let Self::Text(run) = self {
-            let padding = style
-                .padding
-                .resolve_or_zero(inputs.parent_size.width, |_, _| 0.0);
-            let border = style
-                .border
-                .resolve_or_zero(inputs.parent_size.width, |_, _| 0.0);
-            let inset = Rect {
-                top: padding.top + border.top,
-                right: padding.right + border.right,
-                bottom: padding.bottom + border.bottom,
-                left: padding.left + border.left,
-            };
-            let size = measured.unwrap_or_else(|| {
-                run.measured(
-                    Size {
-                        width: Some((output.size.width - inset.horizontal_axis_sum()).max(0.0)),
-                        height: None,
-                    },
-                    Size::MAX_CONTENT,
-                )
-            });
-            let first = f64::from(inset.top) + size.first;
-            let last = f64::from(inset.top) + size.last;
-            match (first.to_f32(), last.to_f32()) {
-                (Some(first), Some(last)) if first.is_finite() && last.is_finite() => {
-                    output.baselines = taffy::Baselines {
-                        first: Some(first),
-                        last: Some(last),
-                    };
-                }
-                _ => *run.budget.error.borrow_mut() = Some(unsupported("text baseline range")),
-            }
-        }
-        output
-    }
-
-    fn replaced_size(
-        value: &svg_viewport::Intrinsic,
-        known: Size<Option<f32>>,
-        available: Size<AvailableSpace>,
-        inputs: taffy::LayoutInput,
-        style: &Style,
-    ) -> Size<f32> {
-        use taffy::util::{MaybeResolve, ResolveOrZero};
         let padding = style
             .padding
-            .resolve_or_zero(inputs.parent_size.width, |_, _| 0.0)
-            .sum_axes();
+            .resolve_or_zero(inputs.parent_size.width, |_, _| 0.0);
         let border = style
             .border
-            .resolve_or_zero(inputs.parent_size.width, |_, _| 0.0)
-            .sum_axes();
-        let inset = Size {
-            width: padding.width + border.width,
-            height: padding.height + border.height,
+            .resolve_or_zero(inputs.parent_size.width, |_, _| 0.0);
+        let inset = Rect {
+            top: padding.top + border.top,
+            right: padding.right + border.right,
+            bottom: padding.bottom + border.bottom,
+            left: padding.left + border.left,
         };
-        let adjust = if style.box_sizing == BoxSizing::BorderBox {
-            inset
-        } else {
-            Size::ZERO
-        };
-        let declared = style
-            .size
-            .maybe_resolve(inputs.parent_size, |_, _| 0.0)
-            .zip_map(adjust, |value, inset| {
-                value.map(|value| (value - inset).max(0.0))
-            });
-        let known = known
-            .or(inputs.known_dimensions.zip_map(inset, |value, inset| {
-                value.map(|value| (value - inset).max(0.0))
-            }))
-            .or(declared);
-        let min = style
-            .min_size
-            .maybe_resolve(inputs.parent_size, |_, _| 0.0)
-            .zip_map(adjust, |value, inset| {
-                value.map(|value| (value - inset).max(0.0))
-            });
-        let max = style
-            .max_size
-            .maybe_resolve(inputs.parent_size, |_, _| 0.0)
-            .zip_map(adjust, |value, inset| {
-                value.map(|value| (value - inset).max(0.0))
-            });
-        let mut size = value.measure(known, available);
-        size.width = size
-            .width
-            .min(max.width.unwrap_or(f32::INFINITY))
-            .max(min.width.unwrap_or(0.0));
-        if known.height.is_none() && style.aspect_ratio.is_some() {
-            size.height = size.width / style.aspect_ratio.unwrap_or(1.0);
+        let size = measured.unwrap_or_else(|| {
+            self.measured(
+                Size {
+                    width: Some((output.size.width - inset.horizontal_axis_sum()).max(0.0)),
+                    height: None,
+                },
+                Size::MAX_CONTENT,
+            )
+        });
+        let first = f64::from(inset.top) + size.first;
+        let last = f64::from(inset.top) + size.last;
+        match (first.to_f32(), last.to_f32()) {
+            (Some(first), Some(last)) if first.is_finite() && last.is_finite() => {
+                output.baselines = taffy::Baselines {
+                    first: Some(first),
+                    last: Some(last),
+                };
+            }
+            _ => *self.budget.error.borrow_mut() = Some(unsupported("text baseline range")),
         }
-        size.height = size
-            .height
-            .min(max.height.unwrap_or(f32::INFINITY))
-            .max(min.height.unwrap_or(0.0));
-        if known.width.is_none() && style.aspect_ratio.is_some() {
-            size.width = size.height * style.aspect_ratio.unwrap_or(1.0);
-        }
-        size
+        output
     }
 }
 

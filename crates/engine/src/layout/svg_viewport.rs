@@ -5,7 +5,7 @@ use dom_query::NodeRef;
 use lightningcss::{traits::Parse, values::length::LengthPercentage};
 use taffy::{prelude::*, style::ExpandedDimension};
 
-use super::{Work, lengths, unsupported};
+use super::{Work, lengths, replaced::Intrinsic, unsupported};
 use crate::{Result, fonts::Context};
 
 pub(crate) fn is_svg(node: NodeRef<'_>) -> bool {
@@ -39,121 +39,41 @@ pub(super) fn paint_property(name: &str) -> bool {
     )
 }
 
-#[derive(Clone, Copy)]
-pub(super) struct Intrinsic {
-    width: Option<f32>,
-    height: Option<f32>,
-    ratio: Option<f32>,
-}
-
-impl Intrinsic {
-    pub(super) fn canvas(node: NodeRef<'_>, style: &mut Style) -> Result<Option<Self>> {
-        use num_traits::ToPrimitive;
-        fn dimension(node: NodeRef<'_>, name: &str, fallback: u32) -> u32 {
-            let Some(value) = node.null_attribute(name) else {
-                return fallback;
-            };
-            let value = value.trim_start_matches([' ', '\t', '\n', '\r', '\u{c}']);
-            let value = value.strip_prefix('+').unwrap_or(value);
-            let digits: String = value.chars().take_while(char::is_ascii_digit).collect();
-            digits
-                .parse::<u32>()
-                .ok()
-                .filter(|value| *value <= 2_147_483_647)
-                .unwrap_or(fallback)
-        }
-        if !node.has_name("canvas") {
-            return Ok(None);
-        }
-        let width = dimension(node, "width", 300)
-            .to_f32()
-            .ok_or_else(|| unsupported("canvas intrinsic width"))?;
-        let height = dimension(node, "height", 150)
-            .to_f32()
-            .ok_or_else(|| unsupported("canvas intrinsic height"))?;
-        let ratio = if width > 0.0 && height > 0.0 {
-            Some(width / height)
-        } else {
-            None
-        };
-        style.item_is_replaced = true;
-        style.aspect_ratio = ratio;
-        Ok(Some(Self {
-            width: Some(width),
-            height: Some(height),
-            ratio,
-        }))
+pub(super) fn apply(
+    node: NodeRef<'_>,
+    style: &mut Style,
+    fonts: &Context,
+    work: &mut Work<'_>,
+) -> Result<Option<Intrinsic>> {
+    if !root(node) {
+        return Ok(None);
     }
-    pub(super) fn apply(
-        node: NodeRef<'_>,
-        style: &mut Style,
-        fonts: &Context,
-        work: &mut Work<'_>,
-    ) -> Result<Option<Self>> {
-        if !root(node) {
-            return Ok(None);
-        }
-        if node.null_attribute("transform").is_some() {
-            return Err(unsupported("SVG viewport transform"));
-        }
-        style.item_is_replaced = true;
-        style.size.width = attribute(node, "width", fonts, work)?.unwrap_or(Dimension::auto());
-        style.size.height = attribute(node, "height", fonts, work)?.unwrap_or(Dimension::auto());
-        let absolute = |value: Dimension| match value.expand() {
-            ExpandedDimension::Length(value) => Some(value),
-            _ => None,
-        };
-        let width = absolute(style.size.width);
-        let height = absolute(style.size.height);
-        let ratio = width
-            .zip(height)
-            .filter(|(w, h)| *w > 0.0 && *h > 0.0)
-            .map(|(w, h)| w / h);
-        if ratio.is_some_and(|ratio| !ratio.is_finite()) {
-            return Err(unsupported("SVG intrinsic ratio range"));
-        }
-        let ratio = ratio.or(view_box_ratio(node, work)?);
-        style.aspect_ratio = ratio;
-        Ok(Some(Self {
-            width,
-            height,
-            ratio,
-        }))
+    if node.null_attribute("transform").is_some() {
+        return Err(unsupported("SVG viewport transform"));
     }
-
-    pub(super) fn measure(
-        &self,
-        known: Size<Option<f32>>,
-        available: Size<AvailableSpace>,
-    ) -> Size<f32> {
-        match (known.width, known.height, self.ratio) {
-            (Some(width), Some(height), _) => Size { width, height },
-            (Some(width), None, Some(ratio)) => Size {
-                width,
-                height: width / ratio,
-            },
-            (None, Some(height), Some(ratio)) => Size {
-                width: height * ratio,
-                height,
-            },
-            _ => {
-                let width = known
-                    .width
-                    .or(self.width)
-                    .or_else(|| self.height.zip(self.ratio).map(|(h, r)| h * r))
-                    .unwrap_or(match (self.ratio, available.width) {
-                        (Some(_), AvailableSpace::Definite(width)) => width,
-                        _ => 300.0,
-                    });
-                let height = known
-                    .height
-                    .or(self.ratio.map(|ratio| width / ratio))
-                    .or(self.height)
-                    .unwrap_or(150.0);
-                Size { width, height }
-            }
-        }
+    style.item_is_replaced = true;
+    style.size.width = attribute(node, "width", fonts, work)?.unwrap_or(Dimension::auto());
+    style.size.height = attribute(node, "height", fonts, work)?.unwrap_or(Dimension::auto());
+    let absolute = |value: Dimension| match value.expand() {
+        ExpandedDimension::Length(value) => Some(value),
+        _ => None,
+    };
+    let width = absolute(style.size.width);
+    let height = absolute(style.size.height);
+    let ratio = width
+        .zip(height)
+        .filter(|(w, h)| *w > 0.0 && *h > 0.0)
+        .map(|(w, h)| w / h);
+    if ratio.is_some_and(|ratio| !ratio.is_finite()) {
+        return Err(unsupported("SVG intrinsic ratio range"));
     }
+    let ratio = ratio.or(view_box_ratio(node, work)?);
+    style.aspect_ratio = ratio;
+    Ok(Some(Intrinsic {
+        width,
+        height,
+        ratio,
+    }))
 }
 
 fn attribute(

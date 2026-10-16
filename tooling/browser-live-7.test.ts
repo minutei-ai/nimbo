@@ -90,7 +90,7 @@ test.each([
     "display formatting",
     "const child=document.createElement('span');child.style.display='inline-table';el.appendChild(child);",
   ],
-  ["element formatting", "const child=document.createElement('img');el.appendChild(child);"],
+  ["element formatting", "const child=document.createElement('video');el.appendChild(child);"],
   ["relative query length", "el.style.width='2ic';"],
 ])(
   "real HTTP → workerd → Wasm: geometry rejects %s without fictional values",

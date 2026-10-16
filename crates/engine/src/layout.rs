@@ -21,6 +21,7 @@ pub(crate) mod logical;
 mod native_tree;
 pub(crate) mod order;
 mod percentage_padding;
+mod replaced;
 pub(crate) mod resolved;
 mod static_position;
 pub(crate) mod svg_viewport;
@@ -285,7 +286,7 @@ fn style_for(
     display: &crate::display::Computed,
     fonts: &crate::fonts::Context,
     work: &mut Work<'_>,
-) -> Result<(Style, Option<svg_viewport::Intrinsic>)> {
+) -> Result<(Style, Option<replaced::Intrinsic>)> {
     let mut style = initial_style(node, generated);
     if !generated
         && (node.has_name("p") || node.has_name("ol") || node.has_name("ul") || node.has_name("dl"))
@@ -304,11 +305,14 @@ fn style_for(
     if !generated && node.has_name("dd") {
         style.margin.left = LengthPercentageAuto::length(40.0);
     }
-    let svg = if generated {
+    if !generated {
+        replaced::image_attributes(node, &mut style)?;
+    }
+    let intrinsic = if generated {
         None
     } else {
-        svg_viewport::Intrinsic::apply(node, &mut style, fonts, work)?
-            .or(svg_viewport::Intrinsic::canvas(node, &mut style)?)
+        svg_viewport::apply(node, &mut style, fonts, work)?
+            .or(replaced::Intrinsic::canvas(node, &mut style)?)
     };
     style.display = if clamp::lines(declarations)?.is_some() {
         Ok(Display::Block)
@@ -335,10 +339,10 @@ fn style_for(
             style.align_content = Some(AlignContent::SAFE_CENTER);
         }
     }
-    if svg.is_some() && !style.size.width.is_auto() && !style.size.height.is_auto() {
+    if intrinsic.is_some() && !style.size.width.is_auto() && !style.size.height.is_auto() {
         style.aspect_ratio = None;
     }
-    Ok((style, svg))
+    Ok((style, intrinsic))
 }
 
 fn ignored_property(name: &str, svg: bool) -> bool {
@@ -705,6 +709,8 @@ impl BoxContext {
 
 struct Tree<'a, 'b> {
     computed: &'a mut crate::styles::ComputedCache,
+    images: &'a std::cell::RefCell<crate::images::Images>,
+    image_base: Option<&'a str>,
     resolved: HashMap<NodeId, (Declarations, Variables)>,
     folded_inlines: HashSet<NodeId>,
     boxes: native_tree::Boxes,
@@ -939,7 +945,7 @@ impl Tree<'_, '_> {
             &self.fonts.borrow(),
             self.work,
         )?;
-        let (mut style, svg) = style_for(
+        let (mut style, mut intrinsic) = style_for(
             node,
             &declarations,
             false,
@@ -947,6 +953,10 @@ impl Tree<'_, '_> {
             &context.fonts,
             self.work,
         )?;
+        if crate::images::element(node) {
+            let info = self.images.borrow_mut().info(node, self.image_base, true)?;
+            intrinsic = Some(replaced::Intrinsic::image(node, &mut style, &info)?);
+        }
         style.border = context.borders.geometry()?;
         if node.has_name("input") {
             style.item_is_replaced = true;
@@ -958,7 +968,7 @@ impl Tree<'_, '_> {
         let position = defaulted("position", &position);
         let out_of_flow = style.position == Position::Absolute;
         let containing = self.containing_block(node, position, &declarations, &fonts)?;
-        let id = self.build_box(node, depth, &variables, &context, style, svg)?;
+        let id = self.build_box(node, depth, &variables, &context, style, intrinsic)?;
         self.record_box(node.id, id, position, &declarations, &fonts)?;
         self.remember_inline_item(id, &context, formatting.context, &declarations)?;
         if out_of_flow {
@@ -997,9 +1007,9 @@ impl Tree<'_, '_> {
         variables: &Variables,
         context: &BoxContext,
         mut style: Style,
-        svg: Option<svg_viewport::Intrinsic>,
+        intrinsic: Option<replaced::Intrinsic>,
     ) -> Result<taffy::NodeId> {
-        let id = if let Some(intrinsic) = svg {
+        let id = if let Some(intrinsic) = intrinsic {
             self.leaf(style, text::Intrinsic::Replaced(intrinsic))
         } else if node.has_name("input") {
             let run = text::Run::strut(
@@ -1361,6 +1371,8 @@ impl Tree<'_, '_> {
 }
 
 pub(crate) struct Sources<'a> {
+    pub images: &'a std::cell::RefCell<crate::images::Images>,
+    pub image_base: Option<&'a str>,
     pub scroll: &'a ScrollState,
     pub transitions: &'a std::cell::RefCell<crate::transitions::State>,
     pub now: f64,
@@ -1391,6 +1403,8 @@ fn scene<T>(
     for _round in 0..=32 {
         let mut tree = Tree {
             computed: &mut computed,
+            images: styles.images,
+            image_base: styles.image_base,
             resolved: HashMap::new(),
             folded_inlines: HashSet::new(),
             boxes: native_tree::Boxes::new(),

@@ -649,7 +649,7 @@ evidence cannot establish it.
 | Inline CSS declarations                              | Subset     | Native property grammar and live HTML style mutations tested; full CSSOM missing                                                             |
 | CSS cascade, typed styles, layout and geometry       | Subset     | Author styles and native boxes tested; full cascade, text, computed styles and paint missing                                                 |
 | Binary FontFace parsing                              | Partial    | Native TrueType and lazy URL/CSS loads tested; rendering, compressed formats and full WPT missing                                            |
-| Font shaping, images and SVG                         | Partial    | Native font metrics, bounded DOM text layout and image metadata; image layout/paint, full fallback and SVG paint remain missing              |
+| Font shaping, images and SVG                         | Partial    | Native font metrics, bounded text layout and intrinsic image boxes; image painting, full font fallback and SVG paint remain missing          |
 | OffscreenCanvas and Canvas 2D                        | Partial    | Native RGBA8 rectangle pixels/readback tested below; full Canvas 2D and HTML canvas missing                                                  |
 | Screenshots, PDF and screencasts                     | Missing    | Real paint output, pagination, frame changes and backpressure                                                                                |
 | Accessibility tree and snapshots                     | Missing    | Roles, names, hidden nodes, state changes and stable references                                                                              |
@@ -3561,6 +3561,7 @@ The shared synthetic `console.txt` fixture has 11 aggregate contracts, independe
 Image loading now uses the native page scheduler and bounded Rust decoding for
 PNG, JPEG, GIF and WebP. Branded image elements expose loading state and intrinsic
 metadata, with source replacement, failed-source retries and active-document
-ownership. See [image resource coverage](image-resources.md) for the precise
-selection, event, quota and unsupported contracts. Replaced-element layout and
-painting remain unsupported; image resource tests do not establish geometry parity.
+ownership. Replaced images now share native intrinsic box sizing with SVG and
+canvas, including density precision, constraints and atomic inline placement.
+See [image resource coverage](image-resources.md) for selection, events, quotas,
+geometry checks and remaining inline-fragment/painting limitations.

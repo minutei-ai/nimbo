@@ -75,12 +75,14 @@ pub(crate) fn specified(value: &str) -> Option<String> {
 pub(crate) struct Computed {
     value: Display,
     container: bool,
+    replaced: bool,
 }
 impl Default for Computed {
     fn default() -> Self {
         Self {
             value: initial(),
             container: false,
+            replaced: false,
         }
     }
 }
@@ -98,6 +100,7 @@ impl Computed {
             return Ok(Self {
                 value: Display::Keyword(DisplayKeyword::None),
                 container: false,
+                replaced: false,
             });
         }
         let (value, _) = declarations.value("display");
@@ -142,7 +145,11 @@ impl Computed {
             }
             Display::Keyword(_) => false,
         };
-        Ok(Self { value, container })
+        Ok(Self {
+            value,
+            container,
+            replaced: !generated && crate::images::element(node),
+        })
     }
     pub(crate) fn value(&self) -> Result<String> {
         self.value
@@ -156,7 +163,7 @@ impl Computed {
         matches!(self.value, Display::Keyword(DisplayKeyword::Contents))
     }
     pub(crate) fn inline_atomic(&self) -> bool {
-        matches!(&self.value, Display::Pair(pair) if pair.outside == DisplayOutside::Inline && !pair.is_list_item && matches!(pair.inside, DisplayInside::Flex(VendorPrefix::None) | DisplayInside::FlowRoot))
+        matches!(&self.value, Display::Pair(pair) if pair.outside == DisplayOutside::Inline && !pair.is_list_item && (matches!(pair.inside, DisplayInside::Flex(VendorPrefix::None) | DisplayInside::FlowRoot) || self.replaced && matches!(pair.inside, DisplayInside::Flow | DisplayInside::Grid)))
     }
     pub(crate) fn atomic_container(&self) -> bool {
         matches!(&self.value, Display::Pair(pair) if matches!(pair.inside, DisplayInside::Flex(VendorPrefix::None) | DisplayInside::Grid))

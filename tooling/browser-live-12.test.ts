@@ -1043,3 +1043,43 @@ test("image resources defer empty source errors until parser scripts", async () 
   const result = Schema.decodeUnknownSync(Success)(await response.json());
   expect(result.value).toEqual([1, true, 0]);
 });
+
+const imageLayout = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/image-layout.txt", import.meta.url),
+).text();
+
+test("image layout resolves intrinsic boxes and constraints through native Taffy", async () => {
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url: new URL("image-resources/empty", origin.url).href,
+      expression: imageLayout,
+    }),
+  });
+  expect(response.status).toBe(200);
+  const result = Schema.decodeUnknownSync(Success)(await response.json());
+  const checks = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Boolean))(
+    result.value,
+  );
+  expect(Object.keys(checks)).toHaveLength(59);
+  expect(
+    Object.entries(checks)
+      .filter(([, passed]) => !passed)
+      .map(([name]) => name),
+  ).toEqual([]);
+});
+
+test("image layout rejects unsized alternate text instead of fabricating a box", async () => {
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url: new URL("image-resources/empty", origin.url).href,
+      expression:
+        "(async()=>{const image=new Image();image.alt='fallback';const ready=new Promise(resolve=>image.onerror=resolve);image.src='/image-resources/broken.png';document.body.append(image);await ready;return image.getBoundingClientRect().width})()",
+    }),
+  });
+  expect(response.status).toBe(422);
+  expect(await response.text()).toContain("broken image or alternate text layout");
+});

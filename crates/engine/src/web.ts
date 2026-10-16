@@ -8078,7 +8078,7 @@
         if (!prototype.isPrototypeOf(target)) throw new TypeError("Illegal invocation");
         idOf(target);
       },
-      handlerTypes,
+      [...handlerTypes, "error"],
     );
   defineEventHandlers(
     globalThis,
