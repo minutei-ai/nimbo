@@ -1,0 +1,26 @@
+(() => {
+  const result={};
+  const properties=['user-select','-webkit-user-select','-moz-user-select','-ms-user-select'];
+  const node=document.createElement('div');
+  document.body.append(node);
+  node.textContent='alpha beta';
+  for(const property of properties){
+    node.style.cssText='font:16px/20px serif;width:120px';
+    node.style.setProperty(property,'none');
+    result['grammar-'+property]=CSS.supports(property,'none') && !CSS.supports(property,'12px');
+    node.style.setProperty(property,'12px');
+    result['retained-'+property]=node.style.getPropertyValue(property)==='none' && node.getBoundingClientRect().height===20;
+    result['removed-'+property]=node.style.removeProperty(property)==='none' && node.style.getPropertyValue(property)==='';
+  }
+  node.style.cssText='font:16px/20px serif;width:120px;-ms-transform:rotate(10deg)';
+  try{node.getBoundingClientRect();result.transform=false;}
+  catch(error){result.transform=error.message.includes('layout unsupported: -ms-transform');}
+  node.style.cssText='font:16px/20px serif;width:120px;-example-user-select:none';
+  result.unknown=node.style.getPropertyValue('-example-user-select')==='' && node.getBoundingClientRect().width===120;
+  node.style.setProperty('-MS-USER-SELECT','none');
+  result.case=node.style.getPropertyValue('-ms-user-select')==='none' && node.getBoundingClientRect().width===120;
+  node.textContent='alpha beta';
+  result.recovery=node.getBoundingClientRect().height===20;
+  node.remove();
+  return result;
+})()

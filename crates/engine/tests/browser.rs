@@ -5943,3 +5943,30 @@ fn inline_font_metrics_follow_their_native_text_spans() -> TestResult {
     );
     Ok(())
 }
+
+#[test]
+fn native_user_select_property_family_does_not_change_geometry() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/empty-layout"))?;
+    let result = page.evaluate(include_str!("fixtures/user-select-geometry.txt"))?;
+    let checks = result
+        .as_object()
+        .ok_or("missing user-select geometry checks")?;
+    assert_eq!(checks.len(), 44);
+    assert!(
+        checks.values().all(|value| value == &json!(true)),
+        "{result}"
+    );
+    let result = page.evaluate(include_str!("fixtures/user-select-contract.txt"))?;
+    let checks = result
+        .as_object()
+        .ok_or("missing user-select contract checks")?;
+    assert_eq!(checks.len(), 16);
+    assert!(
+        checks.values().all(|value| value == &json!(true)),
+        "{result}"
+    );
+    Ok(())
+}

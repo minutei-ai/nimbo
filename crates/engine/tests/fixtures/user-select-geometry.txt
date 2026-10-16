@@ -1,0 +1,37 @@
+(() => {
+  const result={};
+  const properties=['-ms-user-select','user-select','-webkit-user-select','-moz-user-select'];
+  const values=['auto','text','none','contain','all'];
+  const node=document.createElement('div');
+  document.body.append(node);
+  node.style.cssText='font:16px/20px serif;display:inline-block';
+  node.textContent='alpha beta';
+  const plain=node.getBoundingClientRect();
+  for(const property of properties){
+    for(const value of values){
+      node.style.cssText='font:16px/20px serif;width:120px;'+property+':'+value;
+      node.textContent='alpha beta';
+      const block=node.getBoundingClientRect();
+      result['block-'+property+'-'+value]=block.width===120 && block.height===20;
+      node.style.cssText='font:16px/20px serif;display:inline-block';
+      node.innerHTML='alpha <span style="'+property+':'+value+'">beta</span>';
+      const inline=node.getBoundingClientRect();
+      result['inline-'+property+'-'+value]=Math.abs(inline.width-plain.width)<0.04 && inline.height===20;
+    }
+  }
+  node.style.cssText='font:16px/20px serif';
+  node.textContent='alpha beta';
+  node.className='selection';
+  const sheet=document.createElement('style');
+  sheet.textContent='.selection{-ms-user-select:none;-moz-user-select:all;user-select:text;width:140px;height:18px}';
+  document.head.append(sheet);
+  result.sheet=node.getBoundingClientRect().width===140 && node.getBoundingClientRect().height===18;
+  sheet.textContent='.selection{-ms-user-select:all;-moz-user-select:none;user-select:none;width:160px;height:22px}';
+  result.mutation=node.getBoundingClientRect().width===160 && node.getBoundingClientRect().height===22;
+  sheet.remove();
+  result.removal=node.getBoundingClientRect().height===20;
+  node.style.width='80px';
+  result.resize=node.getBoundingClientRect().width===80 && node.getBoundingClientRect().height===20;
+  node.remove();
+  return result;
+})()

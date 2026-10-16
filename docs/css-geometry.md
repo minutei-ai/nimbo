@@ -191,3 +191,18 @@ Worker JavaScript, celld version, HTTP fixture and limits. Each build completes
 do not establish a speedup or stable latency delta. RSS is process-tree memory
 sampled after requests, not page heap or peak memory. Mixed-metric performance
 has no equivalent baseline because that version rejects the input.
+
+## Selection declarations in geometry
+
+Layout classifies the `user-select` family through LightningCSS's native
+`PropertyId::UserSelect`, including the unprefixed, WebKit, Mozilla and Microsoft
+forms it parses. These declarations leave block and inline box dimensions
+unchanged. The shared `user-select-geometry` fixture checks 44 cases in native
+Rust, Worker/Wasm and Chromium in standards mode, including stylesheet mutation,
+removal and resize.
+
+The native `user-select-contract` fixture checks 16 grammar, CSSOM and recovery
+cases. Invalid values keep the prior declaration, unknown properties follow
+native parser filtering, and unsupported prefixed transforms still fail.
+This evidence covers geometry and declarations; interactive selection and
+computed `user-select` values remain outside this geometry subset.

@@ -2,6 +2,7 @@ use crate::dom_attributes::NativeAttributes;
 use std::collections::{HashMap, HashSet};
 
 use dom_query::{Document, NodeId, NodeRef};
+use lightningcss::properties::PropertyId;
 use serde::Serialize;
 use taffy::{Overflow, Point, TaffyError, prelude::*};
 
@@ -239,8 +240,6 @@ fn non_layout(name: &str) -> bool {
                 | "border-top-right-radius"
                 | "border-bottom-left-radius"
                 | "border-bottom-right-radius"
-                | "user-select"
-                | "-webkit-user-select"
                 | "cursor"
                 | "background-color"
                 | "background-image"
@@ -276,6 +275,7 @@ fn non_layout(name: &str) -> bool {
                 | "border-bottom-color"
                 | "border-left-color"
         )
+        || matches!(PropertyId::from(name), PropertyId::UserSelect(_))
 }
 
 fn style_for(

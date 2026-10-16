@@ -815,3 +815,42 @@ test("inline font metrics enforce flow and resource boundaries and recover", asy
     },
   });
 });
+
+const userSelectGeometry = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/user-select-geometry.txt", import.meta.url),
+).text();
+const userSelectContract = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/user-select-contract.txt", import.meta.url),
+).text();
+
+test("native user-select aliases preserve block and inline geometry", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: userSelectGeometry }),
+  });
+  expect(response.status).toBe(200);
+  const result = Schema.decodeUnknownSync(Success)(await response.json());
+  const checks = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Boolean))(
+    result.value,
+  );
+  expect(Object.keys(checks)).toHaveLength(44);
+  expect(Object.values(checks).every((check) => check)).toBe(true);
+});
+
+test("native user-select aliases preserve CSS grammar and unsupported layout boundaries", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: userSelectContract }),
+  });
+  expect(response.status).toBe(200);
+  const result = Schema.decodeUnknownSync(Success)(await response.json());
+  const checks = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Boolean))(
+    result.value,
+  );
+  expect(Object.keys(checks)).toHaveLength(16);
+  expect(Object.values(checks).every((check) => check)).toBe(true);
+});
