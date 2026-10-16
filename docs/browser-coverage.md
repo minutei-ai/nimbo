@@ -2410,13 +2410,13 @@ Public references: [custom elements](https://html.spec.whatwg.org/multipage/cust
 
 ## Positioned box containing blocks
 
-The native box tree now lays out explicitly inset absolute and fixed boxes.
-Absolute boxes attach to the nearest positioned ancestor that generates a box;
-static intermediate DOM parents and display:contents ancestors do not become
-containing blocks. Fixed boxes attach to an internal viewport box. Bounds walk
-the actual layout parent chain, while DOM parent identity remains unchanged.
-The internal viewport has definite media dimensions and is charged to the
-existing layout-node and DOM-operation budgets. Reparenting work is charged too.
+The native box tree uses Taffy's containing-block pass for absolute and fixed
+boxes. Positioned boxes claim absolute descendants; transformed boxes also claim
+fixed descendants. Static intermediate DOM parents and display:contents ancestors
+do not establish containing blocks. Unclaimed boxes use the initial containing
+block with the configured viewport dimensions. Native hoisted-child receipts
+supply the coordinate parent while the structural tree and DOM parent identity
+remain intact; no viewport wrapper or manual reparenting pass is created.
 
 The real HTTP fixture `positioned-boxes.txt` runs 64 variants with 25 checks each
 in the native engine and the Worker/Wasm suite. It covers padding-edge coordinates,
@@ -2433,11 +2433,15 @@ This does not establish inherited-position geometry or complete inherited-positi
 computed display blockification. Size containers alone do not establish positioning
 containing blocks, following CSS Conditional Rules 5.
 
-Both axes currently need at least one non-auto inset. Automatic static-position
-rectangles, complete sticky/scrolling behavior, transformed containing blocks, positioned generated
-boxes, inline containing blocks, text/replaced formatting and full CSS Position/WPT
-parity remain pending. Unsupported automatic positioning still fails explicitly;
-selected sticky geometry is implemented and validated below.
+Automatic static positions, candidates passing through inline-block/inline-flex,
+transformed grid containing blocks, absolute grid areas and inert static insets
+are covered by the 19 checks in `static-position.txt`. Its comparator runs 64
+fresh HTTP pages in ordinary Chromium and Worker/Wasm. Both runtimes pass all
+variants with the native Taffy integration; see [the pin and integration
+contract](taffy-baseline.md). Generated fixed/sticky boxes, inline containing
+blocks, complete sticky/scrolling behavior and full CSS Position/WPT parity
+remain outside this coverage. Selected generated, sticky, text and replaced-box
+geometry is implemented and validated in the dedicated sections below.
 
 References: [CSS positioned containing blocks](https://www.w3.org/TR/css-position-3/#def-cb)
 and [CSS container types](https://drafts.csswg.org/css-conditional-5/#container-type).
