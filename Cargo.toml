@@ -88,3 +88,6 @@ overflow-checks = true
 inherits = "release"
 debug = 1
 strip = "none"
+
+[patch.crates-io]
+taffy = { git = "https://github.com/minutei-ai/taffy", rev = "e576ae520a8bd04039ebb4ba16386b6db2560ced" }
