@@ -1,0 +1,45 @@
+(() => {
+  const result = {};
+  const node = document.createElement('div');
+  node.style.cssText = 'font:16px/20px serif;width:240px';
+  document.body.append(node);
+  const height = html => {
+    node.innerHTML = html;
+    return node.getBoundingClientRect().height;
+  };
+  result.empty = height('<span></span>')===0;
+  result.emptyWithBlock = height('<a></a><div>beta</div>')===20;
+  result.before = height('<a>alpha</a><div>beta</div>')===40;
+  result.after = height('<div>alpha</div><a>beta</a>')===40;
+  result.both = height('alpha <a>beta</a><div>gamma</div> delta')===60;
+  result.adjacent = height('<a>alpha</a><span> beta</span><div>gamma</div>')===40;
+  result.whitespace = height(' \n<div>alpha</div> \n<div>beta</div> \n')===40;
+  result.hidden = height('<a>alpha</a><span style="display:none">ignored</span><div>beta</div>')===40;
+  result.comments = height('<a>alpha</a><!-- separator --><span> beta</span><div>gamma</div>')===40;
+  node.style.width='50px';
+  result.wrapped = height('<a>alpha beta</a><div>gamma</div> delta')===80;
+  node.style.width='240px';
+  result.resize = node.getBoundingClientRect().height===60;
+  node.innerHTML='<a>alpha</a><div style="height:12px"></div><a>beta</a>';
+  const block=node.querySelector('div');
+  const top=node.getBoundingClientRect().top;
+  result.blockPosition=Math.abs(block.getBoundingClientRect().top-top-20)<0.01;
+  result.blockHeight=block.getBoundingClientRect().height===12;
+  result.blockMargins=height('<a>alpha</a><div style="margin:10px 0;height:12px"></div><a>beta</a>')===72;
+  result.paddingWrap=height('<span style="padding-right:4px">alpha beta</span><div>gamma</div>')===40;
+  node.style.width='50px';
+  result.paddingNarrow=node.getBoundingClientRect().height===60;
+  node.innerHTML='<a>alpha</a><div>beta</div>';
+  result.mutation=node.getBoundingClientRect().height===40;
+  node.innerHTML='<div>beta</div>';
+  result.removal=node.getBoundingClientRect().height===20;
+  node.innerHTML='<a>alpha</a><div>beta</div>';
+  node.remove();
+  document.body.append(node);
+  result.reattach=node.getBoundingClientRect().height===40;
+  node.style.width='240px';
+  result.absolute=height('<a>alpha</a><div style="position:absolute;width:10px;height:10px"></div><a> beta</a>')===20;
+  result.fixed=height('alpha<div style="position:fixed;top:0;left:0;width:10px;height:10px"></div> beta')===20;
+  node.remove();
+  return result;
+})()

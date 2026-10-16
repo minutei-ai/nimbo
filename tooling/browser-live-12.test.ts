@@ -721,3 +721,48 @@ test("inline padding keeps resource and fragment boundaries explicit and recover
     value: { vertical: true, transform: true, limited: true, recovered: true },
   });
 });
+
+const mixedInlineBlocks = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/mixed-inline-blocks.txt", import.meta.url),
+).text();
+const mixedInlineBoundary = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/mixed-inline-boundary.txt", import.meta.url),
+).text();
+
+test("mixed inline and block children form anonymous blocks", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: mixedInlineBlocks }),
+  });
+  expect(response.status).toBe(200);
+  const result = Schema.decodeUnknownSync(Success)(await response.json());
+  const checks = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Boolean))(
+    result.value,
+  );
+  expect(Object.keys(checks)).toHaveLength(21);
+  expect(Object.values(checks).every((check) => check)).toBe(true);
+});
+
+test("anonymous blocks preserve unsupported boundaries and recover", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: mixedInlineBoundary }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({
+    url,
+    engine: "rust-wasm-quickjs",
+    value: {
+      font: true,
+      nestedBlock: true,
+      contents: true,
+      fragment: true,
+      limit: true,
+      recovery: true,
+    },
+  });
+});

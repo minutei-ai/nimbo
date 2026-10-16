@@ -86,7 +86,10 @@ test.each([
   ["non-translation transform", "el.style.transform='rotate(10deg)';"],
   ["environment substitution", "el.style.width='env(safe-area-inset-left, 10px)';"],
   ["fixed static position", "el.style.position='fixed';"],
-  ["display formatting", "const child=document.createElement('span');el.appendChild(child);"],
+  [
+    "display formatting",
+    "const child=document.createElement('span');child.style.display='inline-table';el.appendChild(child);",
+  ],
   ["element formatting", "const child=document.createElement('img');el.appendChild(child);"],
   ["relative query length", "el.style.width='2ic';"],
 ])(

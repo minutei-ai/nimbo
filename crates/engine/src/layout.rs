@@ -1211,23 +1211,25 @@ impl Tree<'_, '_> {
     }
     fn text_item(
         &mut self,
-        source: &mut String,
+        source: &mut text_source::Source,
         context: &BoxContext,
         output: &mut Vec<taffy::NodeId>,
     ) -> Result<()> {
-        if source.is_empty() {
+        if source.text.is_empty() && source.padding.is_empty() {
             return Ok(());
         }
         let run = text::Run::new(
-            source,
-            &[],
+            &source.text,
+            &source.padding,
             &context.typography,
             context,
             &self.fonts.borrow(),
             std::rc::Rc::clone(&self.text_budget),
         )?;
-        source.clear();
+        source.text.clear();
+        source.padding.clear();
         if let Some(run) = run {
+            self.visit(0)?;
             let id = self
                 .boxes
                 .new_leaf_with_context(
@@ -1262,9 +1264,24 @@ impl Tree<'_, '_> {
             output.push(before);
         }
         let anonymous = matches!(parent_display, Display::Flex | Display::Grid);
-        let mut source = String::new();
+        let block_flow = matches!(parent_display, Display::Block | Display::FlowRoot);
+        let mut source = text_source::Source::default();
+        let mut folded = Vec::new();
         let mut child_boxes = Vec::new();
         for child in node.children_it(false) {
+            if block_flow
+                && !context.display.contents()
+                && self.inline_child(
+                    child,
+                    depth.saturating_add(1),
+                    variables,
+                    context,
+                    &mut source,
+                    &mut folded,
+                )?
+            {
+                continue;
+            }
             if anonymous && (child.is_text() || child.is_comment()) {
                 self.visit(depth.saturating_add(1))?;
                 if child.is_text() {
@@ -1272,10 +1289,10 @@ impl Tree<'_, '_> {
                         return Err(unsupported("anonymous text through display:contents"));
                     }
                     let text = child.text();
-                    if source.len().saturating_add(text.len()) > 65_536 {
+                    if source.text.len().saturating_add(text.len()) > 65_536 {
                         return Err(Error::Limit("layout text source"));
                     }
-                    source.push_str(&text);
+                    source.text.push_str(&text);
                 }
                 continue;
             }
@@ -1288,7 +1305,21 @@ impl Tree<'_, '_> {
                 &mut child_boxes,
             )?;
             if !child_boxes.is_empty() {
-                self.text_item(&mut source, context, output)?;
+                let separates_text = !block_flow
+                    || child_boxes.iter().try_fold(false, |separates, id| {
+                        Ok::<_, Error>(
+                            separates
+                                || self
+                                    .boxes
+                                    .style(*id)
+                                    .map_err(|error| layout_error(&error))?
+                                    .position
+                                    != Position::Absolute,
+                        )
+                    })?;
+                if separates_text {
+                    self.text_item(&mut source, context, output)?;
+                }
                 output.append(&mut child_boxes);
             }
         }
@@ -1303,6 +1334,7 @@ impl Tree<'_, '_> {
         )? {
             output.push(after);
         }
+        self.folded_inlines.extend(folded);
         if matches!(parent_display, Display::Flex | Display::Grid) {
             output.sort_by_key(|id| self.orders.get(id).copied().unwrap_or_default());
         }

@@ -135,3 +135,21 @@ fragmentation, tables, vertical writing modes, transforms beyond translation,
 and painting. [Browser coverage](browser-coverage.md) records each family's
 history. Where older notes there disagree with this table, this table is
 current.
+
+## Mixed inline and block children
+
+Block containers group adjacent text and same-font inline wrappers into anonymous
+text blocks around in-flow block siblings, following the
+[CSS anonymous block model](https://www.w3.org/TR/CSS22/visuren.html#anonymous-block-level).
+These groups reuse the existing text shaping, whitespace normalization, padding
+and line wrapping. Anonymous boxes have no DOM identity or margins; inherited
+text metrics come from the container. Absolutely positioned and fixed siblings
+do not split a text group. Flex and grid keep their native text-item handling.
+
+The shared `mixed-inline-blocks` fixture checks 21 cases in native Rust,
+Worker/Wasm and independently in Chromium, including sibling positions, margins,
+wrapping, resize, removal and reattachment. Boundary cases retain explicit
+rejection of mixed fonts, blocks inside inline wrappers, text through
+`display:contents` and inline-fragment geometry. They enforce the text source
+limit and check recovery on the same page. Anonymous text boxes charge the
+existing layout budget as well as text work.

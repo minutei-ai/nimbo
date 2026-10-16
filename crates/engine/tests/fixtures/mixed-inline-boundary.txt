@@ -1,0 +1,22 @@
+(() => {
+  const node=document.createElement('div');
+  node.style.cssText='font:16px/20px serif;width:240px';
+  document.body.append(node);
+  const rejected = (html,detail,target=node) => {
+    node.innerHTML=html;
+    try { target.getBoundingClientRect(); return false; }
+    catch (error) { return error.message.includes(detail); }
+  };
+  const result={};
+  result.font=rejected('<a style="font-size:20px">alpha</a><div>beta</div>','mixed inline metrics');
+  result.nestedBlock=rejected('<a>alpha<div>beta</div></a>','display formatting (inline)');
+  result.contents=rejected('<a>alpha</a><span style="display:contents">beta</span><div>gamma</div>','text shaping');
+  node.innerHTML='<a>alpha</a><div>beta</div>';
+  try { node.querySelector('a').getBoundingClientRect(); result.fragment=false; }
+  catch (error) { result.fragment=error.message.includes('inline fragment geometry'); }
+  result.limit=rejected('x'.repeat(65537)+'<div>beta</div>','layout text source');
+  node.innerHTML='<a>alpha</a><div>beta</div>';
+  result.recovery=node.getBoundingClientRect().height===40;
+  node.remove();
+  return result;
+})()

@@ -17,94 +17,108 @@ impl Tree<'_, '_> {
         folded: &mut Vec<NodeId>,
     ) -> Result<bool> {
         for child in node.children_it(false) {
-            self.visit(depth.saturating_add(1))?;
-            if child.is_text() {
-                let text = child.text();
-                if source.text.len().saturating_add(text.len()) > 65_536 {
-                    return Err(Error::Limit("layout text source"));
-                }
-                source.text.push_str(&text);
-                continue;
-            }
-            if !child.is_element() || super::non_rendered(child) {
-                continue;
-            }
-            let (declarations, inherited) = self.resolve_node(child, variables)?;
-            let display = context
-                .display
-                .compute(child, &declarations, false, false)?;
-            if display.none() {
-                continue;
-            }
-            if !["span", "a", "label", "abbr"]
-                .iter()
-                .any(|name| child.has_name(name))
-                || display.value()? != "inline"
-            {
-                return Ok(false);
-            }
-            // Inline borders, padding, positioning and differing fonts require fragments.
-            if let Some((name, value, _)) =
-                declarations
-                    .layout_entries()
-                    .find(|(name, value, deferred)| {
-                        *deferred
-                            || !(inert(name, value)
-                                || matches!(
-                                    super::logical::physical(name),
-                                    "padding-left" | "padding-right"
-                                ))
-                    })
-            {
-                return Err(Error::Dom(format!(
-                    "layout unsupported: inline text property ({name}): {value:.120}"
-                )));
-            }
-            let computed = context.compute(
-                &declarations,
-                false,
-                child,
-                display,
-                &self.fonts.borrow(),
-                self.work,
-            )?;
-            if !same_metrics(&computed, context)? {
-                return Ok(false);
-            }
-            for kind in [
-                crate::cascade::Generated::Before,
-                crate::cascade::Generated::After,
-            ] {
-                let generated = self.cascade.resolve(
-                    child,
-                    &Declarations::default(),
-                    Some(kind),
-                    self.containers,
-                    Some(self.controls),
-                    self.work,
-                )?;
-                if !matches!(
-                    generated.value("content").0.as_str(),
-                    "" | "none" | "normal" | "initial" | "unset"
-                ) {
-                    return Err(unsupported("generated content in inline text"));
-                }
-            }
-            let padding = horizontal_padding(&declarations, &computed.fonts, self.work)?;
-            let start = source.start_inline(padding.start);
-            if !self.inline_source(
+            if !self.inline_child(
                 child,
                 depth.saturating_add(1),
-                &inherited,
-                &computed,
+                variables,
+                context,
                 source,
                 folded,
             )? {
                 return Ok(false);
             }
-            source.end_inline(start, padding.end, computed.typography.preserves_breaks())?;
-            folded.push(child.id);
         }
+        Ok(true)
+    }
+    pub(super) fn inline_child(
+        &mut self,
+        node: NodeRef<'_>,
+        depth: usize,
+        variables: &Variables,
+        context: &BoxContext,
+        source: &mut super::text_source::Source,
+        folded: &mut Vec<NodeId>,
+    ) -> Result<bool> {
+        if node.is_text() {
+            self.visit(depth)?;
+            let text = node.text();
+            if source.text.len().saturating_add(text.len()) > 65_536 {
+                return Err(Error::Limit("layout text source"));
+            }
+            source.text.push_str(&text);
+            return Ok(true);
+        }
+        if !node.is_element() || super::non_rendered(node) {
+            self.visit(depth)?;
+            return Ok(true);
+        }
+        let (declarations, inherited) = self.resolve_node(node, variables)?;
+        let display = context.display.compute(node, &declarations, false, false)?;
+        if display.none() {
+            self.visit(depth)?;
+            return Ok(true);
+        }
+        if !["span", "a", "label", "abbr"]
+            .iter()
+            .any(|name| node.has_name(name))
+            || display.value()? != "inline"
+        {
+            return Ok(false);
+        }
+        self.visit(depth)?;
+        if let Some((name, value, _)) =
+            declarations
+                .layout_entries()
+                .find(|(name, value, deferred)| {
+                    *deferred
+                        || !(inert(name, value)
+                            || matches!(
+                                super::logical::physical(name),
+                                "padding-left" | "padding-right"
+                            ))
+                })
+        {
+            return Err(Error::Dom(format!(
+                "layout unsupported: inline text property ({name}): {value:.120}"
+            )));
+        }
+        let computed = context.compute(
+            &declarations,
+            false,
+            node,
+            display,
+            &self.fonts.borrow(),
+            self.work,
+        )?;
+        if !same_metrics(&computed, context)? {
+            return Err(unsupported("text shaping: mixed inline metrics"));
+        }
+        for kind in [
+            crate::cascade::Generated::Before,
+            crate::cascade::Generated::After,
+        ] {
+            let generated = self.cascade.resolve(
+                node,
+                &Declarations::default(),
+                Some(kind),
+                self.containers,
+                Some(self.controls),
+                self.work,
+            )?;
+            if !matches!(
+                generated.value("content").0.as_str(),
+                "" | "none" | "normal" | "initial" | "unset"
+            ) {
+                return Err(unsupported("generated content in inline text"));
+            }
+        }
+        let padding = horizontal_padding(&declarations, &computed.fonts, self.work)?;
+        let start = source.start_inline(padding.start);
+        if !self.inline_source(node, depth, &inherited, &computed, source, folded)? {
+            return Ok(false);
+        }
+        source.end_inline(start, padding.end, computed.typography.preserves_breaks())?;
+        folded.push(node.id);
         Ok(true)
     }
 }

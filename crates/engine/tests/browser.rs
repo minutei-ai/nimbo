@@ -5903,3 +5903,23 @@ fn inline_padding_participates_in_native_text_width_and_line_breaks() -> TestRes
     );
     Ok(())
 }
+
+#[test]
+fn mixed_inline_and_block_children_form_anonymous_blocks() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/empty-layout"))?;
+    let result = page.evaluate(include_str!("fixtures/mixed-inline-blocks.txt"))?;
+    let checks = result.as_object().ok_or("missing mixed inline checks")?;
+    assert_eq!(checks.len(), 21);
+    assert!(
+        checks.values().all(|value| value == &json!(true)),
+        "{result}"
+    );
+    assert_eq!(
+        page.evaluate(include_str!("fixtures/mixed-inline-boundary.txt"))?,
+        json!({"font":true,"nestedBlock":true,"contents":true,"fragment":true,"limit":true,"recovery":true})
+    );
+    Ok(())
+}

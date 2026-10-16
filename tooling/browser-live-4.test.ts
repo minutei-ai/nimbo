@@ -345,7 +345,7 @@ test.each([
   [
     "text and atomic inline boxes",
     "const p=document.createElement('section');p.append('A');for(let i=0;i<2;i++){const e=document.createElement('div');e.style.cssText='display:inline-flex;width:20px;height:20px';p.append(e);}document.body.append(p);return p.getBoundingClientRect()",
-    "text shaping",
+    "mixed atomic inline formatting",
   ],
   [
     "vertical alignment",
