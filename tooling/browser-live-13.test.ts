@@ -363,7 +363,6 @@ test.each([
     'content:"";display:block;position:sticky;left:0;top:0;width:9px;height:7px',
     "sticky generated boxes",
   ],
-  ["text", 'content:"sample";display:block;position:absolute;width:9px;height:7px', "text shaping"],
 ])(
   "real HTTP → workerd → Wasm: unsupported generated %s and recovery",
   async (_name, css, reason) => {

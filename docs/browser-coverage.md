@@ -1040,10 +1040,12 @@ stylesheets and native DOM state.
 
 The native content grammar retains strings, ordinary attribute/counter
 functions, quote keywords, typed images and alternative text. Geometry currently
-supports empty generated strings in block/flex/grid formatting. Normal, none,
+supports generated strings through the ordinary native text shaper in supported
+block, flow-root, flex and grid boxes, including absolute positioning and
+blockified flex/grid items. Whitespace follows the ordinary text rules. Normal, none,
 initial and unset content suppress box generation; display:none suppresses
-unmeasurable content as well. Flex and grid items use blockification. Text,
-images, counters, attribute content, quote generation, content inheritance and
+unmeasurable content as well. Images, counters, attribute content, quote generation,
+nonempty display:contents, content inheritance and
 inline formatting still fail explicitly when they require unsupported layout.
 Typed attributes, extended counter/target grammars, painting, pseudo-element
 CSSOM interfaces and complete generated-content support remain required work.
@@ -1053,7 +1055,7 @@ at 64 real Worker URLs and at the same 64 variants in actual Chromium 152.
 Each variant uses a distinct pixel scale, including fractional dimensions.
 It checks measured owner/child geometry, source-child ordering, padding,
 relative offsets, flex/grid items, specificity, variables, conditional/layer
-groups, DOM isolation and recovery after stylesheet removal. Nine additional
+groups, DOM isolation and recovery after stylesheet removal. Additional
 real Worker cases cover explicit gaps and generated-box resource exhaustion
 with recovery. The public record is
 [generated-boxes-chromium.json](evidence/generated-boxes-chromium.json).

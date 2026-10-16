@@ -104,7 +104,6 @@ test("real HTTP → workerd → Wasm: intersection callbacks report exceptions a
 });
 
 test.each([
-  ["text", 'content:"text";display:block', "text shaping"],
   ["attribute", "content:attr(data-label);display:block", "generated content"],
   ["image", "content:url(https://example.test/image.png);display:block", "generated content"],
   ["gradient", "content:linear-gradient(red,blue);display:block", "generated content"],

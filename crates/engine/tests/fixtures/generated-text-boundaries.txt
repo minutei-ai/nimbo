@@ -1,0 +1,13 @@
+(()=>{
+  const root=document.createElement('section');root.id='generated-boundary-probe';root.style.cssText='display:block;width:40px;height:10px';document.body.append(root);
+  const sheet=document.createElement('style');document.head.append(sheet);const checks={};
+  const rejected=(name,css,detail)=>{sheet.textContent='#generated-boundary-probe::before{'+css+'}';try{root.getBoundingClientRect();checks[name]=false;}catch(error){checks[name]=error.message.includes(detail);}sheet.textContent='';checks[name+'Recovery']=root.getBoundingClientRect().width===40;};
+  rejected('inline','content:"AB"','generated inline formatting');
+  rejected('attribute','content:attr(data-label);display:block','generated content');
+  rejected('counter','content:counter(item);display:block','generated content');
+  rejected('image','content:url(https://example.test/image.png);display:block','generated content');
+  rejected('quotes','content:open-quote;display:block','generated content');
+  rejected('preserved','content:" ";display:block;white-space:pre','text white-space');
+  rejected('contents','content:"AB";display:contents','generated inline formatting');
+  sheet.remove();root.remove();return checks;
+})()

@@ -472,3 +472,40 @@ individual source costs. The report retains every sample, effective budgets and
 RSS readings after requests, not peak/page heap. Wasm shrinks by 3,755 bytes.
 The old build rejects background-backed geometry, so these timings compare
 retained paths rather than throughput of the new capability.
+
+## Generated strings
+
+Generated `::before` and `::after` strings enter the same bounded text source,
+font shaping, line breaking and anonymous Taffy children as ordinary text.
+CSS string escapes and concatenation are decoded by the native CSS tokenizer.
+Alternative text after `/` does not enter the visual run. Normal whitespace
+collapses through the ordinary text owner; empty runs retain their generated
+box's padding, borders and explicit dimensions. No DOM node is inserted.
+
+Supported boxes include block, flow-root, flex, grid and absolute positioning,
+including blockified flex/grid items. Native text metrics own intrinsic sizes,
+wrapping, overflow and baseline alignment. The [Taffy baseline fix](taffy-baseline.md)
+keeps centered text's measured baseline when its grid container participates in
+a parent flex baseline group. It adds no Nimbo-side baseline approximation.
+
+The shared fixture checks 40 contracts in native Rust, Worker/Wasm and
+[Chromium](evidence/generated-text-chromium-2026-10-16.json): ordinary/collapsed
+strings, escapes, concatenation, alternative text, variables, wrapping,
+intrinsics, fonts, borders, flex ordering, grid, measured baselines, absolute
+positioning, real text siblings, style changes and detachment/reattachment.
+Fourteen native boundary/recovery checks retain explicit failures for inline
+generated formatting, attributes, counters, images, quotes, preserved whitespace
+and nonempty display:contents. These capabilities remain pending.
+
+The implementation follows [CSS Generated Content](https://www.w3.org/TR/css-content-3/).
+The checks establish the listed box/text contracts, not complete generated-content
+conformance or successful navigation of every script-driven page.
+
+The [retained-path comparison](evidence/generated-text-2026-10-16.json) runs
+three rounds of ordinary text and atomic inline layout against the exact
+preceding Worker/Wasm bundle. Both versions complete 19/19 requests in every
+round. Candidate p50 and p95 are higher in two rounds and lower in one for each
+workload; the samples do not demonstrate a speedup. The record retains all
+samples, effective budgets and sampled process-tree RSS. Wasm grows by 1,243
+bytes. This comparison measures retained paths; the old bundle rejects the
+shared generated-string fixture at its first nonempty string.

@@ -1253,3 +1253,55 @@ test("background geometry preserves explicit CSSOM and paint boundaries", async 
       .map(([name]) => name),
   ).toEqual([]);
 });
+
+const generatedText = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/generated-text.txt", import.meta.url),
+).text();
+
+test("generated strings use native shaping and box formatting", async () => {
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url: new URL("image-resources/empty", origin.url).href,
+      expression: generatedText,
+    }),
+  });
+  expect(response.status).toBe(200);
+  const result = Schema.decodeUnknownSync(Success)(await response.json());
+  const checks = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Boolean))(
+    result.value,
+  );
+  expect(Object.keys(checks)).toHaveLength(40);
+  expect(
+    Object.entries(checks)
+      .filter(([, passed]) => !passed)
+      .map(([name]) => name),
+  ).toEqual([]);
+});
+
+const generatedTextBoundaries = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/generated-text-boundaries.txt", import.meta.url),
+).text();
+
+test("generated strings preserve explicit boundaries and recover", async () => {
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url: new URL("image-resources/empty", origin.url).href,
+      expression: generatedTextBoundaries,
+    }),
+  });
+  expect(response.status).toBe(200);
+  const result = Schema.decodeUnknownSync(Success)(await response.json());
+  const checks = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Boolean))(
+    result.value,
+  );
+  expect(Object.keys(checks)).toHaveLength(14);
+  expect(
+    Object.entries(checks)
+      .filter(([, passed]) => !passed)
+      .map(([name]) => name),
+  ).toEqual([]);
+});

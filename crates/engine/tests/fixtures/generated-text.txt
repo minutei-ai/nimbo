@@ -1,0 +1,55 @@
+(async()=>{
+  const face=new FontFace('Generated Face','url(/font-loading/font/inline.ttf)');document.fonts.add(face);await face.load();
+  const checks={font:face.status==='loaded'},near=(a,b)=>Math.abs(a-b)<.07;
+  const sheet=document.createElement('style');document.head.append(sheet);
+  const create=(content,pseudo,parent='',kind='before')=>{
+    const root=document.createElement('section'),marker=document.createElement('div');root.id='generated-text-probe';root.style.cssText='display:block;width:120px;margin:0;padding:0;border:0;font:20px/30px "Generated Face";'+parent;
+    marker.style.cssText='display:block;width:10px;height:10px;margin:0;padding:0;border:0';root.append(marker);sheet.textContent='#generated-text-probe::'+kind+'{content:'+content+';'+pseudo+'}';document.body.append(root);return {root,marker};
+  };
+  const probe=(name,content,pseudo,parent,expected,kind='before')=>{
+    const {root,marker}=create(content,pseudo,parent,kind),r=root.getBoundingClientRect(),m=marker.getBoundingClientRect();
+    const measured={w:r.width,h:r.height,x:m.x-r.x,y:m.y-r.y,sh:root.scrollHeight,sw:root.scrollWidth};
+    checks[name]=Object.entries(expected).every(([key,value])=>near(measured[key],value))&&root.children.length===1&&root.textContent==='';root.remove();
+  };
+  probe('empty','""','display:block','',{w:120,h:10,x:0,y:0});
+  probe('collapsed','" \\9 \\a "','display:block','',{w:120,h:10,x:0,y:0});
+  probe('nowrapCollapsed','" "','display:block;white-space:nowrap','',{w:120,h:10,x:0,y:0});
+  probe('emptyPre','""','display:block;white-space:pre','',{w:120,h:10,x:0,y:0});
+  probe('flowRoot','"AB"','display:flow-root','',{w:120,h:40,x:0,y:30});
+  probe('whitespaceBox','" "','display:block;padding:3px;border:2px solid black','display:flex;align-items:flex-start',{w:120,h:10,x:10,y:0});
+  probe('text','"AB"','display:block','',{w:120,h:40,x:0,y:30});
+  probe('after','"AB"','display:block','',{w:120,h:40,x:0,y:0},'after');
+  probe('concatenated','"A" "" "B"','display:block','width:max-content',{w:26,h:40,x:0,y:30});
+  probe('escaped','"\\41\\42"','display:block','width:max-content',{w:26,h:40,x:0,y:30});
+  probe('alternative','"AB" / "A"','display:block','width:max-content',{w:26,h:40,x:0,y:30});
+  probe('none','none','display:block;height:50px','',{w:120,h:10,x:0,y:0});
+  probe('normal','normal','display:block;height:50px','',{w:120,h:10,x:0,y:0});
+  probe('hidden','"AB"','display:none;height:50px','',{w:120,h:10,x:0,y:0});
+  probe('variable','var(--generated)','display:block','--generated:"AB";width:max-content',{w:26,h:40,x:0,y:30});
+  probe('wrapped','"AA AA AA"','display:block','width:40px',{w:40,h:100,x:0,y:90});
+  probe('nowrap','"AA AA AA"','display:block;white-space:nowrap','width:40px',{w:40,h:40,x:0,y:30,sw:82});
+  probe('minimum','"AA AA"','display:block','width:min-content',{w:24,h:70,x:0,y:60});
+  probe('maximum','"AA AA AA"','display:block','width:max-content',{w:82,h:40,x:0,y:30});
+  probe('preline','"A\\a B"','display:block;white-space:pre-line','',{w:120,h:70,x:0,y:60});
+  probe('ownFont','"AB"','display:block;font:40px/50px "Generated Face"','width:max-content',{w:52,h:60,x:0,y:50});
+  probe('box','"AB"','display:block;padding:3px;border:2px solid black','',{w:120,h:50,x:0,y:40});
+  probe('flex','"AB"','display:block','display:flex;align-items:flex-start',{w:120,h:30,x:26,y:0});
+  probe('reverse','"AB"','display:block','display:flex;align-items:flex-start;flex-direction:row-reverse',{w:120,h:30,x:84,y:0});
+  probe('flexAfter','"AB"','display:block','display:flex;align-items:flex-start',{w:120,h:30,x:0,y:0},'after');
+  probe('orderedAfter','"AB"','display:block;order:-1','display:flex;align-items:flex-start',{w:120,h:30,x:26,y:0},'after');
+  probe('grid','"AB"','display:block','display:grid;grid-template-columns:60px 60px',{w:120,h:30,x:60,y:0});
+  probe('flexInner','"AB"','display:flex;width:100px;height:50px;align-items:center;justify-content:center','',{w:120,h:60,x:0,y:50});
+  probe('gridInner','"AB"','display:grid;width:100px;height:50px;align-items:center;justify-content:center','',{w:120,h:60,x:0,y:50});
+  probe('baselineFlex','"AB"','display:flex;width:100px;height:50px;align-items:center;justify-content:center','display:flex;align-items:baseline',{w:120,h:50,x:100,y:21});
+  probe('baselineGrid','"AB"','display:grid;width:100px;height:50px;align-items:center;justify-content:center','display:flex;align-items:baseline',{w:120,h:50,x:100,y:21});
+  probe('unicode','"€"','display:block','width:max-content',{w:16,h:40,x:0,y:30});
+  probe('positioned','"AB"','display:block;position:absolute;left:0;top:60px','position:relative;height:50px',{w:120,h:50,x:0,y:0,sh:90});
+  probe('positionedWhitespace','" "','display:block;position:absolute;inset:0','position:relative;height:50px',{w:120,h:50,x:0,y:0,sh:50});
+  const {root,marker}=create('"A"','display:block','width:max-content');marker.remove();root.textContent='B';
+  checks.textContext=near(root.getBoundingClientRect().width,14)&&near(root.getBoundingClientRect().height,60)&&root.textContent==='B';
+  sheet.textContent='#generated-text-probe::before{content:"A";display:block;position:absolute;left:0;top:0}';root.style.position='relative';
+  checks.absoluteTextContext=near(root.getBoundingClientRect().width,14)&&near(root.getBoundingClientRect().height,30)&&root.textContent==='B';
+  root.textContent='';sheet.textContent='#generated-text-probe::before{content:"A";display:block}';const first=root.getBoundingClientRect().width;
+  sheet.textContent='#generated-text-probe::before{content:"B";display:block}';checks.mutation=near(first,12)&&near(root.getBoundingClientRect().width,14)&&near(root.getBoundingClientRect().height,30);
+  root.remove();checks.detached=root.getBoundingClientRect().width===0;document.body.append(root);checks.reattached=near(root.getBoundingClientRect().width,14)&&near(root.getBoundingClientRect().height,30);root.remove();sheet.remove();document.fonts.delete(face);return checks;
+})()

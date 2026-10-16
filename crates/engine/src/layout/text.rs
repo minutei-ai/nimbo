@@ -671,7 +671,7 @@ impl Run {
         if normalized.is_empty() && padding.is_empty() && !strut {
             return Ok(None);
         }
-        if normalized.len() > 65_536 {
+        if normalized.len() > text_source::SOURCE_LIMIT {
             return Err(crate::Error::Limit("layout text shaping"));
         }
         if !matches!(typography.transform, crate::text_transform::Transform::None) {

@@ -3,6 +3,8 @@ use taffy::LengthPercentage;
 
 use super::unsupported;
 
+pub(super) const SOURCE_LIMIT: usize = 65_536;
+
 #[derive(Clone, Copy)]
 pub(super) struct Padding {
     pub index: usize,
@@ -45,7 +47,7 @@ impl<'a> Source<'a> {
     }
     pub(super) fn append(&mut self, text: &str, context: &super::BoxContext) -> Result<()> {
         let start = self.text.len();
-        if start.saturating_add(text.len()) > 65_536 {
+        if start.saturating_add(text.len()) > SOURCE_LIMIT {
             return Err(crate::Error::Limit("layout text source"));
         }
         if text.is_empty() {

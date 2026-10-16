@@ -1424,9 +1424,9 @@ export const textLayoutBoundaries = [
     "mixed inline text flow",
   ],
   [
-    "generated box",
-    "const s=document.createElement('style');s.textContent='div::before{content:\"\";display:block;width:10px;height:10px}';document.head.append(s)",
-    "generated content in text formatting context",
+    "generated inline",
+    "const s=document.createElement('style');s.textContent='div::before{content:\"\";width:10px;height:10px}';document.head.append(s)",
+    "generated inline formatting",
   ],
   [
     "text source",

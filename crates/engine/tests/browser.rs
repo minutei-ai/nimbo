@@ -6397,3 +6397,35 @@ fn background_geometry_preserves_explicit_cssom_and_paint_boundaries() -> TestRe
     );
     Ok(())
 }
+
+#[test]
+fn generated_text_uses_native_shaping_and_box_formatting() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/image-resources/empty"))?;
+    let result = page.evaluate(include_str!("fixtures/generated-text.txt"))?;
+    let checks = result.as_object().ok_or("missing generated text checks")?;
+    assert_eq!(checks.len(), 40);
+    assert!(
+        checks.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    Ok(())
+}
+
+#[test]
+fn generated_text_preserves_explicit_boundaries_and_recovers() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/image-resources/empty"))?;
+    let result = page.evaluate(include_str!("fixtures/generated-text-boundaries.txt"))?;
+    let checks = result.as_object().ok_or("missing generated text checks")?;
+    assert_eq!(checks.len(), 14);
+    assert!(
+        checks.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    Ok(())
+}

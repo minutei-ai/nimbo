@@ -13,6 +13,7 @@ use crate::{
 
 mod clamp;
 mod clipping;
+mod generated;
 mod grid;
 mod inline;
 mod inline_flow;
@@ -538,41 +539,6 @@ fn position_insets(mut style: Style, declarations: &Declarations) -> Style {
     style
 }
 
-// Empty generated strings create real boxes. Non-empty content requires the
-// same shaping/image/counter machinery as ordinary content; do not fabricate
-// its size while that machinery is unavailable.
-fn empty_generated_content(declarations: &Declarations) -> Result<bool> {
-    let Some((_, value, deferred)) = declarations
-        .layout_entries()
-        .find(|(name, _, _)| *name == "content")
-    else {
-        return Ok(false);
-    };
-    if deferred {
-        return Err(unsupported("variable substitution"));
-    }
-    if matches!(value, "none" | "normal" | "initial" | "unset") {
-        return Ok(false);
-    }
-    let mut input = cssparser::ParserInput::new(value);
-    let mut parser = cssparser::Parser::new(&mut input);
-    let mut strings = 0_usize;
-    while !parser.is_exhausted() {
-        match parser
-            .next()
-            .map_err(|_error| unsupported("generated content"))?
-        {
-            cssparser::Token::QuotedString(value) if value.is_empty() => {
-                strings = strings.saturating_add(1);
-            }
-            cssparser::Token::QuotedString(_) => return Err(unsupported("text shaping")),
-            cssparser::Token::Delim('/') if strings > 0 => return Ok(true),
-            _ => return Err(unsupported("generated content")),
-        }
-    }
-    Ok(strings > 0)
-}
-
 #[derive(Clone, Copy)]
 struct FormattingContext<'a> {
     display: Display,
@@ -741,95 +707,6 @@ impl Tree<'_, '_> {
             return Err(Error::Limit("layout tree: depth"));
         }
         Ok(())
-    }
-    fn generated(
-        &mut self,
-        node: NodeRef<'_>,
-        kind: crate::cascade::Generated,
-        parent: &Variables,
-        parent_display: Display,
-        depth: usize,
-        context: &BoxContext,
-    ) -> Result<Option<taffy::NodeId>> {
-        let declarations = self.cascade.resolve(
-            node,
-            &Declarations::default(),
-            Some(kind),
-            self.containers,
-            Some(self.controls),
-            self.work,
-        )?;
-        let (declarations, variables) = self.computed.compute(
-            &declarations,
-            parent,
-            &self.cascade.registrations,
-            self.work,
-        )?;
-        let declarations = self.animate(&declarations, &variables)?;
-        if declarations
-            .layout_entries()
-            .any(|(name, value, _)| name == "display" && value == "none")
-        {
-            return Ok(None);
-        }
-        if !empty_generated_content(&declarations)? {
-            return Ok(None);
-        }
-        if !matches!(parent_display, Display::Flex | Display::Grid)
-            && declarations.value("position").0 != "absolute"
-            && !declarations.layout_entries().any(|(name, value, _)| {
-                name == "display" && matches!(value, "block" | "flex" | "grid")
-            })
-        {
-            return Err(unsupported("generated inline formatting"));
-        }
-        self.visit(depth)?;
-        let display = context.display.compute(node, &declarations, false, true)?;
-        if display.contents() {
-            return Ok(None);
-        }
-        let context = context.compute(
-            &declarations,
-            false,
-            node,
-            display,
-            &self.fonts.borrow(),
-            self.work,
-        )?;
-        let (mut style, _) = style_for(
-            node,
-            &declarations,
-            true,
-            &context.display,
-            &context.fonts,
-            self.work,
-        )?;
-        style.border = context.borders.geometry()?;
-        let out_of_flow = style.position == Position::Absolute;
-        let id = self
-            .boxes
-            .new_leaf(style)
-            .map_err(|error| layout_error(&error))?;
-        self.remember_padding(id)?;
-        self.orders.insert(id, context.order);
-        if let Some(translation) =
-            translation::Translation::parse(&declarations, &context.fonts, self.work)?
-        {
-            self.translations.insert(id, translation);
-        }
-        if out_of_flow {
-            // The originating element establishes the containing block when positioned.
-            // Keep the generated box distinct from its owner in the DOM-to-box map.
-            let containing = std::iter::once(node)
-                .chain(node.ancestors_it(None))
-                .find(|ancestor| {
-                    self.positioned.contains(&ancestor.id)
-                        || self.transformed.contains(&ancestor.id)
-                })
-                .map(|ancestor| ancestor.id);
-            self.out_of_flow.push((id, containing));
-        }
-        Ok(Some(id))
     }
     fn resolve_node(
         &mut self,
@@ -1055,25 +932,15 @@ impl Tree<'_, '_> {
         {
             return Ok(None);
         }
-        self.folded_inlines.extend(folded);
         for kind in [
             crate::cascade::Generated::Before,
             crate::cascade::Generated::After,
         ] {
-            if self
-                .generated(
-                    node,
-                    kind,
-                    variables,
-                    display,
-                    depth.saturating_add(1),
-                    context,
-                )?
-                .is_some()
-            {
-                return Err(unsupported("generated content in text formatting context"));
+            if self.generated_source(node, kind, variables)?.is_some() {
+                return Ok(None);
             }
         }
+        self.folded_inlines.extend(folded);
         text::Run::new(
             &source,
             &context.typography,
