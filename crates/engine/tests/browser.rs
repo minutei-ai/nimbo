@@ -5863,3 +5863,23 @@ fn computed_insets_use_native_positioning_and_live_containing_blocks() -> TestRe
     }
     Ok(())
 }
+
+#[test]
+fn baseline_inline_wrappers_preserve_native_text_shaping() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/empty-layout"))?;
+    let result = page.evaluate(include_str!("fixtures/inline-baseline.txt"))?;
+    let checks = result.as_object().ok_or("missing baseline checks")?;
+    assert_eq!(checks.len(), 18);
+    assert!(
+        checks.values().all(|value| value == &json!(true)),
+        "{result}"
+    );
+    assert_eq!(
+        page.evaluate(include_str!("fixtures/inline-baseline-boundary.txt"))?,
+        json!({"rejected":true,"recovered":true})
+    );
+    Ok(())
+}

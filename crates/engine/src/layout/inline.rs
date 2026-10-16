@@ -3,6 +3,10 @@ use super::{BoxContext, Tree, layout_error, text, unsupported};
 use crate::{Result, styles::Declarations};
 use taffy::{TaffyError, prelude::*};
 
+pub(super) fn baseline(value: &str) -> bool {
+    matches!(value, "" | "baseline" | "initial" | "unset" | "revert")
+}
+
 pub(super) fn atomic_style(
     style: &mut Style,
     display: &crate::display::Computed,
@@ -14,7 +18,7 @@ pub(super) fn atomic_style(
     // Top aligns to the line box top, which is the flex line start. Bottom
     // alignment moves the baseline set when it is taller, so it stays unsupported.
     let alignment = match declarations.value("vertical-align").0.as_str() {
-        "" | "baseline" | "initial" | "unset" | "revert" => None,
+        value if baseline(value) => None,
         "top" => Some(AlignItems::FLEX_START),
         _ => return Err(unsupported("atomic inline vertical alignment")),
     };

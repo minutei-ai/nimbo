@@ -56,6 +56,20 @@ recorded below:
 | Stale-cache invalidation                    | `layout-snapshot`                                                            | 0.01      | [layout-snapshot](layout-snapshot-chromium.json)                                                                                                                                                                                                                    |
 | Text wrapping and headings                  | `paragraph-wrap`, `inline-text`, `pre-line`, `headings`, `latin-punctuation` | 0.01–0.1  | [paragraph-wrap](evidence/paragraph-wrap-chromium.json), [inline-text](evidence/inline-text-chromium.json), [pre-line](evidence/pre-line-chromium.json), [headings](evidence/headings-chromium.json), [latin-punctuation](evidence/latin-punctuation-chromium.json) |
 
+## Baseline inline text
+
+Same-font `span`, `a`, `label` and `abbr` wrappers accept explicit
+`vertical-align: baseline` and its `initial`, `unset` and `revert` defaults.
+They share the existing text shaping and baseline policy with atomic inline
+boxes, preserving word wrapping, kerning and nested text. This follows the
+[CSS baseline alignment rule](https://www.w3.org/TR/CSS22/visudet.html#propdef-vertical-align).
+
+The shared `inline-baseline` fixture checks 18 cases in native Rust, Worker/Wasm
+and independently in Chromium, including stylesheet mutation and reflow.
+A separate native/Worker boundary case rejects `middle`, resets the declaration
+to `baseline` and recovers on the same page. Other alignment values and inline
+fragment geometry retain their explicit boundaries.
+
 ## Right-to-left subset
 
 `dir="rtl"`, `dir="ltr"` and the `direction` property set an inherited inline

@@ -1,0 +1,37 @@
+(() => {
+  const result = {};
+  const make = (html) => {
+    const node = document.createElement('div');
+    node.style.cssText = 'font:16px/20px serif;width:120px';
+    node.innerHTML = html;
+    document.body.append(node);
+    return node;
+  };
+  const same = (a,b) => {
+    const left = a.getBoundingClientRect();
+    const right = b.getBoundingClientRect();
+    return Math.abs(left.width-right.width)<0.01 && Math.abs(left.height-right.height)<0.01;
+  };
+  const plain = make('AVATAR alpha beta gamma delta');
+  for (const tag of ['span','a','label','abbr']) {
+    for (const value of ['baseline','initial','unset','revert']) {
+      const node = make('A<'+tag+' style="vertical-align:'+value+'">VATAR alpha beta gamma</'+tag+'> delta');
+      result[tag+'-'+value] = same(node,plain);
+      node.remove();
+    }
+  }
+  const sheet = document.createElement('style');
+  sheet.textContent = '.baseline-wrapper span{vertical-align:baseline}';
+  document.head.append(sheet);
+  const nested = make('A<span>VATAR alpha <span>beta gamma</span></span> delta');
+  nested.className = 'baseline-wrapper';
+  result.nested = same(nested,plain);
+  sheet.textContent = '.baseline-wrapper span{vertical-align:initial}';
+  nested.style.width = '80px';
+  plain.style.width = '80px';
+  result.mutation = same(nested,plain);
+  sheet.remove();
+  nested.remove();
+  plain.remove();
+  return result;
+})()

@@ -104,6 +104,7 @@ fn inert(name: &str, value: &str) -> bool {
         || name.starts_with("text-")
         || name == "line-height"
         || name == "letter-spacing"
+        || name == "vertical-align" && super::inline::baseline(value)
         || non_layout(name)
         || crate::outlines::property(name)
         || name == "box-sizing" && matches!(value, "content-box" | "border-box")

@@ -1,0 +1,17 @@
+(() => {
+  const node = document.createElement('div');
+  node.style.cssText = 'font:16px/20px serif;width:120px';
+  node.innerHTML = 'alpha <span>beta gamma</span> delta';
+  document.body.append(node);
+  const initial = node.getBoundingClientRect();
+  const span = node.querySelector('span');
+  span.style.verticalAlign = 'middle';
+  let rejected = false;
+  try { node.getBoundingClientRect(); }
+  catch (error) { rejected = error.message.endsWith('layout unsupported: inline text property (vertical-align)'); }
+  span.style.verticalAlign = 'baseline';
+  const current = node.getBoundingClientRect();
+  const recovered = current.height === initial.height && current.width === initial.width;
+  node.remove();
+  return {rejected,recovered};
+})()

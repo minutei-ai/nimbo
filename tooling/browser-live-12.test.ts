@@ -643,3 +643,42 @@ test("computed insets use native positioning and live containing blocks", async 
     expect(check.actual).toEqual(check.expected);
   }
 });
+
+const inlineBaseline = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/inline-baseline.txt", import.meta.url),
+).text();
+
+const inlineBaselineBoundary = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/inline-baseline-boundary.txt", import.meta.url),
+).text();
+
+test("baseline inline wrappers preserve native text shaping", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: inlineBaseline }),
+  });
+  expect(response.status).toBe(200);
+  const result = Schema.decodeUnknownSync(Success)(await response.json());
+  const checks = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Boolean))(
+    result.value,
+  );
+  expect(Object.keys(checks)).toHaveLength(18);
+  expect(Object.values(checks).every((check) => check)).toBe(true);
+});
+
+test("non-baseline inline alignment remains explicit and recovers on the same page", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: inlineBaselineBoundary }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({
+    url,
+    engine: "rust-wasm-quickjs",
+    value: { rejected: true, recovered: true },
+  });
+});
