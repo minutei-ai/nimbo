@@ -5,6 +5,7 @@
   const nativeStorage = nimboStorage;
   const nativeCookie = nimboCookie;
   const nativeMedia = nimboMedia;
+  const devicePixelRatio = nimboDevicePixelRatio;
   const nativeEncode = nimboEncode;
   const nativeDecoder = nimboDecoder;
   const nativeLink = nimboLink;
@@ -38,6 +39,7 @@
   Reflect.deleteProperty(globalThis, "nimboFontMeta");
   Reflect.deleteProperty(globalThis, "nimboFontMatch");
   Reflect.deleteProperty(globalThis, "nimboMediaEnvironment");
+  Reflect.deleteProperty(globalThis, "nimboDevicePixelRatio");
   Reflect.deleteProperty(globalThis, "nimboUrl");
   Reflect.deleteProperty(globalThis, "nimboUserAgent");
   Reflect.deleteProperty(globalThis, "nimboIsProxy");
@@ -4804,6 +4806,77 @@
     value: "HTMLAnchorElement",
     configurable: true,
   });
+  const imageElements = new WeakSet<object>();
+  function imageId(owner: object): number {
+    if (!imageElements.has(owner)) throw new TypeError("Illegal invocation");
+    return idOf(owner);
+  }
+  function imageInfo(owner: object) {
+    return call<{
+      complete: boolean;
+      currentSrc: string;
+      naturalWidth: number;
+      naturalHeight: number;
+    }>("image", imageId(owner));
+  }
+  class HTMLImageElement extends HTMLElement {
+    constructor(key?: symbol, id?: number) {
+      if (key !== internal || id === undefined) throw new TypeError("Illegal constructor");
+      super(internal, id);
+      imageElements.add(this);
+      imageInfo(this);
+    }
+    get src(): string {
+      const value = call<string | null>("attr", imageId(this), "src");
+      if (value === null) return "";
+      return linkValue("get", "href", value, documentBase()) ?? "";
+    }
+    set src(value: unknown) {
+      call("setAttr", imageId(this), "src", usvString(value));
+    }
+    get srcset(): string {
+      return call<string | null>("attr", imageId(this), "srcset") ?? "";
+    }
+    set srcset(value: unknown) {
+      call("setAttr", imageId(this), "srcset", domString(value));
+    }
+    get sizes(): string {
+      return call<string | null>("attr", imageId(this), "sizes") ?? "";
+    }
+    set sizes(value: unknown) {
+      call("setAttr", imageId(this), "sizes", domString(value));
+    }
+    get alt(): string {
+      return call<string | null>("attr", imageId(this), "alt") ?? "";
+    }
+    set alt(value: unknown) {
+      call("setAttr", imageId(this), "alt", domString(value));
+    }
+    get complete(): boolean {
+      return imageInfo(this).complete;
+    }
+    get currentSrc(): string {
+      return imageInfo(this).currentSrc;
+    }
+    get naturalWidth(): number {
+      return imageInfo(this).naturalWidth;
+    }
+    get naturalHeight(): number {
+      return imageInfo(this).naturalHeight;
+    }
+  }
+  Object.defineProperty(HTMLImageElement.prototype, Symbol.toStringTag, {
+    value: "HTMLImageElement",
+    configurable: true,
+  });
+  function Image(...dimensions: unknown[]): HTMLImageElement {
+    if (!new.target) throw new TypeError("Image requires new");
+    const image = new HTMLImageElement(internal, call<number>("create", idOf(document), "img"));
+    if (dimensions.length > 0) image.setAttribute("width", String(idlNumber(dimensions[0]) >>> 0));
+    if (dimensions.length > 1) image.setAttribute("height", String(idlNumber(dimensions[1]) >>> 0));
+    return image;
+  }
+  Object.defineProperty(Image, "prototype", { value: HTMLImageElement.prototype, writable: false });
   const scripts = new WeakSet<object>();
   class HTMLScriptElement extends HTMLElement {
     constructor(key?: symbol, id?: number) {
@@ -5563,6 +5636,7 @@
           if (name === "link") return new HTMLLinkElement(internal, id);
           if (name === "iframe") return new HTMLIFrameElement(internal, id);
           if (name === "script") return new HTMLScriptElement(internal, id);
+          if (name === "img") return new HTMLImageElement(internal, id);
           if (name === "slot") return new HTMLSlotElement(internal, id);
           if (name === "input") return new HTMLInputElement(internal, id);
           if (name === "form") return new HTMLFormElement(internal, id);
@@ -8413,6 +8487,8 @@
     HTMLLinkElement,
     HTMLIFrameElement,
     HTMLScriptElement,
+    HTMLImageElement,
+    Image,
     HTMLSlotElement,
     HTMLInputElement,
     HTMLFormElement,
@@ -8485,6 +8561,7 @@
     },
     webkitURL: { value: URL, writable: true, enumerable: false, configurable: true },
     customElements: { get: () => customElements, enumerable: true, configurable: true },
+    devicePixelRatio: { get: () => devicePixelRatio, enumerable: true, configurable: true },
     innerWidth: { get: () => mediaEnvironment.width, enumerable: true, configurable: true },
     innerHeight: { get: () => mediaEnvironment.height, enumerable: true, configurable: true },
     localStorage: { get: () => localStorage, enumerable: true, configurable: true },

@@ -62,6 +62,7 @@ contains the same Worker assets as the standalone release archive.
 - Bounded imperative [Shadow DOM extraction](docs/shadow-dom.md), named slots and composed events.
 - CSS cascade, computed styles, block/flex/grid geometry, translations and bounded text layout.
 - Software OffscreenCanvas operations and native font metrics.
+- Bounded [native image resources](docs/image-resources.md), source selection and intrinsic metadata.
 
 [Coverage](docs/browser-coverage.md) records supported contracts and divergences. Full CSS/DOM conformance, frames, painting, screenshots/PDF, WebGL, video and persistent browser sessions remain incomplete. Unsupported operations fail explicitly.
 

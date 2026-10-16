@@ -649,7 +649,7 @@ evidence cannot establish it.
 | Inline CSS declarations                              | Subset     | Native property grammar and live HTML style mutations tested; full CSSOM missing                                                             |
 | CSS cascade, typed styles, layout and geometry       | Subset     | Author styles and native boxes tested; full cascade, text, computed styles and paint missing                                                 |
 | Binary FontFace parsing                              | Partial    | Native TrueType and lazy URL/CSS loads tested; rendering, compressed formats and full WPT missing                                            |
-| Font shaping, images and SVG                         | Partial    | Loaded-font native canvas widths; DOM text layout, font fallback, image decoding and SVG paint remain missing                                |
+| Font shaping, images and SVG                         | Partial    | Native font metrics, bounded DOM text layout and image metadata; image layout/paint, full fallback and SVG paint remain missing              |
 | OffscreenCanvas and Canvas 2D                        | Partial    | Native RGBA8 rectangle pixels/readback tested below; full Canvas 2D and HTML canvas missing                                                  |
 | Screenshots, PDF and screencasts                     | Missing    | Real paint output, pagination, frame changes and backpressure                                                                                |
 | Accessibility tree and snapshots                     | Missing    | Roles, names, hidden nodes, state changes and stable references                                                                              |
@@ -2999,7 +2999,7 @@ These supplemental checks are separate from original WPT assertions.
 
 This implements outer viewport sizing, not SVG painting or general graphics
 geometry. Inline SVG layout, nested viewports, transforms, getBBox, animated length
-interfaces, image decoding and full SVG grammar/constraint behavior remain pending.
+interfaces, SVG image-element decoding and full SVG grammar/constraint behavior remain pending.
 The original SVG runner includes upstream tests for these broader surfaces and
 retains failures and incomplete executions.
 
@@ -3555,3 +3555,12 @@ The printer follows the [Console Standard's implementation-defined buffering con
 Native `Page::console_messages()` and Wasm `WasmPage.console_messages()` inspect immutable printable snapshots without executing guest code. The Worker and TypeScript client expose records only with `captureConsole: true`, in the `console` field of success or failure bodies. Resource diagnostics remain independent and do not expose the console implicitly. Records are not copied to host logs. A failed page is inspected before its native resources are freed; the following request receives a fresh buffer.
 
 The shared synthetic `console.txt` fixture has 11 aggregate contracts, independently checked in Chromium and the native engine. Native and real HTTP → workerd → Wasm tests also cover FIFO eviction, UTF-8 byte bounds, clear/fresh-page behavior, explicit collection, failure cleanup, immutable snapshots and the client error channel. These checks cover the listed subset, not the complete Console Standard.
+
+## Native image resources
+
+Image loading now uses the native page scheduler and bounded Rust decoding for
+PNG, JPEG, GIF and WebP. Branded image elements expose loading state and intrinsic
+metadata, with source replacement, failed-source retries and active-document
+ownership. See [image resource coverage](image-resources.md) for the precise
+selection, event, quota and unsupported contracts. Replaced-element layout and
+painting remain unsupported; image resource tests do not establish geometry parity.

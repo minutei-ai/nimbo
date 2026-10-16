@@ -19,7 +19,7 @@ impl Dom {
                 message: "Shadow roots cannot be cloned",
             });
         }
-        let mut document = self.node_document(source);
+        let mut document = self.documents.owner(&self.document, source);
         let mut pending = VecDeque::new();
         let root = self.clone_shallow(source, document, deep, &mut pending)?;
         if self.node(handle)?.is_document() {
@@ -43,6 +43,7 @@ impl Dom {
                     .append_child(&copy);
             }
         }
+        self.images.borrow_mut().observe_root(root);
         Ok(json!(self.handle(root)))
     }
 

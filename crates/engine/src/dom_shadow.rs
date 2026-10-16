@@ -214,7 +214,7 @@ impl Dom {
         }
         self.charge_write(1)?;
         self.allocate_node()?;
-        let document = self.node_document(host);
+        let document = self.documents.owner(&self.document, host);
         let root = self.document.tree.create_node(NodeData::Fragment);
         if document != self.document.root().id {
             self.documents.owners.borrow_mut().insert(root, document);

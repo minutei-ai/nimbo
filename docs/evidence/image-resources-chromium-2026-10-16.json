@@ -1,0 +1,40 @@
+{
+  "date": "2026-10-16",
+  "fixture": "crates/engine/tests/fixtures/image-resources.txt",
+  "scope": "Native image resource metadata and lifecycle only; image geometry remains unsupported. Reference Chromium DPR 2 and Nimbo DPR 1; fallback assertion accounts for effective DPR.",
+  "reference": {
+    "checks": {
+      "initial": true,
+      "png": true,
+      "jpeg": true,
+      "gif": true,
+      "webp": true,
+      "orientation": true,
+      "inactiveDocument": true,
+      "adoption": true,
+      "inactiveAgain": true,
+      "detachedMarkup": true,
+      "shadowMarkup": true,
+      "clone": true,
+      "pending": true,
+      "replacement": true,
+      "density": true,
+      "fractionalDensity": true,
+      "lowDensity": true,
+      "fallback": true,
+      "constructor": true,
+      "broken": true,
+      "truncated": true,
+      "retry-property": true,
+      "retry-namespace": true,
+      "retry-attribute": true,
+      "stale": true,
+      "removed": true,
+      "empty": true
+    },
+    "compatMode": "CSS1Compat",
+    "dpr": 2,
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36"
+  },
+  "fixture_sha256": "27c29d09e34f8865aeb11057932eeecf0df999b254a0041d722495cd04b25bf4"
+}

@@ -30,6 +30,7 @@ import { backgroundSizeFixture } from "./background-size-fixture";
 import { backgroundRepeatFixture } from "./background-repeat-fixture";
 import { backgroundPositionFixture } from "./background-position-fixture";
 import { backgroundImagesFixture } from "./background-images-fixture";
+import { imageResourcesFixture } from "./image-resources-fixture";
 import { lineHeightFixture } from "./line-height-fixture";
 import { tabsFixture } from "./tabs-fixture";
 import { textAdjustFixture } from "./text-adjust-fixture";
@@ -464,6 +465,8 @@ export const origin = Bun.serve({
   port: 0,
   async fetch(request) {
     const path = new URL(request.url).pathname;
+    const imageResource = await imageResourcesFixture(path, request);
+    if (imageResource) return imageResource;
     const cookies = cookiesFixture(path, request);
     if (cookies) return cookies;
     const urls = urlsFixture(path);

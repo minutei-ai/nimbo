@@ -1,0 +1,132 @@
+(async () => {
+  const checks = {};
+  const nonce = Math.random().toString(36).slice(2);
+  const path = (name) => new URL('/image-resources/' + name + (name.startsWith('slow') ? '?run=' + nonce : ''), location.href).href;
+  const wait = (image, event = 'load') => new Promise((resolve, reject) => {
+    image.addEventListener(event, resolve, { once: true });
+    if (event === 'load') image.addEventListener('error', reject, { once: true });
+  });
+  const create = async (name) => {
+    const image = new Image();
+    const ready = wait(image);
+    image.src = path(name);
+    await ready;
+    return image;
+  };
+  const initial = document.getElementById('loaded');
+  checks.initial = initial instanceof HTMLImageElement && initial.complete && initial.naturalWidth === 32 && initial.naturalHeight === 16 && initial.currentSrc === path('small.png');
+  for (const format of ['png', 'jpeg', 'gif', 'webp']) {
+    const image = await create('small.' + format);
+    checks[format] = image.complete && image.naturalWidth === 32 && image.naturalHeight === 16 && image.currentSrc === path('small.' + format) && !image.isConnected;
+  }
+  const oriented = await create('oriented.jpeg');
+  checks.orientation = oriented.naturalWidth === 16 && oriented.naturalHeight === 32;
+  const inert = document.implementation.createHTMLDocument('inert');
+  const scoped = inert.createElement('img');
+  scoped.src = path('inert.png');
+  inert.body.append(scoped);
+  await new Promise(resolve => setTimeout(resolve, 5));
+  checks.inactiveDocument = scoped.complete && scoped.naturalWidth === 0 && scoped.currentSrc === '' && !document.cookie.includes('image-inert=ready');
+  const adoptedReady = wait(scoped);
+  document.body.append(scoped);
+  await adoptedReady;
+  checks.adoption = scoped.ownerDocument === document && scoped.naturalWidth === 32 && document.cookie.includes('image-inert=ready');
+  inert.body.append(scoped);
+  checks.inactiveAgain = scoped.complete && scoped.naturalWidth === 0 && scoped.currentSrc === '';
+  const cookieReady = async name => {
+    for (let attempt = 0; attempt < 100; attempt++) {
+      if (document.cookie.includes(name + '=ready')) return true;
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    return false;
+  };
+  const detached = document.createElement('div');
+  detached.innerHTML = '<img src="' + path('auto-detached.png') + '">';
+  checks.detachedMarkup = await cookieReady('image-auto-detached');
+  const host = document.createElement('div');
+  document.body.append(host);
+  const shadow = host.attachShadow({ mode: 'open' });
+  shadow.innerHTML = '<img src="' + path('auto-shadow.png') + '">';
+  checks.shadowMarkup = await cookieReady('image-auto-shadow');
+  const clone = detached.cloneNode(true);
+  const cloneReady = new Promise(resolve => {
+    document.addEventListener('load', event => {
+      if (event.target.parentNode === clone) resolve(event.target);
+    }, true);
+  });
+  document.body.append(clone);
+  const clonedImage = await cloneReady;
+  checks.clone = clonedImage.complete && clonedImage.naturalWidth === 32;
+  const ready = wait(initial);
+  initial.src = path('slow-large.png');
+  checks.pending = !initial.complete && initial.naturalWidth === 32 && initial.naturalHeight === 16 && initial.currentSrc === path('small.png');
+  await ready;
+  checks.replacement = initial.complete && initial.naturalWidth === 64 && initial.naturalHeight === 32 && initial.currentSrc === path('slow-large.png');
+  const density = new Image();
+  const densityReady = wait(density);
+  density.srcset = path('large.png') + ' 2x';
+  await densityReady;
+  checks.density = density.naturalWidth === 32 && density.naturalHeight === 16 && density.currentSrc === path('large.png');
+  for (const [name, scale, width, height] of [['fractionalDensity', 1.5, 21, 10], ['lowDensity', 0.5, 64, 32]]) {
+    const image = new Image();
+    const ready = wait(image);
+    image.srcset = path('small.png') + ' ' + scale + 'x';
+    await ready;
+    checks[name] = image.naturalWidth === width && image.naturalHeight === height;
+  }
+  const fallback = new Image();
+  const fallbackReady = wait(fallback);
+  fallback.src = path('small.png');
+  fallback.srcset = path('large.png') + ' 2x';
+  await fallbackReady;
+  checks.fallback = fallback.naturalWidth === 32 && fallback.currentSrc === path(devicePixelRatio >= 2 ? 'large.png' : 'small.png');
+  const explicit = new Image(12, 13);
+  checks.constructor = Image.length === 0 && explicit instanceof Image && explicit instanceof HTMLImageElement && explicit.getAttribute('width') === '12' && explicit.getAttribute('height') === '13' && explicit.complete && explicit.src === '';
+  const broken = new Image();
+  const brokenReady = wait(broken, 'error');
+  broken.src = path('broken.png');
+  await brokenReady;
+  checks.broken = broken.complete && broken.naturalWidth === 0 && broken.naturalHeight === 0;
+  const truncated = new Image();
+  const truncatedReady = wait(truncated, 'error');
+  truncated.src = path('truncated.png');
+  await truncatedReady;
+  checks.truncated = truncated.complete && truncated.naturalWidth === 0;
+  for (const method of ['property', 'namespace', 'attribute']) {
+    const image = new Image();
+    const failed = wait(image, 'error');
+    image.src = path('retry-' + method + '.png');
+    await failed;
+    const recovered = wait(image);
+    if (method === 'property') image.src = image.src;
+    if (method === 'namespace') image.setAttributeNS(null, 'src', image.src);
+    if (method === 'attribute') image.getAttributeNode('src').value = image.src;
+    const pending = !image.complete;
+    await recovered;
+    checks['retry-' + method] = pending && image.complete && image.naturalWidth === 32 && image.naturalHeight === 16;
+  }
+  const stale = new Image();
+  let loaded = 0;
+  stale.addEventListener('load', () => loaded++);
+  const staleReady = wait(stale);
+  stale.src = path('slow.png');
+  await new Promise(resolve => setTimeout(resolve, 5));
+  stale.src = path('large.png');
+  await staleReady;
+  checks.stale = loaded === 1 && stale.naturalWidth === 64 && stale.currentSrc === path('large.png');
+  const removed = new Image();
+  const removedReady = wait(removed);
+  removed.src = path('small.png');
+  await removedReady;
+  let removedErrors = 0;
+  removed.addEventListener('error', () => removedErrors++);
+  removed.removeAttribute('src');
+  checks.removed = removed.complete && removed.naturalWidth === 0 && removed.naturalHeight === 0 && removed.currentSrc === '' && removedErrors === 0;
+  const emptyReady = wait(removed, 'error');
+  removed.src = '';
+  const emptyPending = removed.complete && removed.naturalWidth === 0 && removed.currentSrc === '' && removedErrors === 0;
+  removed.removeAttribute('srcset');
+  await emptyReady;
+  checks.empty = emptyPending && removedErrors === 1 && removed.complete && removed.naturalWidth === 0 && removed.currentSrc === '';
+  return checks;
+})()

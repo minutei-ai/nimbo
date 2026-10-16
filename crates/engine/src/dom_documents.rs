@@ -1,6 +1,6 @@
 use super::Dom;
 use crate::{Error, Result};
-use dom_query::{NodeData, NodeId};
+use dom_query::{Document, NodeData, NodeId};
 use serde_json::{Value, json};
 use std::{cell::RefCell, collections::HashMap};
 
@@ -14,6 +14,25 @@ pub(super) struct Arena {
     pub(super) kinds: HashMap<NodeId, Kind>,
     pub(super) owners: RefCell<HashMap<NodeId, NodeId>>,
 }
+impl Arena {
+    pub(super) fn owner(&self, document: &Document, id: NodeId) -> NodeId {
+        if self.kinds.is_empty() {
+            return document.root().id;
+        }
+        let owners = self.owners.borrow();
+        owners
+            .get(&id)
+            .copied()
+            .or_else(|| {
+                document.tree.get(&id).and_then(|node| {
+                    node.ancestors_it(None)
+                        .find_map(|ancestor| owners.get(&ancestor.id).copied())
+                })
+            })
+            .unwrap_or(document.root().id)
+    }
+}
+
 impl Dom {
     pub(super) fn create_fragment(&mut self, owner: usize) -> Result<Value> {
         self.allocate_node()?;
@@ -22,24 +41,8 @@ impl Dom {
         Ok(json!(self.handle(id)))
     }
 
-    pub(super) fn node_document(&self, id: NodeId) -> NodeId {
-        if self.documents.kinds.is_empty() {
-            return self.document.root().id;
-        }
-        let owners = self.documents.owners.borrow();
-        owners
-            .get(&id)
-            .copied()
-            .or_else(|| {
-                self.document.tree.get(&id).and_then(|node| {
-                    node.ancestors_it(None)
-                        .find_map(|ancestor| owners.get(&ancestor.id).copied())
-                })
-            })
-            .unwrap_or(self.document.root().id)
-    }
     pub(super) fn html_document(&self, id: NodeId) -> bool {
-        let root = self.node_document(id);
+        let root = self.documents.owner(&self.document, id);
         self.documents.kinds.get(&root).is_none_or(|kind| kind.html)
     }
     pub(super) fn document_id(&self, handle: usize) -> Result<NodeId> {
@@ -58,7 +61,7 @@ impl Dom {
         Ok(())
     }
     pub(super) fn adopt_tree(&self, id: NodeId, document: NodeId) -> Result<()> {
-        if self.node_document(id) == document {
+        if self.documents.owner(&self.document, id) == document {
             return Ok(());
         }
         let node = self
@@ -66,9 +69,12 @@ impl Dom {
             .tree
             .get(&id)
             .ok_or_else(|| Error::Dom("invalid adopted node".into()))?;
+        let mut images = self.images.borrow_mut();
+        images.adopted(node);
         let mut owners = self.documents.owners.borrow_mut();
         owners.insert(id, document);
         for descendant in node.descendants_it() {
+            images.adopted(descendant);
             owners.insert(descendant.id, document);
         }
         for (root_id, shadow) in &self.shadow.roots {
@@ -79,7 +85,9 @@ impl Dom {
                     .tree
                     .get(root_id)
                     .ok_or_else(|| Error::Dom("invalid adopted shadow root".into()))?;
+                images.adopted(root);
                 for descendant in root.descendants_it() {
+                    images.adopted(descendant);
                     owners.insert(descendant.id, document);
                 }
             }
@@ -166,7 +174,7 @@ impl Dom {
         Ok(json!(handle))
     }
     pub(super) fn owner_document_value(&self, id: NodeId) -> Value {
-        let document = self.node_document(id);
+        let document = self.documents.owner(&self.document, id);
         json!(self.ids.get(&document).copied().unwrap_or(0))
     }
 }

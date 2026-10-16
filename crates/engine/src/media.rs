@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Error, Result};
 
+pub(crate) const DEVICE_PIXEL_RATIO: f64 = 1.0;
+
 /// Logical viewport and user preferences; this does not provide layout or paint.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields, rename_all = "camelCase")]

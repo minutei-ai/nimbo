@@ -91,6 +91,7 @@ enum RequestPurpose {
     Fetch(Resolver, FetchOptions),
     ClassicScript(usize),
     Stylesheet(usize),
+    Image(usize),
     Module(String),
 }
 
@@ -120,6 +121,7 @@ pub(crate) struct Machine {
     pending: Rc<RefCell<VecDeque<Request>>>,
     scripts: VecDeque<Script>,
     script_events: VecDeque<(usize, bool)>,
+    image_events: VecDeque<(usize, usize)>,
     modules: Modules,
     module_root: Option<String>,
     module_evaluations: HashMap<String, Persistent<Promise<'static>>>,
@@ -294,6 +296,7 @@ impl Machine {
             pending: Rc::default(),
             scripts,
             script_events: VecDeque::new(),
+            image_events: VecDeque::new(),
             modules,
             module_root: None,
             module_evaluations: HashMap::new(),
@@ -646,20 +649,34 @@ impl Machine {
         }))
     }
 
+    fn microtask_step(&mut self) -> Result<()> {
+        while self.runtime.is_job_pending() {
+            if self.jobs >= self.limits.max_microtasks {
+                return Err(Error::Limit("microtask count"));
+            }
+            self.jobs = self.jobs.saturating_add(1);
+            let job = self.runtime.execute_pending_job();
+            self.check_budget()?;
+            job.map_err(|error| Error::JavaScript(format!("microtask failed: {error:?}")))?;
+        }
+        Ok(())
+    }
+
     pub(crate) fn step(&mut self) -> Result<Action> {
         loop {
             self.check_budget()?;
-            while self.runtime.is_job_pending() {
-                if self.jobs >= self.limits.max_microtasks {
-                    return Err(Error::Limit("microtask count"));
-                }
-                self.jobs = self.jobs.saturating_add(1);
-                let job = self.runtime.execute_pending_job();
-                self.check_budget()?;
-                job.map_err(|error| Error::JavaScript(format!("microtask failed: {error:?}")))?;
-            }
+            self.microtask_step()?;
             if let Some((handle, success)) = self.script_events.pop_front() {
                 self.resource_event(handle, success)?;
+                continue;
+            }
+            if (!matches!(self.phase, Phase::Scripts) || self.blocked.is_some())
+                && let Some((handle, generation)) = self.image_events.pop_front()
+            {
+                let current = self.dom.borrow().image_error_current(handle, generation)?;
+                if current {
+                    self.resource_event(handle, false)?;
+                }
                 continue;
             }
             self.timer_step(false)?;
@@ -676,6 +693,24 @@ impl Machine {
                 && let Some(action) = self.next_sheet()?
             {
                 return Ok(action);
+            }
+            let image = self.dom.borrow_mut().next_image()?;
+            if let Some(crate::images::Action::Error { owner, generation }) = image {
+                let handle = self.dom.borrow_mut().handle(owner);
+                self.image_events.push_back((handle, generation));
+                continue;
+            }
+            if let Some(crate::images::Action::Request { owner, url }) = image {
+                let handle = self.dom.borrow_mut().handle(owner);
+                return Ok(self.activate(
+                    Request {
+                        url,
+                        method: "GET".into(),
+                        body: String::new(),
+                        purpose: RequestPurpose::Image(handle),
+                    },
+                    true,
+                ));
             }
             let request = self.pending.borrow_mut().pop_front();
             if let Some(request) = request {
@@ -813,7 +848,10 @@ impl Machine {
             url: request.url.clone(),
             method: request.method.clone(),
             body: request.body.clone(),
-            binary: matches!(&request.purpose, RequestPurpose::Fetch(..)),
+            binary: matches!(
+                &request.purpose,
+                RequestPurpose::Fetch(..) | RequestPurpose::Image(_)
+            ),
             options: match &request.purpose {
                 RequestPurpose::Fetch(_, options) => options.clone(),
                 _ => FetchOptions::default(),
@@ -847,6 +885,15 @@ impl Machine {
         match request.purpose {
             RequestPurpose::Stylesheet(handle) => {
                 self.sheet_response(handle, request.url, Some(&response))?;
+            }
+            RequestPurpose::Image(handle) => {
+                let success = self
+                    .dom
+                    .borrow_mut()
+                    .image_response(handle, Some(&response))?;
+                if let Some(success) = success {
+                    self.resource_event(handle, success)?;
+                }
             }
             RequestPurpose::Module(name) => self.modules.respond(name, &response)?,
             RequestPurpose::Fetch(resolver, _) => {
@@ -896,6 +943,13 @@ impl Machine {
         }
         if let RequestPurpose::Stylesheet(handle) = request.purpose {
             return self.sheet_response(handle, request.url, None);
+        }
+        if let RequestPurpose::Image(handle) = request.purpose {
+            let success = self.dom.borrow_mut().image_response(handle, None)?;
+            if let Some(success) = success {
+                self.resource_event(handle, success)?;
+            }
+            return Ok(());
         }
         if let RequestPurpose::ClassicScript(handle) = request.purpose {
             self.script_events.push_back((handle, false));
@@ -1101,6 +1155,10 @@ pub(crate) fn resolve(base: &Url, value: &str) -> Result<Url> {
 
 fn install_media(ctx: &Ctx<'_>, media: MediaEnvironment) -> Result<()> {
     let globals = ctx.globals();
+    js(
+        ctx,
+        globals.set("nimboDevicePixelRatio", crate::media::DEVICE_PIXEL_RATIO),
+    )?;
     js(
         ctx,
         globals.set("nimboMediaEnvironment", serde_json::to_string(&media)?),

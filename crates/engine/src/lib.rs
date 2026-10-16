@@ -39,6 +39,7 @@ mod fonts;
 pub mod fuzzing;
 mod html_boxes;
 mod html_parse;
+mod images;
 mod import_maps;
 mod insets;
 mod layers;

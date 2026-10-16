@@ -135,8 +135,11 @@ impl Dom {
             return;
         }
         if let Some(node) = self.document.tree.get(&owner) {
-            self.attribute_nodes
-                .sync(owner, &node.attrs(), self.node_document(owner));
+            self.attribute_nodes.sync(
+                owner,
+                &node.attrs(),
+                self.documents.owner(&self.document, owner),
+            );
         }
     }
     pub(super) fn sync_attribute_owner(
@@ -215,7 +218,7 @@ impl Dom {
         }
         let owner = node.id;
         let attributes = node.attrs();
-        let document = self.node_document(owner);
+        let document = self.documents.owner(&self.document, owner);
         let handles = self
             .attribute_nodes
             .list(&mut self.handles, owner, &attributes, document);
@@ -336,6 +339,9 @@ impl Dom {
         namespace: &str,
         local: &str,
     ) -> Result<()> {
+        self.images
+            .borrow_mut()
+            .attribute_changed(self.node_id(owner)?, namespace, local);
         self.layout_version = self.layout_version.saturating_add(1);
         self.computed_styles.clear();
         self.cascade = None;
@@ -389,7 +395,7 @@ impl Dom {
             false,
         )?;
         let attributes = self.node(owner_handle)?.attrs();
-        let document = self.node_document(owner);
+        let document = self.documents.owner(&self.document, owner);
         let handles = self
             .attribute_nodes
             .list(&mut self.handles, owner, &attributes, document);

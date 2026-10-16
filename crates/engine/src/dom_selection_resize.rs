@@ -32,7 +32,7 @@ impl Dom {
         self.charge_pending_work()?;
         self.charge_write(growth.saturating_mul(6).saturating_add(removed.len()))?;
         self.may_have_controls.options |= growth > 0;
-        let document = self.node_document(select.id);
+        let document = self.documents.owner(&self.document, select.id);
         let mut added = Vec::with_capacity(growth);
         for _ in 0..growth {
             self.allocate_node()?;

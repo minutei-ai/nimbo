@@ -16,6 +16,7 @@ declare function nimboStorage(area: number, operation: string, key: string, valu
 declare function nimboCookie(write: boolean, value: string): string;
 declare function nimboMedia(query: string): string;
 declare const nimboMediaEnvironment: string;
+declare const nimboDevicePixelRatio: number;
 declare const nimboUrl: string;
 declare const nimboUserAgent: string;
 declare function nimboNow(): number;

@@ -992,3 +992,54 @@ test("atomic middle alignment uses parent font metrics and native baselines", as
   expect(Object.keys(checks)).toHaveLength(37);
   expect(Object.values(checks).every((check) => check)).toBe(true);
 });
+
+const imageResources = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/image-resources.txt", import.meta.url),
+).text();
+
+test("image resources decode, select density and retain pending state", async () => {
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url: new URL("image-resources/page", origin.url).href,
+      expression: imageResources,
+    }),
+  });
+  expect(response.status).toBe(200);
+  const result = Schema.decodeUnknownSync(Success)(await response.json());
+  const checks = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Boolean))(
+    result.value,
+  );
+  expect(Object.keys(checks)).toHaveLength(27);
+  expect(Object.values(checks).every((check) => check)).toBe(true);
+});
+
+test("image resources enforce decoded pixel memory", async () => {
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url: new URL("image-resources/page", origin.url).href,
+      expression: "true",
+      maxResponseBytes: 256,
+    }),
+  });
+  expect(response.status).toBe(422);
+  expect(await response.json()).toEqual({ error: "resource limit: decoded image bytes" });
+});
+
+test("image resources defer empty source errors until parser scripts", async () => {
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url: new URL("image-resources/empty-source", origin.url).href,
+      expression:
+        "[imageErrors,document.getElementById('empty').complete,document.getElementById('empty').naturalWidth]",
+    }),
+  });
+  expect(response.status).toBe(200);
+  const result = Schema.decodeUnknownSync(Success)(await response.json());
+  expect(result.value).toEqual([1, true, 0]);
+});

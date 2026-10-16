@@ -447,6 +447,9 @@ fn variant_source(url: &str) -> Option<&'static str> {
 }
 
 fn serve(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/image-resources/") {
+        return serve_image_resources(request);
+    }
     if request.url() == "/rejected-dom" {
         return respond(request, "<script>Promise.reject(new DOMException('native-rejected-dom','NotAllowedError'));</script>".into(), 200, "text/html", Vec::new());
     }
@@ -1821,6 +1824,145 @@ fn registered_custom_properties_validate_before_substitution() -> TestResult {
         "{result}"
     );
     Ok(())
+}
+
+fn serve_image_resources(request: Request) -> io::Result<()> {
+    if request.url() == "/image-resources/empty-source" {
+        return respond(
+            request,
+            include_str!("fixtures/image-resources/empty-source.html").into(),
+            200,
+            "text/html",
+            Vec::new(),
+        );
+    }
+    if matches!(
+        request.url(),
+        "/image-resources/inert.png"
+            | "/image-resources/auto-shadow.png"
+            | "/image-resources/auto-detached.png"
+    ) {
+        let cookie = format!(
+            "image-{}=ready; Path=/image-resources/; SameSite=Lax",
+            request
+                .url()
+                .trim_start_matches("/image-resources/")
+                .trim_end_matches(".png")
+        );
+        return request.respond(
+            Response::from_data(include_bytes!("fixtures/image-resources/small.png").as_slice())
+                .with_header(header("Content-Type", "image/png")?)
+                .with_header(header("Set-Cookie", &cookie)?),
+        );
+    }
+    if let Some(method) = request
+        .url()
+        .strip_prefix("/image-resources/retry-")
+        .and_then(|name| name.strip_suffix(".png"))
+    {
+        let cookie = format!("image-{method}=ready");
+        let ready = request.headers().iter().any(|header| {
+            header.field.equiv("Cookie")
+                && header
+                    .value
+                    .as_str()
+                    .split(';')
+                    .any(|value| value.trim() == cookie)
+        });
+        let body: &[u8] = if ready {
+            include_bytes!("fixtures/image-resources/small.png")
+        } else {
+            b"invalid image"
+        };
+        return request.respond(
+            Response::from_data(body)
+                .with_header(header("Content-Type", "image/png")?)
+                .with_header(header("Cache-Control", "no-store")?)
+                .with_header(header(
+                    "Set-Cookie",
+                    &format!("{cookie}; Path=/image-resources/; SameSite=Lax"),
+                )?),
+        );
+    }
+    if request.url() == "/image-resources/page" {
+        const BODY: &str = "<!doctype html><img id=loaded src=/image-resources/small.png>";
+        const METHODS: [&str; 6] = [
+            "property",
+            "namespace",
+            "attribute",
+            "inert",
+            "auto-shadow",
+            "auto-detached",
+        ];
+        let headers = METHODS
+            .iter()
+            .map(|method| {
+                header(
+                    "Set-Cookie",
+                    &format!("image-{method}=; Max-Age=0; Path=/image-resources/"),
+                )
+            })
+            .collect::<io::Result<Vec<_>>>()?;
+        return respond(request, BODY.into(), 200, "text/html", headers);
+    }
+    if request.url() == "/image-resources/empty" {
+        return respond(
+            request,
+            "<!doctype html><body></body>".into(),
+            200,
+            "text/html",
+            Vec::new(),
+        );
+    }
+    serve_image_bitmap(request)
+}
+
+fn serve_image_bitmap(request: Request) -> io::Result<()> {
+    let path = request.url().split('?').next().unwrap_or_default();
+    if matches!(
+        path,
+        "/image-resources/slow.png" | "/image-resources/slow-large.png"
+    ) {
+        thread::sleep(Duration::from_millis(40));
+    }
+    let (body, kind): (&[u8], &str) = match path {
+        "/image-resources/small.png" | "/image-resources/slow.png" => (
+            include_bytes!("fixtures/image-resources/small.png"),
+            "image/png",
+        ),
+        "/image-resources/large.png" | "/image-resources/slow-large.png" => (
+            include_bytes!("fixtures/image-resources/large.png"),
+            "image/png",
+        ),
+        "/image-resources/small.jpeg" => (
+            include_bytes!("fixtures/image-resources/small.jpeg"),
+            "image/jpeg",
+        ),
+        "/image-resources/oriented.jpeg" => (
+            include_bytes!("fixtures/image-resources/oriented.jpeg"),
+            "image/jpeg",
+        ),
+        "/image-resources/small.gif" => (
+            include_bytes!("fixtures/image-resources/small.gif"),
+            "image/gif",
+        ),
+        "/image-resources/small.webp" => (
+            include_bytes!("fixtures/image-resources/small.webp"),
+            "image/webp",
+        ),
+        "/image-resources/truncated.png" => (
+            include_bytes!("fixtures/image-resources/small.png")
+                .get(..40)
+                .ok_or_else(|| io::Error::other("missing synthetic PNG header"))?,
+            "image/png",
+        ),
+        _ => (b"invalid image", "image/png"),
+    };
+    request.respond(
+        Response::from_data(body)
+            .with_header(header("Content-Type", kind)?)
+            .with_header(header("Cache-Control", "no-store")?),
+    )
 }
 
 fn is_dom_resource(path: &str) -> bool {
@@ -6059,5 +6201,59 @@ fn atomic_middle_alignment_uses_parent_font_metrics_and_native_baselines() -> Te
         checks.values().all(|value| *value == json!(true)),
         "{result}"
     );
+    Ok(())
+}
+
+#[test]
+fn image_resources_decode_select_density_and_preserve_pending_state() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/image-resources/page"))?;
+    let result = page.evaluate(include_str!("fixtures/image-resources.txt"))?;
+    let checks = result.as_object().ok_or("missing image resource checks")?;
+    assert_eq!(checks.len(), 27);
+    assert!(
+        checks.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    Ok(())
+}
+
+#[test]
+fn image_resources_enforce_decoded_memory_before_allocating_pixels() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = Browser::new(
+        &fixture.url,
+        Limits {
+            max_response_bytes: 256,
+            ..Limits::default()
+        },
+    )?;
+    assert!(matches!(
+        browser.navigate(&fixture.path("/image-resources/page")),
+        Err(Error::Limit("decoded image bytes"))
+    ));
+    Ok(())
+}
+
+#[test]
+fn image_resources_discover_detached_images_without_initial_image_tags() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/image-resources/empty"))?;
+    let result = page.evaluate("new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve([image.naturalWidth,image.naturalHeight,image.isConnected]);image.onerror=reject;image.src='/image-resources/small.png';})")?;
+    assert_eq!(result, json!([32, 16, false]));
+    Ok(())
+}
+
+#[test]
+fn image_resources_defer_empty_source_error_until_parser_scripts() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/image-resources/empty-source"))?;
+    assert_eq!(page.evaluate("[imageErrors,document.getElementById('empty').complete,document.getElementById('empty').naturalWidth]")?, json!([1,true,0]));
     Ok(())
 }

@@ -77,6 +77,8 @@ pub(crate) struct Dom {
     sheet_scan: Option<usize>,
     // Conservative presence guard: HTML parsing and element creation are the only name producers.
     may_have_links: bool,
+    may_have_images: bool,
+    images: std::cell::RefCell<crate::images::Images>,
     may_have_bases: bool,
     may_have_controls: crate::html_parse::ControlTags,
     sheets: crate::stylesheets::Sheets,
@@ -146,6 +148,12 @@ impl Dom {
             scroll: crate::layout::ScrollState::new(),
             sheet_scan: None,
             may_have_links: parsed.links,
+            may_have_images: parsed.images,
+            images: std::cell::RefCell::new(crate::images::Images::new(
+                root,
+                base.clone(),
+                limits.max_response_bytes,
+            )),
             may_have_bases: parsed.bases,
             may_have_controls: parsed.controls,
             sheets: crate::stylesheets::Sheets::new(base, limits.max_stylesheet_bytes),
@@ -292,6 +300,25 @@ impl Dom {
             return Err(Error::Limit("DOM operations"));
         }
         self.operations = self.operations.saturating_add(1);
+        if operation == "setAttr"
+            || (operation == "removeAttr"
+                && !self.unchanged_attribute(operation, handle, arg, value))
+        {
+            let id = self.node_id(handle)?;
+            let name = crate::dom_attributes::normalized_name(
+                self.node(handle)?,
+                arg,
+                self.html_document(id),
+            );
+            self.images.borrow_mut().attribute_changed(id, "", &name);
+        }
+        if matches!(
+            operation,
+            "append" | "insert" | "replace" | "removeChild" | "remove"
+        ) || (operation == "set" && matches!(arg, "innerHTML" | "outerHTML" | "textContent"))
+        {
+            self.images.borrow_mut().tree_changed();
+        }
         // Preserve work caches for identical writes; mutation callbacks still run.
         if matches!(
             operation,
@@ -405,6 +432,7 @@ impl Dom {
             "windowNamed" => self.window_named(arg)?,
             "baseHref" => json!(self.base_href()?),
             "fontFaces" => self.font_faces()?,
+            "image" => self.image_info(handle)?,
             "cssSupports" => json!(crate::supports::query(arg)?),
             "cssSupportsValue" => json!(crate::supports::value(arg, value)?),
             "fontResources" => self.synchronize_fonts(arg)?,
@@ -538,6 +566,7 @@ impl Dom {
         }
         self.charge_write(name.len())?;
         self.may_have_links |= name.eq_ignore_ascii_case("link");
+        self.may_have_images |= name.eq_ignore_ascii_case("img");
         self.may_have_bases |= name.eq_ignore_ascii_case("base");
         let document = self.document_id(owner)?;
         let html = self
@@ -602,6 +631,8 @@ impl Dom {
         self.may_have_links |=
             namespace == "http://www.w3.org/1999/xhtml" && local.eq_ignore_ascii_case("link");
         self.may_have_bases |= local.eq_ignore_ascii_case("base");
+        self.may_have_images |=
+            namespace == "http://www.w3.org/1999/xhtml" && local.eq_ignore_ascii_case("img");
         self.allocate_node()?;
         self.may_have_controls.inputs |= local == "input";
         self.may_have_controls.options |= local == "option";
@@ -674,6 +705,80 @@ impl Dom {
         self.layout_version = self.layout_version.saturating_add(1);
         self.computed_styles.clear();
         self.cascade = None;
+        Ok(success)
+    }
+
+    fn image_info(&mut self, handle: usize) -> Result<Value> {
+        let id = self.node_id(handle)?;
+        let base = self.base_href()?;
+        let node = self
+            .document
+            .tree
+            .get(&id)
+            .ok_or_else(|| Error::Dom("invalid image handle".into()))?;
+        if !crate::images::element(node) {
+            return Err(Error::Dom("image requires an HTML img".into()));
+        }
+        let active = self.documents.owner(&self.document, id) == self.document.root().id;
+        let mut images = self.images.borrow_mut();
+        if active {
+            images.observe(id);
+            self.may_have_images = true;
+        }
+        Ok(serde_json::to_value(images.info(
+            node,
+            base.as_deref(),
+            active,
+        )?)?)
+    }
+    pub(crate) fn next_image(&mut self) -> Result<Option<crate::images::Action>> {
+        self.charge_pending_work()?;
+        if !self.may_have_images {
+            return Ok(None);
+        }
+        let base = self.base_href()?;
+        let document = &self.document;
+        let documents = &self.documents;
+        let mut work = crate::layout::Work::new(
+            &mut self.operations,
+            self.limits.max_dom_operations,
+            self.limits.max_layout_nodes,
+        );
+        let request = {
+            let mut images = self.images.borrow_mut();
+            images.discover(document, &mut work)?;
+            images.next(document, base.as_deref(), &mut work, |id| {
+                documents.owner(document, id) == document.root().id
+            })?
+        };
+        Ok(request)
+    }
+    pub(crate) fn image_error_current(&self, handle: usize, generation: usize) -> Result<bool> {
+        let id = self.node_id(handle)?;
+        Ok(
+            self.documents.owner(&self.document, id) == self.document.root().id
+                && self.images.borrow().error_current(id, generation),
+        )
+    }
+    pub(crate) fn image_response(
+        &mut self,
+        handle: usize,
+        response: Option<&crate::machine::Response>,
+    ) -> Result<Option<bool>> {
+        let id = self.node_id(handle)?;
+        let base = self.base_href()?;
+        let node = self
+            .document
+            .tree
+            .get(&id)
+            .ok_or_else(|| Error::Dom("missing image owner".into()))?;
+        let active = self.documents.owner(&self.document, id) == self.document.root().id;
+        let success = self
+            .images
+            .borrow_mut()
+            .respond(node, base.as_deref(), response, active)?;
+        self.layout_version = self.layout_version.saturating_add(1);
+        self.computed_styles.clear();
         Ok(success)
     }
 
@@ -1076,6 +1181,7 @@ impl Dom {
                 .windows(7)
                 .any(|tag| tag.eq_ignore_ascii_case(b"<option"));
             self.may_have_links |= contains_tag(value, *b"<link");
+            self.may_have_images |= contains_tag(value, *b"<img");
             self.may_have_bases |= contains_tag(value, *b"<base");
             self.may_have_controls.inputs |= value
                 .as_bytes()
@@ -1204,6 +1310,8 @@ impl Dom {
                 &name
             )));
         }
+        let image_changed =
+            operation == "setAttrNS" || !self.unchanged_attribute(operation, handle, arg, value);
         self.charge_write(arg.len().saturating_add(value.len()))?;
         let control = self.control_before_type(handle, &namespace, &name)?;
         let selected = self.selection_before_attribute(
@@ -1242,6 +1350,11 @@ impl Dom {
             if let Some(previous) = self.styles.remove(&id) {
                 self.style_bytes = self.style_bytes.saturating_sub(previous.bytes());
             }
+        }
+        if image_changed {
+            self.images
+                .borrow_mut()
+                .attribute_changed(self.node_id(handle)?, &namespace, &name);
         }
         self.checkedness_attribute(handle, &namespace, &name)?;
         self.control_after_type(handle, control)?;
@@ -1572,10 +1685,11 @@ impl Dom {
         let document = if parent.is_document() {
             parent.id
         } else {
-            self.node_document(parent.id)
+            self.documents.owner(&self.document, parent.id)
         };
         for node in inserted {
             self.adopt_tree(node.id, document)?;
+            self.images.borrow_mut().observe_root(node.id);
             if let Some(reference) = reference {
                 reference.insert_before(&node.id);
             } else {
@@ -1912,6 +2026,7 @@ impl Dom {
         self.document
             .tree
             .reparent_children_of(&fragment, Some(parent));
+        self.images.borrow_mut().observe_root(parent);
         self.mutation_replaced_children(parent, observed)
     }
 
@@ -2093,8 +2208,8 @@ fn qualified_name(element: &dom_query::Element) -> String {
 
 // Tag names do not decode HTML character references. False positives (comments,
 // raw-text scripts, longer names) only retain the regular bounded discovery scan.
-fn contains_tag(html: &str, tag: [u8; 5]) -> bool {
+fn contains_tag<const N: usize>(html: &str, tag: [u8; N]) -> bool {
     html.as_bytes()
-        .windows(5)
+        .windows(N)
         .any(|bytes| bytes.eq_ignore_ascii_case(&tag))
 }
