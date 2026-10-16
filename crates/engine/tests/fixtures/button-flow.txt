@@ -1,0 +1,47 @@
+(() => {
+  const checks={};
+  const near=(a,b)=>Math.abs(a-b)<0.05;
+  const make=(css='',html='AB')=>{
+    const node=document.createElement('button');
+    node.style.cssText='font:16px/20px serif;letter-spacing:normal;border:0;padding:0;margin:0;'+css;
+    node.innerHTML=html;document.body.append(node);return node;
+  };
+  const reference=document.createElement('div');reference.style.cssText='display:inline-block;font:16px/20px serif';reference.textContent='AB';document.body.append(reference);const width=reference.getBoundingClientRect().width;reference.remove();
+  for(const display of ['block','inline','inline-block','flow-root','flex','grid','initial']){
+    const node=make('display:'+display);
+    const rect=node.getBoundingClientRect();
+    checks['auto-'+display]=near(rect.width,width) && near(rect.height,20);
+    node.remove();
+  }
+  for(const align of ['normal','start','center','end','safe center']){
+    const node=make('display:block;width:100px;height:60px;align-content:'+align,'<div style="height:20px;width:10px"></div>');
+    const outer=node.getBoundingClientRect(),inner=node.firstElementChild.getBoundingClientRect();
+    const offset=20;
+    checks['align-'+align]=near(inner.top-outer.top,offset) && near(outer.width,100) && near(outer.height,60);
+    node.remove();
+  }
+  const overflow=make('display:block;width:100px;height:10px','<div style="height:20px;width:10px"></div>');
+  checks.overflow=near(overflow.firstElementChild.getBoundingClientRect().top-overflow.getBoundingClientRect().top,0);overflow.remove();
+  const edges=make('display:block;width:100px;height:60px;border:2px solid black;padding:4px 6px','<div style="height:20px;width:10px"></div>');
+  checks.edges=near(edges.getBoundingClientRect().width,100) && near(edges.firstElementChild.getBoundingClientRect().top-edges.getBoundingClientRect().top,20) && edges.clientHeight===56;edges.remove();
+  const empty=make('display:block','');checks.empty=near(empty.getBoundingClientRect().width,0) && near(empty.getBoundingClientRect().height,0);empty.remove();
+  const natural=make('display:block;border:2px solid black;padding:4px 6px');checks.natural=near(natural.getBoundingClientRect().width,width+16) && near(natural.getBoundingClientRect().height,32);natural.remove();
+  const parent=document.createElement('div');parent.style.cssText='display:flex;width:200px;height:80px;align-items:start';document.body.append(parent);
+  const flex=make();parent.append(flex);checks.flexItem=near(flex.getBoundingClientRect().width,width) && near(flex.getBoundingClientRect().height,20);parent.remove();
+  const contents=make('display:contents','<div style="width:12px;height:8px"></div>');checks.contents=contents.getBoundingClientRect().width===0 && contents.firstElementChild.getBoundingClientRect().height===8;contents.remove();
+  const mutation=make('display:block;width:100px;height:60px','<div style="height:20px;width:10px"></div>');mutation.disabled=true;checks.disabled=near(mutation.firstElementChild.getBoundingClientRect().top-mutation.getBoundingClientRect().top,20);mutation.style.height='80px';checks.resize=near(mutation.firstElementChild.getBoundingClientRect().top-mutation.getBoundingClientRect().top,30);mutation.remove();
+  const defaults=document.createElement('button');document.body.append(defaults);const computed=getComputedStyle(defaults);checks.defaults=computed.display==='inline-block' && computed.fontWeight==='400' && computed.fontStyle==='normal' && computed.fontFamily==='Arial';defaults.remove();
+  defaults.textContent='AB';document.body.append(defaults);
+  const metric=document.createElement('div');metric.style.cssText='display:inline-block;font:13.333333px Arial;letter-spacing:normal';metric.textContent='AB';document.body.append(metric);
+  checks.defaultEdges=near(defaults.getBoundingClientRect().width-metric.getBoundingClientRect().width,16) && near(defaults.getBoundingClientRect().height-metric.getBoundingClientRect().height,6);defaults.remove();metric.remove();
+  const containing=document.createElement('div');containing.style.cssText='position:relative;width:200px;height:100px';document.body.append(containing);
+  const absolute=make('position:absolute;left:10px;right:10px;top:10px;bottom:10px');containing.append(absolute);checks.absolute=near(absolute.getBoundingClientRect().width,180) && near(absolute.getBoundingClientRect().height,80);containing.remove();
+  const block=document.createElement('div');block.style.cssText='height:60px;align-content:normal';block.innerHTML='<div style="height:20px"></div>';document.body.append(block);checks.blockNormal=near(block.firstElementChild.getBoundingClientRect().top-block.getBoundingClientRect().top,0);block.remove();
+  for(const name of ['appearance','-webkit-appearance','-moz-appearance','-ms-appearance']){
+    for(const value of ['none','auto','button']){
+      const node=make('display:block;width:100px;height:60px','<div style="height:20px;width:10px"></div>');node.style.setProperty(name,value);
+      checks[name+'-'+value]=near(node.firstElementChild.getBoundingClientRect().top-node.getBoundingClientRect().top,20) && near(node.getBoundingClientRect().width,100);node.remove();
+    }
+  }
+  return checks;
+})()

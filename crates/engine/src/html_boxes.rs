@@ -12,6 +12,10 @@ fn html(node: NodeRef<'_>) -> bool {
         .is_some_and(|name| name.ns.as_ref() == "http://www.w3.org/1999/xhtml")
 }
 
+pub(crate) fn button(node: NodeRef<'_>) -> bool {
+    html(node) && node.has_name("button")
+}
+
 fn inline_defaults(node: NodeRef<'_>) -> Option<&'static str> {
     if !html(node) {
         return None;
@@ -45,8 +49,14 @@ pub(crate) fn appearance(
         return true;
     }
     !generated
-        && node.has_name("button")
-        && matches!(display, taffy::Display::Flex | taffy::Display::Grid)
+        && button(node)
+        && matches!(
+            display,
+            taffy::Display::Block
+                | taffy::Display::FlowRoot
+                | taffy::Display::Flex
+                | taffy::Display::Grid
+        )
         && matches!(
             value,
             "auto" | "none" | "button" | "initial" | "unset" | "revert"
@@ -60,37 +70,36 @@ pub(crate) fn validate(
     markerless: bool,
     row_flex: bool,
 ) -> Result<()> {
-    // A fully authored flex/grid button uses the author's formatting context.
-    // Other native controls and default button rendering remain separate.
-    if (node.has_name("button") && authored_flex_grid) || node.has_name("input") {
-        if node.has_name("input") {
-            let kind = node.null_attribute("type").unwrap_or_default();
-            let width = declarations.value("width").0;
-            let definite_width = !matches!(width.as_str(), "" | "auto" | "initial" | "unset");
-            let allocated_width = row_flex
-                && matches!(
-                    declarations.value("flex-basis").0.as_str(),
-                    "0" | "0px" | "0%"
-                )
-                && matches!(
-                    declarations.value("min-width").0.as_str(),
-                    "0" | "0px" | "0%"
-                );
-            let text = matches!(
-                kind.to_ascii_lowercase().as_str(),
-                "" | "text" | "search" | "email" | "url" | "tel" | "password"
+    if button(node) {
+        return Ok(());
+    }
+    if node.has_name("input") {
+        let kind = node.null_attribute("type").unwrap_or_default();
+        let width = declarations.value("width").0;
+        let definite_width = !matches!(width.as_str(), "" | "auto" | "initial" | "unset");
+        let allocated_width = row_flex
+            && matches!(
+                declarations.value("flex-basis").0.as_str(),
+                "0" | "0px" | "0%"
+            )
+            && matches!(
+                declarations.value("min-width").0.as_str(),
+                "0" | "0px" | "0%"
             );
-            let sized_toggle = matches!(kind.to_ascii_lowercase().as_str(), "checkbox" | "radio")
-                && definite_width
-                && !matches!(
-                    declarations.value("height").0.as_str(),
-                    "" | "auto" | "initial" | "unset"
-                );
-            if !(text && (definite_width || allocated_width) || sized_toggle) {
-                return Err(Error::Dom(
-                    "layout unsupported: input type or intrinsic width".into(),
-                ));
-            }
+        let text = matches!(
+            kind.to_ascii_lowercase().as_str(),
+            "" | "text" | "search" | "email" | "url" | "tel" | "password"
+        );
+        let sized_toggle = matches!(kind.to_ascii_lowercase().as_str(), "checkbox" | "radio")
+            && definite_width
+            && !matches!(
+                declarations.value("height").0.as_str(),
+                "" | "auto" | "initial" | "unset"
+            );
+        if !(text && (definite_width || allocated_width) || sized_toggle) {
+            return Err(Error::Dom(
+                "layout unsupported: input type or intrinsic width".into(),
+            ));
         }
         for name in [
             "font-size",
@@ -116,12 +125,7 @@ pub(crate) fn validate(
             let (value, _) = declarations.value(name);
             if value.is_empty() || matches!(value.as_str(), "revert" | "revert-layer") {
                 return Err(Error::Dom(format!(
-                    "layout unsupported: {} UA default ({name})",
-                    if node.has_name("button") {
-                        "button"
-                    } else {
-                        "input"
-                    }
+                    "layout unsupported: input UA default ({name})"
                 )));
             }
         }
@@ -253,6 +257,9 @@ fn auto_rtl(node: NodeRef<'_>) -> bool {
 }
 
 fn text_defaults(node: NodeRef<'_>) -> &'static str {
+    if button(node) {
+        return "display:inline-block;box-sizing:border-box;font:13.333333px Arial;letter-spacing:normal;text-align:center;padding:1px 6px;border:2px outset;margin:0";
+    }
     if let Some(defaults) = inline_defaults(node) {
         return defaults;
     }

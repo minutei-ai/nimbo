@@ -326,12 +326,15 @@ test.each([0, -1, 1.5, 1_000_001, "20000", true, null, {}])(
   },
 );
 
+test("native button defaults remain available without authored control overrides", async () => {
+  const response = await requestAuthoredButton(
+    "(()=>{for(const s of document.querySelectorAll('style'))s.remove();const b=document.createElement('button');b.style.display='flex';document.body.append(b);const r=b.getBoundingClientRect();return {width:r.width,height:r.height}})()",
+  );
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ value: { width: 16, height: 6 } });
+});
+
 test.each([
-  [
-    "button defaults",
-    "for(const s of document.querySelectorAll('style'))s.remove();const b=document.createElement('button');b.style.display='flex';document.body.append(b);return b.getBoundingClientRect()",
-    "button UA default",
-  ],
   [
     "partial font variant",
     "const e=document.createElement('div');e.style.fontVariantCaps='small-caps';e.textContent='AB';document.body.append(e);return e.getBoundingClientRect()",

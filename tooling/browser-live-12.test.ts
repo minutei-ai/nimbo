@@ -893,3 +893,43 @@ test("semantic emphasis validates font grammar and preserves unsupported formatt
   expect(Object.keys(checks)).toHaveLength(15);
   expect(Object.values(checks).every((check) => check)).toBe(true);
 });
+
+const buttonFlow = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/button-flow.txt", import.meta.url),
+).text();
+
+test("native button flow uses fit-content widths and safe content alignment", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: buttonFlow }),
+  });
+  expect(response.status).toBe(200);
+  const result = Schema.decodeUnknownSync(Success)(await response.json());
+  const checks = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Boolean))(
+    result.value,
+  );
+  expect(Object.keys(checks)).toHaveLength(36);
+  expect(Object.values(checks).every((check) => check)).toBe(true);
+});
+
+const buttonFlowBoundary = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/button-flow-boundary.txt", import.meta.url),
+).text();
+
+test("native appearance grammar preserves button formatting boundaries and recovery", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: buttonFlowBoundary }),
+  });
+  expect(response.status).toBe(200);
+  const result = Schema.decodeUnknownSync(Success)(await response.json());
+  const checks = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Boolean))(
+    result.value,
+  );
+  expect(Object.keys(checks)).toHaveLength(15);
+  expect(Object.values(checks).every((check) => check)).toBe(true);
+});

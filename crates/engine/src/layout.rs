@@ -325,6 +325,16 @@ fn style_for(
         other => other,
     })?;
     let mut style = style_properties(node, declarations, generated, fonts, work, style)?;
+    if !generated && crate::html_boxes::button(node) {
+        style.item_is_replaced = true;
+        if style.size.width.is_auto() && style.position != Position::Absolute {
+            style.size.width = Dimension::fit_content();
+        }
+        if matches!(style.display, Display::Block | Display::FlowRoot) {
+            style.display = Display::FlowRoot;
+            style.align_content = Some(AlignContent::SAFE_CENTER);
+        }
+    }
     if svg.is_some() && !style.size.width.is_auto() && !style.size.height.is_auto() {
         style.aspect_ratio = None;
     }
@@ -395,8 +405,8 @@ fn style_properties(
             continue;
         }
         match name {
-            "appearance"
-                if crate::html_boxes::appearance(node, value, style.display, generated) => {}
+            _ if matches!(PropertyId::from(name), PropertyId::Appearance(_))
+                && crate::html_boxes::appearance(node, value, style.display, generated) => {}
             "writing-mode"
                 if matches!(value, "horizontal-tb" | "initial" | "unset" | "inherit") => {}
             "clip-path" | "direction" => {}
@@ -483,7 +493,11 @@ fn alignment(style: &mut Style, name: &str, value: &str) -> Result<bool> {
             }
         }
         "align-content" => {
-            style.align_content = Some(value.parse().map_err(|_error| unsupported(name))?);
+            style.align_content = if matches!(value, "normal" | "initial" | "unset" | "revert") {
+                None
+            } else {
+                Some(value.parse().map_err(|_error| unsupported(name))?)
+            };
         }
         "justify-content" => {
             style.justify_content = Some(value.parse().map_err(|_error| unsupported(name))?);
@@ -1007,6 +1021,7 @@ impl Tree<'_, '_> {
             if context.display.inline_atomic()
                 && style.display == Display::FlowRoot
                 && !children.is_empty()
+                && !crate::html_boxes::button(node)
             {
                 return Err(unsupported("nested block inline formatting"));
             }
@@ -1024,7 +1039,8 @@ impl Tree<'_, '_> {
         display: Display,
         context: &BoxContext,
     ) -> Result<Option<text::Run>> {
-        if !matches!(display, Display::Block | Display::FlowRoot)
+        if crate::html_boxes::button(node)
+            || !matches!(display, Display::Block | Display::FlowRoot)
             || node.children_it(false).any(|child| {
                 child.is_element() && !non_rendered(child) && !crate::html_boxes::text_inline(child)
             })

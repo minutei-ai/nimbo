@@ -273,7 +273,7 @@ test.each([
   ],
   [
     "replaced element or native control",
-    "document.createElement('button')",
+    "document.createElement('textarea')",
     "element formatting: replaced element or native control",
   ],
   [

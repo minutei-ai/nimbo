@@ -1,0 +1,22 @@
+(() => {
+  const checks={};
+  const node=document.createElement('button');node.style.cssText='display:block;width:100px;height:60px;font:16px/20px serif;border:0;padding:0';node.textContent='AB';document.body.append(node);
+  for(const name of ['appearance','-webkit-appearance','-moz-appearance','-ms-appearance']){
+    node.style.setProperty(name,'none');
+    checks[name+'-grammar']=node.style.getPropertyValue(name)==='none';
+    node.style.setProperty(name,'none invalid-appearance');
+    checks[name+'-invalid']=!CSS.supports(name,'none invalid-appearance') && node.style.getPropertyValue(name)==='none';
+    node.style.setProperty(name,'menulist');
+    try{node.getBoundingClientRect();checks[name+'-boundary']=false;}
+    catch(error){checks[name+'-boundary']=error.message.includes('layout unsupported: '+name);}
+    node.style.removeProperty(name);
+  }
+  checks.recovery=node.getBoundingClientRect().height===60;node.remove();
+  const foreign=document.createElementNS('http://www.w3.org/2000/svg','button');document.body.append(foreign);
+  try{foreign.getBoundingClientRect();checks.namespace=false;}
+  catch(error){checks.namespace=error.message.includes('SVG') && getComputedStyle(foreign).display==='inline';}foreign.remove();
+  const input=document.createElement('input');input.type='button';input.style.cssText='display:block;width:100px';document.body.append(input);
+  try{input.getBoundingClientRect();checks.input=false;}
+  catch(error){checks.input=error.message.includes('input type or intrinsic width');}input.remove();
+  return checks;
+})()

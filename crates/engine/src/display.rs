@@ -120,6 +120,14 @@ impl Computed {
         }
         let (position, _) = declarations.value("position");
         let (float, _) = declarations.value("float");
+        if !generated
+            && crate::html_boxes::button(node)
+            && let Display::Pair(pair) = &mut value
+            && pair.outside == DisplayOutside::Inline
+            && pair.inside == DisplayInside::Flow
+        {
+            pair.inside = DisplayInside::FlowRoot;
+        }
         if root
             || self.container
             || matches!(position.as_str(), "absolute" | "fixed")

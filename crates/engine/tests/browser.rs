@@ -5997,3 +5997,26 @@ fn semantic_inline_emphasis_uses_html_defaults_and_native_font_traits() -> TestR
     );
     Ok(())
 }
+
+#[test]
+fn button_flow_uses_native_fit_content_and_content_alignment() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/empty-layout"))?;
+    let result = page.evaluate(include_str!("fixtures/button-flow.txt"))?;
+    let fields = result.as_object().ok_or("missing button flow result")?;
+    assert_eq!(fields.len(), 36);
+    assert!(
+        fields.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    let result = page.evaluate(include_str!("fixtures/button-flow-boundary.txt"))?;
+    let fields = result.as_object().ok_or("missing button boundary result")?;
+    assert_eq!(fields.len(), 15);
+    assert!(
+        fields.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    Ok(())
+}

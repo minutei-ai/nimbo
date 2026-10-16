@@ -241,3 +241,46 @@ complete 19/19 requests per round. Baseline/candidate p50 values are
 latency delta. Wasm grows by 8,025 bytes. RSS samples measure process-tree memory
 after requests, not peak memory or page heap. The semantic emphasis path has no
 equivalent baseline because that version rejects the input.
+
+## Native button flow
+
+HTML buttons use native Taffy fit-content dimensions, flow-root layout and safe
+content alignment. Ordinary flow buttons center their content vertically when
+it fits and keep overflowing content at the start. The reference Chromium also
+retains that centering with authored `align-content:start` or `end`; flex/grid
+buttons keep their authored layout. Absolutely positioned buttons use Taffy's
+native inset sizing. Inline flow and `display:initial` resolve to inline-block;
+block display keeps its computed value while establishing a flow-root layout.
+These behaviors follow the
+[HTML button layout contract](https://html.spec.whatwg.org/multipage/rendering.html#button-layout)
+and the independently observed reference behavior.
+
+The shared HTML default owner supplies the reference profile's button font,
+box sizing, text alignment, padding and border geometry: 13.333333px Arial,
+border-box, centered text, 1px/6px padding and a 2px outset border. Author rules
+override these defaults through the existing cascade. This is geometry support;
+native platform painting is outside this engine's output.
+
+The shared `button-flow` fixture checks 36 cases in native Rust, Worker/Wasm and
+Chromium in standards mode: automatic and explicit widths, text metrics,
+centering, overflow, borders, empty contents, flex items, display contents,
+disabled state, resizing, defaults, absolute positioning and native appearance
+aliases. Appearance classification uses LightningCSS's `PropertyId::Appearance`,
+including its WebKit, Mozilla and Microsoft forms. The existing
+authored flex/grid button and input contracts remain separate checks.
+
+The native `button-flow-boundary` fixture adds 15 grammar, invalid-syntax,
+unsupported-appearance, namespace, input-control and recovery checks. Geometry
+comparison does not imply that Chromium parses every vendor-prefixed alias.
+The existing context-free `CSS.supports` layout probe still reports appearance
+as unsupported; these checks validate declarations and actual button layout,
+not that capability-reporting gap.
+
+The [retained-path benchmark](evidence/button-flow-2026-10-16.json) compares three
+local rounds with the verified `1550b5d` artifact. Both builds complete 19/19
+requests per round. Baseline/candidate p50 values are 82.90/83.73ms,
+73.73/89.28ms and 83.09/75.03ms; p95 values are 96.28/98.36ms,
+105.97/111.62ms and 114.41/93.37ms. The variation does not establish a stable
+latency delta. Wasm grows by 681 bytes. RSS is sampled process-tree memory after
+requests, not peak memory or page heap. Ordinary button flow has no equivalent
+baseline because that version rejects the input.
