@@ -1083,3 +1083,43 @@ test("image layout rejects unsized alternate text instead of fabricating a box",
   expect(response.status).toBe(422);
   expect(await response.text()).toContain("broken image or alternate text layout");
 });
+
+const computedSizes = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/computed-sizes.txt", import.meta.url),
+).text();
+
+test("computed sizes preserve inline and unboxed values without a layout scene", async () => {
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url: new URL("image-resources/empty", origin.url).href,
+      expression: computedSizes,
+    }),
+  });
+  expect(response.status).toBe(200);
+  const result = Schema.decodeUnknownSync(Success)(await response.json());
+  const checks = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Boolean))(
+    result.value,
+  );
+  expect(Object.keys(checks)).toHaveLength(36);
+  expect(
+    Object.entries(checks)
+      .filter(([, passed]) => !passed)
+      .map(([name]) => name),
+  ).toEqual([]);
+});
+
+test("computed sizes keep unsupported vertical layout explicit", async () => {
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url: new URL("image-resources/empty", origin.url).href,
+      expression:
+        "(()=>{const parent=document.createElement('div');parent.style.writingMode='vertical-rl';const node=document.createElement('span');node.style.inlineSize='50%';parent.append(node);document.body.append(parent);return getComputedStyle(node).width})()",
+    }),
+  });
+  expect(response.status).toBe(422);
+  expect(await response.text()).toContain("writing-mode");
+});

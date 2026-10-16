@@ -1,0 +1,42 @@
+(async()=>{
+  const checks={};
+  const root=document.createElement('section');root.style.cssText='display:block;width:240px;height:200px;font-size:16px';document.body.append(root);
+  const make=(css='',tag='span',parent=root)=>{const e=document.createElement(tag);e.style.cssText=css;parent.append(e);return e;};
+  const equal=(e,w,h)=>{const s=getComputedStyle(e);return s.width===w && s.height===h && s.inlineSize===w && s.blockSize===h;};
+  const img=new Image();img.style.width='50%';const loaded=new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject});img.src='/image-resources/small.png';root.append(img);await loaded;
+  checks.replaced=equal(img,'120px','60px');img.remove();
+  const used=make('display:block;width:50%;height:25%','div');checks.used=equal(used,'120px','50px');used.remove();
+  for(const tag of ['span','a','b','em','label','custom-inline']){
+    const e=make('',tag);e.textContent='text';
+    checks[tag+'-default']=equal(e,'auto','auto');
+    e.style.width='50%';e.style.height='25%';checks[tag+'-percent']=equal(e,'50%','25%');e.remove();
+  }
+  for(const [css,w,h] of [
+    ['width:60px;height:31px','60px','31px'],
+    ['width:2em;height:1.5em','32px','24px'],
+    ['width:1in;height:2.54cm','96px','96px'],
+    ['width:calc(50% + 2em);height:calc(1em + 2em)','calc(50% + 32px)','48px'],
+    ['width:min(50%, 2em);height:max(1em, 2em)','min(50%, 32px)','32px'],
+    ['width:min-content;height:max-content','min-content','max-content'],
+    ['width:fit-content;height:auto','fit-content','auto'],
+    ['width:4em;inline-size:3em;height:7px;block-size:9px','48px','9px'],
+    ['inline-size:3em;width:4em;block-size:9px;height:7px','64px','7px'],
+  ]){const e=make(css);checks[css]=equal(e,w,h);e.remove();}
+  const inherited=make('display:block;font-size:20px;width:2em;height:30%','div');
+  const child=make('font-size:10px;width:inherit;height:inherit','span',inherited);
+  checks.inherit=equal(child,'40px','30%');
+  for(const keyword of ['initial','unset','revert']){child.style.width=keyword;child.style.height=keyword;checks[keyword]=equal(child,'auto','auto');}
+  inherited.remove();
+  for(const display of ['none','contents']){
+    const e=make('display:'+display+';width:50%;height:25%');checks[display]=equal(e,'50%','25%');e.remove();
+  }
+  const hidden=make('display:none','div');const hiddenChild=make('display:block;width:50%;height:25%','div',hidden);
+  checks.hiddenAncestor=equal(hiddenChild,'50%','25%');hidden.remove();
+  const mixed=make('width:70%;height:2em','a');mixed.append(document.createTextNode('label'),new Image());
+  checks.mixedChildren=equal(mixed,'70%','32px');mixed.remove();
+  const live=make('width:20px;height:2em');const style=getComputedStyle(live);checks.liveInitial=style.width==='20px';live.style.width='35px';checks.liveMutation=style.width==='35px';
+  root.style.fontSize='20px';checks.parentMutation=style.height==='40px';live.remove();
+  const ignored=make('width:2ic;color:red');const reference=make('color:red');checks.unreadUnsupported=getComputedStyle(ignored).color===getComputedStyle(reference).color;ignored.remove();reference.remove();
+  const detached=document.createElement('span');checks.detached=getComputedStyle(detached).width==='';
+  root.remove();return checks;
+})()

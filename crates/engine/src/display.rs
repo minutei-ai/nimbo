@@ -162,6 +162,9 @@ impl Computed {
     pub(crate) fn contents(&self) -> bool {
         matches!(self.value, Display::Keyword(DisplayKeyword::Contents))
     }
+    pub(crate) fn inline_flow(&self) -> bool {
+        matches!(&self.value, Display::Pair(pair) if pair.outside == DisplayOutside::Inline && pair.inside == DisplayInside::Flow && !pair.is_list_item)
+    }
     pub(crate) fn inline_atomic(&self) -> bool {
         matches!(&self.value, Display::Pair(pair) if pair.outside == DisplayOutside::Inline && !pair.is_list_item && (matches!(pair.inside, DisplayInside::Flex(VendorPrefix::None) | DisplayInside::FlowRoot) || self.replaced && matches!(pair.inside, DisplayInside::Flow | DisplayInside::Grid)))
     }

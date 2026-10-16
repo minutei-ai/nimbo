@@ -10,6 +10,108 @@ use crate::{
     styles::{Declarations, Variables},
 };
 
+#[derive(Clone)]
+struct DeclaredSize {
+    css: String,
+    fonts: crate::fonts::Context,
+    resolved: std::cell::OnceCell<String>,
+}
+
+impl DeclaredSize {
+    fn value(&self, work: &mut Work<'_>) -> Result<String> {
+        use lightningcss::{properties::size::Size, traits::Parse};
+        if let Some(value) = self.resolved.get() {
+            return Ok(value.clone());
+        }
+        let parsed = Size::parse_string(&self.css)
+            .map_err(|_error| Error::Dom("computed size syntax".into()))?;
+        let value = match parsed {
+            Size::LengthPercentage(_) => {
+                crate::position_value::Value::from_css(&self.css, &self.fonts, work, false)?
+                    .nonnegative()
+                    .value()
+            }
+            Size::FitContentFunction(value) => {
+                let css = value
+                    .to_css_string(PrinterOptions::default())
+                    .map_err(|error| Error::Dom(error.to_string()))?;
+                let value = crate::position_value::Value::from_css(&css, &self.fonts, work, false)?
+                    .nonnegative()
+                    .value()?;
+                Ok(format!("fit-content({value})"))
+            }
+            value => value
+                .to_css_string(PrinterOptions::default())
+                .map_err(|error| Error::Dom(error.to_string())),
+        }?;
+        Ok(self.resolved.get_or_init(|| value).clone())
+    }
+}
+
+struct DeclaredSizes {
+    values: taffy::Size<Option<Box<DeclaredSize>>>,
+    horizontal: bool,
+}
+impl Default for DeclaredSizes {
+    fn default() -> Self {
+        Self {
+            values: taffy::Size::default(),
+            horizontal: true,
+        }
+    }
+}
+impl DeclaredSizes {
+    fn for_unboxed(
+        self,
+        node: NodeRef<'_>,
+        display: &crate::display::Computed,
+        visible: bool,
+    ) -> Option<Self> {
+        if self.horizontal
+            && crate::html_boxes::html(node)
+            && (!visible
+                || display.contents()
+                || display.inline_flow() && !crate::html_boxes::replaced(node))
+        {
+            Some(self)
+        } else {
+            None
+        }
+    }
+
+    fn compute(&self, declarations: &Declarations, fonts: &crate::fonts::Context) -> Self {
+        let mut result = taffy::Size {
+            width: None,
+            height: None,
+        };
+        for (name, value, _) in crate::layout::logical::entries(declarations, fonts.rtl()) {
+            let (slot, previous) = match name {
+                "width" => (&mut result.width, &self.values.width),
+                "height" => (&mut result.height, &self.values.height),
+                _ => continue,
+            };
+            *slot = match value {
+                "inherit" => previous.clone(),
+                "" | "auto" | "initial" | "unset" | "revert" => None,
+                value => Some(Box::new(DeclaredSize {
+                    css: value.to_owned(),
+                    fonts: *fonts,
+                    resolved: std::cell::OnceCell::new(),
+                })),
+            };
+        }
+        let horizontal = match declarations.value("writing-mode").0.as_str() {
+            "" | "inherit" | "unset" | "revert" => self.horizontal,
+            "initial" | "horizontal-tb" => true,
+            _ => false,
+        };
+        Self {
+            values: result,
+            horizontal,
+        }
+    }
+}
+
 pub(crate) const PROPERTIES: [&str; 58] = [
     "background-attachment",
     "background-clip",
@@ -73,6 +175,7 @@ pub(crate) const PROPERTIES: [&str; 58] = [
 
 pub(crate) struct Computed {
     pub(crate) used_box: Option<crate::layout::resolved::BoxValues>,
+    unboxed_sizes: Option<DeclaredSizes>,
     fonts: crate::fonts::Context,
     font_traits: crate::font_traits::Computed,
     outlines: crate::outlines::Outlines,
@@ -102,6 +205,9 @@ pub(crate) fn property(name: &str) -> bool {
 }
 impl Computed {
     pub(crate) fn needs_box(&self, name: &str) -> bool {
+        if crate::layout::logical::group(name) == Some("size") && self.unboxed_sizes.is_some() {
+            return false;
+        }
         crate::layout::resolved::property(name)
             || (crate::insets::index(name, false).is_some()
                 && self.position != "static"
@@ -109,7 +215,19 @@ impl Computed {
                 && !self.display.none()
                 && !self.display.contents())
     }
-    pub(crate) fn value(&self, name: &str) -> Result<String> {
+    pub(crate) fn value(&self, name: &str, work: &mut Work<'_>) -> Result<String> {
+        if crate::layout::logical::group(name) == Some("size")
+            && let Some(sizes) = &self.unboxed_sizes
+        {
+            let value = if crate::layout::logical::physical(name) == "width" {
+                &sizes.values.width
+            } else {
+                &sizes.values.height
+            };
+            return value
+                .as_ref()
+                .map_or_else(|| Ok("auto".into()), |value| value.value(work));
+        }
         if let Some(index) = crate::insets::index(name, self.fonts.rtl()) {
             self.insets.value(
                 index,
@@ -182,7 +300,6 @@ pub(crate) fn resolve(
             "layout unsupported: computed style container queries".into(),
         ));
     }
-    let ancestors = ancestors(target)?;
     let mut variables = Variables::default();
     let mut fonts = crate::fonts::Context::new(media);
     let mut font_traits = crate::font_traits::Computed::default();
@@ -202,7 +319,8 @@ pub(crate) fn resolve(
     let mut order = 0;
     let mut transform = crate::text_transform::Transform::default();
     let mut transitions = crate::transitions::Controls::default();
-    for (depth, node) in ancestors.into_iter().enumerate() {
+    let mut sizes_declared = DeclaredSizes::default();
+    for (depth, node) in ancestors(target)?.into_iter().enumerate() {
         work.charge()?;
         let inline = sources.inline.get(&node.id).cloned().map_or_else(
             || {
@@ -211,7 +329,7 @@ pub(crate) fn resolve(
             },
             Ok,
         )?;
-        let declarations = cascade.resolve(
+        let mut declarations = cascade.resolve(
             node,
             &inline,
             None,
@@ -219,9 +337,8 @@ pub(crate) fn resolve(
             Some(&sources.controls),
             work,
         )?;
-        let (declarations, next_variables) =
+        (declarations, variables) =
             declarations.compute_registered(&variables, &cascade.registrations, work)?;
-        variables = next_variables;
         let declarations = crate::html_boxes::computed_defaults(node, declarations)?;
         let declarations =
             cascade
@@ -249,10 +366,12 @@ pub(crate) fn resolve(
         position = computed_position(position, &declarations)?;
         insets = insets.compute(&declarations, &fonts, work)?;
         display = display.compute(node, &declarations, depth == 0, false)?;
+        sizes_declared = sizes_declared.compute(&declarations, &fonts);
         box_visible &= !display.none();
     }
     Ok(Computed {
         used_box: None,
+        unboxed_sizes: sizes_declared.for_unboxed(target, &display, box_visible),
         fonts,
         font_traits,
         outlines,

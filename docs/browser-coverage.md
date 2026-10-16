@@ -2955,9 +2955,27 @@ incomplete. Chromium passes 112/112 and public Obscura passes 33/112. The
 verdict. The earlier report remains a dated baseline. Incomplete execution is
 not a pass, and the command reports unsuccessful suite execution.
 
-Computed box values without a box (`display:none`/`contents`), inherited sizing,
-inline/text layout, complete computed box shorthands, mixed percentage math,
-vertical mappings and frames remain pending (horizontal RTL: [css-geometry](css-geometry.md)). This bounded coverage does not
+For horizontal HTML, width/height and their logical aliases return computed
+values when the element has no box (`display:none`, `contents`, or a hidden
+ancestor), or is a non-replaced inline. Percentages remain percentages instead
+of being converted through an unrelated layout scene. Rendered blocks and
+replaced inline elements retain their native used-box values.
+
+The winning physical/logical declaration retains its declaring font context,
+including explicit inheritance. Native CSS parsing and length resolution run
+when the property is read, then share the existing computed-style cache;
+unread unsupported units do not break unrelated property queries. DOM/CSSOM
+changes invalidate that cache. The [shared fixture](../crates/engine/tests/fixtures/computed-sizes.txt)
+has 36 checks for native Rust and Worker/Wasm, with an independent
+[Chromium reference](evidence/computed-sizes-chromium-2026-10-16.json).
+A separate negative case preserves the explicit unsupported vertical mapping.
+The [validation and retained-workload measurements](evidence/computed-sizes-2026-10-16.json)
+record the exact artifacts, costs and limits; this change makes no general
+performance claim.
+
+This does not implement mixed text/image fragments or inline wrapper geometry.
+Complete computed box shorthands, vertical mappings and frames remain pending
+(horizontal RTL: [css-geometry](css-geometry.md)). This bounded coverage does not
 establish complete CSSOM or upstream browser parity.
 
 Reference: [CSSOM resolved values](https://drafts.csswg.org/cssom/#resolved-values).

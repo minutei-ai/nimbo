@@ -6286,3 +6286,30 @@ fn image_layout_rejects_unsized_alternate_text() -> TestResult {
     );
     Ok(())
 }
+
+#[test]
+fn computed_sizes_preserve_non_applicable_and_unboxed_values() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/image-resources/empty"))?;
+    let result = page.evaluate(include_str!("fixtures/computed-sizes.txt"))?;
+    let checks = result.as_object().ok_or("missing computed size checks")?;
+    assert_eq!(checks.len(), 36);
+    assert!(
+        checks.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    Ok(())
+}
+
+#[test]
+fn computed_sizes_keep_vertical_layout_explicit() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/image-resources/empty"))?;
+    let result=page.evaluate("(()=>{const parent=document.createElement('div');parent.style.writingMode='vertical-rl';const node=document.createElement('span');node.style.inlineSize='50%';parent.append(node);document.body.append(parent);return getComputedStyle(node).width})()");
+    assert!(matches!(result,Err(Error::JavaScript(message)) if message.contains("writing-mode")));
+    Ok(())
+}

@@ -54,7 +54,7 @@ impl Tree<'_, '_> {
             self.visit(depth)?;
             return Ok(true);
         }
-        if !crate::html_boxes::text_inline(node) || display.value()? != "inline" {
+        if !crate::html_boxes::text_inline(node) || !display.inline_flow() {
             return Ok(false);
         }
         self.visit(depth)?;

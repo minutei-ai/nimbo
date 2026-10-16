@@ -933,10 +933,15 @@ impl Dom {
                 .ok_or_else(|| Error::Dom("missing computed style".into()))?
                 .used_box = Some(values);
         }
+        let mut work = crate::layout::Work::new(
+            &mut self.operations,
+            self.limits.max_dom_operations,
+            self.limits.max_layout_nodes,
+        );
         self.computed_styles
             .get(&id)
             .ok_or_else(|| Error::Dom("missing computed style".into()))?
-            .value(name)
+            .value(name, &mut work)
     }
 
     fn computed_metadata(properties: &[&str], value: &str) -> Value {

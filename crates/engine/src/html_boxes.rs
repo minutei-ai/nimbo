@@ -7,9 +7,20 @@ const BLOCK: [&str; 24] = [
     "html", "body", "div", "main", "section", "article", "aside", "header", "footer", "nav",
     "hgroup", "p", "ul", "ol", "h1", "h2", "h3", "h4", "h5", "h6", "form", "dl", "dt", "dd",
 ];
-fn html(node: NodeRef<'_>) -> bool {
+pub(crate) fn html(node: NodeRef<'_>) -> bool {
     node.qual_name_ref()
         .is_some_and(|name| name.ns.as_ref() == "http://www.w3.org/1999/xhtml")
+}
+
+pub(crate) fn replaced(node: NodeRef<'_>) -> bool {
+    crate::layout::svg_viewport::root(node)
+        || html(node)
+            && [
+                "img", "video", "audio", "canvas", "iframe", "object", "embed", "input", "button",
+                "select", "textarea",
+            ]
+            .iter()
+            .any(|name| node.has_name(name))
 }
 
 pub(crate) fn button(node: NodeRef<'_>) -> bool {
@@ -155,13 +166,7 @@ pub(crate) fn validate(
         || name.as_ref().is_some_and(|name| custom_name(&name.local))
     {
         return Ok(());
-    } else if [
-        "img", "video", "audio", "canvas", "iframe", "object", "embed", "input", "button",
-        "select", "textarea",
-    ]
-    .iter()
-    .any(|name| node.has_name(name))
-    {
+    } else if replaced(node) {
         "element formatting: replaced element or native control"
     } else {
         "element formatting: unsupported HTML tag"
