@@ -13,17 +13,17 @@ impl Tree<'_, '_> {
         depth: usize,
         variables: &Variables,
         context: &BoxContext,
-        source: &mut String,
+        source: &mut super::text_source::Source,
         folded: &mut Vec<NodeId>,
     ) -> Result<bool> {
         for child in node.children_it(false) {
             self.visit(depth.saturating_add(1))?;
             if child.is_text() {
                 let text = child.text();
-                if source.len().saturating_add(text.len()) > 65_536 {
+                if source.text.len().saturating_add(text.len()) > 65_536 {
                     return Err(Error::Limit("layout text source"));
                 }
-                source.push_str(&text);
+                source.text.push_str(&text);
                 continue;
             }
             if !child.is_element() || super::non_rendered(child) {
@@ -44,12 +44,20 @@ impl Tree<'_, '_> {
                 return Ok(false);
             }
             // Inline borders, padding, positioning and differing fonts require fragments.
-            if let Some((name, _, _)) = declarations
-                .layout_entries()
-                .find(|(name, value, deferred)| *deferred || !inert(name, value))
+            if let Some((name, value, _)) =
+                declarations
+                    .layout_entries()
+                    .find(|(name, value, deferred)| {
+                        *deferred
+                            || !(inert(name, value)
+                                || matches!(
+                                    super::logical::physical(name),
+                                    "padding-left" | "padding-right"
+                                ))
+                    })
             {
                 return Err(Error::Dom(format!(
-                    "layout unsupported: inline text property ({name})"
+                    "layout unsupported: inline text property ({name}): {value:.120}"
                 )));
             }
             let computed = context.compute(
@@ -82,6 +90,8 @@ impl Tree<'_, '_> {
                     return Err(unsupported("generated content in inline text"));
                 }
             }
+            let padding = horizontal_padding(&declarations, &computed.fonts, self.work)?;
+            let start = source.start_inline(padding.start);
             if !self.inline_source(
                 child,
                 depth.saturating_add(1),
@@ -92,10 +102,33 @@ impl Tree<'_, '_> {
             )? {
                 return Ok(false);
             }
+            source.end_inline(start, padding.end, computed.typography.preserves_breaks())?;
             folded.push(child.id);
         }
         Ok(true)
     }
+}
+
+fn horizontal_padding(
+    declarations: &Declarations,
+    fonts: &crate::fonts::Context,
+    work: &mut super::Work<'_>,
+) -> Result<taffy::Line<taffy::LengthPercentage>> {
+    let mut padding = taffy::Line {
+        start: taffy::LengthPercentage::length(0.0),
+        end: taffy::LengthPercentage::length(0.0),
+    };
+    for (name, value, _) in super::logical::entries(declarations, fonts.rtl()) {
+        let slot = match name {
+            "padding-left" => &mut padding.start,
+            "padding-right" => &mut padding.end,
+            _ => continue,
+        };
+        *slot = super::lengths::value(name, super::defaulted(name, value), fonts, work)?
+            .parse()
+            .map_err(|_error| unsupported("inline padding"))?;
+    }
+    Ok(padding)
 }
 
 fn inert(name: &str, value: &str) -> bool {

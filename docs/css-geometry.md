@@ -70,6 +70,36 @@ A separate native/Worker boundary case rejects `middle`, resets the declaration
 to `baseline` and recovers on the same page. Other alignment values and inline
 fragment geometry retain their explicit boundaries.
 
+## Horizontal padding in inline text
+
+Same-font inline wrappers retain their left/right padding as explicit text-flow
+advances. Lengths use the existing native font context; Taffy resolves
+percentages against the containing width. Harfrust measures glyph spans between
+those edges.
+Whitespace normalization keeps edge positions, including terminal line breaks.
+Padding participates in intrinsic width, wrapping, emergency breaks and scroll
+overflow without inserting synthetic whitespace or changing DOM text.
+
+The shared `inline-padding` fixture checks 32 cases in native Rust, Worker/Wasm
+and independently in Chromium. It covers nested and empty wrappers, collapsed
+spaces, Unicode, logical RTL sides, percentages, relative lengths, pure-length
+calculations, explicit breaks, mutation, removal and reattachment. Edge visits
+charge the existing text-work budget; source and layout bounds still apply.
+Boundary cases reject unsupported vertical padding and transformed padded text,
+enforce the source limit and recover on the same page. Those combinations,
+mixed fonts and individual inline-fragment geometry remain pending. Diagnostic
+errors retain a bounded excerpt of the unsupported declaration value.
+
+Ordinary text keeps a direct normalization and measurement path. The
+[synthetic text benchmark](evidence/inline-text-layout-2026-10-16.json) uses
+celld 0.6.1, fresh HTTP pages, alternating builds, three warmups and sixteen
+measurements with each build first eight times. Both builds completed 19/19
+requests. This run measured p50 88.5 → 82.2 ms and p95 103.7 → 102.8 ms;
+maximum process-tree RSS after requests was 493 → 503 MiB. These are local host
+readings, not Worker isolate heap or production latency. The report retains
+artifact/fixture hashes, effective budgets and every sample. Reproduce with
+`NIMBO_BENCH_BASELINE_BUNDLE=<baseline-bundle> bun run bench:hot-paths inline-text-layout`.
+
 ## Right-to-left subset
 
 `dir="rtl"`, `dir="ltr"` and the `direction` property set an inherited inline

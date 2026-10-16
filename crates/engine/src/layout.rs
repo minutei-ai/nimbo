@@ -24,6 +24,7 @@ pub(crate) mod resolved;
 mod static_position;
 pub(crate) mod svg_viewport;
 mod text;
+mod text_source;
 mod translation;
 
 pub(crate) struct Work<'a> {
@@ -1033,15 +1034,17 @@ impl Tree<'_, '_> {
         {
             return Ok(None);
         }
-        let mut source = String::new();
+        let mut source = text_source::Source::default();
         let mut folded = Vec::new();
         if !self.inline_source(node, depth, variables, context, &mut source, &mut folded)? {
             return Ok(None);
         }
         if source
+            .text
             .trim_matches([' ', '\t', '\n', '\r', '\u{c}'])
             .is_empty()
-            && !(context.typography.preserves_breaks() && source.contains(['\n', '\r']))
+            && source.padding.is_empty()
+            && !(context.typography.preserves_breaks() && source.text.contains(['\n', '\r']))
         {
             return Ok(None);
         }
@@ -1065,7 +1068,8 @@ impl Tree<'_, '_> {
             }
         }
         text::Run::new(
-            &source,
+            &source.text,
+            &source.padding,
             &context.typography,
             context,
             &self.fonts.borrow(),
@@ -1216,6 +1220,7 @@ impl Tree<'_, '_> {
         }
         let run = text::Run::new(
             source,
+            &[],
             &context.typography,
             context,
             &self.fonts.borrow(),

@@ -1,0 +1,75 @@
+(() => {
+  const result = {};
+  const measure = (html,css='') => {
+    const node = document.createElement('div');
+    node.style.cssText = 'display:inline-block;font:16px/20px serif;white-space:nowrap;'+css;
+    node.innerHTML = html;
+    document.body.append(node);
+    const rect = node.getBoundingClientRect();
+    const scroll = node.scrollWidth;
+    node.remove();
+    return {width:rect.width,height:rect.height,scroll};
+  };
+  const plain = measure('alpha beta');
+  const cases = [
+    ['right','alpha <span style="padding-right:4px">beta</span>',4],
+    ['left','alpha <span style="padding-left:4px">beta</span>',4],
+    ['nested','alpha <span style="padding:0 3px"><a style="padding-right:4px">beta</a></span>',10],
+    ['empty','alpha<span style="padding-right:4px"></span> beta',4],
+    ['leading','<span style="padding-left:4px"> alpha beta</span>',4],
+    ['trailing','<span style="padding-right:4px">alpha beta </span>',4],
+    ['between','alpha <span style="padding-left:4px"> beta</span>',4],
+    ['splitWord','al<span style="padding:0 2px">pha be</span>ta',4],
+  ];
+  for (const [name,html,padding] of cases) {
+    const actual = measure(html);
+    result[name] = Math.abs(actual.width-plain.width-padding)<0.04 && actual.height===20;
+  }
+  const wrapped = 'white-space:normal;width:'+(plain.width+3)+'px;';
+  for (const [name,html] of cases) {
+    result['wrap-'+name] = measure(html,wrapped).height===40;
+  }
+  const word = measure('alphabeta');
+  const uninterrupted = measure('al<span style="padding:0 2px">phabeta</span>','white-space:normal;width:'+(word.width+3)+'px;');
+  result.uninterrupted = uninterrupted.height===20 && Math.abs(uninterrupted.scroll-word.width-4)<1;
+  const empty = measure('<span style="padding-right:4px"></span>');
+  result.emptyOnly = Math.abs(empty.width-4)<0.04 && empty.height===20;
+  const logical = measure('alpha <span style="padding-inline-start:2px;padding-inline-end:3px">beta</span>','direction:rtl');
+  result.logicalRtl = Math.abs(logical.width-plain.width-5)<0.04;
+  const long = 'alpha beta '.repeat(10).trim();
+  const longWidth = measure(long).width;
+  const percent = measure('<span style="padding-right:10%">'+long+'</span>','width:100px');
+  result.percent = Math.abs(percent.scroll-longWidth-10)<1;
+  const hardBreak = measure('<span style="padding-right:4px">alpha\nbeta</span>','white-space:pre-line;width:'+(plain.width+3)+'px;');
+  result.hardBreak = hardBreak.height===40;
+  for (const [name,value] of [['relative','0.25em'],['calculated','calc(2px + 2px)']]) {
+    result[name] = Math.abs(measure('alpha <span style="padding-right:'+value+'">beta</span>').width-plain.width-4)<0.04;
+  }
+  const mono = 'font:10px/20px monospace;';
+  const monoWidth = measure('AAAA',mono).width;
+  result.emergency = measure('AA<span style="padding-left:4px">AA</span>',mono+'white-space:normal;overflow-wrap:anywhere;width:'+(monoWidth/2+3)+'px').height===60;
+  result.terminalBreak = measure('<span style="padding-right:4px">alpha\n</span>','white-space:pre-line').height===20;
+  result.emptyAfterBreak = measure('<span>alpha\n</span><span style="padding-left:4px"></span>','white-space:pre-line').height===40;
+  result.doubleBreak = measure('<span style="padding-right:4px">alpha\n\n</span>','white-space:pre-line').height===40;
+  const unicode = measure('café ação').width;
+  result.unicode = Math.abs(measure('café <span style="padding-right:4px">ação</span>').width-unicode-4)<0.04;
+  const node = document.createElement('div');
+  node.style.cssText = 'display:inline-block;font:16px/20px serif;white-space:nowrap';
+  node.innerHTML = 'alpha <span style="padding-right:4px">beta</span>';
+  document.body.append(node);
+  const span = node.querySelector('span');
+  span.style.paddingRight = '9px';
+  result.mutation = Math.abs(node.getBoundingClientRect().width-plain.width-9)<0.04;
+  span.remove();
+  const alpha = measure('alpha').width;
+  result.detached = Math.abs(node.getBoundingClientRect().width-alpha)<0.04;
+  node.append(span);
+  result.reattached = Math.abs(node.getBoundingClientRect().width-plain.width-9)<0.04;
+  node.style.width = '200px';
+  span.style.paddingRight = '10%';
+  span.textContent = long;
+  node.firstChild.remove();
+  result.percentResize = Math.abs(node.scrollWidth-longWidth-20)<1;
+  node.remove();
+  return result;
+})()

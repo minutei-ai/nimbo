@@ -8,7 +8,7 @@
   span.style.verticalAlign = 'middle';
   let rejected = false;
   try { node.getBoundingClientRect(); }
-  catch (error) { rejected = error.message.endsWith('layout unsupported: inline text property (vertical-align)'); }
+  catch (error) { rejected = error.message.endsWith('layout unsupported: inline text property (vertical-align): middle'); }
   span.style.verticalAlign = 'baseline';
   const current = node.getBoundingClientRect();
   const recovered = current.height === initial.height && current.width === initial.width;

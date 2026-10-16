@@ -23,6 +23,12 @@ export const hotPathScenarios = [
       "(()=>{const nodes=document.querySelectorAll('.entry');return nodes.length===192&&Array.from(nodes).every(e=>e.getBoundingClientRect().width===20)})()",
     rows: 192,
   },
+  {
+    name: "inline-text-layout",
+    expression:
+      "(()=>{const e=document.getElementById('item0');e.style.cssText='font:16px/20px serif;height:auto';e.innerHTML='alpha <span>beta gamma</span> delta alpha <span>beta gamma</span> delta';let count=0;for(let i=0;i<12;i++){const width=110+i*2;e.style.width=width+'px';const rect=e.getBoundingClientRect();if(rect.width===width&&rect.height>=20)count++;}return count===12})()",
+    rows: 48,
+  },
 ] as const;
 
 export function hotPathFixture(path: string): Response | undefined {

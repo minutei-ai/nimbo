@@ -1,0 +1,60 @@
+{
+  "date": "2026-10-16",
+  "fixture_sha256": "31b79e3695373e0e420b1c034198f21ab28580434ab9185a98ebca78483cbfb0",
+  "mode": "local celld; real HTTP; fresh pages; alternating builds; concurrency 1; 3 warmups + 16 measured runs; Linux process-tree RSS sampled after requests, not peak/page heap; DOM budget 100000; layout nodes 4096",
+  "runtimes": [
+    {
+      "runtime": "baseline",
+      "host_version": "celld 0.6.1",
+      "wasm_sha256": "56ff89bc589edc2271ae2af2f27cc8be74720da95818d2defd8722f491d1741d",
+      "worker_sha256": "add143b491d37444d25785258c0544590317a38b7e56b5ef0981ef5e6b23ef70"
+    },
+    {
+      "runtime": "candidate",
+      "host_version": "celld 0.6.1",
+      "wasm_sha256": "1a2a8060f3109711538afeafffeb9fa335eb8eacf7d3a96137fce5bda9f9fc6e",
+      "worker_sha256": "add143b491d37444d25785258c0544590317a38b7e56b5ef0981ef5e6b23ef70"
+    }
+  ],
+  "results": [
+    {
+      "runtime": "baseline",
+      "scenario": "inline-text-layout",
+      "valid": 19,
+      "failures": {},
+      "samples_ms": [
+        103.67549599999984, 91.64178700000002, 92.95125800000005, 88.52013099999976,
+        63.21108299999969, 57.14184800000021, 88.59371899999951, 66.25451499999963,
+        89.36467200000061, 59.01107400000001, 91.68051600000035, 58.9851920000001,
+        73.42417000000023, 65.80507100000068, 82.9589820000001, 98.9426169999997
+      ],
+      "rss_after_request_kib": [
+        488384, 488816, 494068, 496516, 496008, 496388, 497628, 498372, 499008, 499488, 501572,
+        501580, 502484, 502560, 502696, 504664
+      ],
+      "p50_ms": 88.52013099999976,
+      "p95_ms": 103.67549599999984,
+      "max_rss_after_request_kib": 504664
+    },
+    {
+      "runtime": "candidate",
+      "scenario": "inline-text-layout",
+      "valid": 19,
+      "failures": {},
+      "samples_ms": [
+        67.18686500000013, 102.83689099999992, 72.7876839999999, 101.46580900000026,
+        66.94902899999988, 79.03913200000034, 84.14029399999981, 85.39667099999951,
+        64.88761199999954, 82.85200600000007, 66.24364299999979, 82.17648099999951,
+        57.02891400000044, 82.5657480000009, 66.753197, 82.5429009999998
+      ],
+      "rss_after_request_kib": [
+        506664, 507000, 507928, 507356, 508540, 508952, 511172, 511848, 511860, 512148, 512152,
+        512156, 512172, 513660, 514204, 515148
+      ],
+      "p50_ms": 82.17648099999951,
+      "p95_ms": 102.83689099999992,
+      "max_rss_after_request_kib": 515148
+    }
+  ],
+  "scope": "Synthetic same-font inline text without padding; one local celld host machine. Baseline is 9fff2fb plus bounded unsupported-declaration diagnostics; successful benchmark requests do not reach that diagnostic. No provider portal traffic or deployed Worker isolate memory was measured."
+}

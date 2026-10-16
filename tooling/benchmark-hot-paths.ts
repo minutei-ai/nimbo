@@ -43,7 +43,7 @@ try {
       rss_after_request_kib: [] as number[],
     }));
     results.push(...entries);
-    for (let iteration = 0; iteration < 18; iteration++) {
+    for (let iteration = 0; iteration < 19; iteration++) {
       for (let offset = 0; offset < hosts.length; offset++) {
         const index = (iteration + offset) % hosts.length,
           host = hosts[index],
@@ -111,7 +111,7 @@ try {
             ),
           )
           .digest("hex"),
-        mode: "local celld; real HTTP; fresh pages; alternating builds; concurrency 1; 3 warmups + 15 measured runs; Linux process-tree RSS sampled after requests, not peak/page heap; DOM budget 100000; layout nodes 4096",
+        mode: "local celld; real HTTP; fresh pages; alternating builds; concurrency 1; 3 warmups + 16 measured runs; Linux process-tree RSS sampled after requests, not peak/page heap; DOM budget 100000; layout nodes 4096",
         runtimes: hashes,
         results: results.map((entry) => {
           const samples = entry.samples_ms.toSorted((a, b) => a - b);
@@ -129,7 +129,7 @@ try {
       2,
     ) + "\n",
   );
-  if (results.some((entry) => entry.valid !== 18)) process.exitCode = 1;
+  if (results.some((entry) => entry.valid !== 19)) process.exitCode = 1;
 } finally {
   await Promise.all(hosts.map((host) => host.stop()));
   await fixture.stop(true);

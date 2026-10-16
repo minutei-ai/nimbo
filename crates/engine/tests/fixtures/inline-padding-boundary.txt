@@ -1,0 +1,24 @@
+(() => {
+  const node = document.createElement('div');
+  node.style.cssText = 'display:inline-block;font:16px/20px serif';
+  node.innerHTML = '<span style="padding-right:4px">alpha beta</span>';
+  document.body.append(node);
+  const span = node.querySelector('span');
+  const initial = node.getBoundingClientRect().width;
+  const result = {};
+  span.style.paddingTop = 'max('+Array(100).fill('1px').join(',')+')';
+  try { node.getBoundingClientRect(); }
+  catch(error) { result.vertical = error.message.includes('inline text property (padding-top)') && error.message.length<300; }
+  span.style.paddingTop = '0';
+  node.style.textTransform = 'uppercase';
+  try { node.getBoundingClientRect(); }
+  catch(error) { result.transform = error.message.endsWith('layout unsupported: transformed inline padding'); }
+  node.style.textTransform = 'none';
+  span.textContent = 'x'.repeat(65537);
+  try { node.getBoundingClientRect(); }
+  catch(error) { result.limited = error.message.endsWith('resource limit: layout text source'); }
+  span.textContent = 'alpha beta';
+  result.recovered = Math.abs(node.getBoundingClientRect().width-initial)<0.01;
+  node.remove();
+  return result;
+})()

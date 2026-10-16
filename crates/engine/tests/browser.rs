@@ -5883,3 +5883,23 @@ fn baseline_inline_wrappers_preserve_native_text_shaping() -> TestResult {
     );
     Ok(())
 }
+
+#[test]
+fn inline_padding_participates_in_native_text_width_and_line_breaks() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/empty-layout"))?;
+    let result = page.evaluate(include_str!("fixtures/inline-padding.txt"))?;
+    let checks = result.as_object().ok_or("missing inline padding checks")?;
+    assert_eq!(checks.len(), 32);
+    assert!(
+        checks.values().all(|value| value == &json!(true)),
+        "{result}"
+    );
+    assert_eq!(
+        page.evaluate(include_str!("fixtures/inline-padding-boundary.txt"))?,
+        json!({"vertical":true,"transform":true,"limited":true,"recovered":true})
+    );
+    Ok(())
+}

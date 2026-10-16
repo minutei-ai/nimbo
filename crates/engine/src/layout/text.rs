@@ -11,8 +11,13 @@ use num_traits::ToPrimitive;
 use taffy::prelude::*;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::{svg_viewport, unsupported};
+use super::{
+    svg_viewport,
+    text_source::{self, Padding},
+    unsupported,
+};
 use crate::{Result, dom_attributes::NativeAttributes, styles::Declarations};
+use taffy::util::ResolveOrZero;
 
 #[derive(Clone, PartialEq)]
 pub(super) struct Typography {
@@ -154,12 +159,19 @@ impl Budget {
     pub(super) fn check(&self) -> Result<()> {
         self.error.borrow_mut().take().map_or(Ok(()), Err)
     }
-    fn shape(&self, faces: &Faces, source: &str, size: f64, spacing: f64) -> Result<f64> {
+    fn charge(&self, bytes: usize) -> Result<()> {
         self.bytes
-            .set(self.bytes.get().saturating_add(source.len().max(1)));
-        if source.len() > 65_536 || self.bytes.get() > 1_048_576 {
+            .set(self.bytes.get().saturating_add(bytes.max(1)));
+        if self.bytes.get() > 1_048_576 {
             return Err(crate::Error::Limit("layout text shaping"));
         }
+        Ok(())
+    }
+    fn shape(&self, faces: &Faces, source: &str, size: f64, spacing: f64) -> Result<f64> {
+        if source.len() > 65_536 {
+            return Err(crate::Error::Limit("layout text shaping"));
+        }
+        self.charge(source.len())?;
         crate::font_data::measure_faces(faces, source, size, spacing).map_err(unsupported)
     }
 }
@@ -338,6 +350,7 @@ fn line_metrics(font: &Font, size: f64, height: &str) -> Result<(f64, f64)> {
 pub(super) struct Run {
     faces: Faces,
     source: String,
+    padding: Vec<Padding>,
     size: f64,
     height: f64,
     baseline: f64,
@@ -353,12 +366,13 @@ impl Run {
     }
     pub(super) fn new(
         source: &str,
+        padding: &[Padding],
         typography: &Typography,
         context: &super::BoxContext,
         fonts: &crate::font_data::Arena,
         budget: Rc<Budget>,
     ) -> Result<Option<Self>> {
-        Self::parse(source, typography, context, fonts, budget, false)
+        Self::parse(source, padding, typography, context, fonts, budget, false)
     }
     pub(super) fn strut(
         typography: &Typography,
@@ -366,12 +380,13 @@ impl Run {
         fonts: &crate::font_data::Arena,
         budget: Rc<Budget>,
     ) -> Result<Self> {
-        Self::parse("", typography, context, fonts, budget, true)?
+        Self::parse("", &[], typography, context, fonts, budget, true)?
             .ok_or_else(|| unsupported("inline font strut"))
     }
 
     fn parse(
         source: &str,
+        padding: &[Padding],
         typography: &Typography,
         context: &super::BoxContext,
         fonts: &crate::font_data::Arena,
@@ -390,24 +405,30 @@ impl Run {
         {
             return Err(unsupported("text font synthesis or spacing"));
         }
-        let normalized = normalize(source, typography.preserves_breaks());
-        if normalized.is_empty() && !strut {
+        let normalized = text_source::normalize(source, padding, typography.preserves_breaks())?;
+        let padding = normalized.padding;
+        let normalized = normalized.text;
+        if !padding.is_empty()
+            && !matches!(typography.transform, crate::text_transform::Transform::None)
+        {
+            return Err(unsupported("transformed inline padding"));
+        }
+        if normalized.is_empty() && padding.is_empty() && !strut {
             return Ok(None);
         }
         if normalized.len() > 65_536 {
             return Err(crate::Error::Limit("layout text shaping"));
         }
         if !matches!(typography.transform, crate::text_transform::Transform::None) {
-            budget
-                .bytes
-                .set(budget.bytes.get().saturating_add(normalized.len().max(1)));
+            budget.charge(normalized.len())?;
         }
         if budget.bytes.get() > 1_048_576 {
             return Err(crate::Error::Limit("layout text shaping"));
         }
-        let normalized = typography
-            .transform
-            .apply(&normalized, &typography.language)?;
+        let normalized = match typography.transform {
+            crate::text_transform::Transform::None => normalized,
+            transform => transform.apply(&normalized, &typography.language)?,
+        };
         let size = context.fonts.size();
         let faces = fonts.select_faces(
             format!(
@@ -441,6 +462,7 @@ impl Run {
         Ok(Some(Self {
             faces,
             source: normalized,
+            padding,
             size,
             height,
             baseline,
@@ -463,20 +485,81 @@ impl Run {
             .insert(source.to_owned(), advance);
         Ok(advance)
     }
+    fn range_width(&self, start: usize, end: usize, basis: Option<f32>) -> Result<f64> {
+        if self.padding.is_empty() {
+            return self.width(
+                self.source
+                    .get(start..end)
+                    .ok_or_else(|| unsupported("inline text boundary"))?,
+            );
+        }
+        let mut width = 0.0;
+        let mut cursor = start;
+        let first = self
+            .padding
+            .partition_point(|padding| padding.index < start);
+        for padding in self
+            .padding
+            .get(first..)
+            .ok_or_else(|| unsupported("inline text boundary"))?
+        {
+            if padding.index > end {
+                break;
+            }
+            self.budget.charge(size_of::<Padding>())?;
+            if padding.index == start
+                && start > 0
+                && !self
+                    .source
+                    .get(..start)
+                    .is_some_and(|prefix| prefix.ends_with([' ', '\n']))
+            {
+                continue;
+            }
+            let advance = padding.width.resolve_or_zero(basis, |_, _| 0.0);
+            if advance == 0.0 {
+                continue;
+            }
+            let segment = self
+                .source
+                .get(cursor..padding.index)
+                .ok_or_else(|| unsupported("inline text boundary"))?;
+            width += self.width(segment)? + f64::from(advance);
+            cursor = padding.index;
+        }
+        Ok(width
+            + self.width(
+                self.source
+                    .get(cursor..end)
+                    .ok_or_else(|| unsupported("inline text boundary"))?,
+            )?)
+    }
     fn measure(
         &self,
         known: Size<Option<f32>>,
         available: Size<AvailableSpace>,
     ) -> Result<Size<f32>> {
-        let source = self.source.strip_suffix('\n').unwrap_or(&self.source);
+        let source = if self
+            .padding
+            .iter()
+            .any(|padding| padding.index == self.source.len())
+        {
+            self.source.as_str()
+        } else {
+            self.source.strip_suffix('\n').unwrap_or(&self.source)
+        };
         let mut width = 0.0_f64;
         let mut lines = 0_u32;
+        let mut start = 0_usize;
         for paragraph in source.split('\n') {
-            let (paragraph_width, paragraph_lines) = self.paragraph(paragraph, known, available)?;
+            let end = start.saturating_add(paragraph.len());
+            let (paragraph_width, paragraph_lines) =
+                self.paragraph(start, end, known, available)?;
             width = width.max(paragraph_width);
             lines = lines
                 .checked_add(paragraph_lines)
                 .ok_or(crate::Error::Limit("text line count"))?;
+            start = end.saturating_add(1);
         }
         let number = |value: f64| {
             value
@@ -491,86 +574,68 @@ impl Run {
     }
     fn paragraph(
         &self,
-        source: &str,
+        start: usize,
+        end: usize,
         known: Size<Option<f32>>,
         available: Size<AvailableSpace>,
     ) -> Result<(f64, u32)> {
-        let maximum = self.width(source)?;
-        let constraint = known
-            .width
-            .map(f64::from)
-            .or_else(|| match available.width {
-                AvailableSpace::Definite(value) => Some(f64::from(value)),
-                _ => None,
-            });
+        let basis = known.width.or(match available.width {
+            AvailableSpace::Definite(value) => Some(value),
+            _ => None,
+        });
+        let maximum = self.range_width(start, end, basis)?;
+        let constraint = basis.map(f64::from);
         let minimum =
             matches!(available.width, AvailableSpace::MinContent) && known.width.is_none();
+        if self.nowrap || (!minimum && constraint.is_none_or(|limit| maximum <= limit)) {
+            return Ok((maximum, 1));
+        }
+        let source = self
+            .source
+            .get(start..end)
+            .ok_or_else(|| unsupported("inline text boundary"))?;
+        let limit = if minimum {
+            0.0
+        } else {
+            constraint.unwrap_or(maximum)
+        };
         let mut lines = 1_u32;
-        let mut width = maximum;
-        if !self.nowrap && (minimum || constraint.is_some_and(|limit| maximum > limit)) {
-            width = 0.0;
-            let mut line = String::new();
-            let limit = if minimum {
-                0.0
-            } else {
-                constraint.unwrap_or(maximum)
-            };
-            for word in source.split(' ') {
-                let candidate = if line.is_empty() {
-                    word.to_owned()
-                } else {
-                    format!("{line} {word}")
-                };
-                if !line.is_empty() && self.width(&candidate)? > limit {
-                    width = width.max(self.width(&line)?);
-                    lines = lines
-                        .checked_add(1)
-                        .ok_or(crate::Error::Limit("text line count"))?;
-                    line.clear();
-                }
-                let emergency = self.overflow_wrap == "anywhere"
-                    || (self.overflow_wrap == "break-word" && !minimum);
-                if emergency && self.width(word)? > limit {
-                    for cluster in word.graphemes(true) {
-                        let candidate = format!("{line}{cluster}");
-                        if !line.is_empty() && self.width(&candidate)? > limit {
-                            width = width.max(self.width(&line)?);
-                            lines = lines
-                                .checked_add(1)
-                                .ok_or(crate::Error::Limit("text line count"))?;
-                            line.clear();
-                        }
-                        line.push_str(cluster);
+        let mut width = 0.0_f64;
+        let mut line_start = start;
+        let mut line_end = start;
+        let mut word_start = start;
+        for word in source.split(' ') {
+            let word_end = word_start.saturating_add(word.len());
+            if line_end > line_start && self.range_width(line_start, word_end, basis)? > limit {
+                width = width.max(self.range_width(line_start, line_end, basis)?);
+                lines = lines
+                    .checked_add(1)
+                    .ok_or(crate::Error::Limit("text line count"))?;
+                line_start = word_start;
+            }
+            let emergency = self.overflow_wrap == "anywhere"
+                || (self.overflow_wrap == "break-word" && !minimum);
+            if emergency && self.range_width(word_start, word_end, basis)? > limit {
+                for (index, cluster) in word.grapheme_indices(true) {
+                    let cluster_end = word_start
+                        .saturating_add(index)
+                        .saturating_add(cluster.len());
+                    let cluster_start = word_start.saturating_add(index);
+                    if cluster_start > line_start
+                        && self.range_width(line_start, cluster_end, basis)? > limit
+                    {
+                        width = width.max(self.range_width(line_start, cluster_start, basis)?);
+                        lines = lines
+                            .checked_add(1)
+                            .ok_or(crate::Error::Limit("text line count"))?;
+                        line_start = cluster_start;
                     }
-                } else {
-                    if !line.is_empty() {
-                        line.push(' ');
-                    }
-                    line.push_str(word);
                 }
             }
-            width = width.max(self.width(&line)?);
+            line_end = word_end;
+            word_start = word_end.saturating_add(1);
         }
+        width = width.max(self.range_width(line_start, line_end, basis)?);
         Ok((width, lines))
-    }
-}
-
-fn normalize(source: &str, preserve_breaks: bool) -> String {
-    let collapse = |line: &str| {
-        line.split([' ', '\t', '\n', '\r', '\u{c}'])
-            .filter(|part| !part.is_empty())
-            .collect::<Vec<_>>()
-            .join(" ")
-    };
-    if preserve_breaks {
-        source
-            .replace("\r\n", "\n")
-            .replace('\r', "\n")
-            .split('\n')
-            .map(collapse)
-            .collect::<Vec<_>>()
-            .join("\n")
-    } else {
-        collapse(source)
     }
 }

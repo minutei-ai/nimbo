@@ -682,3 +682,42 @@ test("non-baseline inline alignment remains explicit and recovers on the same pa
     value: { rejected: true, recovered: true },
   });
 });
+
+const inlinePadding = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/inline-padding.txt", import.meta.url),
+).text();
+
+const inlinePaddingBoundary = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/inline-padding-boundary.txt", import.meta.url),
+).text();
+
+test("inline padding participates in native text width and line breaks", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: inlinePadding }),
+  });
+  expect(response.status).toBe(200);
+  const result = Schema.decodeUnknownSync(Success)(await response.json());
+  const checks = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Boolean))(
+    result.value,
+  );
+  expect(Object.keys(checks)).toHaveLength(32);
+  expect(Object.values(checks).every((check) => check)).toBe(true);
+});
+
+test("inline padding keeps resource and fragment boundaries explicit and recovers", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: inlinePaddingBoundary }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({
+    url,
+    engine: "rust-wasm-quickjs",
+    value: { vertical: true, transform: true, limited: true, recovered: true },
+  });
+});
