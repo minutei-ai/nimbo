@@ -13,6 +13,7 @@ use crate::{
 
 mod clamp;
 mod clipping;
+mod container_style;
 mod generated;
 mod grid;
 mod inline;
@@ -25,7 +26,6 @@ pub(crate) mod order;
 mod percentage_padding;
 mod replaced;
 pub(crate) mod resolved;
-mod static_position;
 pub(crate) mod svg_viewport;
 mod text;
 mod text_source;
@@ -332,13 +332,13 @@ fn style_for(
     })?;
     let mut style = style_properties(node, declarations, generated, fonts, work, style)?;
     if !generated && crate::html_boxes::button(node) {
-        style.item_is_replaced = true;
-        if style.size.width.is_auto() && style.position != Position::Absolute {
+        style.item_is_compressible_replaced = true;
+        if style.size.width.is_auto() && !style.position.is_out_of_flow() {
             style.size.width = Dimension::fit_content();
         }
         if matches!(style.display, Display::Block | Display::FlowRoot) {
             style.display = Display::FlowRoot;
-            style.align_content = Some(AlignContent::SAFE_CENTER);
+            style.align_content = AlignContent::SAFE_CENTER;
         }
     }
     if intrinsic.is_some() && !style.size.width.is_auto() && !style.size.height.is_auto() {
@@ -439,11 +439,11 @@ fn style_properties(
                     style.overflow.y = overflow;
                 }
             }
-            "position" if matches!(value, "static" | "relative" | "sticky") => {
-                flow_position(value, generated)?;
-            }
-            "position" if matches!(value, "absolute" | "fixed") => {
-                absolute_position(&mut style, generated && value == "fixed")?;
+            "position" => {
+                if generated && matches!(value, "fixed" | "sticky") {
+                    return Err(unsupported(&format!("{value} generated boxes")));
+                }
+                style.position = value.parse().map_err(|_error| unsupported("position"))?;
             }
             "left" => assign!(style.inset.left, value, name),
             "right" => assign!(style.inset.right, value, name),
@@ -464,7 +464,7 @@ fn style_properties(
         couple_overflow(&mut style, declarations);
         validate_overflow(node, &style)?;
     }
-    Ok(position_insets(style, declarations))
+    Ok(style)
 }
 
 fn couple_overflow(style: &mut Style, declarations: &Declarations) {
@@ -482,13 +482,13 @@ fn couple_overflow(style: &mut Style, declarations: &Declarations) {
 fn alignment(style: &mut Style, name: &str, value: &str) -> Result<bool> {
     match name {
         "align-items" => {
-            style.align_items = Some(value.parse().map_err(|_error| unsupported(name))?);
+            style.align_items = value.parse().map_err(|_error| unsupported(name))?;
         }
         "justify-items" => {
-            style.justify_items = if matches!(value, "normal" | "initial" | "unset") {
-                None
+            style.justify_items = if matches!(value, "initial" | "unset") {
+                AlignItems::NORMAL
             } else {
-                Some(value.parse().map_err(|_error| unsupported(name))?)
+                value.parse().map_err(|_error| unsupported(name))?
             }
         }
         "align-self" => {
@@ -499,44 +499,18 @@ fn alignment(style: &mut Style, name: &str, value: &str) -> Result<bool> {
             }
         }
         "align-content" => {
-            style.align_content = if matches!(value, "normal" | "initial" | "unset" | "revert") {
-                None
+            style.align_content = if matches!(value, "initial" | "unset" | "revert") {
+                AlignContent::NORMAL
             } else {
-                Some(value.parse().map_err(|_error| unsupported(name))?)
+                value.parse().map_err(|_error| unsupported(name))?
             };
         }
         "justify-content" => {
-            style.justify_content = Some(value.parse().map_err(|_error| unsupported(name))?);
+            style.justify_content = value.parse().map_err(|_error| unsupported(name))?;
         }
         _ => return Ok(false),
     }
     Ok(true)
-}
-
-fn absolute_position(style: &mut Style, generated_fixed: bool) -> Result<()> {
-    if generated_fixed {
-        return Err(unsupported("fixed generated boxes"));
-    }
-    style.position = Position::Absolute;
-    Ok(())
-}
-
-fn flow_position(value: &str, generated: bool) -> Result<()> {
-    if value == "sticky" && generated {
-        return Err(unsupported("sticky generated boxes"));
-    }
-    Ok(())
-}
-
-fn position_insets(mut style: Style, declarations: &Declarations) -> Style {
-    if style.position != Position::Absolute
-        && !declarations
-            .layout_entries()
-            .any(|(name, value, _)| name == "position" && value == "relative")
-    {
-        style.inset = Rect::auto();
-    }
-    style
 }
 
 #[derive(Clone, Copy)]
@@ -659,7 +633,6 @@ struct Tree<'a, 'b> {
     ids: HashMap<NodeId, taffy::NodeId>,
     positioned: HashSet<NodeId>,
     fixed: HashSet<NodeId>,
-    out_of_flow: Vec<(taffy::NodeId, Option<NodeId>)>,
     box_nodes: HashMap<taffy::NodeId, NodeId>,
     orders: HashMap<taffy::NodeId, i32>,
     sticky: HashMap<taffy::NodeId, Rect<LengthPercentageAuto>>,
@@ -818,16 +791,12 @@ impl Tree<'_, '_> {
         let container = crate::containers::Container::apply(&declarations, &mut style, fonts)?;
         let (position, _) = declarations.value("position");
         let position = defaulted("position", &position);
-        let out_of_flow = style.position == Position::Absolute;
         let containing = self.containing_block(node, position, &declarations, &fonts)?;
         let id = self.build_box(node, depth, &variables, &context, style, intrinsic)?;
         self.record_box(node.id, id, position, &declarations, &fonts)?;
         self.remember_inline_item(id, &context, formatting.context, vertical)?;
-        if out_of_flow {
-            if position == "fixed" && containing.is_some() {
-                self.fixed.remove(&node.id);
-            }
-            self.out_of_flow.push((id, containing));
+        if position == "fixed" && containing.is_some() {
+            self.fixed.remove(&node.id);
         }
         if let Some(container) = container {
             self.boxes.contain(id, container.axes());
@@ -892,7 +861,18 @@ impl Tree<'_, '_> {
             if context.display.inline_atomic()
                 && style.display == Display::FlowRoot
                 && !children.is_empty()
-                && !children.iter().all(|id| self.boxes.flows.contains_key(id))
+                && !children.iter().try_fold(true, |inline, id| {
+                    Ok::<_, Error>(
+                        inline
+                            && (self.boxes.flows.contains_key(id)
+                                || self
+                                    .boxes
+                                    .style(*id)
+                                    .map_err(|error| layout_error(&error))?
+                                    .position
+                                    .is_out_of_flow()),
+                    )
+                })?
                 && !crate::html_boxes::button(node)
             {
                 return Err(unsupported("nested block inline formatting"));
@@ -994,6 +974,7 @@ impl Tree<'_, '_> {
         self.remember_padding(id)?;
         if let Some(translation) = translation::Translation::parse(declarations, fonts, self.work)?
         {
+            self.boxes.transformed.insert(id);
             self.translations.insert(id, translation);
         }
         if declarations.value("overflow-x").0 == "auto"
@@ -1018,69 +999,6 @@ impl Tree<'_, '_> {
             self.fixed.insert(node);
         }
         Ok(())
-    }
-    fn position_boxes(
-        &mut self,
-        root: taffy::NodeId,
-        width: f32,
-        height: f32,
-    ) -> Result<taffy::NodeId> {
-        if self.out_of_flow.is_empty() {
-            return Ok(root);
-        }
-        let viewport = if self.out_of_flow.iter().any(|(_, parent)| parent.is_none()) {
-            self.visit(0)?;
-            Some(
-                self.boxes
-                    .new_with_children(
-                        Style {
-                            display: Display::Block,
-                            size: Size {
-                                width: Dimension::length(width),
-                                height: Dimension::length(height),
-                            },
-                            ..Style::default()
-                        },
-                        &[root],
-                    )
-                    .map_err(|error| layout_error(&error))?,
-            )
-        } else {
-            None
-        };
-        self.prepare_static_positions(root, viewport, width, height)?;
-        for (id, containing) in &self.out_of_flow {
-            self.work.charge()?;
-            let parent = if let Some(node) = containing {
-                self.ids.get(node).copied()
-            } else {
-                viewport
-            }
-            .ok_or_else(|| unsupported("missing positioning containing block"))?;
-            if self.boxes.parent(*id) == Some(parent) {
-                continue;
-            }
-            let style = self
-                .boxes
-                .style(*id)
-                .map_err(|error| layout_error(&error))?;
-            if (style.inset.left.is_auto() && style.inset.right.is_auto())
-                || (style.inset.top.is_auto() && style.inset.bottom.is_auto())
-            {
-                return Err(unsupported(
-                    "absolute static position across containing blocks",
-                ));
-            }
-            if let Some(old) = self.boxes.parent(*id) {
-                self.boxes
-                    .remove_child(old, *id)
-                    .map_err(|error| layout_error(&error))?;
-            }
-            self.boxes
-                .add_child(parent, *id)
-                .map_err(|error| layout_error(&error))?;
-        }
-        Ok(viewport.unwrap_or(root))
     }
     fn text_item(
         &mut self,
@@ -1202,12 +1120,12 @@ impl Tree<'_, '_> {
                     || child_boxes.iter().try_fold(false, |separates, id| {
                         Ok::<_, Error>(
                             separates
-                                || self
+                                || !self
                                     .boxes
                                     .style(*id)
                                     .map_err(|error| layout_error(&error))?
                                     .position
-                                    != Position::Absolute,
+                                    .is_out_of_flow(),
                         )
                     })?;
                 if separates_text {
@@ -1276,7 +1194,6 @@ fn scene<T>(
             ids: HashMap::new(),
             positioned: HashSet::new(),
             fixed: HashSet::new(),
-            out_of_flow: Vec::new(),
             box_nodes: HashMap::new(),
             orders: HashMap::new(),
             sticky: HashMap::new(),
@@ -1318,7 +1235,6 @@ fn scene<T>(
             &mut root_ids,
         )?;
         if let Some(root_id) = root_ids.first().copied() {
-            let root_id = tree.position_boxes(root_id, width, height)?;
             tree.compute_layout(root_id, width, height)?;
             if !tree.translations.is_empty() {
                 tree.translation_overflow(root_id)?;

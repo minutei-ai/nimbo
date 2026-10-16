@@ -1,5 +1,5 @@
 //! Resolve all percentage padding sides against containing-block width.
-use taffy::{Position, prelude::*, style::ExpandedLengthPercentage};
+use taffy::{prelude::*, style::ExpandedLengthPercentage};
 
 use super::{Tree, layout_error, unsupported};
 use crate::{Error, Result};
@@ -38,12 +38,12 @@ impl Tree<'_, '_> {
                     .style(*id)
                     .map_err(|error| layout_error(&error))?
                     .clone();
-                let basis = if let Some(parent) = self.boxes.parent(*id) {
+                let basis = if let Some(parent) = self.boxes.containing_block(*id) {
                     let parent = self
                         .boxes
                         .layout(parent)
                         .map_err(|error| layout_error(&error))?;
-                    if style.position == Position::Absolute {
+                    if style.position.is_out_of_flow() {
                         parent.size.width - parent.border.left - parent.border.right
                     } else {
                         parent.content_box_width()

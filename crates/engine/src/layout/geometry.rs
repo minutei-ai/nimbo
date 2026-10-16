@@ -234,7 +234,7 @@ impl View<'_> {
     pub(super) fn visual(&self, target: taffy::NodeId) -> Result<Frame> {
         let mut chain = vec![target];
         let mut current = target;
-        while let Some(parent) = self.boxes.parent(current) {
+        while let Some(parent) = self.boxes.layout_parent(current) {
             chain.push(parent);
             current = parent;
         }
@@ -490,11 +490,7 @@ impl super::Tree<'_, '_> {
             x: f64::from(layout.scrollable_overflow_rect.right),
             y: f64::from(layout.scrollable_overflow_rect.bottom),
         };
-        for child in self
-            .boxes
-            .children(id)
-            .map_err(|error| layout_error(&error))?
-        {
+        for child in self.boxes.layout_children(id) {
             let child_extent = self.translation_overflow(child)?;
             let child_layout = self
                 .boxes

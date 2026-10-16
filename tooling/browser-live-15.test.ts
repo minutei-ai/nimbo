@@ -288,39 +288,31 @@ test("real HTTP → workerd → Wasm: computed style scope and lazy color serial
 });
 
 test.each([
-  { css: "position:absolute;top:0;width:10px;height:5px", supported: true },
-  { css: "position:fixed;left:0;width:10px;height:5px", supported: false },
-])(
-  "real HTTP → workerd → Wasm: positioned static boxes $css and recovery",
-  async ({ css, supported }) => {
-    const url = new URL("positioned-boxes/0", origin.url).href;
-    const expression = `(()=>{document.body.innerHTML='';const e=document.createElement('div');e.style.cssText=${JSON.stringify(css)};document.body.append(e);return e.getBoundingClientRect().width})()`;
-    const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
-      method: "POST",
-      headers: { authorization: "Bearer test-secret" },
-      body: JSON.stringify({ url, expression }),
-    });
-    if (supported) {
-      expect(response.status).toBe(200);
-      expect(await response.json()).toMatchObject({ value: 10 });
-    } else {
-      expect(response.status).toBe(422);
-      expect(await response.text()).toContain("fixed static position across containing blocks");
-    }
-    const recovered = await worker.dispatchFetch("https://nimbo.test/scrape", {
-      method: "POST",
-      headers: { authorization: "Bearer test-secret" },
-      body: JSON.stringify({ url, expression: "positionedBoxesCase(0)" }),
-    });
-    expect(recovered.status).toBe(200);
-    const result: unknown = await recovered.json();
-    if (typeof result !== "object" || result === null) throw new Error("Missing result");
-    const value: unknown = Reflect.get(result, "value");
-    if (typeof value !== "object" || value === null) throw new Error("Missing checks");
-    expect(Object.keys(value)).toHaveLength(25);
-    expect(Object.values(value).every((check) => check === true)).toBe(true);
-  },
-);
+  "position:absolute;top:0;width:10px;height:5px",
+  "position:fixed;left:0;width:10px;height:5px",
+])("real HTTP → workerd → Wasm: positioned static boxes %s and recovery", async (css) => {
+  const url = new URL("positioned-boxes/0", origin.url).href;
+  const expression = `(()=>{document.body.innerHTML='';const e=document.createElement('div');e.style.cssText=${JSON.stringify(css)};document.body.append(e);return e.getBoundingClientRect().width})()`;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ value: 10 });
+  const recovered = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: "positionedBoxesCase(0)" }),
+  });
+  expect(recovered.status).toBe(200);
+  const result: unknown = await recovered.json();
+  if (typeof result !== "object" || result === null) throw new Error("Missing result");
+  const value: unknown = Reflect.get(result, "value");
+  if (typeof value !== "object" || value === null) throw new Error("Missing checks");
+  expect(Object.keys(value)).toHaveLength(25);
+  expect(Object.values(value).every((check) => check === true)).toBe(true);
+});
 
 test.each(Array.from({ length: 64 }, (_, variant) => variant))(
   "real HTTP → workerd → Wasm: Namespaced attributes variant %i",

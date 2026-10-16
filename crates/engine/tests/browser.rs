@@ -6429,3 +6429,23 @@ fn generated_text_preserves_explicit_boundaries_and_recovers() -> TestResult {
     );
     Ok(())
 }
+
+#[test]
+fn native_out_of_flow_candidates_preserve_static_positions_and_grid_areas() -> TestResult {
+    let fixture = Fixture::new()?;
+    each_variant(&fixture, |browser, variant| {
+        let page = browser.navigate(&fixture.path("/empty-layout"))?;
+        page.evaluate(&format!("globalThis.variant={variant}"))?;
+        let result = page.evaluate(&format!(
+            "(()=>{{{} return globalThis.comparison;}})()",
+            include_str!("fixtures/static-position.txt")
+        ))?;
+        let checks = result.as_object().ok_or("missing positioning checks")?;
+        assert_eq!(checks.len(), 19);
+        assert!(
+            checks.values().all(|value| value == &json!(true)),
+            "{result}"
+        );
+        Ok(())
+    })
+}

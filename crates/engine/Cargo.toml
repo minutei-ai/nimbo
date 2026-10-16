@@ -26,7 +26,7 @@ selectors = "=0.38.0"
 rquickjs = { version = "=0.14.0", features = ["loader"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
-taffy = { version = "=0.14.0", default-features = false, features = [
+taffy = { git = "https://github.com/DioxusLabs/taffy", rev = "e77a7a8d9c1acfde11a819cc5085fa8eca9a322f", default-features = false, features = [
   "std",
   "taffy_tree",
   "block_layout",

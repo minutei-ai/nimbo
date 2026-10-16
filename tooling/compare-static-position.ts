@@ -13,6 +13,6 @@ await compareCssContracts(
   },
   "static-position",
   fixturePath,
-  11,
-  "64 fresh HTTP pages per runtime; absolute boxes with definite size or size-independent alignment with static axes across containing blocks, border/padding/margins, flex alignment, mixed specified axes and mutation; original supplemental fixture, not original WPT",
+  19,
+  "64 fresh HTTP pages per runtime; static axes across containing blocks, border/padding/margins, flex alignment, inline atomic descendants, transformed grid absolute/fixed boxes, absolute grid areas, inert static insets and mutation; supplemental fixture, not original WPT",
 );

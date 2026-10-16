@@ -1391,7 +1391,7 @@ mod layout_contracts {
         let fixtures = [
             (include_str!("../tests/fixtures/stealth.txt"), 22),
             (include_str!("../tests/fixtures/inline-block.txt"), 8),
-            (include_str!("../tests/fixtures/static-position.txt"), 11),
+            (include_str!("../tests/fixtures/static-position.txt"), 19),
             (include_str!("../tests/fixtures/selector-index.txt"), 17),
             (include_str!("../tests/fixtures/authored-inputs.txt"), 5),
             (include_str!("../tests/fixtures/size-containment.txt"), 9),

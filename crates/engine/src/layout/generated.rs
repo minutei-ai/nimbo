@@ -121,7 +121,6 @@ impl Tree<'_, '_> {
             self.work,
         )?;
         style.border = context.borders.geometry()?;
-        let out_of_flow = style.position == Position::Absolute;
         let mut children = Vec::new();
         if !generated.text.is_empty() {
             let mut source = text_source::Source::new(&context);
@@ -137,19 +136,8 @@ impl Tree<'_, '_> {
         if let Some(translation) =
             translation::Translation::parse(&declarations, &context.fonts, self.work)?
         {
+            self.boxes.transformed.insert(id);
             self.translations.insert(id, translation);
-        }
-        if out_of_flow {
-            // The originating element establishes the containing block when positioned.
-            // Keep the generated box distinct from its owner in the DOM-to-box map.
-            let containing = std::iter::once(node)
-                .chain(node.ancestors_it(None))
-                .find(|ancestor| {
-                    self.positioned.contains(&ancestor.id)
-                        || self.transformed.contains(&ancestor.id)
-                })
-                .map(|ancestor| ancestor.id);
-            self.out_of_flow.push((id, containing));
         }
         Ok(Some(id))
     }

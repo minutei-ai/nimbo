@@ -28,12 +28,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
 
 [[package]]
-name = "arrayvec"
-version = "0.7.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3fb67a6e08acf24fdeccbac2cb6ac4305825bd1f117462e0e6f2f193345ad56"
-
-[[package]]
 name = "ascii"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2091,10 +2085,9 @@ dependencies = [
 
 [[package]]
 name = "taffy"
-version = "0.14.0"
-source = "git+https://github.com/minutei-ai/taffy?rev=e576ae520a8bd04039ebb4ba16386b6db2560ced#e576ae520a8bd04039ebb4ba16386b6db2560ced"
+version = "0.15.0"
+source = "git+https://github.com/DioxusLabs/taffy?rev=e77a7a8d9c1acfde11a819cc5085fa8eca9a322f#e77a7a8d9c1acfde11a819cc5085fa8eca9a322f"
 dependencies = [
- "arrayvec",
  "cssparser",
  "serde",
  "slotmap",

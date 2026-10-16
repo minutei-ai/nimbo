@@ -1,7 +1,7 @@
 //! Native sizing containment layered over public Taffy layout algorithms.
 use super::text::Intrinsic;
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     ops::{Deref, DerefMut},
 };
 use taffy::util::ResolveOrZero;
@@ -50,6 +50,10 @@ impl InlineAlignment {
 
 pub(super) struct Boxes {
     tree: TaffyTree<Intrinsic>,
+    pub(super) transformed: HashSet<NodeId>,
+    hoisted: HashMap<NodeId, Vec<NodeId>>,
+    containing_blocks: HashMap<NodeId, NodeId>,
+    grid_info: HashMap<NodeId, taffy::DetailedLayoutInfo<String>>,
     layouts: HashMap<NodeId, Layout>,
     caches: HashMap<NodeId, Cache>,
     containment: HashMap<NodeId, u8>,
@@ -63,6 +67,10 @@ impl Boxes {
     pub(super) fn new() -> Self {
         Self {
             tree: TaffyTree::new(),
+            transformed: HashSet::new(),
+            hoisted: HashMap::new(),
+            containing_blocks: HashMap::new(),
+            grid_info: HashMap::new(),
             layouts: HashMap::new(),
             caches: HashMap::new(),
             containment: HashMap::new(),
@@ -71,6 +79,43 @@ impl Boxes {
             fragments: HashMap::new(),
             inline_flex_items: HashMap::new(),
             default_style: Style::default(),
+        }
+    }
+    pub(super) fn get_core_container_style(&self, id: NodeId) -> &Style {
+        self.tree.style(id).unwrap_or(&self.default_style)
+    }
+    pub(super) fn layout_parent(&self, id: NodeId) -> Option<NodeId> {
+        self.containing_blocks
+            .get(&id)
+            .copied()
+            .or_else(|| self.tree.parent(id))
+    }
+    pub(super) fn containing_block(&self, id: NodeId) -> Option<NodeId> {
+        let parent = self.layout_parent(id)?;
+        let position = self.get_core_container_style(id).position;
+        if position.is_out_of_flow()
+            && !self.transformed.contains(&parent)
+            && (position == Position::Fixed
+                || !self
+                    .get_core_container_style(parent)
+                    .position
+                    .is_positioned())
+        {
+            return None;
+        }
+        Some(parent)
+    }
+    pub(super) fn layout_children(&self, id: NodeId) -> Vec<NodeId> {
+        self.tree
+            .child_ids(id)
+            .filter(|child| !self.containing_blocks.contains_key(child))
+            .chain(self.hoisted.get(&id).into_iter().flatten().copied())
+            .collect()
+    }
+    fn container_style(&self, id: NodeId) -> super::container_style::ContainerStyle<'_> {
+        super::container_style::ContainerStyle {
+            style: self.get_core_container_style(id),
+            transformed: self.transformed.contains(&id),
         }
     }
     pub(super) fn contain(&mut self, id: NodeId, axes: u8) {
@@ -87,6 +132,9 @@ impl Boxes {
         self.caches.clear();
         self.layouts.clear();
         self.fragments.clear();
+        self.hoisted.clear();
+        self.containing_blocks.clear();
+        self.grid_info.clear();
         self.inline_flex_items = self
             .inline_alignment
             .keys()
@@ -157,6 +205,9 @@ impl Boxes {
                     input.parent_size.width,
                 );
             }
+            if input.run_mode == RunMode::PerformLayout {
+                taffy::compute_oof_layout(tree, id, &mut output);
+            }
             output
         })
     }
@@ -187,9 +238,9 @@ impl TraversePartialTree for Boxes {
 impl TraverseTree for Boxes {}
 impl LayoutPartialTree for Boxes {
     type CustomIdent = String;
-    type CoreContainerStyle<'a> = &'a Style;
-    fn get_core_container_style(&self, id: NodeId) -> &Style {
-        self.tree.style(id).unwrap_or(&self.default_style)
+    type CoreContainerStyle<'a> = super::container_style::ContainerStyle<'a>;
+    fn get_core_container_style(&self, id: NodeId) -> Self::CoreContainerStyle<'_> {
+        self.container_style(id)
     }
     fn set_unrounded_layout(&mut self, id: NodeId, layout: &Layout) {
         self.layouts.insert(id, *layout);
@@ -243,12 +294,44 @@ impl LayoutFlexboxContainer for Boxes {
     }
 }
 impl LayoutGridContainer for Boxes {
-    type GridContainerStyle<'a> = &'a Style;
+    type GridContainerStyle<'a> = super::container_style::ContainerStyle<'a>;
     type GridItemStyle<'a> = &'a Style;
-    fn get_grid_container_style(&self, id: NodeId) -> &Style {
-        self.get_core_container_style(id)
+    fn get_grid_container_style(&self, id: NodeId) -> Self::GridContainerStyle<'_> {
+        self.container_style(id)
+    }
+    fn set_detailed_grid_info(&mut self, id: NodeId, info: taffy::DetailedGridInfo<String>) {
+        self.grid_info
+            .insert(id, taffy::DetailedLayoutInfo::Grid(Box::new(info)));
     }
     fn get_grid_child_style(&self, id: NodeId) -> &Style {
         self.get_core_container_style(id)
+    }
+}
+
+impl taffy::LayoutContainingBlock for Boxes {
+    type OofItemStyle<'a> = &'a Style;
+    fn get_oof_item_style(&self, id: NodeId) -> &Style {
+        self.get_core_container_style(id)
+    }
+    fn clear_hoisted_children(&mut self, id: NodeId) {
+        if let Some(children) = self.hoisted.remove(&id) {
+            for child in children {
+                self.containing_blocks.remove(&child);
+            }
+        }
+    }
+    fn add_hoisted_children(&mut self, id: NodeId, children: &[NodeId]) {
+        self.hoisted
+            .entry(id)
+            .or_default()
+            .extend_from_slice(children);
+        for child in children {
+            self.containing_blocks.insert(*child, id);
+        }
+    }
+    fn get_detailed_layout_info(&self, id: NodeId) -> &taffy::DetailedLayoutInfo<String> {
+        self.grid_info
+            .get(&id)
+            .unwrap_or(&taffy::DetailedLayoutInfo::None)
     }
 }

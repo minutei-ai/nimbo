@@ -419,7 +419,7 @@ Public references:
 ## Native box geometry foundation
 
 A twenty-first set repeats a synthetic native geometry fixture at 64 distinct
-HTTP URLs in actual workerd/Wasm. Taffy 0.14.0 computes block, flex and automatic
+HTTP URLs in actual workerd/Wasm. Taffy computes block, flex and automatic
 single-column grid boxes from the native DOM and inline declarations. The
 logical viewport is the same configured environment used by media queries.
 getBoundingClientRect returns fresh DOMRect snapshots; mutation, removal,

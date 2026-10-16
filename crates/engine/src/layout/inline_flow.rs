@@ -43,6 +43,7 @@ fn objects(
                     .top
                     .resolve_or_zero(input.parent_size.height, |_, _| 0.0)
             };
+            let relative = style.position == Position::Relative;
             let top = style.align_self == Some(AlignItems::FLEX_START);
             let scrollbar_size = Size {
                 width: if style.overflow.y == Overflow::Scroll {
@@ -87,10 +88,15 @@ fn objects(
                 .unwrap_or(output.size.height + margin.bottom)
                 + margin.top;
             Ok(text::Object {
+                oof_candidates: output.oof_candidates,
                 index: atom.index,
                 baseline: f64::from(baseline),
                 top,
-                relative: Point { x, y },
+                relative: if relative {
+                    Point { x, y }
+                } else {
+                    Point::ZERO
+                },
                 layout: Layout {
                     order: order
                         .to_u32()
@@ -170,7 +176,7 @@ pub(super) fn layout(
     if input.run_mode != RunMode::PerformLayout {
         return output;
     }
-    let result = position(run, tree, id, &measured, &frames, &mut output);
+    let result = position(run, tree, id, &measured, &mut frames, &mut output);
     if let Err(error) = result {
         run.record(error);
     }
@@ -182,11 +188,14 @@ fn position(
     tree: &mut Boxes,
     id: NodeId,
     measured: &text::Measured,
-    frames: &[text::Object],
+    frames: &mut [text::Object],
     output: &mut LayoutOutput,
 ) -> Result<()> {
     let width = f64::from(output.size.width);
-    for (atom, frame) in run.atoms.iter().zip(frames) {
+    for (index, atom) in run.atoms.iter().enumerate() {
+        let frame = frames
+            .get(index)
+            .ok_or_else(|| unsupported("inline object frame"))?;
         let line = measured
             .lines
             .get(
@@ -267,6 +276,11 @@ fn position(
             .scrollable_overflow_rect
             .bottom
             .max(layout.location.y + overflow.bottom);
+        let frame = frames
+            .get_mut(index)
+            .ok_or_else(|| unsupported("inline object frame"))?;
+        frame.oof_candidates.translate(layout.location);
+        output.oof_candidates.append(&mut frame.oof_candidates);
         tree.set_unrounded_layout(atom.id, &layout);
     }
     for (node, bounds) in run.fragments(measured, frames, width)? {

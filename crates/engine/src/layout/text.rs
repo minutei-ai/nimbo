@@ -538,6 +538,7 @@ pub(super) struct Line {
 }
 
 pub(super) struct Object {
+    pub oof_candidates: taffy::OofCandidates,
     pub index: usize,
     pub layout: Layout,
     pub baseline: f64,

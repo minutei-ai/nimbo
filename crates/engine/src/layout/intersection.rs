@@ -188,7 +188,7 @@ pub(super) fn observe(
     let mut ancestor = tree
         .ids
         .get(&target.id)
-        .and_then(|id| tree.boxes.parent(*id));
+        .and_then(|id| tree.boxes.layout_parent(*id));
     let mut reached_root = root.is_none();
     while let Some(id) = ancestor {
         work.charge()?;
@@ -196,7 +196,7 @@ pub(super) fn observe(
             reached_root = true;
             break;
         }
-        ancestor = tree.boxes.parent(id);
+        ancestor = tree.boxes.layout_parent(id);
         let style = tree
             .boxes
             .style(id)

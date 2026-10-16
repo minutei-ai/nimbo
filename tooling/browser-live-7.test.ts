@@ -85,7 +85,6 @@ test.each([
   ],
   ["non-translation transform", "el.style.transform='rotate(10deg)';"],
   ["environment substitution", "el.style.width='env(safe-area-inset-left, 10px)';"],
-  ["fixed static position", "el.style.position='fixed';"],
   [
     "display formatting",
     "const child=document.createElement('span');child.style.display='inline-table';el.appendChild(child);",
@@ -382,3 +381,32 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     });
   },
 );
+
+test("real HTTP → workerd → Wasm: fixed empty boxes retain native static geometry", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression:
+        "(()=>{const el=document.createElement('div');el.style.position='fixed';document.body.append(el);const rect=el.getBoundingClientRect();return {width:rect.width,height:rect.height};})()",
+    }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ value: { width: 0, height: 0 } });
+  const recovered = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression: "document.createElement('div').getBoundingClientRect().toJSON()",
+    }),
+  });
+  expect(recovered.status).toBe(200);
+  expect(await recovered.json()).toEqual({
+    url,
+    engine: "rust-wasm-quickjs",
+    value: { x: 0, y: 0, width: 0, height: 0, top: 0, right: 0, bottom: 0, left: 0 },
+  });
+});
