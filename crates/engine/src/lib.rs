@@ -48,6 +48,7 @@ mod media;
 mod modules;
 #[cfg(not(target_arch = "wasm32"))]
 mod navigation;
+mod nesting;
 #[cfg(not(target_arch = "wasm32"))]
 mod network;
 mod outlines;
@@ -119,7 +120,7 @@ pub struct Limits {
     pub max_requests: usize,
     /// Chamadas máximas da ponte DOM, incluindo leituras.
     pub max_dom_operations: usize,
-    /// Nós visitados por coleta CSS ou passe de layout, incluindo conteúdo gerado.
+    /// Maximum nodes visited in a layout pass, including generated content.
     pub max_layout_nodes: usize,
     /// Bytes máximos acumulados em mutações de DOM.
     pub max_dom_write_bytes: usize,

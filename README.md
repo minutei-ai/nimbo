@@ -45,7 +45,7 @@ Releases include `nimbo-client.tgz` for Bun and TypeScript bundlers. It contains
 Install a pinned release with Bun so the lockfile owns artifact integrity:
 
 ```sh
-bun add https://github.com/minutei-ai/nimbo/releases/download/v0.1.6/nimbo-client.tgz
+bun add https://github.com/minutei-ai/nimbo/releases/download/v0.1.7/nimbo-client.tgz
 ```
 
 Import the native client from `@nimbo/client`, schemas from

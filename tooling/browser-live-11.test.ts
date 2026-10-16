@@ -209,7 +209,7 @@ test.each([
   {
     name: "below exact node count",
     path: "layout-budget/0",
-    maxLayoutNodes: 1106,
+    maxLayoutNodes: 1104,
     expression: "layoutBudgetCase(0)",
     reason: "layout tree: nodes",
   },
@@ -244,7 +244,7 @@ test.each([
       headers: { authorization: "Bearer test-secret" },
       body: JSON.stringify({
         url: new URL("layout-budget/0", origin.url).href,
-        maxLayoutNodes: 1107,
+        maxLayoutNodes: 1105,
         expression: "layoutBudgetCase(0)",
       }),
     });

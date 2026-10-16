@@ -216,7 +216,7 @@ impl WasmPage {
     /// Cria uma página com os limites padrão e sem acesso direto ao runtime do Worker.
     /// `execute_scripts` omitido executa scripts; false extrai somente o HTML recebido.
     /// `max_stylesheet_bytes` configura o orçamento CSS, até o teto de resposta padrão.
-    /// `max_layout_nodes` configura visitas por coleta CSS/layout, de 1 até 4096.
+    /// `max_layout_nodes` configures layout visits, from 1 through 4096.
     /// `max_dom_operations` configures shared DOM/CSS work, from 1 through 1,000,000.
     /// `max_initial_dom_nodes` can lower the initial parser's 65,536-node budget.
     /// `max_dom_nodes` can lower the page arena's cumulative 65,536-node budget.

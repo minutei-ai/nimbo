@@ -1,0 +1,18 @@
+(() => {
+  const target = document.createElement('div');
+  target.style.width = '37px';
+  const content = document.createElement('div');
+  content.innerHTML = '<div></div>'.repeat(100);
+  const style = document.createElement('style');
+  style.textContent = 'div{display:block}';
+  document.head.append(style);
+  document.body.append(target,content);
+  const display = getComputedStyle(target).display === 'block';
+  let layoutLimited = false;
+  try { target.getBoundingClientRect(); } catch(error) { layoutLimited = error.message.endsWith('resource limit: layout tree: nodes'); }
+  content.remove();
+  style.remove();
+  const recovered = target.getBoundingClientRect().width === 37;
+  target.remove();
+  return {display,layoutLimited,recovered};
+})()

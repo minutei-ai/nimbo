@@ -1,0 +1,14 @@
+(() => {
+  const target = document.createElement('div');
+  target.style.width = '37px';
+  document.body.append(target);
+  const style = document.createElement('style');
+  style.textContent = '.'+'x'.repeat(160)+'{'+Array.from({length:20},(_,i)=>'.child'+i+'{width:1px}').join('')+'}';
+  document.head.append(style);
+  let limited = false;
+  try { getComputedStyle(target).width; } catch(error) { limited = error.message.endsWith('resource limit: stylesheet nesting output bytes'); }
+  style.remove();
+  const recovered = getComputedStyle(target).width === '37px';
+  target.remove();
+  return {limited,recovered};
+})()

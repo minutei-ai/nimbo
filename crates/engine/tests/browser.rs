@@ -2748,6 +2748,28 @@ fn configured_layout_node_budget_measures_large_real_http_trees() -> TestResult 
             "variant {variant}: {result}"
         );
     }
+    for (budget, accepted) in [(1104, false), (1105, true)] {
+        let browser = Browser::new(
+            &fixture.url,
+            Limits {
+                max_layout_nodes: budget,
+                ..Limits::default()
+            },
+        )?;
+        let page = browser.navigate(&fixture.path("/layout-budget/0"))?;
+        let result = page.evaluate("layoutBudgetCase(0)");
+        if accepted {
+            assert!(
+                result?
+                    .as_object()
+                    .ok_or("missing boundary checks")?
+                    .values()
+                    .all(|value| value == &json!(true))
+            );
+        } else {
+            assert!(result.is_err_and(|error| error.to_string().contains("layout tree: nodes")));
+        }
+    }
     let limited = fixture.browser()?;
     let page = limited.navigate(&fixture.path("/layout-budget/0"))?;
     assert!(
@@ -5609,10 +5631,7 @@ fn unsupported_stylesheet_rules_preserve_their_names_and_recover() -> TestResult
     for (name, source) in [
         ("import", "@import url('/extra.css');"),
         ("page", "@page { margin: 1cm; }"),
-        (
-            "-moz-document",
-            "@-moz-document url-prefix() { body { color: red; } }",
-        ),
+        ("scope", "@scope (.outer) { body { color: red; } }"),
     ] {
         let page = browser.navigate(&fixture.path("/static"))?;
         let error = page.evaluate(&format!("(()=>{{const style=document.createElement('style');style.textContent={};document.head.append(style);return getComputedStyle(document.body).display}})()",json!(source))).err().ok_or("unsupported rule was accepted")?;
@@ -5761,5 +5780,71 @@ fn stylesheet_selector_budget_includes_imported_rules() -> TestResult {
         let fresh = browser.navigate(&fixture.path("/empty-layout"))?;
         assert_eq!(fresh.evaluate("document.styleSheets.length")?, json!(0));
     }
+    Ok(())
+}
+
+#[test]
+fn native_nesting_preserves_cascade_conditions_and_live_changes() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/empty-layout"))?;
+    let result = page.evaluate(include_str!("fixtures/nesting.txt"))?;
+    let checks = result.as_object().ok_or("missing nesting checks")?;
+    assert_eq!(checks.len(), 21);
+    assert!(
+        checks.values().all(|value| value == &json!(true)),
+        "{result}"
+    );
+    Ok(())
+}
+
+#[test]
+fn nesting_output_is_bounded_before_cascade_and_recovers() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = Browser::new(
+        &fixture.url,
+        Limits {
+            max_stylesheet_bytes: 1024,
+            ..Limits::default()
+        },
+    )?;
+    let page = browser.navigate(&fixture.path("/empty-layout"))?;
+    assert_eq!(
+        page.evaluate(include_str!("fixtures/nesting-limits.txt"))?,
+        json!({"limited":true,"recovered":true})
+    );
+    Ok(())
+}
+
+#[test]
+fn unrecognized_prefixed_stylesheet_rules_preserve_local_styles() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/empty-layout"))?;
+    assert_eq!(
+        page.evaluate(include_str!("fixtures/vendor-rules.txt"))?,
+        json!({"block":true,"statement":true,"media":true,"escaped":true})
+    );
+    Ok(())
+}
+
+#[test]
+fn computed_cascade_traversal_keeps_dom_and_layout_budgets_separate() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = Browser::new(
+        &fixture.url,
+        Limits {
+            max_layout_nodes: 16,
+            max_dom_operations: 100_000,
+            ..Limits::default()
+        },
+    )?;
+    let page = browser.navigate(&fixture.path("/empty-layout"))?;
+    assert_eq!(
+        page.evaluate(include_str!("fixtures/computed-traversal.txt"))?,
+        json!({"display":true,"layoutLimited":true,"recovered":true})
+    );
     Ok(())
 }

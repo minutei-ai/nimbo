@@ -84,7 +84,7 @@ test.each([
     "':is('.repeat(34)+'.x'+')'.repeat(34)+'{width:1px}'",
     "resource limit: stylesheet nesting",
   ],
-  ["nested rule", "'div { & div {width:1px;} }'", "layout unsupported: nested stylesheet rule"],
+  ["nested unknown rule", "'div { @unknown{} }'", "layout unsupported: nested stylesheet rule"],
   ["scope", "'@scope (.test) {div {width:1px;}}'", "layout unsupported: stylesheet at-rule"],
   [
     "forgiving recovery",
@@ -508,4 +508,106 @@ test("stylesheet selector budgets stay request-local in the shared Worker", asyn
   });
   expect(defaults.status).toBe(422);
   expect(await defaults.text()).toContain("resource limit: stylesheet selectors");
+});
+
+const nesting = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/nesting.txt", import.meta.url),
+).text();
+
+test("native nesting preserves cascade conditions and live changes", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: nesting }),
+  });
+  expect(response.status).toBe(200);
+  const expected = Object.fromEntries(
+    [
+      "customBlock",
+      "descendant",
+      "implicit",
+      "child",
+      "list",
+      "specificity",
+      "deep",
+      "media",
+      "inactive",
+      "supports",
+      "layer",
+      "order",
+      "declarationsAfter",
+      "customNested",
+      "sibling",
+      "initial",
+      "mutated",
+      "detached",
+      "reattached",
+      "generated",
+      "fontIdentity",
+    ].map((name) => [name, true]),
+  );
+  expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: expected });
+});
+
+const nestingLimits = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/nesting-limits.txt", import.meta.url),
+).text();
+
+test("nesting output is bounded before cascade and recovers", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: nestingLimits, maxStylesheetBytes: 1024 }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({
+    url,
+    engine: "rust-wasm-quickjs",
+    value: { limited: true, recovered: true },
+  });
+});
+
+const vendorRules = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/vendor-rules.txt", import.meta.url),
+).text();
+
+test("unrecognized prefixed stylesheet rules preserve local styles", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: vendorRules }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({
+    url,
+    engine: "rust-wasm-quickjs",
+    value: { block: true, statement: true, media: true, escaped: true },
+  });
+});
+
+const computedTraversal = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/computed-traversal.txt", import.meta.url),
+).text();
+
+test("computed cascade traversal keeps DOM and layout budgets separate", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url,
+      expression: computedTraversal,
+      maxLayoutNodes: 16,
+      maxDomOperations: 100_000,
+    }),
+  });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({
+    url,
+    engine: "rust-wasm-quickjs",
+    value: { display: true, layoutLimited: true, recovered: true },
+  });
 });

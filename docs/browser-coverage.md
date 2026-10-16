@@ -493,7 +493,7 @@ mutating IDs, shorthands, media/type attributes, nested media and sheet removal.
 
 Eleven additional real Worker cases reach per-sheet byte/rule/selector limits,
 shared bytes/selectors/expanded declaration limits, nesting limits, unsupported
-scopes and nested rules, and unsupported forgiving recovery. Failure cases
+scopes and unknown nested rules, and unsupported forgiving recovery. Failure cases
 verify a fresh request; a separate case removes an oversized sheet and reuses
 the same page while preserving inline state and old rectangle snapshots.
 The default byte limits are 256 KiB per active sheet and 256 KiB total active
@@ -523,9 +523,34 @@ there is no separate 64-selector restriction. Worker input
 rule and across two sheets, fresh-page recovery and invalid settings rejected
 before navigation. Byte, nesting and DOM-operation budgets still apply.
 
+Native CSS nesting uses Lightning CSS's nesting transform before the existing
+cascade parser. The transformation preserves selector-list specificity, nested
+media/supports/layer conditions, declaration ordering, generated-box selectors
+and stylesheet/font-face identity. Custom-property token blocks remain data.
+The DOM and stylesheet text retain their original source. The shared synthetic
+fixture checks 21 behaviors in native Rust and Chromium, including mutation and
+reparenting; real Worker checks exercise the same source. Generated-box coverage
+uses empty content so native text-font configuration does not replace a nesting
+assertion. This does not add computed pseudo-element access or arbitrary custom
+property enumeration.
+
+Unrecognized prefixed at-rules at stylesheet/group level are consumed without
+applying their contents, following CSS's
+[forward-compatible syntax recovery](https://www.w3.org/TR/css-syntax-3/#error-handling).
+Supported prefixed features keep their existing handlers. Shared synthetic
+native/Worker cases and Chromium cover blocks, statements, escaped names and
+media groups. Unsupported nested at-rule objects remain explicit gaps.
+
+The transform writes through a bounded native formatter. Expanded CSS cannot
+exceed the configured stylesheet byte budget, and flattened rules still pass
+through the existing nesting, selector and rule limits. A real native/Worker
+case exceeds the output budget with a small source, removes the sheet and reads
+the same page successfully. Unknown nested at-rules still fail explicitly;
+CSSOM grouping and nested-rule object interfaces remain separate gaps.
+
 This is author style-rule ordering for supported box properties, not a complete
 cascade/computed-style implementation. Missing: inline stylesheet imports and CSSImportRule, origins
-and stylesheet sets, full style/link/sheet interfaces, scope/full container groups, nesting, full selector state/scope/WPT behavior, defaulting and
+and stylesheet sets, full style/link/sheet interfaces, scope/full container groups, full selector state/scope/WPT behavior, defaulting and
 inheritance for ordinary properties, complete variable semantics, full registered-property semantics, presentational hints,
 full UA defaults, getComputedStyle, animations/transitions and paint. Font/text
 and all remaining layout/observer gaps stay in scope.
@@ -1738,13 +1763,13 @@ and [HTML Canvas compositing](https://html.spec.whatwg.org/multipage/canvas.html
 
 ## Configurable layout traversal budget
 
-Limits::max_layout_nodes sets the visit budget for each CSS collection and each
-native layout pass. Optional Worker input maxLayoutNodes accepts integers from
+Limits::max_layout_nodes sets the visit budget for each native layout pass. Optional Worker input maxLayoutNodes accepts integers from
 1 through 4096; omission retains 1024. Invalid inputs reject before navigation.
-The native Rust library accepts a nonzero caller-selected budget. CSS collection
-counts all visited DOM nodes, including doctype and text; layout also counts
-generated pseudo-element boxes. Each pass has its own visit counter, while the
-shared DOM operation budget continues to accumulate across calls. Depth remains
+The native Rust library accepts a nonzero caller-selected budget. Layout counts
+visited nodes and generated pseudo-element boxes. CSS collection charges the
+shared DOM operation budget for every visited node, including doctype and text,
+without consuming the geometry budget. Each layout pass has its own visit counter,
+while the shared DOM operation budget accumulates across calls. Depth remains
 bounded at 128. Exceeding these bounds reports layout tree: nodes or layout tree:
 depth, respectively, under the existing resource limit error prefix.
 
@@ -1757,9 +1782,9 @@ covers those HTML assertions, not Nimbo's resource policy.
 Eight Worker cases reject invalid input without an HTTP request. Further real
 Worker cases verify unchanged default rejection, a configured budget one visit
 below admission, depth rejection even at 4096, cumulative DOM operation rejection
-and recovery in a fresh request. The plain fixture needs exactly 1107 CSS visits
+and recovery in a fresh request. The plain fixture needs exactly 1105 layout visits
 and succeeds at that inclusive budget. A separate fixture with 300 elements and
-generated before/after boxes fits CSS collection at 512 but exceeds layout visits;
+generated before/after boxes exceeds 512 layout visits;
 it rejects there and succeeds at 2048. Larger budgets do not add CSS support or
 prove deployed CPU, memory sizing or broad rendering compatibility.
 

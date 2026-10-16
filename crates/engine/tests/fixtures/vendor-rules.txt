@@ -1,0 +1,21 @@
+(() => {
+  const target = document.createElement('div');
+  target.className = 'vendor-target';
+  document.body.append(target);
+  const result = {};
+  const cases = [
+    ['block','@-foreign-feature option { .vendor-target{width:999px} }'],
+    ['statement','@-foreign-statement option;'],
+    ['media','@media all {@-foreign-feature { .vendor-target{width:999px} }}'],
+    ['escaped','@-\\66 oreign-feature { .vendor-target{width:999px} }'],
+  ];
+  for (const [name, source] of cases) {
+    const style = document.createElement('style');
+    style.textContent = source + '.vendor-target{width:71px}';
+    document.head.append(style);
+    result[name] = getComputedStyle(target).width === '71px';
+    style.remove();
+  }
+  target.remove();
+  return result;
+})()

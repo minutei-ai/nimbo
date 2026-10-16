@@ -1,0 +1,51 @@
+(() => {
+  const parent = document.createElement('section');
+  parent.className = 'parent';
+  parent.innerHTML = '<div class="target"></div><div class="sibling"></div>';
+  document.body.append(parent);
+  const target = parent.querySelector('.target');
+  const result = {};
+  const cases = [
+    ['customBlock', ':root{--block:{display:flex;justify-content:flex-end}}.target{width:31px}',31],
+    ['descendant', '.parent{& .target{width:41px}}',41],
+    ['implicit', '.parent{.target{width:42px}}',42],
+    ['child', '.parent{& > .target{width:43px}}',43],
+    ['list', '.parent,.absent{& .target{width:44px}}',44],
+    ['specificity', '.parent,#absent{& .target{width:45px}}.parent .target{width:99px}',45],
+    ['deep', '.parent{.target{&.target{width:46px}}}',46],
+    ['media', '.parent{@media(min-width:1px){& .target{width:47px}}}',47],
+    ['inactive', '.target{width:17px}.parent{@media(min-width:999999px){& .target{width:99px}}}',17],
+    ['supports', '.parent{@supports(width:1px){& .target{width:48px}}}',48],
+    ['layer', '.parent{@layer inner{& .target{width:49px!important}}}.target{width:99px!important}',49],
+    ['order', '.parent{& .target{width:50px}& .target{width:51px}}',51],
+    ['declarationsAfter', '.parent{width:100px;& .target{width:50%}width:200px}',100],
+    ['customNested', '.parent{--block:{display:flex};& .target{width:53px}}',53],
+    ['sibling', '.parent{& .target + .sibling{width:55px}}',55,'.sibling'],
+  ];
+  for (const [name,source,width,selector] of cases) {
+    const style = document.createElement('style');
+    style.textContent = source;
+    document.head.append(style);
+    const selected = parent.querySelector(selector || '.target');
+    result[name] = parseFloat(getComputedStyle(selected).width) === width;
+    style.remove();
+  }
+  const style = document.createElement('style');
+  style.textContent = '.parent{& .target{width:61px}}';
+  document.head.append(style);
+  result.initial = getComputedStyle(target).width === '61px';
+  style.textContent = '.parent{& .target{width:62px}}';
+  result.mutated = getComputedStyle(target).width === '62px';
+  document.body.append(target);
+  result.detached = getComputedStyle(target).width !== '62px';
+  parent.append(target);
+  result.reattached = getComputedStyle(target).width === '62px';
+  style.textContent = '.parent{& .target::before{content:"";display:block;height:23px}}';
+  result.generated = target.getBoundingClientRect().height === 23;
+  style.textContent = '.parent{--block:{display:flex;justify-content:flex-end};& .target{width:63px}}';
+  style.textContent = '@font-face{font-family:NativeNestedIdentity;src:local(NoSuchFont)}.parent{& .target{width:64px}}@font-face{font-family:NativeNestedIdentity;src:local(NoSuchFont)}';
+  result.fontIdentity = document.fonts.size === 2;
+  style.remove();
+  parent.remove();
+  return result;
+})()

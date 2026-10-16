@@ -237,7 +237,9 @@ enum Prelude {
     Property(String),
     Container(std::rc::Rc<crate::containers::Query>),
 }
+#[derive(Clone, Copy)]
 struct SheetContext<'a> {
+    flattened: bool,
     max_selectors: usize,
     resources: &'a crate::stylesheets::Sheets,
     owner: Option<NodeId>,
@@ -346,6 +348,11 @@ impl<'i> AtRuleParser<'i> for Rules<'_> {
         }
         if name.eq_ignore_ascii_case("supports") {
             return crate::supports::condition(input, 0).map(Prelude::Media);
+        }
+        if name.starts_with('-') {
+            consume(input, 0)?;
+            self.imports_allowed = false;
+            return Ok(Prelude::Media(false));
         }
         if !name.eq_ignore_ascii_case("media") {
             self.failure = Some(unsupported(&format!("stylesheet at-rule: {name}")));
@@ -548,12 +555,41 @@ impl<'i> QualifiedRuleParser<'i> for Rules<'_> {
     fn parse_block<'t>(
         &mut self,
         selectors: Self::Prelude,
-        _start: &ParserState,
+        rule_start: &ParserState,
         input: &mut Parser<'i, 't>,
     ) -> std::result::Result<ParsedRule, ParseError<'i, Self::Error>> {
         let start = input.position();
         if consume(input, 0)? {
-            return Err(input.new_custom_error("nested stylesheet rule"));
+            let source = format!("{}}}", input.slice_from(rule_start.position()));
+            let lowered = crate::nesting::lower(
+                &source,
+                self.source.resources.max_bytes(),
+                self.source.flattened,
+            )
+            .map_err(|error| {
+                self.failure = Some(error);
+                input.new_custom_error("stylesheet nesting")
+            })?;
+            if let Some(source) = lowered {
+                let context = SheetContext {
+                    flattened: true,
+                    ..*self.source
+                };
+                return sheet(
+                    &source,
+                    self.media,
+                    self.definitions,
+                    self.parent,
+                    self.containers,
+                    &context,
+                    false,
+                )
+                .map(ParsedRule::Group)
+                .map_err(|error| {
+                    self.failure = Some(error);
+                    input.new_custom_error("stylesheet nesting")
+                });
+            }
         }
         let declarations = Declarations::parse(input.slice_from(start))
             .map_err(|message| input.new_custom_error(message))?;
@@ -614,6 +650,7 @@ impl Rules<'_> {
         path.push(source.base.clone());
         let identity = format!("{}:{}", self.source.identity, self.import_ordinal);
         let context = SheetContext {
+            flattened: false,
             max_selectors: self.source.max_selectors,
             resources: self.source.resources,
             owner: Some(owner),
@@ -724,15 +761,10 @@ impl Cascade {
     ) -> Result<Self> {
         let mut rules = Vec::new();
         let mut bytes = 0_usize;
-        let mut nodes = 0_usize;
         let mut selectors = 0_usize;
         let mut definitions = Definitions::default();
         for node in document.root().descendants_it() {
             work.charge()?;
-            nodes = nodes.saturating_add(1);
-            if nodes > work.node_limit() {
-                return Err(Error::Limit("layout tree: nodes"));
-            }
             let external = crate::stylesheets::is_stylesheet(node);
             if !external && !node.has_name("style") {
                 continue;
@@ -786,6 +818,7 @@ impl Cascade {
             let identity = format!("{:?}", node.id);
             let path = vec![source_base.clone()];
             let context = SheetContext {
+                flattened: false,
                 max_selectors,
                 resources: sheets,
                 owner: external.then_some(node.id),
@@ -805,6 +838,7 @@ impl Cascade {
             let source_base = sheets.document_base(base);
             let path = vec![source_base.clone()];
             let context = SheetContext {
+                flattened: false,
                 max_selectors,
                 resources: sheets,
                 owner: None,

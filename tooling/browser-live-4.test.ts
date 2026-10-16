@@ -379,7 +379,7 @@ test.each([
 test.each([
   ["import", '@import url("/extra.css");'],
   ["page", "@page { margin: 1cm; }"],
-  ["-moz-document", "@-moz-document url-prefix() { body { color: red; } }"],
+  ["scope", "@scope (.outer) { body { color: red; } }"],
 ])("unsupported stylesheet rules preserve their name: %s", async (name, source) => {
   const expression = `(()=>{const style=document.createElement('style');style.textContent=${JSON.stringify(source)};document.head.append(style);return getComputedStyle(document.body).display})()`;
   const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
