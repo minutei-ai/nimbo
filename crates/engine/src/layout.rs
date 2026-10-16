@@ -15,6 +15,7 @@ mod clamp;
 mod clipping;
 mod grid;
 mod inline;
+mod inline_flow;
 mod inline_text;
 mod lengths;
 pub(crate) mod logical;
@@ -720,7 +721,6 @@ struct Tree<'a, 'b> {
     out_of_flow: Vec<(taffy::NodeId, Option<NodeId>)>,
     box_nodes: HashMap<taffy::NodeId, NodeId>,
     orders: HashMap<taffy::NodeId, i32>,
-    inline_atoms: HashSet<taffy::NodeId>,
     sticky: HashMap<taffy::NodeId, Rect<LengthPercentageAuto>>,
     translations: HashMap<taffy::NodeId, translation::Translation>,
     transformed: HashSet<NodeId>,
@@ -1018,12 +1018,12 @@ impl Tree<'_, '_> {
                 &self.fonts.borrow(),
                 std::rc::Rc::clone(&self.text_budget),
             )?;
-            self.leaf(style, text::Intrinsic::Text(run))
+            self.leaf(style, text::Intrinsic::Text(Box::new(run)))
         } else if let Some(run) = self.text_run(node, depth, variables, style.display, context)? {
             if let Some(lines) = context.clamp {
                 clamp::apply(&mut style, run.line_height(), lines)?;
             }
-            self.leaf(style, text::Intrinsic::Text(run))
+            self.leaf(style, text::Intrinsic::Text(Box::new(run)))
         } else {
             let mut children = Vec::new();
             self.children(
@@ -1040,11 +1040,11 @@ impl Tree<'_, '_> {
             if context.display.inline_atomic()
                 && style.display == Display::FlowRoot
                 && !children.is_empty()
+                && !children.iter().all(|id| self.boxes.flows.contains_key(id))
                 && !crate::html_boxes::button(node)
             {
                 return Err(unsupported("nested block inline formatting"));
             }
-            self.inline_flow(&mut style, &mut children, context)?;
             self.boxes.new_with_children(style, &children)
         }
         .map_err(|error| layout_error(&error))?;
@@ -1260,18 +1260,29 @@ impl Tree<'_, '_> {
         source.padding.clear();
         source.spans.clear();
         source.boxes.clear();
+        source.atoms.clear();
         if let Some(run) = run {
             self.visit(0)?;
-            let id = self
-                .boxes
-                .new_leaf_with_context(
-                    Style {
-                        display: Display::Block,
-                        ..Style::default()
-                    },
-                    text::Intrinsic::Text(run),
-                )
-                .map_err(|error| layout_error(&error))?;
+            let mut style = Style {
+                display: Display::Block,
+                ..Style::default()
+            };
+            if context.fonts.rtl() {
+                style.direction = taffy::Direction::Rtl;
+            }
+            let id = if run.atoms.is_empty() {
+                self.boxes
+                    .new_leaf_with_context(style, text::Intrinsic::Text(Box::new(run)))
+                    .map_err(|error| layout_error(&error))?
+            } else {
+                let children = run.atoms.iter().map(|atom| atom.id).collect::<Vec<_>>();
+                let id = self
+                    .boxes
+                    .new_with_children(style, &children)
+                    .map_err(|error| layout_error(&error))?;
+                self.boxes.flows.insert(id, std::rc::Rc::new(run));
+                id
+            };
             output.push(id);
         }
         Ok(())
@@ -1303,7 +1314,7 @@ impl Tree<'_, '_> {
         for child in node.children_it(false) {
             if block_flow
                 && !context.display.contents()
-                && self.inline_child(
+                && self.mixed_inline_child(
                     child,
                     depth.saturating_add(1),
                     variables,
@@ -1332,6 +1343,18 @@ impl Tree<'_, '_> {
                 context,
                 &mut child_boxes,
             )?;
+            if block_flow
+                && !context.display.contents()
+                && !child_boxes.is_empty()
+                && child_boxes
+                    .iter()
+                    .all(|id| self.boxes.inline_alignment.contains_key(id))
+            {
+                for id in child_boxes.drain(..) {
+                    source.append_atom(id, context)?;
+                }
+                continue;
+            }
             if !child_boxes.is_empty() {
                 let separates_text = !block_flow
                     || child_boxes.iter().try_fold(false, |separates, id| {
@@ -1414,7 +1437,6 @@ fn scene<T>(
             out_of_flow: Vec::new(),
             box_nodes: HashMap::new(),
             orders: HashMap::new(),
-            inline_atoms: HashSet::new(),
             sticky: HashMap::new(),
             translations: HashMap::new(),
             transformed: HashSet::new(),

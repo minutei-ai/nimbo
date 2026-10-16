@@ -1,0 +1,51 @@
+{
+  "date": "2026-10-16",
+  "method": "T3 collaborative browser, agent-owned incognito tab; real HTTP fixture and FontFace load; no patched geometry or external engine fallback",
+  "fixture": "crates/engine/tests/fixtures/inline-flow.txt",
+  "fixture_sha256": "0b140a78c504a109bbcdc1b66fe51fa8e3dbd2f6f2602170561bb99f43c0a459",
+  "font": "crates/engine/tests/fixtures/synthetic-font.ttf",
+  "font_sha256": "cec02137fe3fa2ef9b63e0bcd10cae0d3364ec0c863f5e59ec6541644abc1769",
+  "environment": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+    "devicePixelRatio": 2,
+    "compatMode": "CSS1Compat"
+  },
+  "checks": {
+    "font": true,
+    "strut": true,
+    "svg-wrapper": true,
+    "svg-ignored-size": true,
+    "image-wrapper": true,
+    "image-ignored-size": true,
+    "nested": true,
+    "mixed": true,
+    "center": true,
+    "right": true,
+    "wrap": true,
+    "minContent": true,
+    "maxContent": true,
+    "resize": true,
+    "fontMutation": true,
+    "detached": true,
+    "reattached": true,
+    "adjacentWrap": true,
+    "top": true,
+    "offset": true,
+    "margins": true,
+    "percent": true,
+    "containingBlock": true,
+    "overflow-visible": true,
+    "overflow-hidden": true,
+    "overflow-clip": true,
+    "textAtom": true,
+    "relative": true,
+    "flex": true,
+    "rtl": true,
+    "relativeRtl": true
+  },
+  "limitations": [
+    "Synthetic integer font metrics avoid conflating DPR-dependent font rounding with geometry; this is not general font parity.",
+    "Containing-block checks compare geometry. Chromium reports resolved top 2px for the tested relative inline atom despite its measured 20px displacement; resolved top parity is not claimed.",
+    "Eight explicit unsupported/recovery contracts run only against Nimbo."
+  ]
+}

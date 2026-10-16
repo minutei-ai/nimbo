@@ -41,8 +41,8 @@
   node.innerHTML='<i style="font-style:normal">alpha</i>';
   node.style.display='inline-block';
   node.firstElementChild.style.display='inline-block';
-  try{node.getBoundingClientRect();result.nestedAtomic=false;}
-  catch(error){result.nestedAtomic=error.message.includes('nested block inline formatting');}
+  const outer=node.getBoundingClientRect(),inner=node.firstElementChild.getBoundingClientRect();
+  result.nestedAtomic=outer.height===20&&inner.height===20&&outer.width===inner.width&&inner.width>0;
   node.style.display='block';
   node.firstElementChild.style.cssText='font-style:italic';
   result.recovery=node.getBoundingClientRect().height===20;

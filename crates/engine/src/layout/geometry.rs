@@ -50,6 +50,11 @@ impl Snapshot {
         media: &MediaEnvironment,
         work: &mut Work<'_>,
     ) -> Result<super::intersection::Observation> {
+        if self.folded_inlines.contains(&target.id)
+            || root.is_some_and(|node| self.folded_inlines.contains(&node.id))
+        {
+            return Err(unsupported("inline fragment intersection"));
+        }
         super::svg_viewport::geometry(target)?;
         if let Some(root) = root {
             super::svg_viewport::geometry(root)?;
@@ -85,13 +90,33 @@ impl View<'_> {
     pub(super) fn rect(&self, target: NodeRef<'_>) -> Result<Bounds> {
         super::svg_viewport::geometry(target)?;
         self.inline_geometry(target)?;
+        if let Some((owner, fragments)) = self.boxes.fragments.get(&target.id) {
+            let mut bounds = fragments
+                .first()
+                .cloned()
+                .ok_or_else(|| unsupported("empty inline fragments"))?;
+            for fragment in fragments.iter().skip(1) {
+                let right = (bounds.x + bounds.width).max(fragment.x + fragment.width);
+                let bottom = (bounds.y + bounds.height).max(fragment.y + fragment.height);
+                bounds.x = bounds.x.min(fragment.x);
+                bounds.y = bounds.y.min(fragment.y);
+                bounds.width = right - bounds.x;
+                bounds.height = bottom - bounds.y;
+            }
+            let parent = self.native_rect(*owner)?;
+            bounds.x += parent.x;
+            bounds.y += parent.y;
+            return Ok(bounds);
+        }
         let Some(id) = self.ids.get(&target.id) else {
             return Ok(Bounds::default());
         };
         self.native_rect(*id)
     }
     fn inline_geometry(&self, target: NodeRef<'_>) -> Result<()> {
-        if self.folded_inlines.contains(&target.id) {
+        if self.folded_inlines.contains(&target.id)
+            && !self.boxes.fragments.contains_key(&target.id)
+        {
             return Err(unsupported("inline fragment geometry"));
         }
         Ok(())
@@ -364,6 +389,9 @@ pub(crate) fn snapshot(
 }
 
 fn measure(tree: &View<'_>, target: NodeRef<'_>) -> Result<Measurement> {
+    if tree.folded_inlines.contains(&target.id) {
+        return Err(unsupported("inline fragment measurements"));
+    }
     tree.inline_geometry(target)?;
     let mut values = json!({ "offsetTop":0,"offsetLeft":0,"offsetWidth":0,"offsetHeight":0,
         "clientTop":0,"clientLeft":0,"clientWidth":0,"clientHeight":0,

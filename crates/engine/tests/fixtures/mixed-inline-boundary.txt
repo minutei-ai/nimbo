@@ -9,7 +9,7 @@
   };
   const result={};
   result.flow=rejected('<a style="white-space:pre">alpha</a><div>beta</div>','mixed inline text flow');
-  result.nestedBlock=rejected('<a>alpha<div>beta</div></a>','display formatting (inline)');
+  result.nestedBlock=rejected('<a>alpha<div>beta</div></a>','block inside inline wrapper');
   result.contents=rejected('<a>alpha</a><span style="display:contents">beta</span><div>gamma</div>','text shaping');
   node.innerHTML='<a>alpha</a><div>beta</div>';
   try { node.querySelector('a').getBoundingClientRect(); result.fragment=false; }

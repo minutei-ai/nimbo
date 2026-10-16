@@ -53,7 +53,9 @@ pub(super) struct Boxes {
     layouts: HashMap<NodeId, Layout>,
     caches: HashMap<NodeId, Cache>,
     containment: HashMap<NodeId, u8>,
-    inline_alignment: HashMap<NodeId, InlineAlignment>,
+    pub(super) inline_alignment: HashMap<NodeId, InlineAlignment>,
+    pub(super) flows: HashMap<NodeId, std::rc::Rc<super::text::Run>>,
+    pub(super) fragments: HashMap<dom_query::NodeId, (NodeId, Vec<super::Bounds>)>,
     inline_flex_items: HashMap<NodeId, Style>,
     default_style: Style,
 }
@@ -65,12 +67,11 @@ impl Boxes {
             caches: HashMap::new(),
             containment: HashMap::new(),
             inline_alignment: HashMap::new(),
+            flows: HashMap::new(),
+            fragments: HashMap::new(),
             inline_flex_items: HashMap::new(),
             default_style: Style::default(),
         }
-    }
-    pub(super) fn inline_align(&mut self, id: NodeId, alignment: InlineAlignment) {
-        self.inline_alignment.insert(id, alignment);
     }
     pub(super) fn contain(&mut self, id: NodeId, axes: u8) {
         if axes > 0 {
@@ -85,6 +86,7 @@ impl Boxes {
     pub(super) fn compute(&mut self, root: NodeId, space: Size<AvailableSpace>) {
         self.caches.clear();
         self.layouts.clear();
+        self.fragments.clear();
         self.inline_flex_items = self
             .inline_alignment
             .keys()
@@ -131,17 +133,22 @@ impl Boxes {
                     input.known_dimensions.height = Some(empty.size.height);
                 }
             }
-            let style = tree.get_core_container_style(id);
-            let mut output = match (style.display, tree.child_count(id) > 0) {
-                (Display::None, _) => taffy::compute_hidden_layout(tree, id),
-                (Display::Block, true) => taffy::compute_block_layout(tree, id, input, block),
-                (Display::FlowRoot, true) => taffy::compute_block_layout(tree, id, input, None),
-                (Display::Flex, true) => taffy::compute_flexbox_layout(tree, id, input),
-                (Display::Grid, true) => taffy::compute_grid_layout(tree, id, input),
-                (_, false) => tree.tree.get_node_context(id).map_or_else(
-                    || taffy::compute_leaf_layout(input, style, |_, _| 0.0, |_, _| Size::ZERO),
-                    |intrinsic| intrinsic.layout(input, style),
-                ),
+            let flow = tree.flows.get(&id).map(std::rc::Rc::clone);
+            let mut output = if let Some(run) = flow {
+                super::inline_flow::layout(&run, tree, id, input)
+            } else {
+                let style = tree.get_core_container_style(id);
+                match (style.display, tree.child_count(id) > 0) {
+                    (Display::None, _) => taffy::compute_hidden_layout(tree, id),
+                    (Display::Block, true) => taffy::compute_block_layout(tree, id, input, block),
+                    (Display::FlowRoot, true) => taffy::compute_block_layout(tree, id, input, None),
+                    (Display::Flex, true) => taffy::compute_flexbox_layout(tree, id, input),
+                    (Display::Grid, true) => taffy::compute_grid_layout(tree, id, input),
+                    (_, false) => tree.tree.get_node_context(id).map_or_else(
+                        || taffy::compute_leaf_layout(input, style, |_, _| 0.0, |_, _| Size::ZERO),
+                        |intrinsic| intrinsic.layout(input, style),
+                    ),
+                }
             };
             if let Some(alignment) = tree.inline_alignment.get(&id) {
                 alignment.apply(

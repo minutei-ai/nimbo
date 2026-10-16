@@ -1,0 +1,16 @@
+(()=>{
+  const checks={},root=document.createElement('section'),link=document.createElement('a'),svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  root.style.cssText='display:block;width:240px;font:20px/30px sans-serif';svg.style.cssText='display:inline-block;width:32px;height:32px';link.append(document.createTextNode('AA '),svg);root.append(link);document.body.append(root);
+  link.style.paddingLeft='4px';
+  try{link.getBoundingClientRect();checks.padding=false}catch(error){checks.padding=String(error).includes('mixed inline padding')}
+  link.style.paddingLeft='0';checks.paddingRecovery=link.getBoundingClientRect().width>32;
+  try{link.offsetWidth;checks.measurements=false}catch(error){checks.measurements=String(error).includes('inline fragment measurements')}
+  checks.measurementRecovery=link.getBoundingClientRect().width>32;
+  root.style.textTransform='uppercase';
+  try{link.getBoundingClientRect();checks.transformation=false}catch(error){checks.transformation=String(error).includes('mixed inline text transformation')}
+  root.style.textTransform='none';checks.transformRecovery=link.getBoundingClientRect().width>32;
+  root.dir='rtl';
+  try{link.getBoundingClientRect();checks.bidi=false}catch(error){checks.bidi=String(error).includes('mixed bidi inline formatting')}
+  root.dir='ltr';checks.bidiRecovery=link.getBoundingClientRect().width>32;
+  root.remove();return checks;
+})()

@@ -58,6 +58,24 @@ impl Tree<'_, '_> {
             return Ok(false);
         }
         self.visit(depth)?;
+        let computed = self.inline_context(node, &declarations, context, display)?;
+        let padding = horizontal_padding(&declarations, &computed.fonts, self.work)?;
+        let start = source.start_inline(padding.start, &computed);
+        if !self.inline_source(node, depth, &inherited, &computed, source, folded)? {
+            return Ok(false);
+        }
+        source.end_inline(start, padding.end, &computed)?;
+        source.record_inline(start, source.text.len(), &computed);
+        folded.push(node.id);
+        Ok(true)
+    }
+    fn inline_context(
+        &mut self,
+        node: NodeRef<'_>,
+        declarations: &Declarations,
+        context: &BoxContext,
+        display: crate::display::Computed,
+    ) -> Result<BoxContext> {
         let static_position = matches!(
             declarations.value("position").0.as_str(),
             "" | "static" | "initial" | "unset" | "revert"
@@ -82,7 +100,7 @@ impl Tree<'_, '_> {
             )));
         }
         let computed = context.compute(
-            &declarations,
+            declarations,
             false,
             node,
             display,
@@ -120,13 +138,76 @@ impl Tree<'_, '_> {
                 return Err(unsupported("generated content in inline text"));
             }
         }
-        let padding = horizontal_padding(&declarations, &computed.fonts, self.work)?;
-        let start = source.start_inline(padding.start, &computed);
-        if !self.inline_source(node, depth, &inherited, &computed, source, folded)? {
+        Ok(computed)
+    }
+    pub(super) fn mixed_inline_child(
+        &mut self,
+        node: NodeRef<'_>,
+        depth: usize,
+        variables: &Variables,
+        context: &BoxContext,
+        source: &mut super::text_source::Source<'_>,
+        folded: &mut Vec<NodeId>,
+    ) -> Result<bool> {
+        if node.is_text() {
+            self.visit(depth)?;
+            source.append(&node.text(), context)?;
+            return Ok(true);
+        }
+        if !node.is_element() || super::non_rendered(node) {
+            self.visit(depth)?;
+            return Ok(true);
+        }
+        let (declarations, inherited) = self.resolve_node(node, variables)?;
+        let display = context.display.compute(node, &declarations, false, false)?;
+        if display.none() {
+            self.visit(depth)?;
+            return Ok(true);
+        }
+        if display.inline_atomic() {
+            let mut items = Vec::new();
+            self.build(
+                node,
+                depth,
+                variables,
+                super::FormattingContext {
+                    display: taffy::Display::Block,
+                    context,
+                },
+                context,
+                &mut items,
+            )?;
+            for id in items {
+                source.append_atom(id, context)?;
+            }
+            return Ok(true);
+        }
+        if !crate::html_boxes::text_inline(node) || !display.inline_flow() {
             return Ok(false);
         }
+        self.visit(depth)?;
+        let computed = self.inline_context(node, &declarations, context, display)?;
+        let padding = horizontal_padding(&declarations, &computed.fonts, self.work)?;
+        let start = source.start_inline(padding.start, &computed);
+        for child in node.children_it(false) {
+            if !self.mixed_inline_child(
+                child,
+                depth.saturating_add(1),
+                &inherited,
+                &computed,
+                source,
+                folded,
+            )? {
+                return Err(unsupported("block inside inline wrapper"));
+            }
+        }
         source.end_inline(start, padding.end, &computed)?;
-        source.record_inline(start, source.text.len(), &computed);
+        source.boxes.push(super::text_source::Span {
+            start,
+            end: source.text.len(),
+            metrics: super::text::Metrics::new(&computed),
+            node: Some(node.id),
+        });
         folded.push(node.id);
         Ok(true)
     }
@@ -156,6 +237,10 @@ fn horizontal_padding(
 
 fn inert(name: &str, value: &str) -> bool {
     name == "display"
+        || matches!(
+            super::logical::group(name),
+            Some("size" | "min-size" | "max-size")
+        )
         || name.starts_with("font-")
         || name.starts_with("text-")
         || name == "line-height"

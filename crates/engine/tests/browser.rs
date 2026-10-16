@@ -6329,3 +6329,35 @@ fn atomic_inline_offsets_use_own_font_and_line_height() -> TestResult {
     );
     Ok(())
 }
+
+#[test]
+fn inline_flow_shapes_text_and_atomic_boxes_together() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/image-resources/empty"))?;
+    let result = page.evaluate(include_str!("fixtures/inline-flow.txt"))?;
+    let checks = result.as_object().ok_or("missing inline flow checks")?;
+    assert_eq!(checks.len(), 31);
+    assert!(
+        checks.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    Ok(())
+}
+
+#[test]
+fn inline_flow_keeps_unsupported_boundaries_explicit_and_recovers() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/image-resources/empty"))?;
+    let result = page.evaluate(include_str!("fixtures/inline-flow-boundaries.txt"))?;
+    let checks = result.as_object().ok_or("missing inline boundary checks")?;
+    assert_eq!(checks.len(), 8);
+    assert!(
+        checks.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    Ok(())
+}

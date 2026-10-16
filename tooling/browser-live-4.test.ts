@@ -341,12 +341,17 @@ test("real HTTP → workerd → Wasm: default fonts collapse tabs and line break
   expect(await response.json()).toMatchObject({ value: { height: 24, tab: true, newline: true } });
 });
 
+test("native inline flow places adjacent atomic boxes after text", async () => {
+  const response = await requestAtomicInline(
+    "(()=>{const p=document.createElement('section');p.style.cssText='font:16px/24px serif;width:max-content';p.append('A');document.body.append(p);const text=p.getBoundingClientRect().width;for(let i=0;i<2;i++){const e=document.createElement('div');e.style.cssText='display:inline-flex;width:20px;height:20px';p.append(e);}const box=p.getBoundingClientRect(),first=p.firstElementChild.getBoundingClientRect(),last=p.lastElementChild.getBoundingClientRect();return {width:Math.abs(box.width-text-40)<.07,first:Math.abs(first.x-box.x-text)<.07,last:Math.abs(last.x-first.x-20)<.07,aligned:first.y===last.y,height:box.height>=24};})()",
+  );
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
+    value: { width: true, first: true, last: true, aligned: true, height: true },
+  });
+});
+
 test.each([
-  [
-    "text and atomic inline boxes",
-    "const p=document.createElement('section');p.append('A');for(let i=0;i<2;i++){const e=document.createElement('div');e.style.cssText='display:inline-flex;width:20px;height:20px';p.append(e);}document.body.append(p);return p.getBoundingClientRect()",
-    "mixed atomic inline formatting",
-  ],
   [
     "vertical alignment",
     "const p=document.createElement('section'),e=document.createElement('div');e.style.cssText='display:inline-flex;vertical-align:text-bottom;width:20px;height:20px';p.append(e);document.body.append(p);return p.getBoundingClientRect()",

@@ -86,7 +86,10 @@ pub(crate) fn resolve(
         let mut content_basis = [f64::from(media.width), f64::from(media.height)];
         let mut padding_basis = content_basis;
         let mut offsets = [0.0; 4];
-        if let Some(parent) = tree.boxes.parent(*id) {
+        let parent =
+            std::iter::successors(tree.boxes.parent(*id), |parent| tree.boxes.parent(*parent))
+                .find(|parent| tree.box_nodes.contains_key(parent));
+        if let Some(parent) = parent {
             let parent_layout = tree
                 .boxes
                 .layout(parent)

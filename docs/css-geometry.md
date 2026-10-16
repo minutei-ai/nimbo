@@ -230,7 +230,7 @@ The shared `semantic-emphasis` fixture has 40 checks independently compared
 with Chromium in standards mode, covering defaults, authored rules, relative
 weights, nesting, padding, block siblings, mutation and reattachment. Native
 Rust and Worker/Wasm additionally run 15 grammar and boundary checks. Oblique
-shaping, generated inline text, fragment rectangles, nested atomic formatting,
+shaping, generated inline text, pure-text fragment rectangles,
 unsupported HTML categories and foreign namespaces retain explicit boundaries;
 recovery is checked on the same page.
 
@@ -319,8 +319,8 @@ because that version rejects the input.
 ### Middle alignment
 
 `inline-block` and `inline-flex` boxes accept `vertical-align: middle`. Taffy
-still sizes and positions the boxes. The native layout owner adjusts their
-alignment baseline using their margin-box midpoint and the actual parent's
+still sizes the boxes. The native inline formatter positions each line and
+adjusts its alignment baseline using their margin-box midpoint and the actual parent's
 x-height, read from the selected font through Harfrust/read-fonts. Missing or
 invalid x-height metadata remains an explicit error.
 
@@ -358,7 +358,8 @@ Explicit `vertical-align` lengths raise or lower the native alignment baseline;
 percentages use the atomic element's own used line-height. Font-relative units
 use its own font context, not the parent's. CSS parsing comes from Lightning CSS,
 length/math resolution from the existing native value owner, and Taffy still
-owns box sizing, line placement, wrapping and overflow. Atomic boxes without an
+owns box sizing and intrinsic measurement. The native inline formatter owns
+line placement, wrapping and overflow propagation. Atomic boxes without an
 internal baseline synthesize it at the bottom margin edge, including the lower
 margin. Inline-block scroll-container baseline policy uses the original element
 style; inline-flex retains the baseline produced by its content.
@@ -372,8 +373,8 @@ The [independent Chromium run](evidence/atomic-offsets-chromium-2026-10-16.json)
 loads the same public Liberation Sans font as the engine. Like the middle-alignment
 checks, these criteria use each runtime's measured parent strut; they do not
 assert identical font-baseline rounding.
-Inline wrappers around replaced elements, mixed text/image fragments and
-ordinary text-inline alignment still need their own formatting implementation.
+Ordinary non-replaced text-inline alignment remains unsupported. Mixed inline
+formatting and wrapper bounds are described below.
 
 The [retained-workload measurements](evidence/atomic-offsets-2026-10-16.json)
 compare against the preceding committed engine with verified Worker/Wasm hashes.
@@ -382,3 +383,52 @@ three rounds; p95 is lower in two and higher in one. These local samples do not
 establish a general speedup. The report retains all samples and process-tree
 RSS readings; Wasm grows by 2,454 bytes. The old build rejects explicit offsets,
 so this measures the existing atomic-inline path rather than new-offset throughput.
+
+## Mixed inline formatting
+
+A native inline stream carries shaped text and references to real Taffy atomic
+children. Atomic boxes keep their own display, native intrinsic sizing, margins,
+relative offsets and baseline policy. Auto-width non-replaced atomic boxes use
+native min/max-content measurements for shrink-to-fit sizing. The formatter
+breaks lines around atomic boundaries and positions each child from the measured
+line baseline; it no longer simulates lines with flex groups and strut nodes.
+Overflow propagation respects each child's native overflow and containment.
+
+Ordinary inline wrappers around those atoms have font-box fragments per line.
+`getBoundingClientRect` returns their union, including the native containing
+box's scrolling and translation. Image height does not become wrapper height.
+Percentage sizing and relative positions use the actual containing block, not
+an anonymous line box. Font selection for an empty strut uses the first
+available face for U+0020, following [CSS Fonts](https://www.w3.org/TR/css-fonts-4/#first-available-font).
+That selection does not add a glyph to the rendered text.
+
+The shared `inline-flow` fixture loads the existing synthetic font through real
+HTTP. Its integer glyph metrics avoid conflating device-scale rounding with
+layout errors. It checks 31 contracts in Rust, Worker/Wasm and Chromium:
+SVG/image wrappers, nested font sizes, mixed text, alignment, wrapping,
+intrinsic sizing, resize and font mutation, detach/reattach, adjacent atoms,
+vertical offsets, margins, percentages, relative positioning, RTL atomic order,
+visible/hidden/clipped overflow and mixed flow inside a shrinking flex item.
+The containing-block check compares actual geometry. Chromium's resolved `top` value for the tested relative inline atom is
+2px despite a measured 20px displacement; this is not asserted as CSSOM parity.
+
+Eight additional native boundary/recovery checks reject mixed inline padding,
+text transformations and mixed bidi text. Offset/client/scroll measurements of
+folded wrappers and their intersection-observer geometry remain explicit
+errors. Pure-text wrapper bounds, individual client rects, blocks inside inline
+wrappers, and unsupported text-relative alignment still need implementation.
+No child-box union, synthetic rectangle or external browser fallback supplies
+those missing capabilities.
+
+The [independent Chromium run](evidence/inline-flow-chromium-2026-10-16.json)
+records the font and fixture hashes. The [retained-path comparison](evidence/inline-flow-2026-10-16.json)
+uses a separately rebuilt preceding commit, with verified Worker/Wasm hashes,
+real HTTP, fresh pages, alternating builds and three rounds per workload.
+Both builds complete 19/19 requests in every round. Atomic candidate p50 is
+higher in all three rounds (82.00/88.54, 82.37/85.41 and 69.72/73.93 ms for
+baseline/candidate); p95 is higher in two. Ordinary-text p50 and p95 are higher
+in two rounds and lower in one. These samples do not isolate a stable source
+cost or establish a speedup. The report retains all samples, effective budgets
+and process-tree RSS; Wasm grows by 30,955 bytes. The old build rejects mixed
+inline wrappers, so these timings measure retained behavior rather than new
+mixed-flow throughput.

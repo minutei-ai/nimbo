@@ -1,0 +1,69 @@
+(async()=>{
+  const face=new FontFace('Inline Flow','url(/font-loading/font/inline.ttf)');document.fonts.add(face);await face.load();
+  const checks={font:face.status==='loaded'},widths=new Map();
+  const near=(a,b)=>Math.abs(a-b)<.07;
+  const rawWidth=(text,size)=>{
+    const e=document.createElement('div');e.style.cssText='display:block;width:max-content;font:'+size+'px/30px "Inline Flow"';e.textContent=text;document.body.append(e);const value=e.getBoundingClientRect().width;e.remove();return value;
+  };
+  const width=(text,size=20)=>{
+    const key=size+':'+text;if(widths.has(key))return widths.get(key);
+    const content=text.trim(),spaces=text.length-content.length;
+    const value=rawWidth(content,size)+spaces*(rawWidth('A A',size)-rawWidth('AA',size));widths.set(key,value);return value;
+  };
+  const root=(size=240)=>{const p=document.createElement('section');p.style.cssText='display:block;width:'+size+'px;margin:0;padding:0;border:0;font:20px/30px "Inline Flow"';document.body.append(p);return p;};
+  const marker=p=>{const e=document.createElement('span');e.style.cssText='display:inline-block;width:0;height:0;margin:0;padding:0;border:0';p.append(e);return e;};
+  const svg=(w=64,h=32)=>{const e=document.createElementNS('http://www.w3.org/2000/svg','svg');e.style.cssText='display:inline-block;width:'+w+'px;height:'+h+'px;margin:0;padding:0;border:0';return e;};
+  const image=async()=>{const e=new Image();e.style.cssText='display:inline-block;width:64px;height:32px;margin:0;padding:0;border:0';const ready=new Promise((resolve,reject)=>{e.onload=resolve;e.onerror=reject});e.src='/image-resources/small.png';await ready;return e;};
+  const box=(e,p)=>{const r=e.getBoundingClientRect(),b=p.getBoundingClientRect();return {x:r.x-b.x,y:r.y-b.y,w:r.width,h:r.height};};
+  const strut=root(),strutMarker=marker(strut),parentBaseline=box(strutMarker,strut).y,parentDescent=30-parentBaseline;strut.remove();
+  checks.strut=near(parentBaseline,21)&&near(parentDescent,9);
+  for(const kind of ['svg','image']){
+    const p=root(),a=document.createElement('a'),e=kind==='svg'?svg():await image();a.append(e);p.append(a);const m=marker(p);
+    const r=box(a,p),c=box(e,p),b=box(m,p).y;
+    checks[kind+'-wrapper']=near(r.x,0)&&near(r.y,b-16)&&near(r.w,64)&&near(r.h,20)&&near(c.y,0)&&near(c.h,32)&&near(p.getBoundingClientRect().height,32+parentDescent);
+    a.style.width='999px';a.style.height='999px';a.style.minWidth='888px';a.style.maxHeight='1px';
+    checks[kind+'-ignored-size']=near(box(a,p).w,64)&&near(box(a,p).h,20);p.remove();
+  }
+  const nested=root(),outer=document.createElement('a'),inner=document.createElement('span'),nestedSvg=svg();
+  outer.style.font='40px/50px "Inline Flow"';inner.style.font='20px/30px "Inline Flow"';inner.append(nestedSvg);outer.append(inner);nested.append(outer);const nestedMarker=marker(nested),nestedBase=box(nestedMarker,nested).y;
+  checks.nested=near(box(outer,nested).y,nestedBase-32)&&near(box(outer,nested).h,40)&&near(box(inner,nested).y,nestedBase-16)&&near(box(inner,nested).h,20)&&near(box(inner,nested).w,64)&&near(nested.getBoundingClientRect().height,50);nested.remove();
+  const p=root(),a=document.createElement('a'),e=svg(32,32);a.append(document.createTextNode('AA '),e,document.createTextNode(' B'));p.append(a);marker(p);
+  const total=()=>width('AA ')+32+width(' B');
+  checks.mixed=near(box(e,p).x,width('AA '))&&near(box(a,p).w,total())&&near(box(a,p).h,20);
+  p.style.textAlign='center';checks.center=near(box(a,p).x,(240-total())/2)&&near(box(e,p).x,(240-total())/2+width('AA '));
+  p.style.textAlign='right';checks.right=near(box(a,p).x,240-total())&&near(box(e,p).x,240-total()+width('AA '));p.style.textAlign='left';
+  p.style.width='40px';const wrappedHeight=60+32+parentDescent;
+  checks.wrap=near(box(e,p).x,0)&&near(box(e,p).y,30)&&near(p.getBoundingClientRect().height,wrappedHeight)&&near(box(a,p).y,parentBaseline-16)&&near(box(a,p).h,wrappedHeight-10);
+  p.style.width='min-content';checks.minContent=near(p.getBoundingClientRect().width,32)&&near(box(e,p).y,30);
+  p.style.width='max-content';checks.maxContent=near(p.getBoundingClientRect().width,total())&&near(box(e,p).x,width('AA '));
+  p.style.width='240px';e.style.width='16px';e.style.height='16px';checks.resize=near(box(e,p).w,16)&&near(box(a,p).w,width('AA ')+16+width(' B'))&&near(p.getBoundingClientRect().height,Math.max(parentBaseline,16)+parentDescent);
+  a.style.font='40px/50px "Inline Flow"';e.style.width='32px';e.style.height='32px';checks.fontMutation=near(box(a,p).h,40)&&near(box(e,p).x,width('AA ',40))&&near(p.getBoundingClientRect().height,50);
+  p.remove();checks.detached=near(a.getBoundingClientRect().width,0)&&near(a.getBoundingClientRect().height,0);document.body.append(p);checks.reattached=near(box(a,p).h,40)&&near(box(e,p).x,width('AA ',40));p.remove();
+  const adjacent=root(80),links=document.createElement('a'),first=svg(),second=svg(32,16);links.append(first,second);adjacent.append(links);
+  const firstRow=32+parentDescent,secondRow=parentBaseline+parentDescent;
+  checks.adjacentWrap=near(box(second,adjacent).x,0)&&near(box(second,adjacent).y,firstRow+parentBaseline-16)&&near(adjacent.getBoundingClientRect().height,firstRow+secondRow)&&near(box(links,adjacent).w,64);adjacent.remove();
+  const top=root(),topLink=document.createElement('a'),topSvg=svg();topSvg.style.verticalAlign='top';topLink.append(topSvg);top.append(topLink);const topMarker=marker(top);
+  checks.top=near(box(topSvg,top).y,0)&&near(top.getBoundingClientRect().height,32)&&near(box(topMarker,top).y,parentBaseline)&&near(box(topLink,top).y,parentBaseline-16);top.remove();
+  const shifted=root(),shiftLink=document.createElement('a'),shiftSvg=svg();shiftSvg.style.verticalAlign='-4px';shiftLink.append(shiftSvg);shifted.append(shiftLink);const shiftMarker=marker(shifted);
+  checks.offset=near(box(shiftSvg,shifted).y,0)&&near(box(shiftMarker,shifted).y,28)&&near(shifted.getBoundingClientRect().height,28+Math.max(parentDescent,4));shifted.remove();
+  const spaced=root(),spacedLink=document.createElement('a'),spacedSvg=svg();spacedSvg.style.margin='3px 7px 5px';spacedLink.append(spacedSvg);spaced.append(spacedLink);const spacedMarker=marker(spaced);
+  checks.margins=near(box(spacedSvg,spaced).x,7)&&near(box(spacedSvg,spaced).y,3)&&near(box(spacedLink,spaced).w,78)&&near(box(spacedMarker,spaced).y,40);spaced.remove();
+  const percentage=root(),percentageLink=document.createElement('a'),percentageImage=await image();percentageImage.style.width='50%';percentageImage.style.height='auto';percentageLink.append(percentageImage);percentage.append(percentageLink);
+  checks.percent=near(box(percentageImage,percentage).w,120)&&near(box(percentageImage,percentage).h,60)&&near(box(percentageLink,percentage).w,120);percentage.remove();
+  const containing=root(),containingLink=document.createElement('a'),containingSvg=document.createElement('span');containing.style.height='200px';containingSvg.style.cssText='display:inline-block;width:50%;height:25%;position:relative;left:10%;top:10%';containingLink.append(containingSvg);containing.append(containingLink);
+  checks.containingBlock=near(box(containingSvg,containing).x,24)&&near(box(containingSvg,containing).y,20)&&near(box(containingSvg,containing).w,120)&&near(box(containingSvg,containing).h,50);containing.remove();
+  for(const overflow of ['visible','hidden','clip']){
+    const viewport=root(40),link=document.createElement('a'),atom=document.createElement('div'),child=document.createElement('div');
+    atom.style.cssText='display:inline-flex;width:30px;height:20px;overflow:'+overflow;child.style.cssText='width:100px;height:60px;flex-shrink:0';atom.append(child);link.append(atom);viewport.append(link);
+    checks['overflow-'+overflow]=viewport.scrollWidth===(overflow==='visible'?100:40)&&atom.scrollWidth===100;viewport.remove();
+  }
+  const textAtom=root(),textLink=document.createElement('a'),textBox=document.createElement('div');textBox.style.cssText='display:inline-flex;font:20px/30px "Inline Flow";margin:0;padding:0;border:0';textBox.textContent='AB';textLink.append(document.createTextNode('AA '),textBox);textAtom.append(textLink);
+  checks.textAtom=near(box(textBox,textAtom).x,width('AA '))&&near(box(textBox,textAtom).w,width('AB'))&&near(textAtom.getBoundingClientRect().height,30);
+  textBox.style.cssText+=';position:relative;left:7px;top:4px';checks.relative=near(box(textBox,textAtom).x,width('AA ')+7)&&near(box(textBox,textAtom).y,4)&&near(box(textLink,textAtom).x,0)&&near(box(textLink,textAtom).w,width('AA ')+width('AB'))&&near(textAtom.getBoundingClientRect().height,30);textAtom.remove();
+  const flex=root(80),flexBody=document.createElement('section'),flexFixed=document.createElement('div'),flexLink=document.createElement('a'),flexSvg=svg(32,32);flex.style.display='flex';flexBody.style.cssText='flex:1;min-width:0';flexFixed.style.cssText='width:40px;height:10px;flex-shrink:0';flexLink.append(document.createTextNode('AA '),flexSvg,document.createTextNode(' B'));flexBody.append(flexLink);flex.append(flexBody,flexFixed);
+  checks.flex=near(box(flexBody,flex).w,40)&&near(box(flexSvg,flexBody).y,30)&&near(box(flexLink,flexBody).h,wrappedHeight-10)&&near(flex.getBoundingClientRect().height,wrappedHeight);flex.remove();
+  const rtl=root(),rtlLink=document.createElement('a'),rtlFirst=svg(),rtlSecond=svg(32,16);rtl.dir='rtl';rtlLink.append(rtlFirst,rtlSecond);rtl.append(rtlLink);
+  checks.rtl=near(box(rtlFirst,rtl).x,176)&&near(box(rtlSecond,rtl).x,144)&&near(box(rtlLink,rtl).x,144)&&near(box(rtlLink,rtl).w,96);
+  rtlFirst.style.cssText+=';position:relative;left:9px;right:3px';checks.relativeRtl=near(box(rtlFirst,rtl).x,173)&&near(box(rtlLink,rtl).x,144)&&near(box(rtlLink,rtl).w,96);rtl.remove();
+  document.fonts.delete(face);return checks;
+})()

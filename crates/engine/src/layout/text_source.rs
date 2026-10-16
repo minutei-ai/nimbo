@@ -14,6 +14,13 @@ pub(super) struct Span {
     pub start: usize,
     pub end: usize,
     pub metrics: super::text::Metrics,
+    pub node: Option<dom_query::NodeId>,
+}
+
+#[derive(Clone, Copy)]
+pub(super) struct Atom {
+    pub index: usize,
+    pub id: taffy::NodeId,
 }
 
 pub(super) struct Source<'a> {
@@ -22,6 +29,7 @@ pub(super) struct Source<'a> {
     pub padding: Vec<Padding>,
     pub spans: Vec<Span>,
     pub boxes: Vec<Span>,
+    pub atoms: Vec<Atom>,
 }
 
 impl<'a> Source<'a> {
@@ -32,6 +40,7 @@ impl<'a> Source<'a> {
             padding: Vec::new(),
             spans: Vec::new(),
             boxes: Vec::new(),
+            atoms: Vec::new(),
         }
     }
     pub(super) fn append(&mut self, text: &str, context: &super::BoxContext) -> Result<()> {
@@ -51,6 +60,7 @@ impl<'a> Source<'a> {
                 start: 0,
                 end: start,
                 metrics: super::text::Metrics::new(self.base),
+                node: None,
             });
         }
         if let Some(last) = self.spans.last_mut()
@@ -63,7 +73,18 @@ impl<'a> Source<'a> {
             start,
             end: self.text.len(),
             metrics: super::text::Metrics::new(context),
+            node: None,
         });
+        Ok(())
+    }
+    pub(super) fn append_atom(
+        &mut self,
+        id: taffy::NodeId,
+        context: &super::BoxContext,
+    ) -> Result<()> {
+        let index = self.text.len();
+        self.append("\u{fffc}", context)?;
+        self.atoms.push(Atom { index, id });
         Ok(())
     }
     pub(super) fn start_inline(
@@ -84,6 +105,7 @@ impl<'a> Source<'a> {
                 start,
                 end,
                 metrics: super::text::Metrics::new(context),
+                node: None,
             });
         }
     }
@@ -126,6 +148,7 @@ pub(super) struct Normalized {
     pub padding: Vec<Padding>,
     pub spans: Vec<Span>,
     pub boxes: Vec<Span>,
+    pub atoms: Vec<Atom>,
 }
 
 fn trim_line(
@@ -149,7 +172,11 @@ fn trim_line(
 pub(super) fn normalize(source: &Source<'_>, preserve_breaks: bool) -> Result<Normalized> {
     let raw = &source.text;
     let padding = &source.padding;
-    if padding.is_empty() && source.spans.is_empty() && source.boxes.is_empty() {
+    if padding.is_empty()
+        && source.spans.is_empty()
+        && source.boxes.is_empty()
+        && source.atoms.is_empty()
+    {
         let collapse = |line: &str| {
             line.split([' ', '\t', '\n', '\r', '\u{c}'])
                 .filter(|part| !part.is_empty())
@@ -171,6 +198,7 @@ pub(super) fn normalize(source: &Source<'_>, preserve_breaks: bool) -> Result<No
             padding: Vec::new(),
             spans: Vec::new(),
             boxes: Vec::new(),
+            atoms: Vec::new(),
         });
     }
     let (text, mappings) = mapped_whitespace(raw, preserve_breaks)?;
@@ -204,6 +232,7 @@ pub(super) fn normalize(source: &Source<'_>, preserve_breaks: bool) -> Result<No
                 start,
                 end,
                 metrics: span.metrics.clone(),
+                node: span.node,
             });
         }
     }
@@ -219,14 +248,27 @@ pub(super) fn normalize(source: &Source<'_>, preserve_breaks: bool) -> Result<No
                 .copied()
                 .ok_or_else(|| unsupported("inline text boundary"))?,
             metrics: span.metrics.clone(),
+            node: span.node,
         });
     }
     boxes.sort_by_key(|span| span.end);
+    let atoms = source
+        .atoms
+        .iter()
+        .map(|atom| {
+            let index = mappings
+                .get(atom.index)
+                .copied()
+                .ok_or_else(|| unsupported("inline atom boundary"))?;
+            Ok(Atom { index, id: atom.id })
+        })
+        .collect::<Result<Vec<_>>>()?;
     Ok(Normalized {
         text,
         padding: result,
         spans,
         boxes,
+        atoms,
     })
 }
 
