@@ -568,6 +568,12 @@ fn empty_generated_content(declarations: &Declarations) -> Result<bool> {
     Ok(strings > 0)
 }
 
+#[derive(Clone, Copy)]
+struct FormattingContext<'a> {
+    display: Display,
+    context: &'a BoxContext,
+}
+
 #[derive(Clone)]
 struct BoxContext {
     fonts: crate::fonts::Context,
@@ -887,8 +893,8 @@ impl Tree<'_, '_> {
         node: NodeRef<'_>,
         depth: usize,
         parent: &Variables,
-        parent_display: Display,
-        context: &BoxContext,
+        formatting: FormattingContext<'_>,
+        parent_context: &BoxContext,
         output: &mut Vec<taffy::NodeId>,
     ) -> Result<()> {
         self.visit(depth)?;
@@ -907,15 +913,15 @@ impl Tree<'_, '_> {
             return Ok(());
         }
         let (declarations, variables) = self.resolve_node(node, parent)?;
-        let display = context
+        let display = parent_context
             .display
             .compute(node, &declarations, depth == 0, false)?;
         if display.none() {
             return Ok(());
         }
-        let display = context.validate_display(node, &declarations, display)?;
+        let display = parent_context.validate_display(node, &declarations, display)?;
         if display.contents() {
-            let context = context.compute(
+            let context = parent_context.compute(
                 &declarations,
                 false,
                 node,
@@ -923,9 +929,9 @@ impl Tree<'_, '_> {
                 &self.fonts.borrow(),
                 self.work,
             )?;
-            return self.children(node, depth, &variables, parent_display, &context, output);
+            return self.children(node, depth, &variables, formatting, &context, output);
         }
-        let context = context.compute(
+        let context = parent_context.compute(
             &declarations,
             depth == 0,
             node,
@@ -954,7 +960,7 @@ impl Tree<'_, '_> {
         let containing = self.containing_block(node, position, &declarations, &fonts)?;
         let id = self.build_box(node, depth, &variables, &context, style, svg)?;
         self.record_box(node.id, id, position, &declarations, &fonts)?;
-        self.remember_inline_item(id, &context);
+        self.remember_inline_item(id, &context, formatting.context, &declarations)?;
         if out_of_flow {
             if position == "fixed" && containing.is_some() {
                 self.fixed.remove(&node.id);
@@ -1014,7 +1020,10 @@ impl Tree<'_, '_> {
                 node,
                 depth,
                 variables,
-                style.display,
+                FormattingContext {
+                    display: style.display,
+                    context,
+                },
                 context,
                 &mut children,
             )?;
@@ -1262,7 +1271,7 @@ impl Tree<'_, '_> {
         node: NodeRef<'_>,
         depth: usize,
         variables: &Variables,
-        parent_display: Display,
+        formatting: FormattingContext<'_>,
         context: &BoxContext,
         output: &mut Vec<taffy::NodeId>,
     ) -> Result<()> {
@@ -1270,14 +1279,14 @@ impl Tree<'_, '_> {
             node,
             crate::cascade::Generated::Before,
             variables,
-            parent_display,
+            formatting.display,
             depth.saturating_add(1),
             context,
         )? {
             output.push(before);
         }
-        let anonymous = matches!(parent_display, Display::Flex | Display::Grid);
-        let block_flow = matches!(parent_display, Display::Block | Display::FlowRoot);
+        let anonymous = matches!(formatting.display, Display::Flex | Display::Grid);
+        let block_flow = matches!(formatting.display, Display::Block | Display::FlowRoot);
         let mut source = text_source::Source::new(context);
         let mut folded = Vec::new();
         let mut child_boxes = Vec::new();
@@ -1309,7 +1318,7 @@ impl Tree<'_, '_> {
                 child,
                 depth.saturating_add(1),
                 variables,
-                parent_display,
+                formatting,
                 context,
                 &mut child_boxes,
             )?;
@@ -1337,14 +1346,14 @@ impl Tree<'_, '_> {
             node,
             crate::cascade::Generated::After,
             variables,
-            parent_display,
+            formatting.display,
             depth.saturating_add(1),
             context,
         )? {
             output.push(after);
         }
         self.folded_inlines.extend(folded);
-        if matches!(parent_display, Display::Flex | Display::Grid) {
+        if matches!(formatting.display, Display::Flex | Display::Grid) {
             output.sort_by_key(|id| self.orders.get(id).copied().unwrap_or_default());
         }
         Ok(())
@@ -1418,12 +1427,16 @@ fn scene<T>(
         };
         tree.boxes.disable_rounding();
         let mut root_ids = Vec::new();
+        let initial_context = BoxContext::initial(media);
         tree.build(
             root,
             0,
             &root_variables,
-            Display::Block,
-            &BoxContext::initial(media),
+            FormattingContext {
+                display: Display::Block,
+                context: &initial_context,
+            },
+            &initial_context,
             &mut root_ids,
         )?;
         if let Some(root_id) = root_ids.first().copied() {

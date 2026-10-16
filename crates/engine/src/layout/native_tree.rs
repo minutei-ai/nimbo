@@ -4,10 +4,11 @@ use std::{
     collections::{HashMap, HashSet},
     ops::{Deref, DerefMut},
 };
+use taffy::util::ResolveOrZero;
 use taffy::{
     BlockContext, Cache, CacheTree, LayoutBlockContainer, LayoutFlexboxContainer,
-    LayoutGridContainer, LayoutInput, LayoutOutput, LayoutPartialTree, RequestedAxis, RunMode,
-    TraversePartialTree, TraverseTree, prelude::*,
+    LayoutGridContainer, LayoutInput, LayoutOutput, LayoutPartialTree, Overflow, RequestedAxis,
+    RunMode, TraversePartialTree, TraverseTree, prelude::*,
 };
 
 pub(super) struct Boxes {
@@ -16,6 +17,8 @@ pub(super) struct Boxes {
     caches: HashMap<NodeId, Cache>,
     containment: HashMap<NodeId, u8>,
     inline_blocks: HashSet<NodeId>,
+    inline_middle: HashMap<NodeId, f32>,
+    inline_flex_items: HashMap<NodeId, Style>,
     default_style: Style,
 }
 impl Boxes {
@@ -26,11 +29,16 @@ impl Boxes {
             caches: HashMap::new(),
             containment: HashMap::new(),
             inline_blocks: HashSet::new(),
+            inline_middle: HashMap::new(),
+            inline_flex_items: HashMap::new(),
             default_style: Style::default(),
         }
     }
     pub(super) fn inline_block(&mut self, id: NodeId) {
         self.inline_blocks.insert(id);
+    }
+    pub(super) fn inline_middle(&mut self, id: NodeId, x_height: f32) {
+        self.inline_middle.insert(id, x_height);
     }
     pub(super) fn contain(&mut self, id: NodeId, axes: u8) {
         if axes > 0 {
@@ -45,6 +53,19 @@ impl Boxes {
     pub(super) fn compute(&mut self, root: NodeId, space: Size<AvailableSpace>) {
         self.caches.clear();
         self.layouts.clear();
+        self.inline_flex_items = self
+            .inline_middle
+            .keys()
+            .filter_map(|id| {
+                let style = self.get_core_container_style(*id);
+                if !style.overflow.y.is_scroll_container() {
+                    return None;
+                }
+                let mut item = style.clone();
+                item.overflow.y = Overflow::Clip;
+                Some((*id, item))
+            })
+            .collect();
         taffy::compute_root_layout(self, root, space);
     }
     fn dispatch(
@@ -92,6 +113,17 @@ impl Boxes {
             };
             if tree.inline_blocks.contains(&id) {
                 output.baselines.first = output.baselines.last;
+            }
+            if let Some(x_height) = tree.inline_middle.get(&id) {
+                let margin = tree
+                    .get_core_container_style(id)
+                    .margin
+                    .resolve_or_zero(input.parent_size.width, |_, _| 0.0);
+                let baseline = (output.size.height + margin.bottom - margin.top + x_height) / 2.0;
+                output.baselines = taffy::Baselines {
+                    first: Some(baseline),
+                    last: Some(baseline),
+                };
             }
             output
         })
@@ -173,7 +205,9 @@ impl LayoutFlexboxContainer for Boxes {
         self.get_core_container_style(id)
     }
     fn get_flexbox_child_style(&self, id: NodeId) -> &Style {
-        self.get_core_container_style(id)
+        self.inline_flex_items
+            .get(&id)
+            .unwrap_or_else(|| self.get_core_container_style(id))
     }
 }
 impl LayoutGridContainer for Boxes {

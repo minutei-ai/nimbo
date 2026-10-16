@@ -349,7 +349,7 @@ test.each([
   ],
   [
     "vertical alignment",
-    "const p=document.createElement('section'),e=document.createElement('div');e.style.cssText='display:inline-flex;vertical-align:middle;width:20px;height:20px';p.append(e);document.body.append(p);return p.getBoundingClientRect()",
+    "const p=document.createElement('section'),e=document.createElement('div');e.style.cssText='display:inline-flex;vertical-align:text-bottom;width:20px;height:20px';p.append(e);document.body.append(p);return p.getBoundingClientRect()",
     "atomic inline vertical alignment",
   ],
   [

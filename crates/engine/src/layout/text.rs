@@ -90,6 +90,39 @@ impl Typography {
         )?;
         crate::font_data::measure(&font, "0", fonts.size()).map_err(unsupported)
     }
+    pub(super) fn x_height(
+        &self,
+        fonts: &crate::fonts::Context,
+        family: &crate::font_family::Family,
+        arena: &crate::font_data::Arena,
+        work: &mut super::Work<'_>,
+    ) -> Result<f32> {
+        work.charge()?;
+        let font = arena.select(
+            format!(
+                "{} {} {}px {}",
+                self.traits
+                    .style
+                    .to_css_string(PrinterOptions::default())
+                    .map_err(|error| crate::Error::Dom(error.to_string()))?,
+                self.traits.weight,
+                fonts.size(),
+                family.value()?
+            ),
+            "",
+        )?;
+        let metrics = font.metrics();
+        let height = metrics
+            .x_height
+            .ok_or_else(|| unsupported("font x-height"))?
+            .to_f64()
+            * fonts.size()
+            / f64::from(metrics.units_per_em);
+        height
+            .to_f32()
+            .filter(|value| value.is_finite() && *value > 0.0)
+            .ok_or_else(|| unsupported("font x-height range"))
+    }
     pub(super) fn compute(
         &self,
         declarations: &Declarations,

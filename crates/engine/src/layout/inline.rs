@@ -18,9 +18,13 @@ pub(super) fn atomic_style(
     // Top aligns to the line box top, which is the flex line start. Bottom
     // alignment moves the baseline set when it is taller, so it stays unsupported.
     let alignment = match declarations.value("vertical-align").0.as_str() {
-        value if baseline(value) => None,
+        value if baseline(value) || value == "middle" => None,
         "top" => Some(AlignItems::FLEX_START),
-        _ => return Err(unsupported("atomic inline vertical alignment")),
+        value => {
+            return Err(unsupported(&format!(
+                "atomic inline vertical alignment ({value})"
+            )));
+        }
     };
     style.flex_grow = 0.0;
     style.flex_basis = Dimension::AUTO;
@@ -37,7 +41,13 @@ pub(super) fn atomic_style(
 }
 
 impl Tree<'_, '_> {
-    pub(super) fn remember_inline_item(&mut self, id: NodeId, context: &BoxContext) {
+    pub(super) fn remember_inline_item(
+        &mut self,
+        id: NodeId,
+        context: &BoxContext,
+        parent: &BoxContext,
+        declarations: &Declarations,
+    ) -> Result<()> {
         self.orders.insert(id, context.order);
         if context.display.inline_atomic() {
             self.inline_atoms.insert(id);
@@ -48,7 +58,17 @@ impl Tree<'_, '_> {
             {
                 self.boxes.inline_block(id);
             }
+            if declarations.value("vertical-align").0 == "middle" {
+                let height = parent.typography.x_height(
+                    &parent.fonts,
+                    &parent.family,
+                    &self.fonts.borrow(),
+                    self.work,
+                )?;
+                self.boxes.inline_middle(id, height);
+            }
         }
+        Ok(())
     }
     pub(super) fn leaf(
         &mut self,

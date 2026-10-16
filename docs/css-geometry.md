@@ -111,9 +111,9 @@ the first strong character of descendant text in tree order. It skips script,
 style, textarea and bdi elements and descendants with their own `dir`, and
 falls back to `ltr`. `text-align` `left`, `right`, `center`, `start` and `end`
 place atomic inline boxes on each line, with `start`/`end` resolved against
-the box's direction. Atomic inlines accept `vertical-align: baseline` and
-`top`. Chromium moves the baseline-aligned set when a taller box is
-bottom-aligned, so `bottom`, `middle` and text-relative values fail
+the box's direction. Atomic inlines accept `vertical-align: baseline`,
+`top` and `middle`. Chromium moves the baseline-aligned set when a taller box is
+bottom-aligned, so `bottom` and other text-relative values fail
 explicitly. Inline fragment geometry, `justify`, transitions of
 logical properties under `rtl`, and vertical or sideways writing modes stay
 unsupported.
@@ -312,3 +312,40 @@ complete 19/19 requests per round. Baseline/candidate p50 values are
 Wasm grows by 331 bytes. RSS measures process-tree memory after requests, not
 peak memory or page heap. The new static-inset path has no equivalent baseline
 because that version rejects the input.
+
+## Middle alignment of atomic inline boxes
+
+`inline-block` and `inline-flex` boxes accept `vertical-align: middle`. Taffy
+still sizes and positions the boxes. The native layout owner adjusts their
+alignment baseline using their margin-box midpoint and the actual parent's
+x-height, read from the selected font through Harfrust/read-fonts. Missing or
+invalid x-height metadata remains an explicit error.
+
+Font inheritance and the parent formatting box remain distinct through
+`display: contents`. Clipped middle-aligned boxes use a separate native
+flex-item style view to avoid flex scroll-container baseline clamping; their
+own layout, clipping and programmatic scrolling keep the original style.
+That view is derived afresh for every layout compute, including percentage
+padding resolution. This follows the
+[CSS vertical-alignment contract](https://www.w3.org/TR/CSS22/visudet.html#propdef-vertical-align).
+
+The shared `atomic-middle` fixture checks 37 cases in Rust, Worker/Wasm and
+Chromium in standards mode: three explicit Liberation families, margins,
+different child fonts, borders, percentage padding, clipping and scrolling,
+intrinsic sizing, resize, reattachment, parent-font changes, buttons,
+multiple boxes, wrapping, mixed baselines and contents. Its geometric criteria
+use each runtime's independently measured parent strut and the font profile's
+x-height; they do not assert identical absolute font-baseline rounding.
+Middle alignment of ordinary text inlines and other unsupported alignment
+values retain their existing boundaries.
+
+The [retained-path comparison](evidence/atomic-middle-2026-10-16.json)
+uses the same baseline-aligned atomic boxes in both builds, real local HTTP,
+alternating versions and three rounds of 3 warmups plus 16 measured requests.
+Both builds complete 19/19 requests per round. Baseline/candidate p50 values
+are 84.89/91.94, 79.08/90.61 and 66.47/68.83 ms; p95 values are
+116.86/110.52, 103.87/121.35 and 101.45/90.77 ms. Candidate p50 is higher
+in all three rounds; this small local comparison does not isolate the cause
+or establish a stable latency delta. This change claims coverage, not a
+speedup. Wasm grows by 8,311 bytes. Middle alignment itself has no equivalent
+baseline because that version rejects the input.

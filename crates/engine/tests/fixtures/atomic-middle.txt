@@ -1,0 +1,54 @@
+(() => {
+  const checks={};
+  const near=(a,b)=>Math.abs(a-b)<0.025;
+  const families=[['Liberation Serif',940],['Liberation Sans',1082],['Liberation Mono',1082]];
+  const make=(family,size=16,line=24)=>{const p=document.createElement('section');p.style.cssText='display:block;width:200px;padding:0;border:0;margin:0;font:'+size+'px/'+line+'px "'+family+'"';document.body.append(p);return p;};
+  const verify=(p,e,base,line,xheight,mt,mb)=>{
+    const r=p.getBoundingClientRect(),b=e.getBoundingClientRect(),h=b.height+mt+mb;
+    const ascent=(h+xheight)/2,baseline=Math.max(base,ascent);
+    return near(b.top-r.top,baseline-ascent+mt) && near(r.height,baseline+Math.max(line-base,h-ascent));
+  };
+  for(const [family,units] of families){
+    const reference=make(family);reference.innerHTML='<span style="display:inline-block;width:0;height:0"></span>';
+    const base=reference.firstChild.getBoundingClientRect().top-reference.getBoundingClientRect().top;reference.remove();
+    for(const display of ['inline-block','inline-flex']){
+      for(const height of [10,20,40,60]){
+        const p=make(family),e=document.createElement('div');
+        const mt=height===20?3:height===40?-2:0,mb=height===20?5:height===40?-4:0;
+        e.style.cssText='display:'+display+';width:30px;height:'+height+'px;margin:'+mt+'px 0 '+mb+'px;vertical-align:middle;font-size:32px';p.append(e);
+        checks[family+'-'+display+'-'+height]=verify(p,e,base,24,16*units/2048,mt,mb);p.remove();
+      }
+    }
+  }
+  const reference=make('Liberation Serif',32,40);reference.innerHTML='<span style="display:inline-block;width:0;height:0"></span>';
+  const base=reference.firstChild.getBoundingClientRect().top-reference.getBoundingClientRect().top;reference.remove();
+  const p=make('Liberation Serif',32,40),e=document.createElement('div');e.style.cssText='display:inline-block;width:30px;height:10px;vertical-align:middle;overflow:hidden';p.append(e);
+  checks.clippingBlock=verify(p,e,base,40,32*940/2048,0,0);e.style.display='inline-flex';
+  const child=document.createElement('div');child.style.cssText='width:1px;height:80px';e.append(child);
+  e.scrollTop=7;
+  checks.clipping=verify(p,e,base,40,32*940/2048,0,0) && e.scrollHeight===80 && e.scrollTop===7 && near(child.getBoundingClientRect().top-e.getBoundingClientRect().top,-7);p.remove();
+  const parent=make('Liberation Serif');const reference2=make('Liberation Serif');reference2.innerHTML='<span style="display:inline-block;width:0;height:0"></span>';
+  const base2=reference2.firstChild.getBoundingClientRect().top-reference2.getBoundingClientRect().top;reference2.remove();
+  const item=document.createElement('div');item.style.cssText='display:inline-block;width:30px;height:30px;vertical-align:middle;border:2px solid black;padding:3px;box-sizing:border-box';parent.append(item);
+  checks.edges=near(item.getBoundingClientRect().height,30) && verify(parent,item,base2,24,16*940/2048,0,0);
+  item.style.cssText='display:inline-block;width:30px;height:10px;vertical-align:middle;padding:10%;overflow:hidden;box-sizing:border-box';
+  checks.percentagePadding=near(item.getBoundingClientRect().height,40) && verify(parent,item,base2,24,16*940/2048,0,0);
+  item.style.cssText='display:inline-flex;vertical-align:middle;font:32px/40px "Liberation Serif"';item.textContent='AB';
+  checks.intrinsic=near(item.getBoundingClientRect().height,40) && verify(parent,item,base2,24,16*940/2048,0,0);
+  item.style.height='60px';checks.resize=verify(parent,item,base2,24,16*940/2048,0,0);
+  parent.remove();document.body.append(parent);checks.reattach=verify(parent,item,base2,24,16*940/2048,0,0);
+  parent.style.fontSize='32px';const larger=make('Liberation Serif',32,24);larger.innerHTML='<span style="display:inline-block;width:0;height:0"></span>';
+  const largerBase=larger.firstChild.getBoundingClientRect().top-larger.getBoundingClientRect().top;larger.remove();
+  checks.parentFont=verify(parent,item,largerBase,24,32*940/2048,0,0);parent.remove();
+  const bp=make('Liberation Serif'),button=document.createElement('button');button.style.cssText='display:inline-block;vertical-align:middle;width:30px;height:30px;border:0;padding:0;font:16px/20px "Liberation Serif"';button.textContent='AB';bp.append(button);
+  checks.button=verify(bp,button,base2,24,16*940/2048,0,0);bp.remove();
+  const row=make('Liberation Serif'),first=document.createElement('div'),second=document.createElement('div');
+  first.style.cssText='display:inline-flex;vertical-align:middle;width:30px;height:40px';second.style.cssText='display:inline-flex;vertical-align:middle;width:30px;height:10px';row.append(first,second);
+  checks.multiple=near(row.getBoundingClientRect().height,40) && near(second.getBoundingClientRect().top-first.getBoundingClientRect().top,15);
+  row.style.width='35px';checks.wrap=near(row.getBoundingClientRect().height,64) && near(second.getBoundingClientRect().top-row.getBoundingClientRect().top,40+base2-(10+16*940/2048)/2);
+  row.style.width='200px';second.style.cssText='display:inline-flex;vertical-align:baseline;width:30px;height:50px';
+  checks.mixed=near(first.getBoundingClientRect().top-row.getBoundingClientRect().top,50-(40+16*940/2048)/2) && near(row.getBoundingClientRect().height,50+(40-16*940/2048)/2);row.remove();
+  const container=make('Liberation Serif'),contents=document.createElement('div'),atom=document.createElement('div');contents.style.cssText='display:contents;font-size:32px';atom.style.cssText='display:inline-flex;vertical-align:middle;width:30px;height:40px';contents.append(atom);container.append(contents);
+  checks.contents=verify(container,atom,base2,24,16*940/2048,0,0);container.remove();
+  return checks;
+})()

@@ -972,3 +972,23 @@ test("static inline inset validation preserves positioned boundaries and recover
   expect(Object.keys(checks)).toHaveLength(6);
   expect(Object.values(checks).every((check) => check)).toBe(true);
 });
+
+const atomicMiddle = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/atomic-middle.txt", import.meta.url),
+).text();
+
+test("atomic middle alignment uses parent font metrics and native baselines", async () => {
+  const url = new URL("geometry-empty", origin.url).href;
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({ url, expression: atomicMiddle }),
+  });
+  expect(response.status).toBe(200);
+  const result = Schema.decodeUnknownSync(Success)(await response.json());
+  const checks = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Boolean))(
+    result.value,
+  );
+  expect(Object.keys(checks)).toHaveLength(37);
+  expect(Object.values(checks).every((check) => check)).toBe(true);
+});

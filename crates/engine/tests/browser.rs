@@ -6045,3 +6045,19 @@ fn static_inline_insets_preserve_flow_and_scrollable_geometry() -> TestResult {
     );
     Ok(())
 }
+
+#[test]
+fn atomic_middle_alignment_uses_parent_font_metrics_and_native_baselines() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/empty-layout"))?;
+    let result = page.evaluate(include_str!("fixtures/atomic-middle.txt"))?;
+    let checks = result.as_object().ok_or("missing atomic middle checks")?;
+    assert_eq!(checks.len(), 37);
+    assert!(
+        checks.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    Ok(())
+}
