@@ -123,7 +123,7 @@ pub(crate) struct Machine {
     pending: Rc<RefCell<VecDeque<Request>>>,
     scripts: VecDeque<Script>,
     script_events: VecDeque<(usize, bool)>,
-    image_events: VecDeque<(usize, usize)>,
+    image_events: VecDeque<(usize, usize, bool)>,
     modules: Modules,
     module_root: Option<String>,
     module_evaluations: HashMap<String, Persistent<Promise<'static>>>,
@@ -703,11 +703,11 @@ impl Machine {
                 continue;
             }
             if (!matches!(self.phase, Phase::Scripts) || self.blocked.is_some())
-                && let Some((handle, generation)) = self.image_events.pop_front()
+                && let Some((handle, generation, success)) = self.image_events.pop_front()
             {
-                let current = self.dom.borrow().image_error_current(handle, generation)?;
+                let current = self.dom.borrow().image_event_current(handle, generation)?;
                 if current {
-                    self.resource_event(handle, false)?;
+                    self.resource_event(handle, success)?;
                 }
                 continue;
             }
@@ -727,22 +727,11 @@ impl Machine {
                 return Ok(action);
             }
             let image = self.dom.borrow_mut().next_image()?;
-            if let Some(crate::images::Action::Error { owner, generation }) = image {
-                let handle = self.dom.borrow_mut().handle(owner);
-                self.image_events.push_back((handle, generation));
+            if let Some(image) = image {
+                if let Some(action) = self.image_step(image)? {
+                    return Ok(action);
+                }
                 continue;
-            }
-            if let Some(crate::images::Action::Request { owner, url }) = image {
-                let handle = self.dom.borrow_mut().handle(owner);
-                return Ok(self.activate(
-                    Request {
-                        url,
-                        method: "GET".into(),
-                        body: String::new(),
-                        purpose: RequestPurpose::Image(handle),
-                    },
-                    true,
-                ));
             }
             let request = self.pending.borrow_mut().pop_front();
             if let Some(request) = request {
@@ -793,6 +782,36 @@ impl Machine {
                         return Ok(action);
                     }
                 }
+            }
+        }
+    }
+
+    fn image_step(&mut self, action: crate::images::Action) -> Result<Option<Action>> {
+        match action {
+            crate::images::Action::Error { owner, generation } => {
+                let handle = self.dom.borrow_mut().handle(owner);
+                self.image_events.push_back((handle, generation, false));
+                Ok(None)
+            }
+            crate::images::Action::Inline { owner, generation } => {
+                let handle = self.dom.borrow_mut().handle(owner);
+                let success = self.dom.borrow_mut().image_response(handle, None)?;
+                if let Some(success) = success {
+                    self.image_events.push_back((handle, generation, success));
+                }
+                Ok(None)
+            }
+            crate::images::Action::Request { owner, url } => {
+                let handle = self.dom.borrow_mut().handle(owner);
+                Ok(Some(self.activate(
+                    Request {
+                        url,
+                        method: "GET".into(),
+                        body: String::new(),
+                        purpose: RequestPurpose::Image(handle),
+                    },
+                    true,
+                )))
             }
         }
     }

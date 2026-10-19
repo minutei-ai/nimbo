@@ -13,6 +13,13 @@ attributes. The engine decodes PNG, JPEG, GIF, WebP and ICO through the pinned `
 crate, retains only intrinsic dimensions and applies JPEG EXIF orientation.
 Animated formats use their first frame; decoded pixels are discarded.
 
+Image sources also accept `data:` URLs through the pinned `data-url` parser,
+including base64 and percent-encoded bodies. The page decodes them without a
+network request. Both the source bytes and decoded pixels are bounded by
+`maxResponseBytes`. Invalid data URLs and non-image bodies dispatch `error`;
+quota failures end extraction. Parser scripts can install listeners before
+inline image events are delivered, and source changes invalidate queued events.
+
 Density descriptors use the pinned `parse-srcset` parser and the engine's fixed
 `devicePixelRatio` of 1. Density correction also applies to natural dimensions.
 A valid `src` supplies the 1x fallback when the candidate list does not contain one.
@@ -105,6 +112,11 @@ its DPR is 2, so the fallback case verifies each engine's effective selection
 rather than requiring the same selected URL at different DPRs. Separate tests
 cover decoded-output quotas, a page without initial image tags and parser-time
 empty-source errors. Fixtures contain generated images only.
+
+The shared `image-data.txt` fixture covers parser-time events, detached images,
+base64, percent encoding, fragments, invalid bodies, source replacement and
+density correction. Separate native and Worker cases exercise the inline source
+byte limit.
 
 [Resource-loading measurements](evidence/image-resources-2026-10-16.json) record
 the codec addition. [Intrinsic-layout measurements](evidence/image-layout-2026-10-16.json)

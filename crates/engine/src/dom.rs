@@ -753,11 +753,20 @@ impl Dom {
         };
         Ok(request)
     }
-    pub(crate) fn image_error_current(&self, handle: usize, generation: usize) -> Result<bool> {
+    pub(crate) fn image_event_current(&self, handle: usize, generation: usize) -> Result<bool> {
         let id = self.node_id(handle)?;
+        let base = self.base_href()?;
+        let node = self
+            .document
+            .tree
+            .get(&id)
+            .ok_or_else(|| Error::Dom("missing image owner".into()))?;
         Ok(
             self.documents.owner(&self.document, id) == self.document.root().id
-                && self.images.borrow().error_current(id, generation),
+                && self
+                    .images
+                    .borrow()
+                    .event_current(node, base.as_deref(), generation)?,
         )
     }
     pub(crate) fn image_response(

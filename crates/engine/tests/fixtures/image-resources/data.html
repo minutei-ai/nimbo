@@ -1,0 +1,17 @@
+<!doctype html>
+<img
+  id="inline"
+  src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAQCAIAAAD4YuoOAAAAIElEQVR4nGOUiG5hoCVgoqnpoxaMWjBqwagFoxZQCQAAPoABFyfb9jYAAAAASUVORK5CYII="
+/><img id="invalid" src="data:image/png;base64,%%%" /><img
+  id="swapped"
+  src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAQCAIAAAD4YuoOAAAAIElEQVR4nGOUiG5hoCVgoqnpoxaMWjBqwagFoxZQCQAAPoABFyfb9jYAAAAASUVORK5CYII="
+/>
+<script>
+  globalThis.imageEvents = [];
+  for (const id of ["inline", "invalid", "swapped"]) {
+    const image = document.getElementById(id);
+    for (const event of ["load", "error"])
+      image.addEventListener(event, () => imageEvents.push(id + ":" + event));
+  }
+  document.getElementById("swapped").src = "data:image/png;base64,%%%";
+</script>

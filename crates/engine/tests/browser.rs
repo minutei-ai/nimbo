@@ -1935,6 +1935,15 @@ fn registered_custom_properties_validate_before_substitution() -> TestResult {
 }
 
 fn serve_image_resources(request: Request) -> io::Result<()> {
+    if request.url() == "/image-resources/data" {
+        return respond(
+            request,
+            include_str!("fixtures/image-resources/data.html").into(),
+            200,
+            "text/html",
+            Vec::new(),
+        );
+    }
     if request.url() == "/image-resources/empty-source" {
         return respond(
             request,
@@ -6325,6 +6334,60 @@ fn image_resources_decode_select_density_and_preserve_pending_state() -> TestRes
         checks.values().all(|value| *value == json!(true)),
         "{result}"
     );
+    Ok(())
+}
+
+#[test]
+fn image_data_urls_decode_and_dispatch_bounded_resource_events() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = Browser::new(
+        &fixture.url,
+        Limits {
+            max_requests: 1,
+            ..Limits::default()
+        },
+    )?;
+    let page = browser.navigate(&fixture.path("/image-resources/data"))?;
+    let result = page.evaluate(include_str!("fixtures/image-data.txt"))?;
+    let checks = result.as_object().ok_or("missing inline image checks")?;
+    assert_eq!(checks.len(), 12);
+    assert!(
+        checks.values().all(|value| *value == json!(true)),
+        "{result}"
+    );
+    Ok(())
+}
+
+#[test]
+fn image_data_urls_bound_decoded_source_bytes() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = Browser::new(
+        &fixture.url,
+        Limits {
+            max_response_bytes: 256,
+            ..Limits::default()
+        },
+    )?;
+    let page = browser.navigate(&fixture.path("/image-resources/empty"))?;
+    assert!(matches!(page.evaluate("new Promise(resolve=>{const image=new Image();image.onload=resolve;image.onerror=resolve;image.src='data:,'+'x'.repeat(257)})"), Err(Error::Limit("image data bytes"))));
+    Ok(())
+}
+
+#[test]
+fn image_data_urls_bound_decoded_pixel_bytes() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = Browser::new(
+        &fixture.url,
+        Limits {
+            max_response_bytes: 256,
+            ..Limits::default()
+        },
+    )?;
+    let page = browser.navigate(&fixture.path("/image-resources/empty"))?;
+    assert!(matches!(
+        page.evaluate(include_str!("fixtures/image-data-pixel-limit.txt")),
+        Err(Error::Limit("decoded image bytes"))
+    ));
     Ok(())
 }
 

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { origin, requests, worker } from "./browser-live-setup";
+import { comparePage, comparisonBinary, origin, requests, worker } from "./browser-live-setup";
 import { Schema } from "effect";
 import { Success } from "@nimbo/client/schema";
 
@@ -1013,6 +1013,64 @@ test("image resources decode, select density and retain pending state", async ()
   );
   expect(Object.keys(checks)).toHaveLength(27);
   expect(Object.values(checks).every((check) => check)).toBe(true);
+});
+
+const imageData = await Bun.file(
+  new URL("../crates/engine/tests/fixtures/image-data.txt", import.meta.url),
+).text();
+
+test("inline image data URLs decode and dispatch resource events", async () => {
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url: new URL("image-resources/data", origin.url).href,
+      expression: imageData,
+      maxRequests: 1,
+    }),
+  });
+  expect(response.status).toBe(200);
+  const result = Schema.decodeUnknownSync(Success)(await response.json());
+  const checks = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Boolean))(
+    result.value,
+  );
+  expect(Object.keys(checks)).toHaveLength(12);
+  expect(Object.values(checks).every((check) => check)).toBe(true);
+  if (comparisonBinary)
+    expect(result.value).toEqual(
+      await comparePage(new URL("image-resources/data-comparison", origin.url).href),
+    );
+});
+
+test("inline image data URLs enforce source byte limits", async () => {
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url: new URL("image-resources/empty", origin.url).href,
+      expression:
+        "new Promise(resolve=>{const image=new Image();image.onload=resolve;image.onerror=resolve;image.src='data:,'+'x'.repeat(257)})",
+      maxResponseBytes: 256,
+    }),
+  });
+  expect(response.status).toBe(422);
+  expect(await response.json()).toEqual({ error: "resource limit: image data bytes" });
+});
+
+test("inline image data URLs enforce decoded pixel limits", async () => {
+  const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+    method: "POST",
+    headers: { authorization: "Bearer test-secret" },
+    body: JSON.stringify({
+      url: new URL("image-resources/empty", origin.url).href,
+      expression: await Bun.file(
+        new URL("../crates/engine/tests/fixtures/image-data-pixel-limit.txt", import.meta.url),
+      ).text(),
+      maxResponseBytes: 256,
+    }),
+  });
+  expect(response.status).toBe(422);
+  expect(await response.json()).toEqual({ error: "resource limit: decoded image bytes" });
 });
 
 test("image resources enforce decoded pixel memory", async () => {
