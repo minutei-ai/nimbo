@@ -1,0 +1,30 @@
+<!doctype html>
+<script>
+  globalThis.scriptTrace = [];
+  globalThis.scriptErrors = [];
+  globalThis.scriptLoads = 0;
+  addEventListener("error", (event) =>
+    scriptErrors.push(event.error.name === "SyntaxError" ? "syntax" : event.error.message),
+  );
+  addEventListener("load", () => scriptTrace.push("load"));
+  document.addEventListener(
+    "load",
+    (event) => {
+      if (event.target.tagName === "SCRIPT") scriptLoads++;
+    },
+    true,
+  );
+</script>
+<script>
+  scriptTrace.push("inline");
+  throw new Error("inline");
+</script>
+<script src="/classic-script-errors-external.js"></script>
+<script defer src="/classic-script-errors-defer.js"></script>
+<script async src="/classic-script-errors-async.js"></script>
+<script>
+  const = ;
+</script>
+<script>
+  scriptTrace.push("after");
+</script>

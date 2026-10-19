@@ -585,6 +585,7 @@ struct JSContext {
     JSValue promise_ctor;
     JSValue native_error_proto[JS_NATIVE_ERROR_COUNT];
     JSValue error_ctor;
+    JSValue out_of_memory_error;
     JSValue error_back_trace;
     JSValue error_prepare_stack;
     JSValue error_stack_trace_limit;
@@ -2876,6 +2877,7 @@ JSContext *JS_NewContextRaw(JSRuntime *rt)
     ctx->regexp_ctor = JS_NULL;
     ctx->promise_ctor = JS_NULL;
     ctx->error_ctor = JS_NULL;
+    ctx->out_of_memory_error = JS_UNDEFINED;
     ctx->error_back_trace = JS_UNDEFINED;
     ctx->error_prepare_stack = JS_UNDEFINED;
     ctx->error_stack_trace_limit = js_int32(10);
@@ -3006,6 +3008,7 @@ static void JS_MarkContext(JSRuntime *rt, JSContext *ctx,
         JS_MarkValue(rt, ctx->native_error_proto[i], mark_func);
     }
     JS_MarkValue(rt, ctx->error_ctor, mark_func);
+    JS_MarkValue(rt, ctx->out_of_memory_error, mark_func);
     JS_MarkValue(rt, ctx->error_back_trace, mark_func);
     JS_MarkValue(rt, ctx->error_prepare_stack, mark_func);
     JS_MarkValue(rt, ctx->error_stack_trace_limit, mark_func);
@@ -3088,6 +3091,7 @@ void JS_FreeContext(JSContext *ctx)
         JS_FreeValue(ctx, ctx->native_error_proto[i]);
     }
     JS_FreeValue(ctx, ctx->error_ctor);
+    JS_FreeValue(ctx, ctx->out_of_memory_error);
     JS_FreeValue(ctx, ctx->error_back_trace);
     JS_FreeValue(ctx, ctx->error_prepare_stack);
     JS_FreeValue(ctx, ctx->error_stack_trace_limit);
@@ -8443,8 +8447,10 @@ JS_ThrowError2(JSContext *ctx, JSErrorEnum error_num, bool add_backtrace,
 
     obj = JS_MakeError(ctx, error_num, add_backtrace, fmt, ap);
     if (unlikely(JS_IsException(obj))) {
-        /* out of memory: throw JS_NULL to avoid recursing */
-        obj = JS_NULL;
+        if (JS_IsObject(ctx->out_of_memory_error))
+            obj = JS_DupValue(ctx, ctx->out_of_memory_error);
+        else
+            obj = JS_NULL;
     }
     return JS_Throw(ctx, obj);
 }
@@ -8554,6 +8560,8 @@ static int JS_ThrowTypeErrorReadOnly(JSContext *ctx, int flags, JSAtom atom)
 JSValue JS_ThrowOutOfMemory(JSContext *ctx)
 {
     JSRuntime *rt = ctx->rt;
+    if (JS_IsObject(ctx->out_of_memory_error))
+        return JS_Throw(ctx, JS_DupValue(ctx, ctx->out_of_memory_error));
     if (!rt->in_out_of_memory) {
         rt->in_out_of_memory = true;
         JS_ThrowInternalError(ctx, "out of memory");
@@ -58826,6 +58834,14 @@ int JS_AddIntrinsicBaseObjects(JSContext *ctx)
         JS_NewGlobalCConstructor2(ctx, func_obj, native_error_name[i],
                                   ctx->native_error_proto[i]);
     }
+
+    ctx->out_of_memory_error = JS_MakeError2(ctx, JS_INTERNAL_ERROR, false,
+                                            "out of memory");
+    if (JS_IsException(ctx->out_of_memory_error)) {
+        ctx->out_of_memory_error = JS_UNDEFINED;
+        return -1;
+    }
+    JS_SetUncatchableError(ctx, ctx->out_of_memory_error);
 
     /* CallSite */
     if (_JS_AddIntrinsicCallSite(ctx))

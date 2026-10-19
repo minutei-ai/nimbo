@@ -111,6 +111,8 @@ pub(crate) struct Machine {
     timer: Option<Persistent<Function<'static>>>,
     intersections: Option<Persistent<Function<'static>>>,
     resource: Option<Persistent<Function<'static>>>,
+    error: Option<Persistent<Function<'static>>>,
+    fatal: Rc<RefCell<Option<Persistent<Function<'static>>>>>,
     clock: Rc<Cell<f64>>,
     evaluation: Option<Persistent<Promise<'static>>>,
     waiting: Option<crate::readiness::Waiting>,
@@ -141,6 +143,7 @@ pub(crate) struct Machine {
 impl Drop for Machine {
     fn drop(&mut self) {
         // Native callbacks also retain this queue: explicitly break that reference cycle.
+        self.fatal.borrow_mut().take();
         self.runtime.set_host_promise_rejection_tracker(None);
         self.pending.borrow_mut().clear();
         self.rejections.borrow_mut().clear();
@@ -297,6 +300,8 @@ impl Machine {
         context.with(|ctx| js(&ctx, console.install(&ctx)))?;
         let mut machine = Self {
             console,
+            error: None,
+            fatal: Rc::default(),
             ready: None,
             timer: None,
             intersections: None,
@@ -346,8 +351,11 @@ impl Machine {
         let request_dom = Rc::clone(&dom);
         let dom_check = Arc::clone(&self.check);
         let requests = Rc::new(Cell::new(0_usize));
+        let dom_fatal = Rc::clone(&self.fatal);
+        let request_fatal = Rc::clone(&self.fatal);
+        let storage_fatal = Rc::clone(&self.fatal);
         let clock = Rc::clone(&self.clock);
-        let (ready, timer, intersections, resource) = self.context.with(|ctx| -> Result<_> {
+        self.context.with(|ctx| -> Result<()> {
             let globals = ctx.globals();
             install_clock(&ctx, clock, limits)?;
             js(&ctx, session.cookies.install(&ctx, self.base.clone()))?;
@@ -355,16 +363,11 @@ impl Machine {
                 ctx.clone(),
                 move |ctx: Ctx<'_>, op: String, handle: usize, arg: String, value: String| {
                     if let Err(error) = dom_check() {
-                        return Err(Exception::throw_message(&ctx, &error.to_string()));
+                        return Err(host_error(&ctx, &dom_fatal, &error));
                     }
                     dom.borrow_mut()
                         .call(&op, handle, &arg, &value)
-                        .map_err(|error| match error {
-                            Error::DomException { name, message } => {
-                                Exception::throw_dom(&ctx, name, message)
-                            }
-                            error => Exception::throw_message(&ctx, &error.to_string()),
-                        })
+                        .map_err(|error| host_error(&ctx, &dom_fatal, &error))
                 },
             );
             js(&ctx, globals.set("nimboDom", js(&ctx, dom_function)?))?;
@@ -379,7 +382,11 @@ impl Machine {
                     if body.len() > limits.max_response_bytes
                         || requests.get() >= limits.max_requests
                     {
-                        return Err(Exception::throw_message(&ctx, "request budget"));
+                        return Err(host_error(
+                            &ctx,
+                            &request_fatal,
+                            &Error::Limit("request budget"),
+                        ));
                     }
                     let options: FetchOptions = serde_json::from_str(&options)
                         .map_err(|error| Exception::throw_message(&ctx, &error.to_string()))?;
@@ -404,12 +411,7 @@ impl Machine {
                     storage
                         .borrow_mut()
                         .call(area, &operation, &key, &value, limits.max_storage_bytes)
-                        .map_err(|error| match error {
-                            Error::DomException { name, message } => {
-                                Exception::throw_dom(&ctx, name, message)
-                            }
-                            error => Exception::throw_message(&ctx, &error.to_string()),
-                        })
+                        .map_err(|error| host_error(&ctx, &storage_fatal, &error))
                 },
             );
             js(&ctx, globals.set("nimboStorage", js(&ctx, storage_call)?))?;
@@ -427,18 +429,14 @@ impl Machine {
             js(&ctx, globals.set("nimboUrl", url))?;
             js(&ctx, globals.set("nimboUserAgent", crate::USER_AGENT))?;
             let callbacks = web_bindings(&ctx)?;
-            Ok((
-                callback(&ctx, &callbacks, "ready")?,
-                callback(&ctx, &callbacks, "timer")?,
-                callback(&ctx, &callbacks, "intersections")?,
-                callback(&ctx, &callbacks, "resource")?,
-            ))
-        })?;
-        self.ready = Some(ready);
-        self.timer = Some(timer);
-        self.intersections = Some(intersections);
-        self.resource = Some(resource);
-        Ok(())
+            self.ready = Some(callback(&ctx, &callbacks, "ready")?);
+            self.timer = Some(callback(&ctx, &callbacks, "timer")?);
+            self.intersections = Some(callback(&ctx, &callbacks, "intersections")?);
+            self.resource = Some(callback(&ctx, &callbacks, "resource")?);
+            self.error = Some(callback(&ctx, &callbacks, "error")?);
+            *self.fatal.borrow_mut() = Some(callback(&ctx, &callbacks, "fatal")?);
+            Ok(())
+        })
     }
 
     pub(crate) fn advance(&self, milliseconds: f64) -> Result<()> {
@@ -532,7 +530,26 @@ impl Machine {
             let mut options = rquickjs::context::EvalOptions::default();
             options.strict = false;
             options.filename = Some(filename.to_owned());
-            js(&ctx, ctx.eval_with_options::<(), _>(source, options))
+            let value = match rquickjs::CaughtError::catch(
+                &ctx,
+                ctx.eval_with_options::<(), _>(source, options),
+            ) {
+                Ok(()) => return Ok(()),
+                Err(rquickjs::CaughtError::Error(error)) => return js(&ctx, Err(error)),
+                Err(rquickjs::CaughtError::Exception(exception)) => exception.into_value(),
+                Err(rquickjs::CaughtError::Value(value)) => value,
+            };
+            if value.is_uncatchable_error() {
+                return js(&ctx, Err(ctx.throw(value)));
+            }
+            let callback = self
+                .error
+                .as_ref()
+                .ok_or_else(|| Error::JavaScript("missing error callback".into()))?;
+            js(
+                &ctx,
+                js(&ctx, callback.clone().restore(&ctx))?.call::<_, ()>((value, filename)),
+            )
         });
         self.dom.borrow_mut().current_script = previous;
         self.check_budget()?;
@@ -1185,6 +1202,33 @@ fn install_media(ctx: &Ctx<'_>, media: MediaEnvironment) -> Result<()> {
     });
     js(ctx, globals.set("nimboMedia", js(ctx, media_query)?))?;
     Ok(())
+}
+
+fn host_error(
+    ctx: &Ctx<'_>,
+    fatal: &RefCell<Option<Persistent<Function<'static>>>>,
+    error: &Error,
+) -> rquickjs::Error {
+    if let Error::DomException { name, message } = error {
+        return Exception::throw_dom(ctx, name, message);
+    }
+    if !matches!(
+        error,
+        Error::Limit(_) | Error::Unsupported(_) | Error::Cancelled
+    ) {
+        return Exception::throw_message(ctx, &error.to_string());
+    }
+    let result = Exception::from_message(ctx.clone(), &error.to_string()).and_then(|exception| {
+        if let Some(callback) = fatal.borrow().as_ref() {
+            callback
+                .clone()
+                .restore(ctx)?
+                .call::<_, ()>((exception.clone(),))?;
+        }
+        Ok(exception.throw())
+    });
+    let (Ok(error) | Err(error)) = result;
+    error
 }
 
 fn js<T>(ctx: &Ctx<'_>, result: rquickjs::Result<T>) -> Result<T> {

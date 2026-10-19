@@ -446,7 +446,56 @@ fn variant_source(url: &str) -> Option<&'static str> {
     }
 }
 
+fn serve_classic_scripts(request: Request) -> io::Result<()> {
+    if request.url() == "/classic-script-values" {
+        return respond(request, "<script>globalThis.values=[];addEventListener('error',event=>values.push([event.error,event.filename===location.href]));</script><script>throw 17;</script><script>throw null;</script><script>throw undefined;</script><script>throw 'value';</script><script>throw new Error('out of memory');</script><script>globalThis.afterValues=true;</script>".into(), 200, "text/html", Vec::new());
+    }
+    if let Some(kind) = request.url().strip_prefix("/classic-script-limit/") {
+        let source = match kind {
+            "dom" => "for(let index=0;index<100;index++)document.createElement('i');",
+            "timer" => "for(let index=0;index<3;index++)setTimeout(()=>{},100);",
+            "encoding" => "new TextEncoder().encode('x'.repeat(65537));",
+            "memory" => "Array.from({length:1000000},(_,i)=>({i}));",
+            "fuel" => "while(true){}",
+            _ => return respond(request, String::new(), 404, "text/html", Vec::new()),
+        };
+        return respond(
+            request,
+            format!(
+                "<script>addEventListener('error',event=>event.preventDefault());</script><script>{source}</script><p>after</p>"
+            ),
+            200,
+            "text/html",
+            Vec::new(),
+        );
+    }
+    if request.url() == "/classic-script-errors" {
+        return respond(
+            request,
+            include_str!("fixtures/classic-script-errors.html").into(),
+            200,
+            "text/html",
+            Vec::new(),
+        );
+    }
+    for kind in ["external", "defer", "async"] {
+        if request.url() == format!("/classic-script-errors-{kind}.js") {
+            return respond(
+                request,
+                format!("scriptTrace.push('{kind}'); throw new Error('{kind}');"),
+                200,
+                "text/javascript",
+                Vec::new(),
+            );
+        }
+    }
+    respond(request, String::new(), 404, "text/html", Vec::new())
+}
+
 fn serve(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/classic-script-") {
+        return serve_classic_scripts(request);
+    }
     if request.url().starts_with("/image-resources/") {
         return serve_image_resources(request);
     }
@@ -825,7 +874,62 @@ fn inline_classic_scripts_ignore_async_and_defer_attributes() -> TestResult {
 }
 
 #[test]
-fn invalid_urls_http_errors_scripts_and_promises_fail_explicitly() -> TestResult {
+fn classic_script_exceptions_report_and_continue_the_page() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/classic-script-errors"))?;
+    assert_eq!(
+        page.evaluate("({trace:scriptTrace.slice().sort(),errors:scriptErrors.slice().sort(),loads:scriptLoads,ready:document.readyState})")?,
+        json!({
+            "trace": ["after", "async", "defer", "external", "inline", "load"],
+            "errors": ["async", "defer", "external", "inline", "syntax"],
+            "loads": 3,
+            "ready": "complete"
+        })
+    );
+    assert!(matches!(
+        page.evaluate("(()=>{throw new Error('client-expression')})()"),
+        Err(Error::JavaScript(message)) if message.contains("client-expression")
+    ));
+    Ok(())
+}
+
+#[test]
+fn classic_script_thrown_values_preserve_identity_and_source() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/classic-script-values"))?;
+    assert_eq!(page.evaluate("({after:afterValues,values:values.map(([error,source])=>[error!==null&&typeof error==='object'?error.message:error,source,typeof error]),defaultError:new ErrorEvent('error').error===null,explicitUndefined:new ErrorEvent('error',{error:undefined}).error===undefined})")?, json!({"after":true,"defaultError":true,"explicitUndefined":true,"values":[[17,true,"number"],[null,true,"object"],[null,true,"undefined"],["value",true,"string"],["out of memory",true,"object"]]}));
+    Ok(())
+}
+
+#[test]
+fn classic_script_errors_do_not_hide_resource_limits() -> TestResult {
+    let fixture = Fixture::new()?;
+    for kind in ["dom", "timer", "encoding", "memory", "fuel"] {
+        let browser = Browser::new(
+            &fixture.url,
+            Limits {
+                max_dom_nodes: 64,
+                max_timers: 2,
+                javascript_memory_bytes: 2 * 1024 * 1024,
+                ..Limits::default()
+            },
+        )?;
+        assert!(
+            browser
+                .navigate(&fixture.path(&format!("/classic-script-limit/{kind}")))
+                .is_err(),
+            "{kind} limit was swallowed"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn invalid_urls_http_errors_and_unhandled_promises_fail_explicitly() -> TestResult {
     for url in [
         "file:///etc/passwd",
         "ftp://example.com",
@@ -846,7 +950,7 @@ fn invalid_urls_http_errors_scripts_and_promises_fail_explicitly() -> TestResult
             Err(Error::Unsupported(_))
         ));
     }
-    for path in ["/bad-js", "/rejected"] {
+    for path in ["/classic-script-limit/encoding", "/rejected"] {
         assert!(matches!(
             browser.navigate(&fixture.path(path)),
             Err(Error::JavaScript(_))
@@ -1028,7 +1132,11 @@ fn repeated_failure_cleanup_and_session_cycles_remain_usable() -> TestResult {
     let fixture = Fixture::new()?;
     for _ in 0..20 {
         let browser = fixture.browser()?;
-        for path in ["/cross-fetch", "/bad-js", "/rejected"] {
+        for path in [
+            "/cross-fetch",
+            "/classic-script-limit/encoding",
+            "/rejected",
+        ] {
             assert!(browser.navigate(&fixture.path(path)).is_err());
         }
         let denied = browser.navigate(&fixture.path("/cross-script"))?;
@@ -5617,7 +5725,7 @@ fn diagnosed_navigation_preserves_failure_stages_and_recovers() -> TestResult {
         ),
         (fixture.path("/api"), NavigationStage::Response, None),
         (
-            fixture.path("/bad-js"),
+            fixture.path("/classic-script-limit/encoding"),
             NavigationStage::Execution,
             Some(ExecutionPhase::Scripts),
         ),

@@ -1,5 +1,17 @@
 (() => {
   "use strict";
+  const fatalErrors = new WeakSet<object>();
+  const addFatal = fatalErrors.add.bind(fatalErrors);
+  const hasFatal = fatalErrors.has.bind(fatalErrors);
+  const LimitError = Error;
+  function markFatal(error: object) {
+    addFatal(error);
+  }
+  function failLimit(message: string): never {
+    const error = new LimitError(message);
+    markFatal(error);
+    throw error;
+  }
   const nativeDom = nimboDom;
   const nativeRequest = nimboRequest;
   const nativeStorage = nimboStorage;
@@ -153,7 +165,10 @@
   >();
   const controllers = new WeakMap<AbortController, AbortSignal>();
   const details = new WeakMap<CustomEvent, unknown>();
-  const errorDetails = new WeakMap<ErrorEvent, { error: unknown; message: string }>();
+  const errorDetails = new WeakMap<
+    ErrorEvent,
+    { error: unknown; message: string; filename: string }
+  >();
   function domString(value: unknown): string {
     if (typeof value === "symbol") throw new TypeError("value must be convertible to DOMString");
     return String(value);
@@ -194,7 +209,7 @@
   const decoders = new WeakMap<object, DecoderBinding>();
   function encodingUnits(value: unknown): string {
     const string = domString(value);
-    if (string.length > 65_536) throw new Error("encoding input limit");
+    if (string.length > 65_536) failLimit("encoding input limit");
     return storageUnits(string);
   }
   function encoded(
@@ -235,7 +250,7 @@
         length = sharedLength(input);
       }
     }
-    if (typeof length !== "number" || length > 65_536) throw new Error("encoding input limit");
+    if (typeof length !== "number" || length > 65_536) failLimit("encoding input limit");
     // Native getters validate BufferSource identity; the constructor rejects detached buffers.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     const bytes = new ByteArray(buffer as ArrayBuffer, offset as number, length);
@@ -852,19 +867,25 @@
   class ErrorEvent extends Event {
     constructor(
       type: unknown,
-      init: (EventInit & { error?: unknown; message?: unknown }) | null = {},
+      init: (EventInit & { error?: unknown; message?: unknown; filename?: unknown }) | null = {},
     ) {
       if (arguments.length === 0) throw new TypeError("ErrorEvent requires a type");
       super(type, init);
       errorDetails.set(this, {
-        error: init?.error ?? null,
+        error: init !== null && "error" in init ? init.error : null,
         message: domString(init?.message === undefined ? "" : init.message),
+        filename: domString(init?.filename === undefined ? "" : init.filename),
       });
     }
     get error(): unknown {
       const detail = errorDetails.get(this);
       if (!detail) throw new TypeError("Illegal invocation");
       return detail.error;
+    }
+    get filename(): string {
+      const detail = errorDetails.get(this);
+      if (!detail) throw new TypeError("Illegal invocation");
+      return detail.filename;
     }
     get message(): string {
       const detail = errorDetails.get(this);
@@ -943,7 +964,12 @@
     return path;
   }
   let reporting = false;
-  function reportListenerError(error: unknown) {
+  function reportListenerError(error: unknown, filename = "") {
+    if (
+      ((typeof error === "object" && error !== null) || typeof error === "function") &&
+      hasFatal(error)
+    )
+      throw error;
     if (reporting) return;
     reporting = true;
     try {
@@ -957,6 +983,7 @@
         cancelable: true,
         error,
         message,
+        filename,
       });
       dispatch(globalThis, event, true);
     } finally {
@@ -4350,7 +4377,7 @@
     let inputSize = 0;
     function addPair(name: string, value: string): void {
       inputSize += name.length + value.length + 2;
-      if (inputSize > 65_536) throw new Error("URL query input limit exceeded");
+      if (inputSize > 65_536) failLimit("URL query input limit exceeded");
       pairs.push([name, value]);
     }
     if ((typeof init === "object" && init !== null) || typeof init === "function") {
@@ -4364,10 +4391,10 @@
           for (const value of sequence(entry)) {
             const converted = usvString(value);
             sequenceSize += converted.length + 1;
-            if (sequenceSize > 65_536) throw new Error("URL query input limit exceeded");
+            if (sequenceSize > 65_536) failLimit("URL query input limit exceeded");
             pair.push(converted);
           }
-          if (sequenceSize > 65_536) throw new Error("URL query input limit exceeded");
+          if (sequenceSize > 65_536) failLimit("URL query input limit exceeded");
           convertedPairs.push(pair);
         }
         for (const pair of convertedPairs) {
@@ -5345,7 +5372,7 @@
         );
       }
       if (defining) throw new DOMException("definition is running", "NotSupportedError");
-      if (definitions.size >= 1024) throw new Error("custom element definition limit");
+      if (definitions.size >= 1024) failLimit("custom element definition limit");
       defining = true;
       let prototype: object;
       const callbacks = new Map<string, CustomCallback>();
@@ -5430,7 +5457,7 @@
         if (defined) return Promise.resolve(defined.constructor);
         const pending = pendingDefinitions.get(localName);
         if (pending) return pending.promise;
-        if (pendingDefinitions.size >= 1024) throw new Error("when-defined promise limit");
+        if (pendingDefinitions.size >= 1024) failLimit("when-defined promise limit");
         let resolve!: (constructor: CustomConstructor) => void;
         const promise = new Promise<CustomConstructor>((done) => {
           resolve = done;
@@ -6291,7 +6318,7 @@
     if (typeof callback !== "function")
       throw new TypeError("requestAnimationFrame requires a function");
     if (timers.size + animationFrames.size >= timerLimit)
-      throw new Error("animation frame capacity limit");
+      failLimit("animation frame capacity limit");
     if (!animationFrames.size && !frameBatch) frameDue = now() + frameInterval;
     const handle = nextFrame++;
     animationFrames.set(handle, callback);
@@ -6311,7 +6338,7 @@
       if (handle === undefined) continue;
       const callback = animationFrames.get(handle);
       if (!callback) continue;
-      if (timerTasks >= timerTaskLimit) throw new Error("timer task limit");
+      if (timerTasks >= timerTaskLimit) failLimit("timer task limit");
       timerTasks++;
       animationFrames.delete(handle);
       try {
@@ -6339,7 +6366,7 @@
   function schedule(handler: unknown, timeout: unknown, args: unknown[], repeat: boolean) {
     const callback = typeof handler === "function" ? handler : domString(handler);
     const delay = Math.max(0, long(timeout));
-    if (timers.size + animationFrames.size >= timerLimit) throw new Error("timer capacity limit");
+    if (timers.size + animationFrames.size >= timerLimit) failLimit("timer capacity limit");
     const id = nextTimer++;
     timers.set(id, {
       // Callable values are validated above; arguments remain page-owned values.
@@ -6396,7 +6423,7 @@
     const [id, task] = selected;
     const delay = task.due - now();
     if (delay > 0) return delay;
-    if (timerTasks >= timerTaskLimit) throw new Error("timer task limit");
+    if (timerTasks >= timerTaskLimit) failLimit("timer task limit");
     timerTasks++;
     timerLevel = task.level;
     try {
@@ -6576,8 +6603,7 @@
         // Web IDL validates the iterator before converting its yielded doubles.
         // oxlint-disable-next-line typescript/no-unsafe-type-assertion
         for (const value of threshold as Iterable<unknown>) {
-          if (thresholds.length >= intersectionLimit)
-            throw new Error("intersection threshold limit");
+          if (thresholds.length >= intersectionLimit) failLimit("intersection threshold limit");
           thresholds.push(finiteDouble(value));
         }
       } else thresholds.push(finiteDouble(threshold === undefined ? 0 : threshold));
@@ -6633,7 +6659,7 @@
         observedTargets >= intersectionLimit ||
         (!activeObservers.has(this) && activeObservers.size >= intersectionLimit)
       )
-        throw new Error("intersection registration limit");
+        failLimit("intersection registration limit");
       state.targets.set(target, { threshold: -1, intersects: null });
       observedTargets++;
       state.version = -1;
@@ -6697,7 +6723,7 @@
       if (state.entries.length > 0) pending.push(observer);
     }
     if (pending.length === 0) return false;
-    if (timerTasks >= timerTaskLimit) throw new Error("timer task limit");
+    if (timerTasks >= timerTaskLimit) failLimit("timer task limit");
     timerTasks++;
     for (const observer of pending) {
       const state = observerState(observer);
@@ -7004,7 +7030,7 @@
     }
     if (typeof length !== "number" || typeof offset !== "number")
       throw new TypeError("invalid font buffer");
-    if (length > 1_048_576) throw new Error("font data limit");
+    if (length > 1_048_576) failLimit("font data limit");
     // The intrinsic constructors validate detachment; shared storage is unsupported.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     const view = new ByteArray(buffer as ArrayBuffer, offset, length);
@@ -7118,7 +7144,7 @@
   }
   function canvasDimension(value: unknown): number {
     const size = canvasInteger(value, 0, 18446744073709549568);
-    if (size > 4096) throw new Error("canvas: dimensions limit");
+    if (size > 4096) failLimit("canvas: dimensions limit");
     return size;
   }
   function imageSettings(settings: unknown): void {
@@ -7163,7 +7189,7 @@
         if (!width || !Number.isInteger(height) || !height || length !== width * height * 4)
           throw new DOMException("Invalid ImageData dimensions", "IndexSizeError");
         if (width > 4096 || height > 4096 || width * height > 1048576)
-          throw new Error("canvas: pixels limit");
+          failLimit("canvas: pixels limit");
         // The native typed-array intrinsic above establishes the exact array brand.
         // oxlint-disable-next-line typescript/no-unsafe-type-assertion
         data = first as Uint8ClampedArray;
@@ -8579,7 +8605,7 @@
       dispatch(document, new Event("DOMContentLoaded", { bubbles: true }), true);
   };
   const resource = (handle: number, success: boolean) => {
-    if (timerTasks >= timerTaskLimit) throw new Error("timer task limit");
+    if (timerTasks >= timerTaskLimit) failLimit("timer task limit");
     timerTasks++;
     dispatch(node(handle), new Event(success ? "load" : "error"), true);
   };
@@ -8727,5 +8753,5 @@
   Object.setPrototypeOf(Window.prototype, namedWindowProperties);
   Reflect.deleteProperty(globalThis, Symbol.toStringTag);
   Object.setPrototypeOf(globalThis, Window.prototype);
-  return { ready, timer, intersections, resource };
+  return { ready, timer, intersections, resource, error: reportListenerError, fatal: markFatal };
 })();
