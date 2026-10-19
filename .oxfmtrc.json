@@ -1,4 +1,4 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
-  "ignorePatterns": ["Cargo.lock", "bun.lock", "target/**", ".lint-probe-*/**"]
+  "ignorePatterns": ["Cargo.lock", "bun.lock", "target/**", ".lint-probe-*/**", "vendor/**"]
 }
