@@ -78,6 +78,8 @@ mod text_transform;
 mod transitions;
 #[cfg(target_arch = "wasm32")]
 mod wasm;
+#[cfg(target_arch = "wasm32")]
+mod wasm_tls;
 mod z_index;
 
 use std::time::Duration;

@@ -53,6 +53,7 @@ export interface Environment {
   readonly API_TOKEN?: string;
   readonly EGRESS?: Egress;
   readonly PROXY_URL?: string;
+  readonly TLS_CA_CERTIFICATES?: string;
 }
 
 export const failure = (cause: unknown, status = 422): ScrapeError =>

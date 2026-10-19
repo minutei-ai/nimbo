@@ -82,20 +82,28 @@ page JavaScript. HTTP responses support bounded content-length, chunked and
 connection-close framing, with gzip/deflate decoding; Brotli and protocol
 upgrades remain unsupported.
 
-| Proxy scheme | HTTP destination  | HTTPS destination                             |
-| ------------ | ----------------- | --------------------------------------------- |
-| `http`       | Forwarding        | CONNECT and native TLS upgrade                |
-| `https`      | TLS forwarding    | Explicit `nested proxy TLS unsupported` error |
-| `socks5h`    | Remote DNS tunnel | Remote DNS tunnel and native TLS upgrade      |
-| `socks5`     | Local DNS missing | Local DNS missing                             |
+| Proxy scheme | HTTP destination  | HTTPS destination                   |
+| ------------ | ----------------- | ----------------------------------- |
+| `http`       | Forwarding        | CONNECT and Rustls TLS              |
+| `https`      | TLS forwarding    | CONNECT and Rustls inside proxy TLS |
+| `socks5h`    | Remote DNS tunnel | Remote DNS tunnel and Rustls TLS    |
+| `socks5`     | Local DNS missing | Local DNS missing                   |
 
 The [real Worker proxy suite](browser-coverage.md#worker-proxy-transport) exercises
 actual workerd, real TCP/TLS forwarding and ephemeral certificates without
-replacing fetch or disabling certificate verification. The pinned local runtime
-logs an unsupported `expectedServerHostname` diagnostic, while rejecting a
-wrong hostname and an untrusted issuer in the tests. Production Cloudflare TLS
-behavior is unverified. These local results do not prove deployment compatibility
-or configurable ClientHello behavior.
+replacing fetch or disabling certificate verification. The Wasm engine uses
+Rustls for origin TLS, with hostname, validity and certificate-chain verification
+against the pinned Mozilla root store. An optional `TLS_CA_CERTIFICATES` Worker
+binding appends PEM certificate authorities, bounded to 1 MiB; malformed or empty
+PEM configuration fails. Isolated fixtures supply their own ephemeral CA through
+that binding. There is no certificate-verification opt-out.
+
+The transport does not use `startTls({ expectedServerHostname })`: Cloudflare
+[does not support that override on its production edge](https://github.com/cloudflare/workerd/issues/6903),
+even though local workerd can honor it. The TCP socket still connects to the
+configured proxy; Rustls authenticates the tunneled origin independently of the
+proxy's hostname. Production compatibility requires a separate deployed check;
+local fixtures do not establish configurable ClientHello or anti-bot parity.
 
 Cloudflare's [TCP socket API](https://developers.cloudflare.com/workers/runtime-apis/tcp-sockets/)
 provides outbound connections and TLS upgrades, but blocks Cloudflare IP ranges,

@@ -1,5 +1,6 @@
 import { connect } from "cloudflare:sockets";
 import { ScrapeError } from "./protocol";
+import { TlsStream } from "./tls";
 
 const encoder = new TextEncoder();
 const failed = (reason = "proxy transport failed") => new ScrapeError({ status: 502, reason });
@@ -18,11 +19,11 @@ function joined(parts: Uint8Array[], length: number): Uint8Array<ArrayBuffer> {
 
 // Retains unread socket bytes across HTTP and SOCKS framing; no per-byte reads.
 class Reader {
-  private readonly reader: ReadableStreamDefaultReader<unknown>;
+  private readonly reader: ReadableStreamDefaultReader<unknown> | TlsStream;
   private buffer: Uint8Array = new Uint8Array(0);
   private offset = 0;
-  constructor(stream: ReadableStream<unknown>) {
-    this.reader = stream.getReader();
+  constructor(stream: ReadableStream<unknown> | TlsStream) {
+    this.reader = stream instanceof TlsStream ? stream : stream.getReader();
   }
   release(): void {
     this.reader.releaseLock();
@@ -270,15 +271,16 @@ async function socks(
 
 export class ProxyTransport {
   private readonly config: Configuration;
-  constructor(value: string) {
+  constructor(
+    value: string,
+    private readonly certificates?: string,
+  ) {
     this.config = configuration(value);
   }
   async fetch(request: Request, maximum: number): Promise<Response> {
     const config = this.config;
     const destination = new URL(request.url);
-    if (config.url.protocol === "https:" && destination.protocol === "https:")
-      throw failed("nested proxy TLS unsupported");
-    let socket: Socket = connect(
+    const socket: Socket = connect(
       {
         hostname: config.url.hostname.replace(/^\[|\]$/gu, ""),
         port: Number(
@@ -287,7 +289,7 @@ export class ProxyTransport {
         ),
       },
       {
-        secureTransport: config.url.protocol === "https:" ? "on" : "starttls",
+        secureTransport: config.url.protocol === "https:" ? "on" : "off",
         allowHalfOpen: false,
       },
     );
@@ -298,13 +300,18 @@ export class ProxyTransport {
     void socket.closed.catch(() => {});
     request.signal.addEventListener("abort", close, { once: true });
     let reader: Reader | undefined;
-    const write = async (bytes: Uint8Array) => {
+    let tls: TlsStream | undefined;
+    const writeSocket = async (bytes: Uint8Array) => {
       const writer = socket.writable.getWriter();
       try {
         await writer.write(bytes);
       } finally {
         writer.releaseLock();
       }
+    };
+    const write = (bytes: Uint8Array) => {
+      if (tls === undefined) return writeSocket(bytes);
+      return tls.write(bytes);
     };
     try {
       if (request.signal.aborted) throw failed("proxy request aborted");
@@ -324,12 +331,14 @@ export class ProxyTransport {
       if (destination.protocol === "https:") {
         reader.release();
         reader = undefined;
-        socket = socket.startTls({
-          expectedServerHostname: destination.hostname.replace(/^\[|\]$/gu, ""),
-        });
-        void socket.closed.catch(() => {});
-        await socket.opened;
-        reader = new Reader(socket.readable);
+        tls = new TlsStream(
+          socket.readable,
+          writeSocket,
+          destination.hostname.replace(/^\[|\]$/gu, ""),
+          this.certificates,
+        );
+        await tls.open();
+        reader = new Reader(tls);
       }
       const fields = new Headers(request.headers);
       fields.set("host", destination.host);
@@ -353,6 +362,7 @@ export class ProxyTransport {
     } finally {
       request.signal.removeEventListener("abort", close);
       reader?.release();
+      tls?.releaseLock();
       await socket.close().catch(() => {});
     }
   }

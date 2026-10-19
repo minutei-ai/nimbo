@@ -28,6 +28,14 @@ class Origin(http.server.BaseHTTPRequestHandler):
     def setup(self):
         super().setup()
         self.connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        self.tls_abrupt = False
+
+    def finish(self):
+        super().finish()
+        if isinstance(self.connection, ssl.SSLSocket) and not self.tls_abrupt:
+            with contextlib.suppress(OSError):
+                self.connection.settimeout(1)
+                self.connection.unwrap()
 
     def log_message(self, *_args):
         pass
@@ -91,10 +99,12 @@ class Origin(http.server.BaseHTTPRequestHandler):
 
     def wire(self):
         paths = ('/chunked', '/gzip', '/no-length', '/large', '/gzip-bomb',
-                 '/large-header', '/truncated', '/ambiguous', '/malformed-chunk', '/stall')
+                 '/large-header', '/truncated', '/ambiguous', '/malformed-chunk', '/stall',
+                 '/tls-truncated')
         if self.path not in paths:
             return False
         data = b'framed-response'
+        self.tls_abrupt = self.path == '/tls-truncated'
         if self.path in ('/large', '/gzip-bomb'):
             data = b'x' * (3 * 1024 * 1024)
         self.send_response(200)
@@ -117,7 +127,7 @@ class Origin(http.server.BaseHTTPRequestHandler):
                                  f'{len(data[4:]):x}\r\n'.encode() + data[4:] +
                                  b'\r\n0\r\nX-Fixture-Trailer: complete\r\n\r\n')
         else:
-            if self.path != '/no-length':
+            if self.path not in ('/no-length', '/tls-truncated'):
                 self.send_header('Content-Length', str(len(data) + (5 if self.path == '/truncated' else 0)))
             self.end_headers()
             if self.path == '/stall':
@@ -312,7 +322,8 @@ def certificates(root):
     commands = [
         ['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
          '-keyout', str(ca_key), '-out', str(ca), '-days', '1',
-         '-subj', '/CN=Nimbo synthetic test CA', '-addext', 'basicConstraints=critical,CA:TRUE'],
+         '-subj', '/CN=Nimbo synthetic test CA', '-addext', 'basicConstraints=critical,CA:TRUE',
+         '-addext', 'keyUsage=critical,keyCertSign,cRLSign'],
         ['openssl', 'req', '-new', '-newkey', 'rsa:2048', '-nodes',
          '-keyout', str(key), '-out', str(root / 'request.pem'), '-subj', '/CN=example.test'],
         ['openssl', 'x509', '-req', '-in', str(root / 'request.pem'),

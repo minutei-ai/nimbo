@@ -63,14 +63,18 @@ async function fixture(
   }
 }
 
-function worker(metadata: typeof Metadata.Type, proxy: string) {
+function worker(metadata: typeof Metadata.Type, proxy: string, certificates = metadata.ca) {
   return new Miniflare({
     modules: [
       { type: "ESModule", path: join(root, "dist/worker/index.js") },
       { type: "CompiledWasm", path: join(root, "dist/worker/nimbo_engine_bg.wasm") },
     ],
     compatibilityDate: "2026-07-30",
-    bindings: { API_TOKEN: "test-secret", PROXY_URL: proxy },
+    bindings: {
+      API_TOKEN: "test-secret",
+      PROXY_URL: proxy,
+      TLS_CA_CERTIFICATES: certificates,
+    },
     // A real isolated CA, not a disabled TLS verifier or a mocked outbound fetch.
     outboundService: {
       network: {
@@ -96,7 +100,7 @@ test("real workerd proxy: HTTP, TLS CONNECT, SOCKS5 remote DNS and credential is
       const runtime = worker(metadata, config.url);
       try {
         for (let variant = 0; variant < 64; variant++) {
-          const secure = config.mode !== "https-auth" && variant % 2 === 1;
+          const secure = variant % 2 === 1;
           const url = `${secure ? "https" : "http"}://example.test:${secure ? metadata.https_port : metadata.http_port}/start`;
           // Each request owns a new page through the real Worker HTTP API.
           // oxlint-disable-next-line eslint/no-await-in-loop
@@ -219,6 +223,37 @@ test("real workerd proxy: TLS requires the destination hostname and trusted CA",
   });
 }, 30_000);
 
+test("real workerd proxy: invalid TLS trust configuration fails before origin requests", async () => {
+  await fixture(async (metadata, stats) => {
+    const config = metadata.proxies.find(({ mode }) => mode === "http-auth");
+    if (!config) throw new Error("Missing HTTP proxy fixture");
+    for (const certificates of [
+      "",
+      "-----BEGIN CERTIFICATE-----\ninvalid\n-----END CERTIFICATE-----",
+      " ".repeat(1_048_577),
+    ]) {
+      const runtime = worker(metadata, config.url, certificates);
+      try {
+        for (let attempt = 0; attempt < 2; attempt++) {
+          // Constructor failures must also release the single page admission slot.
+          // oxlint-disable-next-line eslint/no-await-in-loop
+          const rejected = await scrape(
+            runtime,
+            `https://example.test:${metadata.https_port}/start`,
+          );
+          expect(rejected.status).toBe(502);
+          // oxlint-disable-next-line eslint/no-await-in-loop
+          expect(await rejected.json()).toEqual({ error: "proxy transport failed" });
+        }
+      } finally {
+        // oxlint-disable-next-line eslint/no-await-in-loop
+        await runtime.dispose();
+      }
+    }
+    expect(await stats()).toMatchObject({ requests: 0, credential_leaks: 0 });
+  });
+}, 30_000);
+
 test("real workerd proxy: limits and malformed frames fail and release sockets", async () => {
   await fixture(async (metadata, stats) => {
     const config = metadata.proxies.find(({ mode }) => mode === "socks5h");
@@ -255,15 +290,15 @@ test("real workerd proxy: limits and malformed frames fail and release sockets",
   });
 }, 60_000);
 
-test("real workerd proxy: unsupported nested TLS and local SOCKS DNS stay explicit", async () => {
+test("real workerd proxy: nested TLS succeeds and local SOCKS DNS stays explicit", async () => {
   await fixture(async (metadata, stats) => {
     const config = metadata.proxies.find(({ mode }) => mode === "https-auth");
     if (!config) throw new Error("Missing HTTPS proxy fixture");
     const runtime = worker(metadata, config.url);
     try {
       const response = await scrape(runtime, `https://example.test:${metadata.https_port}/start`);
-      expect(response.status).toBe(502);
-      expect(await response.json()).toEqual({ error: "nested proxy TLS unsupported" });
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({ value: { value: "through-proxy" } });
     } finally {
       await runtime.dispose();
     }
@@ -275,7 +310,63 @@ test("real workerd proxy: unsupported nested TLS and local SOCKS DNS stay explic
     } finally {
       await local.dispose();
     }
-    expect(await stats()).toMatchObject({ requests: 0 });
+    expect(await stats()).toMatchObject({ requests: 7, credential_leaks: 0 });
+  });
+}, 30_000);
+
+test("real workerd proxy: unauthenticated TLS EOF rejects the body and recovers", async () => {
+  await fixture(async (metadata, stats) => {
+    const config = metadata.proxies.find(({ mode }) => mode === "http-auth");
+    if (!config) throw new Error("Missing HTTP proxy fixture");
+    const runtime = worker(metadata, config.url);
+    try {
+      const origin = `https://example.test:${metadata.https_port}`;
+      const rejected = await scrape(
+        runtime,
+        `${origin}/empty`,
+        "fetch('/tls-truncated').then(r=>r.text()).then(()=> 'unexpected',e=>e.name)",
+      );
+      expect(rejected.status).toBe(200);
+      expect(await rejected.json()).toMatchObject({ value: "TypeError" });
+      const recovered = await scrape(
+        runtime,
+        `${origin}/empty`,
+        "fetch('/no-length').then(r=>r.text())",
+      );
+      expect(recovered.status).toBe(200);
+      expect(await recovered.json()).toMatchObject({ value: "framed-response" });
+      expect(await stats()).toMatchObject({ requests: 4, credential_leaks: 0 });
+    } finally {
+      await runtime.dispose();
+    }
+  });
+}, 30_000);
+
+test("real workerd proxy: TLS deadline releases encrypted reads and page capacity", async () => {
+  await fixture(async (metadata, stats) => {
+    const config = metadata.proxies.find(({ mode }) => mode === "socks5h");
+    if (!config) throw new Error("Missing SOCKS proxy fixture");
+    const runtime = worker(metadata, config.url);
+    try {
+      const origin = `https://example.test:${metadata.https_port}`;
+      const response = await runtime.dispatchFetch("https://nimbo.test/scrape", {
+        method: "POST",
+        headers: { authorization: "Bearer test-secret" },
+        body: JSON.stringify({
+          url: `${origin}/stall`,
+          expression: "document.title",
+          timeoutMs: 500,
+        }),
+      });
+      expect(response.status).toBe(504);
+      expect(await response.json()).toEqual({ error: "scrape deadline or invalid input" });
+      const recovered = await scrape(runtime, `${origin}/empty`, "document.body.textContent");
+      expect(recovered.status).toBe(200);
+      expect(await recovered.json()).toMatchObject({ value: "empty" });
+      expect(await stats()).toMatchObject({ requests: 2, credential_leaks: 0 });
+    } finally {
+      await runtime.dispose();
+    }
   });
 }, 30_000);
 
