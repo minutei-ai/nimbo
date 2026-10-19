@@ -97,6 +97,7 @@ const scrape = (
                 input.headers,
                 input.responseProjection,
                 input.cookieState,
+                environment.TLS_CA_CERTIFICATES,
               ),
             catch: (cause) => failure(cause, 400),
           }),
