@@ -42,6 +42,8 @@ mod html_parse;
 mod images;
 mod import_maps;
 mod insets;
+#[cfg(any(target_arch = "wasm32", test))]
+mod json_projection;
 mod layers;
 mod layout;
 mod line_height;
@@ -51,6 +53,7 @@ mod media;
 mod modules;
 #[cfg(not(target_arch = "wasm32"))]
 mod navigation;
+mod navigation_document;
 mod nesting;
 #[cfg(not(target_arch = "wasm32"))]
 mod network;
@@ -210,4 +213,7 @@ pub use media::MediaEnvironment;
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[cfg(target_arch = "wasm32")]
-pub use wasm::{WasmPage, browser_user_agent, decode_response, engine_limits, engine_version};
+pub use wasm::{
+    WasmJsonProjection, WasmPage, browser_user_agent, decode_response, engine_limits,
+    engine_version, navigation_document,
+};

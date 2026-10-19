@@ -21,40 +21,28 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     });
     expect(response.status).toBe(200);
     expect(performance.now() - started).toBeGreaterThanOrEqual(30);
+    const expected = {
+      order: "micro,promise,a,a-micro,b,c",
+      context: true,
+      canceled: true,
+      interval: true,
+      coercion: true,
+      nested: true,
+      errors: true,
+      string: true,
+      guarded: true,
+      ids: true,
+      fetched: true,
+    };
     expect(await response.json()).toEqual({
       url,
       engine: "rust-wasm-quickjs",
-      value: {
-        order: "micro,promise,a,a-micro,b,c",
-        context: true,
-        canceled: true,
-        interval: true,
-        coercion: true,
-        nested: true,
-        errors: true,
-        string: true,
-        guarded: true,
-        ids: true,
-        fetched: true,
-      },
+      value: expected,
     });
     expect(requests).toContain(`GET /timers/${variant}`);
     expect(requests).toContain("POST /echo");
-    if (comparisonBinary) {
-      expect(await comparePage(comparisonBinary, url)).toEqual({
-        order: "micro,promise,a,a-micro,b,c",
-        context: true,
-        canceled: true,
-        interval: false,
-        coercion: true,
-        nested: true,
-        errors: false,
-        string: true,
-        guarded: false,
-        ids: true,
-        fetched: true,
-      });
-    }
+    if (comparisonBinary)
+      expect(await comparePage(url)).toEqual({ ...expected, errors: false, guarded: false });
   },
 );
 

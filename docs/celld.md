@@ -90,7 +90,7 @@ case rules, content types and real subtree/attribute transfer between documents.
 run the separately pinned original upstream HTML files, harness and helper
 scripts. Set `NIMBO_WPT_REFERENCE_ROOT` privately to the exact public WPT
 revision recorded in each manifest, `NIMBO_COMPARE_CHROMIUM_BINARY` to ordinary
-Chromium and, optionally, `NIMBO_COMPARE_OBSCURA_BINARY` to the public comparator.
+Chromium.
 The source adapter verifies immutable file hashes and appends reporting only.
 Any failed assertion, failed setup or incomplete page keeps the command
 unsuccessful. A failed document setup does not count its unexecuted subtests

@@ -47,7 +47,6 @@ export async function benchmarkWptCss(
   const fixture = await createWptCssFixture(root, sources);
   let browser: Awaited<ReturnType<typeof startCdpBrowser>> | undefined;
   let runtime: Awaited<ReturnType<typeof startCelld>> | undefined;
-  let obscura: Awaited<ReturnType<typeof startCdpBrowser>> | undefined;
   const record = (row: Row, value: unknown) => {
     row.verdict = decode(value);
     row.status =
@@ -59,10 +58,8 @@ export async function benchmarkWptCss(
         : "failed";
   };
   try {
-    browser = await startCdpBrowser("chromium", chromium);
+    browser = await startCdpBrowser(chromium);
     runtime = await startCelld();
-    const comparator = process.env.NIMBO_COMPARE_OBSCURA_BINARY;
-    if (comparator) obscura = await startCdpBrowser("obscura", comparator);
     for (const file of files) {
       const url = new URL(file, fixture.url).href;
       const control: Row = { runtime: browser.version, file, status: "incomplete" };
@@ -72,16 +69,6 @@ export async function benchmarkWptCss(
         record(control, await browser.extract(url, expression));
       } catch (error) {
         control.error = String(error);
-      }
-      if (obscura) {
-        const reference: Row = { runtime: obscura.version, file, status: "incomplete" };
-        results.push(reference);
-        try {
-          // oxlint-disable-next-line eslint/no-await-in-loop
-          record(reference, await obscura.extract(url, expression));
-        } catch (error) {
-          reference.error = String(error);
-        }
       }
       const candidate: Row = { runtime: runtime.version, file, status: "incomplete" };
       results.push(candidate);
@@ -119,11 +106,7 @@ export async function benchmarkWptCss(
     if (results.some((row) => row.status !== "passed")) process.exitCode = 1;
   } finally {
     try {
-      try {
-        if (obscura) await obscura.stop();
-      } finally {
-        if (runtime) await runtime.stop();
-      }
+      if (runtime) await runtime.stop();
     } finally {
       try {
         if (browser) await browser.stop();

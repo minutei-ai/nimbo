@@ -174,12 +174,8 @@ impl Browser {
                 Error::HttpStatus(response.status),
             ));
         }
-        if !response.content_type.starts_with("text/html") {
-            return Err(Failure::new(
-                Stage::Response,
-                Error::Unsupported("navigation requires text/html".into()),
-            ));
-        }
+        crate::navigation_document::content_type(&response.content_type)
+            .map_err(|error| Failure::new(Stage::Response, error))?;
         Page::load(
             response,
             transport,

@@ -21,50 +21,30 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     });
     expect(response.status).toBe(200);
     const result: unknown = await response.json();
+    const expected = {
+      kinds: true,
+      identity: true,
+      index: true,
+      names: true,
+      reflection: true,
+      readonly: true,
+      iteration: true,
+      callback: true,
+      live: true,
+      removed: true,
+      renamed: true,
+      reparent: true,
+      cleared: true,
+      fragmentLive: true,
+      transferred: true,
+      guarded: true,
+    };
     expect(result).toEqual({
       url,
       engine: "rust-wasm-quickjs",
-      value: {
-        kinds: true,
-        identity: true,
-        index: true,
-        names: true,
-        reflection: true,
-        readonly: true,
-        iteration: true,
-        callback: true,
-        live: true,
-        removed: true,
-        renamed: true,
-        reparent: true,
-        cleared: true,
-        fragmentLive: true,
-        transferred: true,
-        guarded: true,
-      },
+      value: expected,
     });
-    if (comparisonBinary) {
-      // Record the pinned release's actual collection behavior separately;
-      // Nimbo must pass every standards-based expectation above.
-      expect(await comparePage(comparisonBinary, url)).toEqual({
-        kinds: false,
-        identity: false,
-        index: true,
-        names: true,
-        reflection: false,
-        readonly: false,
-        iteration: false,
-        callback: true,
-        live: false,
-        removed: false,
-        renamed: false,
-        reparent: false,
-        cleared: false,
-        fragmentLive: false,
-        transferred: false,
-        guarded: false,
-      });
-    }
+    if (comparisonBinary) expect(await comparePage(url)).toEqual({ ...expected, readonly: false });
     expect(requests).toContain(`GET /collections/${variant}`);
   },
 );

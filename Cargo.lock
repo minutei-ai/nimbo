@@ -264,6 +264,8 @@ dependencies = [
  "document-features",
  "idna",
  "log",
+ "serde",
+ "serde_derive",
  "time",
  "url",
 ]

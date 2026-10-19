@@ -128,29 +128,21 @@ Event support remains a subset: timestamps, legacy initialization,
 shadow trees, native input, AbortSignal timeout/any and fetch cancellation are
 not covered by this implementation.
 
-To compare the same pages and expected values with an installed Obscura binary,
-set `NIMBO_COMPARE_OBSCURA_BINARY` when running
-`bun test --parallel tooling/browser-live-*.test.ts`. Without that variable the suite tests
-Nimbo only. The comparison executes the validation as page script, waits for
-Obscura's `networkidle0`, and reads a completed value; it does not rely on the
-CLI awaiting a Promise returned by `--eval`. Record the binary's version
-separately; an installed release is not necessarily the audited source revision.
+To compare the same pages with ordinary Chromium, set
+`NIMBO_COMPARE_CHROMIUM_BINARY` when running
+`bun test --parallel=2 tooling/browser-live-*.test.ts`. Without that variable the
+suite tests Nimbo only. CI downloads Chrome for Testing 156.0.8078.4, checks its
+SHA-256 and runs the comparison after the full local check. Each extraction uses
+a fresh browser context and a 1280 by 720 viewport. The comparator awaits the
+fixture's completed value or Promise and fails when it never completes.
 
-CI downloads the public `v0.2.3` Linux render build, checks its published SHA-256,
-and runs this comparison after the complete local check. The release revision
-and artifact digest are in the contract inventory, separate from the audited
-upstream revision. An earlier `0.2.2` binary failed reflexive `contains`;
-`v0.2.3` passes that case. Nimbo keeps the standards-based expectation instead
-of reproducing a baseline defect.
-
-The event fixture separately records the pinned comparator's differing event
-reset, passive behavior, abort/error reporting, receiver guards and lifecycle
-trust/phase results. Nimbo must pass the standards-based expectations; these
-recorded differences are not full browser parity evidence. Its phase-order
-predicate returned both true and false across real executions, so the comparator
-checks that field's boolean shape only. This is an unresolved baseline
-instability, not a phase-order pass. Nimbo still requires the exact phase order
-in every variant.
+Nimbo's existing assertions remain independent of the comparator. Chromium's
+observed differences are explicit expectations for collection property assignment,
+error reporting and callback guards, decoder recovery, reserved Storage names,
+unknown media features, custom element replacement/guards and anchor reflection.
+These are fixture results, not general browser conformance claims. Tree and
+collection fixtures establish a body before running scripts so they exercise DOM
+operations rather than fail on a missing parser-created body.
 
 Timers run inside the page's own QuickJS context. The host supplies elapsed
 monotonic time and waits for the engine's next deadline; it never executes page
@@ -2682,7 +2674,7 @@ and style changes. Its expectations were checked against ordinary Chromium;
 these synthetic tests supplement the original WPT fixtures and never replace
 original assertions. Run `bun run compare:sticky-geometry` with the same generic
 Chromium and celld environment settings. Run `bun run bench:wpt-sticky` for the
-original files; optionally set `NIMBO_COMPARE_OBSCURA_BINARY` for the comparator.
+original files with the same Chromium comparator.
 
 Overflow auto/scroll, viewport geometry and scrolling, scrollbar rendering,
 scroll events, smooth scrolling, anchoring, snapping, scrollIntoView, fractional

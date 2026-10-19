@@ -1,3 +1,4 @@
+import { startCdpBrowser } from "./benchmark-cdp";
 // Shared origin, engine Worker and fixtures for the split browser-live tests.
 import { attributeNamespacesFixture } from "./attribute-namespaces-fixture";
 import { windowNamedFixture } from "./window-named-fixture";
@@ -43,7 +44,7 @@ import { cssBudgetFixture } from "./css-budget-fixture";
 import { fontFixture } from "./font-fixture";
 import { binaryFixture } from "./binary-fixture";
 import { externalStylePage, externalStyleResponse } from "./external-styles-fixture";
-import { afterAll, beforeAll, expect } from "bun:test";
+import { afterAll, beforeAll } from "bun:test";
 import { join } from "node:path";
 import { TextDecoder as ReferenceTextDecoder } from "node:util";
 import { Miniflare } from "miniflare";
@@ -106,33 +107,25 @@ export const intersectionScript = await Bun.file(
 
 export const requests: string[] = [];
 
-export const comparisonBinary = process.env.NIMBO_COMPARE_OBSCURA_BINARY;
+export const comparisonBinary = process.env.NIMBO_COMPARE_CHROMIUM_BINARY;
+const comparator = comparisonBinary ? startCdpBrowser(comparisonBinary) : undefined;
 
-export async function comparePage(binary: string, url: string): Promise<unknown> {
-  const child = Bun.spawn(
-    [
-      binary,
-      "fetch",
-      url,
-      "--allow-private-network",
-      "--wait-until",
-      "networkidle0",
-      "--wait",
-      "0",
-      "--quiet",
-      "--eval",
-      "JSON.stringify(globalThis.comparison)",
-    ],
-    { stdout: "pipe", stderr: "pipe" },
+export async function comparePage(url: string): Promise<unknown> {
+  const browser = await comparator;
+  if (!browser) throw new Error("Chromium comparator is not configured");
+  return browser.extract(
+    url,
+    `new Promise((resolve, reject) => {
+    const deadline = Date.now() + 3000;
+    function poll() {
+      if (globalThis.comparisonPromise !== undefined) resolve(globalThis.comparisonPromise);
+      else if (globalThis.comparison !== undefined) resolve(globalThis.comparison);
+      else if (Date.now() >= deadline) reject(new Error("Comparison did not complete"));
+      else setTimeout(poll, 10);
+    }
+    poll();
+  })`,
   );
-  const [output, error, exit] = await Promise.all([
-    new Response(child.stdout).text(),
-    new Response(child.stderr).text(),
-    child.exited,
-  ]);
-  expect(error).toBe("");
-  expect(exit).toBe(0);
-  return JSON.parse(output);
 }
 
 export const expressionFor = (variant: number) => `(async () => {
@@ -932,7 +925,7 @@ export const origin = Bun.serve({
       if (!Number.isInteger(variant) || variant < 0 || variant >= 64)
         return new Response("Not found", { status: 404 });
       return new Response(
-        `<title>Collections ${variant}</title><script>try { globalThis.comparison = ${collectionExpressionFor(variant)}; } catch (error) { globalThis.comparison = {exception: error.name, message: error.message}; }</script>`,
+        `<title>Collections ${variant}</title><body><script>try { globalThis.comparison = ${collectionExpressionFor(variant)}; } catch (error) { globalThis.comparison = {exception: error.name, message: error.message}; }</script>`,
         {
           headers: { "content-type": "text/html; charset=utf-8" },
         },
@@ -943,7 +936,7 @@ export const origin = Bun.serve({
       if (!Number.isInteger(variant) || variant < 0 || variant >= 64)
         return new Response("Not found", { status: 404 });
       return new Response(
-        `<!doctype html><title>Tree ${variant}</title><script>try { globalThis.comparison = ${treeExpressionFor(variant)}; } catch (error) { globalThis.comparison = {exception: error.name, message: error.message, stage: globalThis.treeStage}; }</script>`,
+        `<!doctype html><title>Tree ${variant}</title><body><script>try { globalThis.comparison = ${treeExpressionFor(variant)}; } catch (error) { globalThis.comparison = {exception: error.name, message: error.message, stage: globalThis.treeStage}; }</script>`,
         {
           headers: { "content-type": "text/html; charset=utf-8" },
         },
@@ -970,12 +963,21 @@ export const worker = new Miniflare({
 
 beforeAll(async () => {
   await worker.ready;
-});
+  await comparator;
+}, 30000);
 
 afterAll(async () => {
-  await worker.dispose();
-  await origin.stop(true);
-});
+  try {
+    const browser = await comparator;
+    if (browser) await browser.stop();
+  } finally {
+    try {
+      await worker.dispose();
+    } finally {
+      await origin.stop(true);
+    }
+  }
+}, 30000);
 
 export const encodingExpected = Object.fromEntries(
   [

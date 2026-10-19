@@ -60,15 +60,7 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
       engine: "rust-wasm-quickjs",
       value: expected,
     });
-    if (comparisonBinary) {
-      const baseline = await comparePage(comparisonBinary, url);
-      // Pinned v0.2.3 has two observed DOM defects; Nimbo must still pass
-      // the standards-based expectations above, rather than inherit them.
-      expect(baseline).toEqual({
-        ...expected,
-        nodeChecks: { ...expected.nodeChecks, documentNode: false, mutated: false },
-      });
-    }
+    if (comparisonBinary) expect(await comparePage(url)).toEqual(expected);
     expect(requests).toContain(`GET /${variant}`);
     expect(requests).toContain("POST /echo");
     expect(requests).toContain(`GET /script/${variant}`);

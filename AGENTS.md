@@ -15,7 +15,7 @@ and public library/platform references only.
 
 # Engine ownership
 
-Nimbo must implement browser capabilities in its own engine. Obscura may be
-used as a public reference and a test comparator, but never as a runtime
-backend, library dependency or fallback. Passing a request to Obscura does not
-count as implementing or validating a Nimbo capability.
+Nimbo must implement browser capabilities in its own engine. Ordinary Chromium
+is an independent test comparator, never a runtime backend, library dependency
+or fallback. Passing a request to another browser does not count as implementing
+or validating a Nimbo capability.

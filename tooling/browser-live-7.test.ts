@@ -47,8 +47,7 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
         observed.filter((request) => request === `GET /module-assets/${variant}/${asset}`).length,
       ).toBe(1);
     expect(observed).toContain(`GET /module-assets/${variant}/redirect.js`);
-    if (comparisonBinary)
-      expect(await comparePage(comparisonBinary, url)).toEqual({ ...expected, legacy: false });
+    if (comparisonBinary) expect(await comparePage(url)).toEqual(expected);
   },
 );
 

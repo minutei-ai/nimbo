@@ -34,6 +34,19 @@ impl Arena {
 }
 
 impl Dom {
+    pub(crate) fn navigation_type(&mut self, content_type: &'static str) {
+        if content_type == "text/html" {
+            return;
+        }
+        self.documents.kinds.insert(
+            self.document.root().id,
+            Kind {
+                html: true,
+                content_type,
+            },
+        );
+    }
+
     pub(super) fn create_fragment(&mut self, owner: usize) -> Result<Value> {
         self.allocate_node()?;
         let id = self.document.tree.create_node(NodeData::Fragment);

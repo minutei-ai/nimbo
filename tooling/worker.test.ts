@@ -1,4 +1,6 @@
 import { expect, test } from "bun:test";
+import { Failure, Success } from "@nimbo/client/schema";
+import { Schema } from "effect";
 import { join } from "node:path";
 import { Miniflare } from "miniflare";
 
@@ -1572,6 +1574,352 @@ test("native document location shares the active window and excludes detached do
       if (typeof checks !== "object" || checks === null) throw new Error("Missing location checks");
       expect(Object.keys(checks)).toHaveLength(9);
       expect(Object.values(checks).every((value) => value === true)).toBe(true);
+    },
+  );
+});
+
+test.each([
+  ["icon.png", "image/png"],
+  ["icon.ico", "image/x-icon"],
+])(
+  "image document navigation preserves MIME, source, cookies and same-origin fetch: %s",
+  async (name, kind) => {
+    const bytes = await Bun.file(
+      join(root, "crates/engine/tests/fixtures/image-resources/small.png"),
+    ).bytes();
+    const icon = new Uint8Array(22 + 40 + 32 * 16 * 4 + 4 * 16);
+    icon.set([0, 0, 1, 0, 1, 0, 32, 16, 0, 0, 1, 0, 32, 0]);
+    const view = new DataView(icon.buffer);
+    view.setUint32(14, icon.length - 22, true);
+    view.setUint32(18, 22, true);
+    view.setUint32(22, 40, true);
+    view.setInt32(26, 32, true);
+    view.setInt32(30, 32, true);
+    view.setUint16(34, 1, true);
+    view.setUint16(36, 32, true);
+    icon.fill(255, 62, 62 + 32 * 16 * 4);
+    await fixture(
+      (request) => {
+        const url = new URL(request.url);
+        if (["/icon.png", "/icon.ico"].includes(url.pathname))
+          return new Response(url.pathname === "/icon.ico" ? icon : bytes, {
+            headers: {
+              "content-type": url.pathname === "/icon.ico" ? "image/x-icon" : "image/png",
+              "set-cookie": "navigation=ready; HttpOnly; SameSite=Strict; Path=/",
+            },
+          });
+        if (url.pathname === "/clean.png")
+          return new Response(bytes, { headers: { "content-type": "image/png" } });
+        if (url.pathname === "/echo")
+          return Response.json({ cookie: request.headers.get("cookie") });
+        return new Response("unsupported", { headers: { "content-type": "application/pdf" } });
+      },
+      async (worker) => {
+        const url = new URL(`${name}?name=%22&other=%3Cimg`, originFor(worker)).href;
+        const response = await scrape(
+          worker,
+          `(async()=>{const image=document.querySelector('img');return {
+            url:location.href,type:document.contentType,src:image.src,
+            complete:image.complete,width:image.naturalWidth,
+            reply:await(await fetch('/echo')).json()
+          }})()`,
+          url,
+        );
+        expect(response.status).toBe(200);
+        expect(await json(response)).toMatchObject({
+          url,
+          value: {
+            url,
+            type: kind,
+            src: url,
+            complete: true,
+            width: 32,
+            reply: { cookie: "navigation=ready" },
+          },
+        });
+        const isolated = await scrape(
+          worker,
+          "fetch('/echo').then(response=>response.json())",
+          new URL("clean.png", originFor(worker)).href,
+        );
+        expect(isolated.status).toBe(200);
+        expect(await json(isolated)).toMatchObject({ value: { cookie: null } });
+        const unsupported = await scrape(worker, "true");
+        expect(unsupported.status).toBe(422);
+      },
+    );
+  },
+);
+
+test("bounded JSON projection receives large responses without exposing omitted fields", async () => {
+  await fixture(
+    (request) => {
+      if (new URL(request.url).pathname === "/large")
+        return new Response(
+          JSON.stringify({
+            keep: "Olá 😀",
+            discard: "x".repeat(5 * 1024 * 1024),
+            nested: [{ discard: { secret: true }, keep: 7 }, null],
+          }),
+          { headers: { "content-type": "text/html; charset=iso-8859-1" } },
+        );
+      return html("<!doctype html><main>fixture</main>");
+    },
+    async (worker) => {
+      const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+        method: "POST",
+        headers: { authorization: "Bearer test-secret" },
+        body: JSON.stringify({
+          url: originFor(worker),
+          expression: "fetch('/large').then(response=>response.json())",
+          responseProjection: {
+            url: new URL("large", originFor(worker)).href,
+            omitJsonKeys: ["discard"],
+            maxReceivedBytes: 8 * 1024 * 1024,
+          },
+        }),
+      });
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({
+        value: { keep: "Olá 😀", nested: [{ keep: 7 }, null] },
+      });
+    },
+  );
+});
+
+test.each([
+  {
+    name: "received bytes",
+    source: JSON.stringify({ discard: "x".repeat(4096), keep: 1 }),
+    maximum: 1024,
+    output: 2048,
+    expression: "fetch('/target').then(r=>r.json())",
+    originStatus: 200,
+    expected: 413,
+    error: "JSON projection received bytes",
+    crossOrigin: false,
+  },
+  {
+    name: "retained bytes",
+    source: JSON.stringify({ keep: "x".repeat(4096) }),
+    maximum: 8192,
+    output: 2048,
+    expression: "fetch('/target').then(r=>r.json())",
+    originStatus: 200,
+    expected: 422,
+    error: "JSON projection output bytes",
+    crossOrigin: false,
+  },
+  {
+    name: "invalid omitted value",
+    source: '{"discard":[1,]}',
+    maximum: 8192,
+    output: 2048,
+    expression: "fetch('/target').then(r=>r.json())",
+    originStatus: 200,
+    expected: 422,
+    error: "JSON:",
+    crossOrigin: false,
+  },
+  {
+    name: "origin HTTP failure",
+    source: "forbidden",
+    maximum: 8192,
+    output: 2048,
+    expression: "fetch('/target').then(r=>r.status)",
+    originStatus: 403,
+    expected: 200,
+    error: "",
+    crossOrigin: false,
+  },
+  {
+    name: "foreign projection URL",
+    source: '{"keep":1}',
+    maximum: 8192,
+    output: 2048,
+    expression: "fetch('/target').then(r=>r.json())",
+    originStatus: 200,
+    expected: 422,
+    error: "cross-origin request blocked",
+    crossOrigin: true,
+  },
+  {
+    name: "aggregate received bytes",
+    source: JSON.stringify({ discard: "x".repeat(3000), keep: 1 }),
+    maximum: 4096,
+    output: 2048,
+    expression: "(async()=>{await fetch('/target');return (await fetch('/target')).json()})()",
+    originStatus: 200,
+    expected: 413,
+    error: "JSON projection received bytes",
+    crossOrigin: false,
+  },
+  {
+    name: "concurrent projected responses",
+    source: '{"keep":1}',
+    maximum: 8192,
+    output: 2048,
+    expression: "Promise.all([fetch('/target'),fetch('/target')]).then(()=>true)",
+    originStatus: 200,
+    expected: 429,
+    error: "concurrent JSON projection limit",
+    crossOrigin: false,
+  },
+])("JSON projection bounds and cleanup: $name", async (variant) => {
+  await fixture(
+    (request) =>
+      new URL(request.url).pathname === "/target"
+        ? new Response(variant.source, {
+            status: variant.originStatus,
+            headers: { "content-type": "text/html" },
+          })
+        : html("<main>fixture</main>"),
+    async (worker) => {
+      const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+        method: "POST",
+        headers: { authorization: "Bearer test-secret" },
+        body: JSON.stringify({
+          url: originFor(worker),
+          expression: variant.expression,
+          maxResponseBytes: variant.output,
+          responseProjection: {
+            url: variant.crossOrigin
+              ? "https://other.test/target"
+              : new URL("target", originFor(worker)).href,
+            omitJsonKeys: ["discard"],
+            maxReceivedBytes: variant.maximum,
+          },
+        }),
+      });
+      expect(response.status).toBe(variant.expected);
+      if (variant.expected === 200) {
+        expect(await json(response)).toMatchObject({ value: 403 });
+      } else {
+        const failure = Schema.decodeUnknownSync(Failure)(await json(response));
+        expect(failure.error).toContain(variant.error);
+      }
+      const recovered = await scrape(worker, "1+2");
+      expect(recovered.status).toBe(200);
+      expect(await json(recovered)).toMatchObject({ value: 3 });
+    },
+  );
+});
+
+test("parallel response bodies share the page byte budget and release failed pages", async () => {
+  const pending: { controller: ReadableStreamDefaultController<Uint8Array>; cancelled: boolean }[] =
+    [];
+  await fixture(
+    (request) => {
+      if (new URL(request.url).pathname === "/") return html("<main>fixture</main>");
+      const state = { cancelled: false };
+      return new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new Uint8Array([120]));
+            const entry = {
+              controller,
+              get cancelled() {
+                return state.cancelled;
+              },
+            };
+            pending.push(entry);
+            if (pending.length === 2) {
+              const pair = pending.splice(0);
+              setTimeout(() => {
+                for (const item of pair) {
+                  if (!item.cancelled) {
+                    item.controller.enqueue(new TextEncoder().encode("x".repeat(1499)));
+                    item.controller.close();
+                  }
+                }
+              }, 100);
+            }
+          },
+          cancel() {
+            state.cancelled = true;
+          },
+        }),
+      );
+    },
+    async (worker) => {
+      const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+        method: "POST",
+        headers: { authorization: "Bearer test-secret" },
+        body: JSON.stringify({
+          url: originFor(worker),
+          maxResponseBytes: 2048,
+          expression:
+            "Promise.all(['/one','/two'].map(path=>fetch(path).then(r=>r.text()))).then(values=>values.map(value=>value.length))",
+        }),
+      });
+      expect(response.status).toBe(413);
+      const failed = Schema.decodeUnknownSync(Failure)(await json(response));
+      expect(failed.error).toBe("response/input byte limit");
+      const recovered = await scrape(worker, "1+2");
+      expect(recovered.status).toBe(200);
+      expect(await json(recovered)).toMatchObject({ value: 3 });
+    },
+  );
+});
+
+test("explicit cookie state carries API-issued HttpOnly cookies across fresh pages", async () => {
+  await fixture(
+    (request) => {
+      const path = new URL(request.url).pathname;
+      if (path === "/issue")
+        return Response.json(
+          { issued: true },
+          { headers: { "set-cookie": "captcha=issued; HttpOnly; Path=/; SameSite=Strict" } },
+        );
+      if (path === "/echo") return Response.json({ cookie: request.headers.get("cookie") });
+      return html("<!doctype html><main>session</main>");
+    },
+    async (worker) => {
+      const issued = await worker.dispatchFetch("https://nimbo.test/scrape", {
+        method: "POST",
+        headers: { authorization: "Bearer test-secret" },
+        body: JSON.stringify({
+          url: originFor(worker),
+          captureCookieState: true,
+          expression: "fetch('/issue').then(()=>document.cookie)",
+        }),
+      });
+      expect(issued.status).toBe(200);
+      const first = Schema.decodeUnknownSync(Success)(await json(issued));
+      expect(first.value).toBe("");
+      expect(first.cookieState).toBeString();
+      const resumed = await worker.dispatchFetch("https://nimbo.test/scrape", {
+        method: "POST",
+        headers: { authorization: "Bearer test-secret" },
+        body: JSON.stringify({
+          url: originFor(worker),
+          cookieState: first.cookieState,
+          captureCookieState: true,
+          expression:
+            "(async()=>({hidden:document.cookie,reply:await(await fetch('/echo')).json()}))()",
+        }),
+      });
+      expect(resumed.status).toBe(200);
+      expect(Schema.decodeUnknownSync(Success)(await json(resumed)).value).toEqual({
+        hidden: "",
+        reply: { cookie: "captcha=issued" },
+      });
+      const isolated = await scrape(worker, "fetch('/echo').then(response=>response.json())");
+      expect(Schema.decodeUnknownSync(Success)(await json(isolated)).value).toEqual({
+        cookie: null,
+      });
+      const foreign = await worker.dispatchFetch("https://nimbo.test/scrape", {
+        method: "POST",
+        headers: { authorization: "Bearer test-secret" },
+        body: JSON.stringify({
+          url: "https://other.test/",
+          cookieState: first.cookieState,
+          expression: "true",
+        }),
+      });
+      expect(foreign.status).toBe(400);
+      const recovered = await scrape(worker, "1+2");
+      expect(recovered.status).toBe(200);
     },
   );
 });

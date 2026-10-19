@@ -42,8 +42,7 @@ impl Page {
         let deadline = transport.deadline;
         let cancellation = transport.cancellation.clone();
         let machine = Machine::new(
-            &response.body,
-            &response.url,
+            &response,
             transport.limits,
             Arc::new(move || {
                 cancellation.check()?;

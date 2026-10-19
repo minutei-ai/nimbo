@@ -32,6 +32,8 @@ Page scripts execute by default. `"scripts":"skip"` parses received HTML and run
 
 Set `captureConsole: true` to include the page's bounded `console` records in success or error responses. Records are omitted by default, including when `diagnostics` is enabled. The supported logging methods, buffer bounds and native inspection APIs are described in [console coverage](docs/browser-coverage.md#bounded-native-console).
 
+[Bounded response projection](docs/response-projection.md) can omit selected JSON keys at one exact same-origin fetch URL before the result enters the page heap, with separate received and retained byte budgets.
+
 Page `fetch` is same-origin and sends the page's cookies. It accepts `method` (GET or POST), `body`, `headers`, `credentials` (`same-origin` or `include`) and `redirect` (`follow` or `error`). Forbidden request headers such as `cookie`, `host` and `sec-*` are dropped, as in browsers. Responses expose `Headers`, without `set-cookie`.
 
 Optional `waitFor` waits for a selector, synchronous boolean predicate or quiet
@@ -70,7 +72,7 @@ contains the same Worker assets as the standalone release archive.
 
 The CLI reads an optional `NIMBO_PROXY_URL`; the Worker accepts `PROXY_URL` or an `EGRESS` fetch binding. Proxy configuration stays private. Supported protocols and platform limits are in the [transport guide](docs/cloudflare.md#transport-and-limits).
 
-Worker extractions start with fresh runtime, DOM, cookies and storage. Native `Browser` instances retain their own cookie/storage session across navigations. The Worker permits one active page per isolate and returns 429 for overlap. Default budgets include a 10-second deadline, 32 requests, 2 MiB of responses, 10,000 DOM operations and a 32 MiB QuickJS heap. The heap limit is not total process memory.
+Worker extractions start with fresh runtime, DOM, cookies and storage. Trusted server-side callers may opt into [bounded cookie handoff](docs/cookie-state.md); it preserves native scope and HttpOnly rules without retaining a page. Native `Browser` instances retain their own cookie/storage session across navigations. The Worker permits one active page per isolate and returns 429 for overlap. Default budgets include a 10-second deadline, 32 requests, 2 MiB of responses, 10,000 DOM operations and a 32 MiB QuickJS heap. The heap limit is not total process memory.
 
 Navigator uses the same `Mozilla/5.0 (compatible; Nimbo/0.1; like Gecko)` identity as HTTP. Stealth tests cover exposed automation artifacts, hidden host bindings, [Navigator contracts](https://html.spec.whatwg.org/multipage/system-state.html), object brands, receiver checks, header consistency and disposal of poisoned page state. These checks do not establish anti-bot challenge or TLS fingerprint parity.
 

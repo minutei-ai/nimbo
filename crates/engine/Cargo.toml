@@ -12,7 +12,7 @@ crate-type = ["rlib", "cdylib"]
 rquickjs = { version = "=0.14.0", features = ["loader"] }
 
 [dependencies]
-cookie_store = { version = "=0.22.1", default-features = false }
+cookie_store = { version = "=0.22.1", default-features = false, features = ["serde"] }
 psl = "=2.1.239"
 cssparser = "=0.37.0"
 dom_query = { version = "=0.28.0", default-features = false }
@@ -45,6 +45,7 @@ image = { version = "=0.25.10", default-features = false, features = [
   "jpeg",
   "gif",
   "webp",
+  "ico",
 ] }
 parse-srcset = "=0.1.1"
 

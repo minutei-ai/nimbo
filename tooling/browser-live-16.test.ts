@@ -45,7 +45,8 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     );
     expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: expected });
     expect(requests).toContain(`GET /custom-elements/${variant}`);
-    if (comparisonBinary) expect(await comparePage(comparisonBinary, url)).toBeNull();
+    if (comparisonBinary)
+      expect(await comparePage(url)).toEqual({ ...expected, replacement: false, guards: false });
   },
 );
 
@@ -66,17 +67,11 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     });
     expect(requests).toContain(`GET /anchors/${variant}`);
     if (comparisonBinary)
-      expect(await comparePage(comparisonBinary, url)).toEqual({
-        ...Object.fromEntries(Object.keys(anchorExpected).map((key) => [key, false])),
-        parsed: true,
-        components: true,
-        host: true,
-        invalidSetters: true,
-        emptyParts: true,
-        clearing: true,
-        text: true,
-        rel: true,
-        bases: true,
+      expect(await comparePage(url)).toEqual({
+        ...anchorExpected,
+        invalidSetters: false,
+        emptyParts: false,
+        rel: false,
       });
   },
 );
