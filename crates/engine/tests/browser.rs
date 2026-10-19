@@ -1935,17 +1935,6 @@ fn registered_custom_properties_validate_before_substitution() -> TestResult {
 }
 
 fn serve_image_resources(request: Request) -> io::Result<()> {
-    if matches!(
-        request.url(),
-        "/image-resources/untyped.png" | "/image-resources/untyped.jpeg"
-    ) {
-        let bytes: &[u8] = if request.url().ends_with(".jpeg") {
-            include_bytes!("fixtures/image-resources/small.jpeg")
-        } else {
-            include_bytes!("fixtures/image-resources/small.png")
-        };
-        return request.respond(Response::from_data(bytes));
-    }
     if request.url() == "/image-resources/data" {
         return respond(
             request,
@@ -2046,6 +2035,17 @@ fn serve_image_resources(request: Request) -> io::Result<()> {
 }
 
 fn serve_image_bitmap(request: Request) -> io::Result<()> {
+    if matches!(
+        request.url(),
+        "/image-resources/untyped.png" | "/image-resources/untyped.jpeg"
+    ) {
+        let bytes: &[u8] = if request.url() == "/image-resources/untyped.jpeg" {
+            include_bytes!("fixtures/image-resources/small.jpeg")
+        } else {
+            include_bytes!("fixtures/image-resources/small.png")
+        };
+        return request.respond(Response::from_data(bytes));
+    }
     let path = request.url().split('?').next().unwrap_or_default();
     if matches!(
         path,
