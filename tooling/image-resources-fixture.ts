@@ -9,6 +9,25 @@ const assets = new Map([
 
 export async function imageResourcesFixture(path: string, request: Request) {
   if (!path.startsWith("/image-resources/")) return undefined;
+  if (path === "/image-resources/data-comparison") {
+    const html = await Bun.file(
+      new URL("../crates/engine/tests/fixtures/image-resources/data.html", import.meta.url),
+    ).text();
+    const expression = await Bun.file(
+      new URL("../crates/engine/tests/fixtures/image-data.txt", import.meta.url),
+    ).text();
+    return new Response(
+      `${html}<script>globalThis.comparisonPromise=new Promise(resolve=>addEventListener('load',()=>resolve(${expression}),{once:true}));</script>`,
+      { headers: { "content-type": "text/html" } },
+    );
+  }
+  if (path === "/image-resources/data")
+    return new Response(
+      Bun.file(
+        new URL("../crates/engine/tests/fixtures/image-resources/data.html", import.meta.url),
+      ),
+      { headers: { "content-type": "text/html" } },
+    );
   if (path === "/image-resources/empty-source")
     return new Response(
       Bun.file(

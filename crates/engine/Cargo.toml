@@ -12,6 +12,7 @@ crate-type = ["rlib", "cdylib"]
 rquickjs = { version = "=0.14.0", features = ["loader"] }
 
 [dependencies]
+data-url = "=0.3.2"
 cookie_store = { version = "=0.22.1", default-features = false, features = ["serde"] }
 psl = "=2.1.239"
 cssparser = "=0.37.0"

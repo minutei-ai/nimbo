@@ -28,6 +28,7 @@ struct Source {
 
 struct Loaded {
     source: Source,
+    generation: usize,
     dimensions: Option<Size<f64>>,
     retry: bool,
 }
@@ -39,6 +40,7 @@ enum Settled {
 
 pub(crate) enum Action {
     Request { owner: NodeId, url: String },
+    Inline { owner: NodeId, generation: usize },
     Error { owner: NodeId, generation: usize },
 }
 
@@ -57,6 +59,7 @@ struct Pending {
     owner: NodeId,
     source: Source,
     current: bool,
+    generation: usize,
 }
 
 pub(crate) struct Images {
@@ -198,8 +201,13 @@ impl Images {
         let url = base
             .join(&candidate.url)
             .map_err(|error| Error::InvalidUrl(error.to_string()))?;
-        let mut url = crate::machine::parse_url(url.as_str())?;
-        url.set_fragment(None);
+        let url = if url.scheme() == "data" {
+            url
+        } else {
+            let mut url = crate::machine::parse_url(url.as_str())?;
+            url.set_fragment(None);
+            url
+        };
         Ok(Some(Source {
             url: url.to_string(),
             density: candidate.density.unwrap_or(1.0),
@@ -274,11 +282,19 @@ impl Images {
                 continue;
             }
             let url = source.url.clone();
+            self.generation = self.generation.saturating_add(1);
             self.pending = Some(Pending {
                 owner: id,
                 source,
                 current: true,
+                generation: self.generation,
             });
+            if url.starts_with("data:") {
+                return Ok(Some(Action::Inline {
+                    owner: id,
+                    generation: self.generation,
+                }));
+            }
             return Ok(Some(Action::Request { owner: id, url }));
         }
         Ok(None)
@@ -295,6 +311,7 @@ impl Images {
             owner: id,
             source,
             current,
+            generation,
         }) = self.pending.take()
         else {
             return Err(Error::Unsupported("no pending image".into()));
@@ -306,14 +323,23 @@ impl Images {
         {
             return Ok(None);
         }
-        let dimensions = match response.filter(|response| (200..300).contains(&response.status)) {
-            Some(response) => decode(
+        let inline = if source.url.starts_with("data:") {
+            decode_data(&source.url, self.maximum)?
+        } else {
+            None
+        };
+        let dimensions = match (
+            inline.as_deref(),
+            response.filter(|response| (200..300).contains(&response.status)),
+        ) {
+            (Some(bytes), _) => decode(bytes, self.maximum)?,
+            (_, Some(response)) => decode(
                 response.raw_body.as_deref().ok_or_else(|| {
                     Error::Unsupported("image response omitted binary bytes".into())
                 })?,
                 self.maximum,
             )?,
-            None => None,
+            (None, None) => None,
         };
         let dimensions = dimensions
             .map(|size| {
@@ -332,6 +358,7 @@ impl Images {
             id,
             Settled::Current(Loaded {
                 source,
+                generation,
                 dimensions,
                 retry: false,
             }),
@@ -339,8 +366,20 @@ impl Images {
         Ok(Some(success))
     }
 
-    pub(crate) fn error_current(&self, id: NodeId, generation: usize) -> bool {
-        matches!(self.settled.get(&id), Some(Settled::Empty(current)) if *current == generation)
+    pub(crate) fn event_current(
+        &self,
+        node: NodeRef<'_>,
+        base: Option<&str>,
+        generation: usize,
+    ) -> Result<bool> {
+        let source = self.source(node, base)?;
+        Ok(match self.settled.get(&node.id) {
+            Some(Settled::Empty(current)) => *current == generation && source.is_none(),
+            Some(Settled::Current(loaded)) => {
+                loaded.generation == generation && source.as_ref() == Some(&loaded.source)
+            }
+            None => false,
+        })
     }
 
     pub(crate) fn info(
@@ -386,6 +425,25 @@ impl Images {
                 })
             })?,
         })
+    }
+}
+
+fn decode_data(url: &str, maximum: usize) -> Result<Option<Vec<u8>>> {
+    let Ok(data) = data_url::DataUrl::process(url) else {
+        return Ok(None);
+    };
+    let mut body = Vec::with_capacity(maximum.min(url.len()));
+    let result = data.decode(|bytes| {
+        if bytes.len() > maximum.saturating_sub(body.len()) {
+            return Err(Error::Limit("image data bytes"));
+        }
+        body.extend_from_slice(bytes);
+        Ok(())
+    });
+    match result {
+        Ok(_) => Ok(Some(body)),
+        Err(data_url::forgiving_base64::DecodeError::InvalidBase64(_)) => Ok(None),
+        Err(data_url::forgiving_base64::DecodeError::WriteError(error)) => Err(error),
     }
 }
 

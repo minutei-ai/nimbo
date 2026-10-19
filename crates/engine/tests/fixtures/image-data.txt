@@ -1,0 +1,41 @@
+(async () => {
+  const checks = {};
+  const source = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAQCAIAAAD4YuoOAAAAIElEQVR4nGOUiG5hoCVgoqnpoxaMWjBqwagFoxZQCQAAPoABFyfb9jYAAAAASUVORK5CYII=";
+  const percent = "data:image/png,%89%50%4E%47%0D%0A%1A%0A%00%00%00%0D%49%48%44%52%00%00%00%20%00%00%00%10%08%02%00%00%00%F8%62%EA%0E%00%00%00%20%49%44%41%54%78%9C%63%94%88%6E%61%A0%25%60%A2%A9%E9%A3%16%8C%5A%30%6A%C1%A8%05%A3%16%50%09%00%00%3E%80%01%17%27%DB%F6%36%00%00%00%00%49%45%4E%44%AE%42%60%82";
+  const initial = document.getElementById('inline');
+  checks.parserImage = initial.complete && initial.naturalWidth === 32 && initial.naturalHeight === 16 && initial.currentSrc === source;
+  checks.parserEvents = imageEvents.includes('inline:load') && imageEvents.includes('invalid:error') && imageEvents.includes('swapped:error') && imageEvents.length === 3;
+  checks.staleParserSource = !imageEvents.includes('swapped:load') && document.getElementById('swapped').complete && document.getElementById('swapped').naturalWidth === 0;
+  const load = (image, url, event = 'load') => new Promise((resolve, reject) => {
+    image.addEventListener(event, resolve, { once: true });
+    if (event === 'load') image.addEventListener('error', reject, { once: true });
+    image.src = url;
+  });
+  for (const [name, url] of [['base64', source], ['percent', percent], ['fragment', source + '#sample']]) {
+    const image = new Image();
+    await load(image, url);
+    checks[name] = image.complete && image.naturalWidth === 32 && image.naturalHeight === 16 && image.currentSrc === url && !image.isConnected;
+  }
+  for (const [name, url] of [['invalidBase64', 'data:image/png;base64,%%%'], ['missingComma', 'data:image/png'], ['empty', 'data:,'], ['nonImage', 'data:text/plain,hello']]) {
+    const image = new Image();
+    await load(image, url, 'error');
+    checks[name] = image.complete && image.naturalWidth === 0 && image.naturalHeight === 0;
+  }
+  const replacement = new Image();
+  const events = [];
+  replacement.addEventListener('load', () => events.push('load'));
+  replacement.addEventListener('error', () => events.push('error'));
+  replacement.src = source;
+  await load(replacement, 'data:image/png;base64,%%%', 'error');
+  await load(replacement, percent);
+  checks.replacement = events.join(',') === 'error,load' && replacement.naturalWidth === 32 && replacement.currentSrc === percent;
+  const density = new Image();
+  const ready = new Promise((resolve, reject) => {
+    density.onload = resolve;
+    density.onerror = reject;
+  });
+  density.srcset = source + ' 2x';
+  await ready;
+  checks.density = density.complete && density.naturalWidth === 16 && density.naturalHeight === 8;
+  return checks;
+})()

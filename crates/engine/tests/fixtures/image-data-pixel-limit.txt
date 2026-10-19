@@ -1,0 +1,1 @@
+new Promise(resolve=>{const image=new Image();image.onload=resolve;image.onerror=resolve;image.src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAQCAIAAAD4YuoOAAAAIElEQVR4nGOUiG5hoCVgoqnpoxaMWjBqwagFoxZQCQAAPoABFyfb9jYAAAAASUVORK5CYII="})
