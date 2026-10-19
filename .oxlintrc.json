@@ -25,5 +25,5 @@
     "eslint/eqeqeq": ["error", "always"],
     "eslint/no-debugger": "error"
   },
-  "ignorePatterns": ["node_modules/**", "target/**", "dist/**", "coverage/**"]
+  "ignorePatterns": ["node_modules/**", "target/**", "dist/**", "coverage/**", "vendor/**"]
 }

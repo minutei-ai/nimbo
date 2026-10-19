@@ -186,8 +186,13 @@ at the original element. HTTP and transport failures, invalid URLs and policy-de
 origins report resource errors without aborting the document. The same-origin
 restriction still prevents those requests and their code from executing. Success
 events follow the script's microtask checkpoint; window load follows pending
-resource events. Navigation, module, budget, cancellation and JavaScript execution
-failures retain their existing error contracts. Native and Worker tests cover
+resource events. Classic script syntax and runtime exceptions dispatch a window
+`error` event with the original thrown value and script URL. Subsequent parser,
+deferred and async scripts continue, and successfully fetched scripts still emit
+`load`. Native and Worker regressions cover this behavior, including primitive
+thrown values in the native engine. Module failures, unhandled Promise rejections,
+extraction-expression errors, resource exhaustion and cancellation remain fatal. Page error listeners cannot suppress native
+resource failures. The [QuickJS OOM patch](quickjs-oom-patch.md) keeps heap exhaustion distinguishable from a page throwing `null`. Native and Worker tests cover
 HTTP failures, denied origins, recovery and event ordering against the
 [HTML script execution model](https://html.spec.whatwg.org/multipage/scripting.html#execute-the-script-element).
 
@@ -616,7 +621,7 @@ evidence cannot establish it.
 | DOM mutation, identity and ancestry                  | Subset     | Live mutation results, detached nodes, tree-cycle rejection, WPT                                                                             |
 | Node/Text/Comment/Fragment, live collections         | Subset     | Live child collections and static selector lists; remaining Node APIs and full WPT                                                           |
 | Event dispatch and lifecycle                         | Subset     | Capture/bubble, cancellation, once/passive, native input ordering                                                                            |
-| Classic scripts and Promise jobs                     | Subset     | Source ordering, exception propagation, resource exhaustion                                                                                  |
+| Classic scripts and Promise jobs                     | Subset     | Source ordering, window exception reporting, fatal caller and resource failures                                                              |
 | Modules, import maps, JSON modules, dynamic import   | Subset     | Native graphs and scoped import maps tested; JSON modules and new dynamic fetching missing                                                   |
 | Timers, animation frames and scheduling              | Subset     | Real-clock timers and animation callback batches tested; multi-realm frames, idle and full event loop pending                                |
 | Custom elements autônomos                            | Subset     | Native upgrades, lifecycle and failed construction; scoped/built-in/form gaps                                                                |

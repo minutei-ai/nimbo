@@ -17,7 +17,7 @@ beforeAll(() => {
       if (path === "/hang") return new Promise<Response>(() => {});
       const body =
         path === "/scripts"
-          ? "<script>throw new Error('synthetic script failure')</script>"
+          ? "<script>new TextEncoder().encode('x'.repeat(65537))</script>"
           : path === "/modules"
             ? "<script type=module>import '/missing.js'</script>"
             : "<body><div>fresh</div></body>";
@@ -67,7 +67,7 @@ test.each([
     enginePhase: undefined,
   },
   {
-    name: "inline script",
+    name: "inline script quota",
     path: "/scripts",
     options: {},
     status: 422,

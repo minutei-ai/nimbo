@@ -64,20 +64,22 @@ test("native console logging is available during page scripts", async () => {
   });
 });
 
-test("console output is explicit and retained on execution failures", async () => {
+test("console output is explicit and retained on caller execution failures", async () => {
   const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
     method: "POST",
     headers: { authorization: "Bearer console-test" },
     body: JSON.stringify({
       url: new URL("/error", origin.url).href,
-      expression: "1",
+      expression: "(()=>{throw new Error('fixture failure')})()",
       captureConsole: true,
+      diagnostics: true,
     }),
   });
   expect(response.status).toBe(422);
   const result = Schema.decodeUnknownSync(Failure)(await response.json());
   expect(result.console).toEqual([{ level: "warn", text: "before failure" }]);
   expect(result.error).toContain("fixture failure");
+  expect(result.diagnostics?.phase).toBe("extraction");
   const recovered = await worker.dispatchFetch("https://nimbo.test/scrape", {
     method: "POST",
     headers: { authorization: "Bearer console-test" },
@@ -160,7 +162,7 @@ test("native client preserves explicitly collected console records on errors", a
       (nimbo) =>
         nimbo.scrape({
           url: new URL("/error", origin.url).href,
-          expression: "1",
+          expression: "(()=>{throw new Error('fixture failure')})()",
           captureConsole: true,
         }),
       // Each test owns its complete runtime and its real HTTP client layer.

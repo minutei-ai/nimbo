@@ -1327,6 +1327,68 @@ test("detached DOM mutations retain Window name lookup within the default budget
   );
 });
 
+test("classic script exceptions report errors without aborting the page", async () => {
+  const source = await Bun.file(
+    join(root, "crates/engine/tests/fixtures/classic-script-errors.html"),
+  ).text();
+  await fixture(
+    (request) => {
+      const path = new URL(request.url).pathname;
+      const kind = ["external", "defer", "async"].find(
+        (candidate) => path === `/classic-script-errors-${candidate}.js`,
+      );
+      if (kind !== undefined)
+        return new Response(`scriptTrace.push('${kind}');throw new Error('${kind}');`, {
+          headers: { "content-type": "text/javascript" },
+        });
+      return html(source);
+    },
+    async (worker) => {
+      const response = await scrape(
+        worker,
+        "({trace:scriptTrace.slice().sort(),errors:scriptErrors.slice().sort(),loads:scriptLoads,ready:document.readyState})",
+      );
+      expect(response.status).toBe(200);
+      expect(await json(response)).toMatchObject({
+        value: {
+          trace: ["after", "async", "defer", "external", "inline", "load"],
+          errors: ["async", "defer", "external", "inline", "syntax"],
+          loads: 3,
+          ready: "complete",
+        },
+      });
+      const expression = await scrape(worker, "(()=>{throw new Error('caller-expression')})()");
+      expect(expression.status).toBe(422);
+      expect(JSON.stringify(await json(expression))).toContain("caller-expression");
+    },
+  );
+});
+
+test.each([
+  ["memory", "Array.from({length:10000000},(_,i)=>({i}));"],
+  ["dom", "for(let i=0;i<20000;i++)document.createElement('i');"],
+  ["encoding", "new TextEncoder().encode('x'.repeat(65537));"],
+  ["timer", "for(let i=0;i<1025;i++)setTimeout(()=>{},100);"],
+  ["fuel", "while(true){}"],
+])("classic script %s failure remains fatal and releases the isolate", async (_name, source) => {
+  await fixture(
+    (request) => {
+      if (new URL(request.url).pathname === "/failure")
+        return html(
+          `<script>addEventListener('error',event=>event.preventDefault());</script><script>${source}</script>`,
+        );
+      return html("<main>alive</main>");
+    },
+    async (worker) => {
+      const response = await scrape(worker, "true", new URL("/failure", originFor(worker)).href);
+      expect(response.status).toBe(422);
+      const healthy = await scrape(worker, "document.querySelector('main').textContent");
+      expect(healthy.status).toBe(200);
+      expect(await json(healthy)).toMatchObject({ value: "alive" });
+    },
+  );
+});
+
 test("classic currentScript and reflected script source follow execution lifetime", async () => {
   const page = await Bun.file(
     join(root, "crates/engine/tests/fixtures/current-script.html"),

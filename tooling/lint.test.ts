@@ -66,7 +66,10 @@ test("Rust policy rejects unsafe code, unchecked arithmetic, indexing, casts and
   const directory = await mkdtemp(join(root, ".lint-probe-"));
   try {
     const manifest = await readFile(join(root, "Cargo.toml"), "utf8");
-    const lints = manifest.slice(manifest.indexOf("[workspace.lints.rust]"));
+    const lints = manifest
+      .split(/(?=^\[)/m)
+      .filter((section) => section.startsWith("[workspace.lints."))
+      .join("");
     await writeFile(
       join(directory, "Cargo.toml"),
       '[package]\nname = "lint-probe"\nversion = "0.0.0"\nedition = "2024"\n[workspace]\n' +
