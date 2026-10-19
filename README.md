@@ -32,6 +32,8 @@ Page scripts execute by default. `"scripts":"skip"` parses received HTML and run
 
 Set `captureConsole: true` to include the page's bounded `console` records in success or error responses. Records are omitted by default, including when `diagnostics` is enabled. The supported logging methods, buffer bounds and native inspection APIs are described in [console coverage](docs/browser-coverage.md#bounded-native-console).
 
+[Bounded response projection](docs/response-projection.md) can omit selected JSON keys at one exact same-origin fetch URL before the result enters the page heap, with separate received and retained byte budgets.
+
 Page `fetch` is same-origin and sends the page's cookies. It accepts `method` (GET or POST), `body`, `headers`, `credentials` (`same-origin` or `include`) and `redirect` (`follow` or `error`). Forbidden request headers such as `cookie`, `host` and `sec-*` are dropped, as in browsers. Responses expose `Headers`, without `set-cookie`.
 
 Optional `waitFor` waits for a selector, synchronous boolean predicate or quiet

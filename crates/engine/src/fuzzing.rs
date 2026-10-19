@@ -27,8 +27,14 @@ fn machine(html: &str) -> Result<Machine> {
     };
     let started = Instant::now();
     Machine::new(
-        html,
-        URL,
+        &crate::machine::Response {
+            url: URL.into(),
+            status: 200,
+            body: html.into(),
+            raw_body: None,
+            content_type: "text/html".into(),
+            headers: Vec::new(),
+        },
         limits,
         Arc::new(move || {
             if started.elapsed() >= limits.timeout {

@@ -214,20 +214,35 @@ impl Machine {
 
     #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn new(
-        html: &str,
-        url: &str,
+        response: &Response,
         limits: Limits,
         check: Check,
         execute_scripts: bool,
         session: crate::cookies::Session,
         media: MediaEnvironment,
     ) -> Result<Self> {
+        let html = crate::navigation_document::html(
+            &response.url,
+            &response.content_type,
+            &response.body,
+        )?;
         if html.len() > limits.max_response_bytes {
             return Err(Error::Limit("HTML bytes"));
         }
-        let base = parse_url(url)?;
-        let dom = Dom::new(html, limits, media.clone(), base, Arc::clone(&check))?;
-        Self::from_dom(dom, url, limits, check, execute_scripts, session, media)
+        let base = parse_url(&response.url)?;
+        let mut dom = Dom::new(&html, limits, media.clone(), base, Arc::clone(&check))?;
+        dom.navigation_type(crate::navigation_document::content_type(
+            &response.content_type,
+        )?);
+        Self::from_dom(
+            dom,
+            &response.url,
+            limits,
+            check,
+            execute_scripts,
+            session,
+            media,
+        )
     }
 
     pub(crate) fn from_dom(
@@ -1284,8 +1299,14 @@ mod layout_contracts {
 
     fn hot_path(html: &str, expression: &str, operations: usize) -> Result<bool> {
         let mut machine = Machine::new(
-            html,
-            "https://example.test/",
+            &super::Response {
+                url: "https://example.test/".into(),
+                status: 200,
+                body: html.into(),
+                raw_body: None,
+                content_type: "text/html".into(),
+                headers: Vec::new(),
+            },
             Limits {
                 max_dom_operations: operations,
                 ..Limits::default()
@@ -1358,8 +1379,14 @@ mod layout_contracts {
                 "<!doctype html><body><script>globalThis.variant={variant};{source}</script>"
             );
             let mut machine = Machine::new(
-                &html,
-                "https://example.test/",
+                &super::Response {
+                    url: "https://example.test/".into(),
+                    status: 200,
+                    body: html,
+                    raw_body: None,
+                    content_type: "text/html".into(),
+                    headers: Vec::new(),
+                },
                 Limits::default(),
                 Arc::new(|| Ok(())),
                 true,

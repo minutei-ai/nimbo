@@ -45,6 +45,7 @@ image = { version = "=0.25.10", default-features = false, features = [
   "jpeg",
   "gif",
   "webp",
+  "ico",
 ] }
 parse-srcset = "=0.1.1"
 

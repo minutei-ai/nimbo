@@ -14,6 +14,7 @@ struct LoadingPage {
     url: url::Url,
     limits: Limits,
     execute_scripts: bool,
+    content_type: &'static str,
     session: crate::cookies::Session,
     media: MediaEnvironment,
 }
@@ -51,7 +52,13 @@ impl WasmPageLoader {
         max_response_bytes: Option<usize>,
         timeout_ms: Option<u32>,
         max_stylesheet_selectors: Option<usize>,
+        content_type: Option<String>,
     ) -> Result<Self, String> {
+        let content_type = content_type
+            .map_or(Ok("text/html"), |kind| {
+                crate::navigation_document::content_type(&kind)
+            })
+            .map_err(|error| error.to_string())?;
         let media: MediaEnvironment = media
             .map_or_else(
                 || Ok(MediaEnvironment::default()),
@@ -120,6 +127,7 @@ impl WasmPageLoader {
                 bytes: 0,
                 url,
                 limits,
+                content_type,
                 execute_scripts: execute_scripts.unwrap_or(true),
                 session: crate::cookies::Session {
                     storage: std::rc::Rc::default(),
@@ -164,13 +172,14 @@ impl WasmPageLoader {
         let state = self.state.take().ok_or("document loader is closed")?;
         let parsed = state.parser.finish().map_err(|error| error.to_string())?;
         let check: crate::BudgetCheck = Arc::new(|| Ok(()));
-        let dom = crate::dom::Dom::from_document(
+        let mut dom = crate::dom::Dom::from_document(
             parsed,
             state.limits,
             state.media.clone(),
             state.url.clone(),
             Arc::clone(&check),
         );
+        dom.navigation_type(state.content_type);
         Machine::from_dom(
             dom,
             state.url.as_str(),
@@ -182,6 +191,70 @@ impl WasmPageLoader {
         )
         .map(|machine| WasmPage { machine })
         .map_err(|error| error.to_string())
+    }
+}
+
+/// Constructs an HTML image document for a supported navigation MIME type.
+///
+/// # Errors
+/// Rejects unsupported document types instead of executing their bytes as HTML.
+#[wasm_bindgen]
+pub fn navigation_document(url: &str, content_type: &str) -> Result<String, String> {
+    crate::navigation_document::html(url, content_type, "")
+        .map(std::borrow::Cow::into_owned)
+        .map_err(|error| error.to_string())
+}
+
+/// Bounded JSON projection performed before response bytes enter the page heap.
+#[wasm_bindgen]
+#[derive(Debug)]
+pub struct WasmJsonProjection {
+    state: Option<crate::json_projection::Projection>,
+}
+
+#[wasm_bindgen]
+impl WasmJsonProjection {
+    /// Starts a projection with independent received-byte and retained-byte budgets.
+    ///
+    /// # Errors
+    /// Rejects invalid key lists or budgets.
+    #[wasm_bindgen(constructor)]
+    pub fn new(keys: &str, maximum_received: usize, maximum_output: usize) -> Result<Self, String> {
+        let keys = serde_json::from_str(keys).map_err(|error| error.to_string())?;
+        Ok(Self {
+            state: Some(
+                crate::json_projection::Projection::new(keys, maximum_received, maximum_output)
+                    .map_err(|error| error.to_string())?,
+            ),
+        })
+    }
+
+    /// Receives an original response chunk without constructing a JavaScript string.
+    ///
+    /// # Errors
+    /// Rejects closed projections and byte overflows; failure closes the projection.
+    pub fn feed(&mut self, bytes: &[u8]) -> Result<(), String> {
+        let result = self
+            .state
+            .as_mut()
+            .ok_or("JSON projection is closed")?
+            .feed(bytes);
+        if result.is_err() {
+            self.state = None;
+        }
+        result.map_err(|error| error.to_string())
+    }
+
+    /// Validates complete UTF-8 JSON and returns the bounded projected bytes.
+    ///
+    /// # Errors
+    /// Rejects closed projections, malformed JSON and output-byte overflow.
+    pub fn finish(&mut self) -> Result<Vec<u8>, String> {
+        self.state
+            .take()
+            .ok_or("JSON projection is closed")?
+            .finish()
+            .map_err(|error| error.to_string())
     }
 }
 
@@ -257,6 +330,7 @@ impl WasmPage {
             None,
             None,
             max_stylesheet_selectors,
+            None,
         )?;
         for bytes in html.as_bytes().chunks(8192) {
             loader.feed(bytes)?;

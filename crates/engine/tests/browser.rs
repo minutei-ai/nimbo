@@ -6449,3 +6449,16 @@ fn native_out_of_flow_candidates_preserve_static_positions_and_grid_areas() -> T
         Ok(())
     })
 }
+
+#[test]
+fn image_document_navigation_preserves_native_document_identity() -> TestResult {
+    let fixture = Fixture::new()?;
+    let url = fixture.path("/image-resources/small.png");
+    let page = fixture.browser()?.navigate(&url)?;
+    assert_eq!(page.url(), url);
+    assert_eq!(
+        page.evaluate("({type:document.contentType,src:document.querySelector('img').src,complete:document.querySelector('img').complete,width:document.querySelector('img').naturalWidth})")?,
+        json!({"type":"image/png","src":url,"complete":true,"width":32})
+    );
+    Ok(())
+}

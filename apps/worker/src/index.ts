@@ -6,6 +6,7 @@ import {
   initSync,
   WasmPageLoader,
   engine_limits,
+  navigation_document,
   engine_version,
 } from "../../../dist/wasm/nimbo_engine.js";
 import {
@@ -94,6 +95,7 @@ const scrape = (
                 environment.EGRESS,
                 environment.PROXY_URL,
                 input.headers,
+                input.responseProjection,
               ),
             catch: (cause) => failure(cause, 400),
           }),
@@ -109,7 +111,10 @@ const scrape = (
             reason: `navigation HTTP ${response.status}`,
           });
         if (!response.content_type.toLowerCase().startsWith("text/html"))
-          return yield* new ScrapeError({ status: 422, reason: "navigation requires text/html" });
+          response.body = yield* Effect.try({
+            try: () => navigation_document(response.url, response.content_type),
+            catch: (cause) => failure(cause),
+          });
         state.phase = "parsing";
         const loader = yield* Effect.acquireRelease(
           Effect.try({
@@ -127,6 +132,7 @@ const scrape = (
                 input.maxResponseBytes,
                 pageLimits.timeoutMs,
                 input.maxStylesheetSelectors,
+                response.content_type,
               ),
             catch: (cause) => failure(cause),
           }),

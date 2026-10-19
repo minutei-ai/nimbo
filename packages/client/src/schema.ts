@@ -24,12 +24,21 @@ export const Media = Schema.Struct({
   reducedMotion: Schema.optional(Schema.Boolean),
 });
 
+export const ResponseProjection = Schema.Struct({
+  url: Schema.String,
+  omitJsonKeys: Schema.NonEmptyArray(
+    Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(256)),
+  ).check(Schema.isMaxLength(64)),
+  maxReceivedBytes: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 32 * 1024 * 1024 })),
+});
+
 export const Input = Schema.Struct({
   url: Schema.String,
   expression: Schema.String,
   diagnostics: Schema.optional(Schema.Boolean),
   /** Return bounded page console records, including failed executions. */
   captureConsole: Schema.optional(Schema.Boolean),
+  responseProjection: Schema.optional(ResponseProjection),
   maxInitialDomNodes: Schema.optional(
     Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 65536 })),
   ),

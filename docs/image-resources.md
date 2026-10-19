@@ -9,7 +9,7 @@ There is no external browser backend.
 
 HTML `img` elements expose `src`, `srcset`, `sizes`, `alt`, `complete`, `currentSrc`,
 `naturalWidth` and `naturalHeight`. `Image(width, height)` stores dimension
-attributes. The engine decodes PNG, JPEG, GIF and WebP through the pinned `image`
+attributes. The engine decodes PNG, JPEG, GIF, WebP and ICO through the pinned `image`
 crate, retains only intrinsic dimensions and applies JPEG EXIF orientation.
 Animated formats use their first frame; decoded pixels are discarded.
 
@@ -34,6 +34,20 @@ including namespaced attribute setters and `Attr.value`.
 Removing `src` immediately clears metadata. Assigning an empty `src` also queues
 an asynchronous error; parser scripts can attach the listener before delivery.
 A generation token prevents delivery after a later source change or adoption.
+
+## Image document navigation
+
+Native and Worker navigation accept the supported image MIME types, including
+`image/x-icon` and `image/vnd.microsoft.icon`. They construct an image document
+with the final URL in its `img` source, preserve `document.contentType`, and run
+the existing image scheduler to decode its intrinsic dimensions. The document
+retains the navigation's origin and cookies for subsequent same-origin fetches.
+This follows the [HTML image document structure](https://html.spec.whatwg.org/multipage/document-lifecycle.html#read-media).
+
+The scheduler currently makes its own request for the image after navigation;
+both physical transfers count toward the page's existing resource budgets.
+No image response cache or painting implementation is implied. SVG, audio,
+video, PDF and other document MIME types remain unsupported.
 
 ## Bounds and unsupported behavior
 
