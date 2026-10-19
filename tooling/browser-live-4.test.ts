@@ -20,67 +20,36 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     });
     expect(response.status).toBe(200);
     const result: unknown = await response.json();
+    const expected = {
+      phases: true,
+      reset: true,
+      captures: true,
+      duplicates: true,
+      once: true,
+      propagation: true,
+      immediate: true,
+      cancellation: true,
+      uncancelable: true,
+      passive: true,
+      defaultPolicy: true,
+      mutated: true,
+      object: true,
+      reentry: true,
+      errors: true,
+      abort: true,
+      preAbort: true,
+      pathStable: true,
+      guarded: true,
+      lifecycle: ["document:interactive:2", "window:interactive:3", "load:complete:2"],
+      lifecycleTrusted: true,
+    };
     expect(result).toEqual({
       url,
       engine: "rust-wasm-quickjs",
-      value: {
-        phases: true,
-        reset: true,
-        captures: true,
-        duplicates: true,
-        once: true,
-        propagation: true,
-        immediate: true,
-        cancellation: true,
-        uncancelable: true,
-        passive: true,
-        defaultPolicy: true,
-        mutated: true,
-        object: true,
-        reentry: true,
-        errors: true,
-        abort: true,
-        preAbort: true,
-        pathStable: true,
-        guarded: true,
-        lifecycle: ["document:interactive:2", "window:interactive:3", "load:complete:2"],
-        lifecycleTrusted: true,
-      },
+      value: expected,
     });
     expect(requests).toContain(`GET /events/${variant}`);
-    if (comparisonBinary) {
-      const baseline = await comparePage(comparisonBinary, url);
-      // The pinned baseline produced both values in repeated real runs.
-      // Nimbo's phase order above remains a strict requirement.
-      const phases: unknown =
-        typeof baseline === "object" && baseline !== null
-          ? Reflect.get(baseline, "phases")
-          : undefined;
-      expect(typeof phases).toBe("boolean");
-      expect(baseline).toEqual({
-        phases,
-        reset: false,
-        captures: true,
-        duplicates: true,
-        once: true,
-        propagation: true,
-        immediate: true,
-        cancellation: true,
-        uncancelable: true,
-        passive: false,
-        defaultPolicy: false,
-        mutated: true,
-        object: true,
-        reentry: true,
-        errors: false,
-        abort: false,
-        preAbort: true,
-        pathStable: true,
-        guarded: false,
-        lifecycle: ["document:interactive:2", "window:interactive:2", "load:complete:2"],
-        lifecycleTrusted: false,
-      });
-    }
+    if (comparisonBinary) expect(await comparePage(url)).toEqual({ ...expected, errors: false });
   },
 );
 

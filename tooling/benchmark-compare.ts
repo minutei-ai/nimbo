@@ -27,15 +27,7 @@ const results: Result[] = [];
 try {
   celld = await startCelld();
   const worker = celld;
-  const obscura = await startCdpBrowser(
-    "obscura",
-    process.env.NIMBO_COMPARE_OBSCURA_BINARY ?? "obscura",
-  );
-  browsers.push(obscura);
-  const chromium = await startCdpBrowser(
-    "chromium",
-    process.env.NIMBO_COMPARE_CHROMIUM_BINARY ?? "chromium",
-  );
+  const chromium = await startCdpBrowser(process.env.NIMBO_COMPARE_CHROMIUM_BINARY ?? "chromium");
   browsers.push(chromium);
   const runtimes = [
     {
@@ -66,15 +58,9 @@ try {
       },
     },
     {
-      name: "obscura",
-      version: obscura.version,
-      mode: "persistent public Obscura CDP server; fresh target and connection",
-      extract: (url: string, expression: string) => obscura.extract(url, expression),
-    },
-    {
       name: "chromium",
       version: chromium.version,
-      mode: "persistent unmodified headless Chromium; fresh target and connection; CDP",
+      mode: "persistent unmodified headless Chromium; fresh browser context, target and connection; CDP",
       extract: (url: string, expression: string) => chromium.extract(url, expression),
     },
   ];

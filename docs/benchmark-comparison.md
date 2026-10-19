@@ -1,30 +1,29 @@
-# Nimbo in celld vs Obscura vs Chromium
+# Nimbo in celld vs Chromium
 
-The comparison runs Nimbo's own Wasm engine inside celld, a separate public
-Obscura release in CDP server mode, and an unmodified headless Chromium binary.
-Obscura is only a comparator. It never serves Nimbo requests.
+The current runner compares Nimbo's own Wasm engine inside celld with ordinary
+headless Chromium. Historical reports below retain their original Obscura results;
+the current runner does not download or start Obscura.
 
 ## Run it
 
-Build prerequisites are listed in the [README](../README.md). Install celld,
-a [public Obscura release](https://github.com/h4ckf0r0day/obscura/releases), and
-Chromium. Select their executables privately through `CELLD_BINARY`,
-`NIMBO_COMPARE_OBSCURA_BINARY` and `NIMBO_COMPARE_CHROMIUM_BINARY` when they are
-outside your executable search path. No executable paths are written to reports.
+Build prerequisites are listed in the [README](../README.md). Install celld and
+Chromium. Select their executables through `CELLD_BINARY` and
+`NIMBO_COMPARE_CHROMIUM_BINARY` when outside the executable search path.
+No executable paths are written to reports.
 
 ```sh
 bun run bench:compare
 ```
 
-The runner owns and cleans up all three processes, their temporary profiles and
-the real HTTP fixture. Obscura's loopback access is explicitly enabled for this
-synthetic fixture. Chromium runs headless without stealth patches or extensions.
-The included `--no-sandbox` launch option supports isolated benchmark hosts where
-Chromium's OS sandbox cannot initialize; choose your host isolation accordingly.
+The runner owns both processes, temporary profiles and the HTTP fixture.
+Each Chromium extraction creates and disposes a browser context, target and
+connection, isolating cookies and Web Storage. Its viewport is 1280 by 720.
+Chromium runs headless without stealth patches or extensions. The `--no-sandbox`
+option supports isolated benchmark hosts where the OS sandbox cannot initialize.
 
 ## Workloads and measurement
 
-The same URLs and JavaScript extraction expressions run in all three engines.
+The same URLs and JavaScript extraction expressions run in both engines.
 The current suite has nine scenarios; the historical reports below have the
 original eight:
 
@@ -41,7 +40,7 @@ original eight:
 | `js-positioned-boxes`  | Execute 25 numeric/DOM assertions for absolute/fixed box geometry, mutations and viewport-relative coordinates |
 
 Runtime hosts remain running throughout the benchmark. Each extraction creates
-a fresh page or target. Requests run sequentially with runtime order rotated on
+a fresh page or browser context. Requests run sequentially with runtime order rotated on
 each iteration, avoiding competition and fixed ordering bias. The fixture sends
 `Cache-Control: no-store`; the report counts actual origin requests.
 
@@ -52,8 +51,7 @@ there is no fixed post-load settle delay. JavaScript uses the engine being teste
 including Nimbo's own QuickJS inside celld.
 
 Latency includes control transport, page creation, navigation, application work,
-extraction and page cleanup. Nimbo uses its authenticated HTTP API; the other two
-use CDP. These are end-to-end extraction timings, not identical-protocol CPU
+extraction and page cleanup. Nimbo uses its authenticated HTTP API; Chromium uses CDP. These are end-to-end extraction timings, not identical-protocol CPU
 measurements. No process cold-start, screenshots, rendering fidelity, distributed
 throughput, memory stability or production cost is established by this suite.
 The synthetic application is vanilla JavaScript; passing it does not establish

@@ -55,14 +55,12 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
       value: encodingExpected,
     });
     expect(requests).toContain(`GET /encoding/${variant}`);
-    if (comparisonBinary) {
-      expect(await comparePage(comparisonBinary, url)).toEqual({
-        ...Object.fromEntries(Object.keys(encodingExpected).map((key) => [key, false])),
-        views: true,
-        utf16: true,
-        coercion: true,
+    if (comparisonBinary)
+      expect(await comparePage(url)).toEqual({
+        ...encodingExpected,
+        recovery: false,
+        queued: false,
       });
-    }
   },
 );
 

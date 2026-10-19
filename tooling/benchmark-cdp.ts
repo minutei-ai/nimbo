@@ -61,7 +61,7 @@ async function connect(url: string): Promise<Connection> {
   });
   return new Connection(socket);
 }
-export async function startCdpBrowser(kind: "chromium" | "obscura", binary: string) {
+export async function startCdpBrowser(binary: string) {
   const versionProcess = Bun.spawn([binary, "--version"], { stdout: "pipe", stderr: "ignore" });
   const [binaryVersion, versionExit] = await Promise.all([
     new Response(versionProcess.stdout).text(),
@@ -72,39 +72,32 @@ export async function startCdpBrowser(kind: "chromium" | "obscura", binary: stri
   const reservation = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: () => new Response() });
   const port = reservation.port;
   await reservation.stop(true);
-  const argumentsList =
-    kind === "chromium"
-      ? [
-          "--headless=new",
-          "--no-sandbox",
-          "--disable-dev-shm-usage",
-          "--no-first-run",
-          "--disable-background-networking",
-          `--user-data-dir=${directory}`,
-          `--remote-debugging-port=${port}`,
-          "about:blank",
-        ]
-      : [
-          "serve",
-          "--host",
-          "127.0.0.1",
-          "--port",
-          String(port),
-          "--allow-private-network",
-          "--quiet",
-        ];
+  const argumentsList = [
+    "--headless=new",
+    "--no-sandbox",
+    "--disable-dev-shm-usage",
+    "--no-first-run",
+    "--disable-background-networking",
+    `--user-data-dir=${directory}`,
+    `--remote-debugging-port=${port}`,
+    "about:blank",
+  ];
   const child = Bun.spawn([binary, ...argumentsList], { stdout: "ignore", stderr: "ignore" });
   const stop = async () => {
     if (child.exitCode === null) {
       child.kill("SIGTERM");
-      await child.exited;
+      await Promise.race([child.exited, Bun.sleep(1000)]);
+      if (child.exitCode === null) {
+        child.kill("SIGKILL");
+        await child.exited;
+      }
     }
     await rm(directory, { recursive: true, force: true });
   };
   try {
     let identity: unknown;
     for (let attempt = 0; attempt < 300; attempt++) {
-      if (child.exitCode !== null) throw new Error(`${kind} stopped during startup`);
+      if (child.exitCode !== null) throw new Error("Chromium stopped during startup");
       try {
         // Poll the owned comparator until its real CDP listener is ready.
         // oxlint-disable-next-line eslint/no-await-in-loop
@@ -131,12 +124,19 @@ export async function startCdpBrowser(kind: "chromium" | "obscura", binary: stri
       stop,
       async extract(url: string, expression: string): Promise<unknown> {
         const connection = await connect(endpoint);
-        let targetId: string | undefined;
+        let browserContextId: string | undefined;
         try {
-          const target = await connection.request("Target.createTarget", { url: "about:blank" });
+          const context = await connection.request("Target.createBrowserContext");
+          const createdContext = field(context, "browserContextId");
+          if (typeof createdContext !== "string") throw new Error("Missing CDP browser context");
+          browserContextId = createdContext;
+          const target = await connection.request("Target.createTarget", {
+            url: "about:blank",
+            browserContextId,
+          });
           const created = field(target, "targetId");
           if (typeof created !== "string") throw new Error("Missing CDP target");
-          targetId = created;
+          const targetId = created;
           const attached = await connection.request("Target.attachToTarget", {
             targetId,
             flatten: true,
@@ -144,6 +144,16 @@ export async function startCdpBrowser(kind: "chromium" | "obscura", binary: stri
           const sessionId = field(attached, "sessionId");
           if (typeof sessionId !== "string") throw new Error("Missing CDP session");
           await connection.request("Page.enable", {}, sessionId);
+          await connection.request(
+            "Emulation.setDeviceMetricsOverride",
+            {
+              width: 1280,
+              height: 720,
+              deviceScaleFactor: 1,
+              mobile: false,
+            },
+            sessionId,
+          );
           await connection.request("Page.navigate", { url }, sessionId);
           // A Promise waits for real document load without imposing a fixed settle delay.
           await connection.request(
@@ -165,7 +175,8 @@ export async function startCdpBrowser(kind: "chromium" | "obscura", binary: stri
           return field(field(result, "result"), "value");
         } finally {
           try {
-            if (targetId) await connection.request("Target.closeTarget", { targetId });
+            if (browserContextId)
+              await connection.request("Target.disposeBrowserContext", { browserContextId });
           } finally {
             connection.close();
           }

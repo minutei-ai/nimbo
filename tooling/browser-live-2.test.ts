@@ -19,48 +19,40 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     });
     expect(response.status).toBe(200);
     const result: unknown = await response.json();
+    const expected = {
+      documentType: true,
+      fragmentState: true,
+      inserted: true,
+      noops: true,
+      replaced: true,
+      moved: true,
+      same: true,
+      removed: true,
+      errors: [
+        "NotFoundError",
+        "NotFoundError",
+        "NotFoundError",
+        "HierarchyRequestError",
+        "HierarchyRequestError",
+        "HierarchyRequestError",
+        "HierarchyRequestError",
+        "HierarchyRequestError",
+        "HierarchyRequestError",
+        "HierarchyRequestError",
+      ],
+      atomic: true,
+      fragmentAtomic: true,
+      fragmentText: true,
+      emptyText: true,
+      emptyElement: true,
+      documentReplace: true,
+    };
     expect(result).toEqual({
       url,
       engine: "rust-wasm-quickjs",
-      value: {
-        documentType: true,
-        fragmentState: true,
-        inserted: true,
-        noops: true,
-        replaced: true,
-        moved: true,
-        same: true,
-        removed: true,
-        errors: [
-          "NotFoundError",
-          "NotFoundError",
-          "NotFoundError",
-          "HierarchyRequestError",
-          "HierarchyRequestError",
-          "HierarchyRequestError",
-          "HierarchyRequestError",
-          "HierarchyRequestError",
-          "HierarchyRequestError",
-          "HierarchyRequestError",
-        ],
-        atomic: true,
-        fragmentAtomic: true,
-        fragmentText: true,
-        emptyText: true,
-        emptyElement: true,
-        documentReplace: true,
-      },
+      value: expected,
     });
-    if (comparisonBinary) {
-      // The pinned comparator aborts at this valid insertion. Nimbo must
-      // complete the entire standards-based fixture above.
-      expect(await comparePage(comparisonBinary, url)).toEqual({
-        exception: "HierarchyRequestError",
-        message:
-          "Failed to execute 'appendChild' on 'Node': The new child would create an invalid tree.",
-        stage: "append-text-to-fragment",
-      });
-    }
+    if (comparisonBinary) expect(await comparePage(url)).toEqual(expected);
     expect(requests).toContain(`GET /tree/${variant}`);
   },
 );

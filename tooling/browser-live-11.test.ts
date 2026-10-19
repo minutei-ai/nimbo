@@ -57,8 +57,15 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
         reduced: media.reducedMotion,
       },
     });
-    // The pinned comparator does not produce a completed value for this fixture.
-    if (comparisonBinary) expect(await comparePage(comparisonBinary, url)).toBeNull();
+    if (comparisonBinary)
+      expect(await comparePage(url)).toEqual({
+        ...expected,
+        width: 1280,
+        height: 720,
+        dark: false,
+        reduced: false,
+        unknown: false,
+      });
     expect(requests).toContain(`GET /media/${variant}`);
   },
 );

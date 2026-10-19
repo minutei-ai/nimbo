@@ -36,9 +36,7 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
       ].map((key) => [key, true]),
     );
     expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: expected });
-    // The pinned comparator does not produce a completed value for this fixture.
-    // Keep Nimbo's standards-based assertions above independent of that failure.
-    if (comparisonBinary) expect(await comparePage(comparisonBinary, url)).toBeNull();
+    if (comparisonBinary) expect(await comparePage(url)).toEqual({ ...expected, reserved: false });
     expect(requests).toContain(`GET /storage/${variant}`);
     expect(requests).toContain("GET /storage-external.js");
   },

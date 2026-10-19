@@ -36,16 +36,7 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
     );
     expect(await response.json()).toEqual({ url, engine: "rust-wasm-quickjs", value: expected });
     expect(requests).toContain(`GET /html-elements/${variant}`);
-    if (comparisonBinary) {
-      expect(await comparePage(comparisonBinary, url)).toEqual({
-        ...expected,
-        identity: false,
-        namespaces: false,
-        inert: false,
-        hidden: false,
-        guarded: false,
-      });
-    }
+    if (comparisonBinary) expect(await comparePage(url)).toEqual(expected);
   },
 );
 

@@ -50,7 +50,7 @@ export async function compareCssContracts(
     error?: string;
   }[] = [];
   try {
-    browser = await startCdpBrowser("chromium", binary);
+    browser = await startCdpBrowser(binary);
     celld = await startCelld();
     for (const runtime of [browser.version, celld.version]) {
       for (const scenario of scenarios) {
