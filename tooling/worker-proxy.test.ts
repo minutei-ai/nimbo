@@ -234,7 +234,7 @@ test("real workerd proxy: invalid TLS trust configuration fails before origin re
     ]) {
       const runtime = worker(metadata, config.url, certificates);
       try {
-        for (const _attempt of [1, 2]) {
+        for (let attempt = 0; attempt < 2; attempt++) {
           // Constructor failures must also release the single page admission slot.
           // oxlint-disable-next-line eslint/no-await-in-loop
           const rejected = await scrape(
