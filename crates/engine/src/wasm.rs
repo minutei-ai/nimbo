@@ -205,6 +205,12 @@ pub fn navigation_document(url: &str, content_type: &str) -> Result<String, Stri
         .map_err(|error| error.to_string())
 }
 
+/// Recognize supported image signatures only when the supplied MIME type is unknown.
+#[wasm_bindgen]
+pub fn sniff_image_type(content_type: &str, bytes: &[u8]) -> Option<String> {
+    crate::navigation_document::sniff_image_type(content_type, bytes).map(str::to_owned)
+}
+
 /// Bounded JSON projection performed before response bytes enter the page heap.
 #[wasm_bindgen]
 #[derive(Debug)]

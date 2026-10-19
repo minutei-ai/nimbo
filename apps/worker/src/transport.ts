@@ -3,6 +3,7 @@ import { ProxyTransport } from "./proxy";
 import {
   browser_user_agent,
   decode_response,
+  sniff_image_type,
   WasmCookies,
   WasmJsonProjection,
 } from "../../../dist/wasm/nimbo_engine.js";
@@ -261,9 +262,11 @@ export class Transport {
                 if (this.bytes > this.limits.maxResponseBytes)
                   throw new ScrapeError({ status: 413, reason: "response/input byte limit" });
               }));
-          const contentType = applyProjection
+          const suppliedType = applyProjection
             ? "application/json; charset=utf-8"
             : (response.headers.get("content-type") ?? "");
+          const contentType =
+            sniff_image_type(suppliedType, result.subarray(0, 16)) ?? suppliedType;
           return {
             url: url.href,
             status: response.status,

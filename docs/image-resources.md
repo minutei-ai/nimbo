@@ -49,7 +49,12 @@ Native and Worker navigation accept the supported image MIME types, including
 with the final URL in its `img` source, preserve `document.contentType`, and run
 the existing image scheduler to decode its intrinsic dimensions. The document
 retains the navigation's origin and cookies for subsequent same-origin fetches.
-This follows the [HTML image document structure](https://html.spec.whatwg.org/multipage/document-lifecycle.html#read-media).
+When the supplied MIME type is missing or explicitly unknown, native signature
+inspection identifies supported PNG, JPEG, GIF, WebP and ICO images. Explicit
+MIME types are preserved, including `application/octet-stream`. The computed
+document type does not rewrite the original headers exposed by `fetch`.
+This follows the [MIME image-pattern rules](https://mimesniff.spec.whatwg.org/#matching-an-image-type-pattern)
+and the [HTML image document structure](https://html.spec.whatwg.org/multipage/document-lifecycle.html#read-media).
 
 The scheduler currently makes its own request for the image after navigation;
 both physical transfers count toward the page's existing resource budgets.

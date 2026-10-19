@@ -217,5 +217,5 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[cfg(target_arch = "wasm32")]
 pub use wasm::{
     WasmJsonProjection, WasmPage, browser_user_agent, decode_response, engine_limits,
-    engine_version, navigation_document,
+    engine_version, navigation_document, sniff_image_type,
 };
