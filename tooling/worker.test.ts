@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { Failure } from "@nimbo/client/schema";
+import { Failure, Success } from "@nimbo/client/schema";
 import { Schema } from "effect";
 import { join } from "node:path";
 import { Miniflare } from "miniflare";
@@ -1858,6 +1858,68 @@ test("parallel response bodies share the page byte budget and release failed pag
       const recovered = await scrape(worker, "1+2");
       expect(recovered.status).toBe(200);
       expect(await json(recovered)).toMatchObject({ value: 3 });
+    },
+  );
+});
+
+test("explicit cookie state carries API-issued HttpOnly cookies across fresh pages", async () => {
+  await fixture(
+    (request) => {
+      const path = new URL(request.url).pathname;
+      if (path === "/issue")
+        return Response.json(
+          { issued: true },
+          { headers: { "set-cookie": "captcha=issued; HttpOnly; Path=/; SameSite=Strict" } },
+        );
+      if (path === "/echo") return Response.json({ cookie: request.headers.get("cookie") });
+      return html("<!doctype html><main>session</main>");
+    },
+    async (worker) => {
+      const issued = await worker.dispatchFetch("https://nimbo.test/scrape", {
+        method: "POST",
+        headers: { authorization: "Bearer test-secret" },
+        body: JSON.stringify({
+          url: originFor(worker),
+          captureCookieState: true,
+          expression: "fetch('/issue').then(()=>document.cookie)",
+        }),
+      });
+      expect(issued.status).toBe(200);
+      const first = Schema.decodeUnknownSync(Success)(await json(issued));
+      expect(first.value).toBe("");
+      expect(first.cookieState).toBeString();
+      const resumed = await worker.dispatchFetch("https://nimbo.test/scrape", {
+        method: "POST",
+        headers: { authorization: "Bearer test-secret" },
+        body: JSON.stringify({
+          url: originFor(worker),
+          cookieState: first.cookieState,
+          captureCookieState: true,
+          expression:
+            "(async()=>({hidden:document.cookie,reply:await(await fetch('/echo')).json()}))()",
+        }),
+      });
+      expect(resumed.status).toBe(200);
+      expect(Schema.decodeUnknownSync(Success)(await json(resumed)).value).toEqual({
+        hidden: "",
+        reply: { cookie: "captcha=issued" },
+      });
+      const isolated = await scrape(worker, "fetch('/echo').then(response=>response.json())");
+      expect(Schema.decodeUnknownSync(Success)(await json(isolated)).value).toEqual({
+        cookie: null,
+      });
+      const foreign = await worker.dispatchFetch("https://nimbo.test/scrape", {
+        method: "POST",
+        headers: { authorization: "Bearer test-secret" },
+        body: JSON.stringify({
+          url: "https://other.test/",
+          cookieState: first.cookieState,
+          expression: "true",
+        }),
+      });
+      expect(foreign.status).toBe(400);
+      const recovered = await scrape(worker, "1+2");
+      expect(recovered.status).toBe(200);
     },
   );
 });

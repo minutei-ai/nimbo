@@ -49,7 +49,33 @@ fn secure_context(url: &Url) -> bool {
 fn same_key(left: &Cookie<'_>, right: &Cookie<'_>) -> bool {
     left.name() == right.name()
         && left.domain.as_cow() == right.domain.as_cow()
-        && left.path == right.path
+        && left.path.as_ref() == right.path.as_ref()
+}
+
+#[cfg(any(target_arch = "wasm32", test))]
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Snapshot {
+    version: u8,
+    origin: String,
+    cookies: Vec<Cookie<'static>>,
+}
+
+fn check_budget(cookies: &[Cookie<'_>]) -> Result<()> {
+    let bytes: usize = cookies
+        .iter()
+        .map(|cookie| {
+            cookie
+                .to_string()
+                .len()
+                .saturating_add(cookie.path.len())
+                .saturating_add(cookie.domain.as_cow().map_or(0, |domain| domain.len()))
+        })
+        .sum();
+    if cookies.len() > 128 || bytes > 65_536 {
+        return Err(Error::Limit("cookie budget"));
+    }
+    Ok(())
 }
 
 impl Cookies {
@@ -160,20 +186,62 @@ impl Cookies {
         } else {
             updated.push(cookie);
         }
-        let bytes: usize = updated
-            .iter()
-            .map(|cookie| {
-                cookie
-                    .to_string()
-                    .len()
-                    .saturating_add(cookie.path.len())
-                    .saturating_add(cookie.domain.as_cow().map_or(0, |domain| domain.len()))
-            })
-            .sum();
-        if updated.len() > 128 || bytes > 65_536 {
-            return Err(Error::Limit("cookie budget"));
-        }
+        check_budget(&updated)?;
         *store = updated;
+        Ok(())
+    }
+
+    #[cfg(any(target_arch = "wasm32", test))]
+    pub(crate) fn snapshot(&self, url: &Url) -> Result<String> {
+        let mut cookies = self.0.borrow_mut();
+        cookies.retain(|cookie| !cookie.is_expired());
+        let encoded = serde_json::to_string(&Snapshot {
+            version: 1,
+            origin: url.origin().ascii_serialization(),
+            cookies: cookies.clone(),
+        })?;
+        if encoded.len() > 256 * 1024 {
+            return Err(Error::Limit("cookie state bytes"));
+        }
+        Ok(encoded)
+    }
+
+    #[cfg(any(target_arch = "wasm32", test))]
+    pub(crate) fn restore(&self, url: &Url, encoded: &str) -> Result<()> {
+        if encoded.len() > 256 * 1024 {
+            return Err(Error::Limit("cookie state bytes"));
+        }
+        let snapshot: Snapshot = serde_json::from_str(encoded)?;
+        if snapshot.version != 1 {
+            return Err(Error::Unsupported("cookie state version".into()));
+        }
+        if snapshot.origin != url.origin().ascii_serialization() {
+            return Err(Error::Origin("cookie state origin mismatch".into()));
+        }
+        check_budget(&snapshot.cookies)?;
+        let restored = Self::default();
+        for cookie in snapshot.cookies {
+            if cookie.is_expired() {
+                continue;
+            }
+            if !cookie.domain.matches(url) {
+                return Err(Error::Origin("cookie state domain mismatch".into()));
+            }
+            let mut issuing_url = url.clone();
+            issuing_url.set_path(&format!("{}/_", cookie.path.as_ref()));
+            restored.set(&issuing_url, &cookie.to_string(), false)?;
+            let mut accepted = restored.0.borrow_mut();
+            let validated = accepted
+                .iter_mut()
+                .find(|candidate| {
+                    same_key(candidate, &cookie) && candidate.value() == cookie.value()
+                })
+                .ok_or_else(|| Error::Unsupported("invalid cookie state entry".into()))?;
+            validated.expires = cookie.expires;
+        }
+        let cookies = std::mem::take(&mut *restored.0.borrow_mut());
+        check_budget(&cookies)?;
+        *self.0.borrow_mut() = cookies;
         Ok(())
     }
 
@@ -202,6 +270,47 @@ mod tests {
     use url::Url;
 
     type TestResult = Result<(), Box<dyn std::error::Error>>;
+
+    #[test]
+    fn default_and_explicit_cookie_paths_have_the_same_identity() -> TestResult {
+        let url = Url::parse("https://example.test/scope/start")?;
+        let jar = Cookies::default();
+        jar.set(&url, "token=one", false)?;
+        jar.set(&url, "token=two; Path=/scope", false)?;
+        assert_eq!(jar.header(&url, false), "token=two");
+        Ok(())
+    }
+
+    #[test]
+    fn snapshots_preserve_scoped_http_only_cookies_and_reject_cross_origin_restore() -> TestResult {
+        let issued_at = Url::parse("https://example.test/scoped/issue")?;
+        let home = Url::parse("https://example.test/other/home")?;
+        let jar = Cookies::default();
+        jar.set(
+            &issued_at,
+            "captcha=issued; Secure; HttpOnly; SameSite=Strict; Max-Age=3600",
+            false,
+        )?;
+        let encoded = jar.snapshot(&issued_at)?;
+        let resumed = Cookies::default();
+        resumed.restore(&home, &encoded)?;
+        assert_eq!(resumed.header(&issued_at, false), "captcha=issued");
+        assert_eq!(resumed.header(&issued_at, true), "");
+        assert_eq!(resumed.header(&home, false), "");
+        assert_eq!(
+            jar.0.borrow().first().map(|cookie| &cookie.expires),
+            resumed.0.borrow().first().map(|cookie| &cookie.expires)
+        );
+        assert!(
+            resumed
+                .restore(&Url::parse("https://other.test/")?, &encoded)
+                .is_err()
+        );
+        assert_eq!(resumed.header(&issued_at, false), "captcha=issued");
+        assert!(resumed.restore(&home, "invalid").is_err());
+        assert_eq!(resumed.header(&issued_at, false), "captcha=issued");
+        Ok(())
+    }
 
     #[test]
     fn canonical_domains_reject_public_suffixes() -> TestResult {

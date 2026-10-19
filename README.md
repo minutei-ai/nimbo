@@ -72,7 +72,7 @@ contains the same Worker assets as the standalone release archive.
 
 The CLI reads an optional `NIMBO_PROXY_URL`; the Worker accepts `PROXY_URL` or an `EGRESS` fetch binding. Proxy configuration stays private. Supported protocols and platform limits are in the [transport guide](docs/cloudflare.md#transport-and-limits).
 
-Worker extractions start with fresh runtime, DOM, cookies and storage. Native `Browser` instances retain their own cookie/storage session across navigations. The Worker permits one active page per isolate and returns 429 for overlap. Default budgets include a 10-second deadline, 32 requests, 2 MiB of responses, 10,000 DOM operations and a 32 MiB QuickJS heap. The heap limit is not total process memory.
+Worker extractions start with fresh runtime, DOM, cookies and storage. Trusted server-side callers may opt into [bounded cookie handoff](docs/cookie-state.md); it preserves native scope and HttpOnly rules without retaining a page. Native `Browser` instances retain their own cookie/storage session across navigations. The Worker permits one active page per isolate and returns 429 for overlap. Default budgets include a 10-second deadline, 32 requests, 2 MiB of responses, 10,000 DOM operations and a 32 MiB QuickJS heap. The heap limit is not total process memory.
 
 Navigator uses the same `Mozilla/5.0 (compatible; Nimbo/0.1; like Gecko)` identity as HTTP. Stealth tests cover exposed automation artifacts, hidden host bindings, [Navigator contracts](https://html.spec.whatwg.org/multipage/system-state.html), object brands, receiver checks, header consistency and disposal of poisoned page state. These checks do not establish anti-bot challenge or TLS fingerprint parity.
 

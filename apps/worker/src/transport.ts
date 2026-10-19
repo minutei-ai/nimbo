@@ -78,6 +78,7 @@ export class Transport {
     proxy?: string,
     private readonly headers: Readonly<Record<string, string>> = {},
     private readonly projection?: ScrapeInput["responseProjection"],
+    cookieState?: string,
   ) {
     if (proxy !== undefined && egress !== undefined)
       throw new ScrapeError({ status: 400, reason: "configure either proxy or EGRESS" });
@@ -85,6 +86,17 @@ export class Transport {
     this.origin = this.resolve(url).origin;
     this.projectionUrl = projection === undefined ? undefined : this.resolve(projection.url).href;
     this.cookies = new WasmCookies();
+    if (cookieState !== undefined) {
+      try {
+        this.cookies.restore(url, cookieState);
+      } catch (cause) {
+        this.cookies.free();
+        throw new ScrapeError({
+          status: 400,
+          reason: cause instanceof Error ? cause.message : String(cause),
+        });
+      }
+    }
   }
 
   private resolve(value: string): URL {

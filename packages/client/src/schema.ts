@@ -32,12 +32,22 @@ export const ResponseProjection = Schema.Struct({
   maxReceivedBytes: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 32 * 1024 * 1024 })),
 });
 
+export const CookieState = Schema.String.check(
+  Schema.isMinLength(1),
+  Schema.makeFilter(
+    (state) =>
+      new TextEncoder().encode(state).byteLength <= 256 * 1024 || "at most 256 KiB of cookie state",
+  ),
+);
+
 export const Input = Schema.Struct({
   url: Schema.String,
   expression: Schema.String,
   diagnostics: Schema.optional(Schema.Boolean),
   /** Return bounded page console records, including failed executions. */
   captureConsole: Schema.optional(Schema.Boolean),
+  captureCookieState: Schema.optional(Schema.Boolean),
+  cookieState: Schema.optional(CookieState),
   responseProjection: Schema.optional(ResponseProjection),
   maxInitialDomNodes: Schema.optional(
     Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 65536 })),
@@ -87,6 +97,7 @@ export const Success = Schema.Struct({
   url: Schema.String,
   value: Schema.Unknown,
   engine: Schema.String,
+  cookieState: Schema.optional(CookieState),
   diagnostics: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
   console: Schema.optional(ConsoleMessages),
 });

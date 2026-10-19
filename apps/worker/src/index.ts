@@ -96,6 +96,7 @@ const scrape = (
                 environment.PROXY_URL,
                 input.headers,
                 input.responseProjection,
+                input.cookieState,
               ),
             catch: (cause) => failure(cause, 400),
           }),
@@ -303,9 +304,17 @@ const scrape = (
                       Effect.mapError((cause) => failure(cause, 500)),
                     )
                   : undefined;
+              const cookieState =
+                input.captureCookieState === true
+                  ? yield* Effect.try({
+                      try: () => transport.cookies.snapshot(response.url),
+                      catch: (cause) => failure(cause),
+                    })
+                  : undefined;
               return {
                 url: response.url,
                 value,
+                ...(cookieState === undefined ? {} : { cookieState }),
                 engine: "rust-wasm-quickjs",
                 ...(diagnostics === undefined
                   ? {}
@@ -363,7 +372,7 @@ const health = () => ({ engine: "rust-wasm-quickjs", version: engine_version(), 
 
 const readHttp = (request: Request) =>
   Effect.tryPromise({
-    try: () => readBody(request, 128 * 1024),
+    try: () => readBody(request, 512 * 1024),
     catch: (cause) => failure(cause, 400),
   }).pipe(
     Effect.flatMap(({ text }) =>

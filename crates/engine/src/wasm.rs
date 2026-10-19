@@ -483,6 +483,26 @@ impl WasmCookies {
         Self::default()
     }
 
+    /// Returns bounded opaque cookie state scoped to one origin, including `HttpOnly` cookies.
+    ///
+    /// # Errors
+    /// Rejects invalid origins and oversized serialized state.
+    pub fn snapshot(&self, url: &str) -> Result<String, String> {
+        crate::machine::parse_url(url)
+            .and_then(|url| self.cookies.snapshot(&url))
+            .map_err(|error| error.to_string())
+    }
+
+    /// Atomically restores origin-scoped state through the native cookie rules.
+    ///
+    /// # Errors
+    /// Rejects invalid, oversized or cross-origin state without changing the jar.
+    pub fn restore(&self, url: &str, state: &str) -> Result<(), String> {
+        crate::machine::parse_url(url)
+            .and_then(|url| self.cookies.restore(&url, state))
+            .map_err(|error| error.to_string())
+    }
+
     /// Shares this jar without copying its cookie state.
     #[must_use]
     pub fn share(&self) -> Self {
