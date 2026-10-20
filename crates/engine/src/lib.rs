@@ -2,6 +2,9 @@
 
 pub(crate) const USER_AGENT: &str = "Mozilla/5.0 (compatible; Nimbo/0.1; like Gecko)";
 
+#[cfg(any(target_arch = "wasm32", test))]
+pub(crate) const MAX_RESPONSE_BYTES: usize = 8 * 1024 * 1024;
+
 mod animations;
 mod background_layers;
 mod background_position;

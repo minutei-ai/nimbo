@@ -1807,6 +1807,56 @@ test("bounded JSON projection receives large responses without exposing omitted 
 });
 
 test.each([
+  [4, 5, 422],
+  [8, 5, 200],
+  [8, 9, 422],
+] as const)(
+  "JSON projection honors configured response budget: %i MiB, retaining %i MiB",
+  async (budget, retained, status) => {
+    await fixture(
+      (request) => {
+        if (new URL(request.url).pathname === "/configured-projection")
+          return Response.json({ keep: "x".repeat(retained * 1024 * 1024), discard: "unused" });
+        return html("<!doctype html><main>fixture</main>");
+      },
+      async (worker) => {
+        const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+          method: "POST",
+          headers: { authorization: "Bearer test-secret" },
+          body: Schema.encodeSync(Schema.fromJsonString(Input))({
+            url: originFor(worker),
+            expression:
+              "fetch('/configured-projection').then(response=>response.text()).then(text=>btoa(text))",
+            maxResponseBytes: budget * 1024 * 1024,
+            responseProjection: {
+              url: new URL("configured-projection", originFor(worker)).href,
+              omitJsonKeys: ["discard"],
+              maxReceivedBytes: 16 * 1024 * 1024,
+            },
+          }),
+        });
+        expect(response.status).toBe(status);
+        const result = await json(response);
+        if (status === 200) {
+          const value = Schema.decodeUnknownSync(Success)(result).value;
+          const encoded = Schema.decodeUnknownSync(Schema.String)(value);
+          const bytes = Buffer.from(encoded, "base64");
+          expect(bytes.byteLength).toBe(retained * 1024 * 1024 + 11);
+          const projected = Schema.decodeSync(
+            Schema.fromJsonString(Schema.Record(Schema.String, Schema.String)),
+          )(bytes.toString("utf8"));
+          expect(Object.keys(projected)).toEqual(["keep"]);
+          expect(projected["keep"]?.length).toBe(retained * 1024 * 1024);
+        } else
+          expect(Schema.decodeUnknownSync(Failure)(result).error).toContain(
+            "JSON projection output bytes",
+          );
+      },
+    );
+  },
+);
+
+test.each([
   {
     name: "received bytes",
     source: JSON.stringify({ discard: "x".repeat(4096), keep: 1 }),

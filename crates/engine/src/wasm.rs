@@ -1,4 +1,4 @@
-use crate::{Limits, MediaEnvironment, machine::Machine};
+use crate::{Limits, MAX_RESPONSE_BYTES, MediaEnvironment, machine::Machine};
 use std::{fmt, sync::Arc};
 use wasm_bindgen::prelude::*;
 
@@ -460,9 +460,6 @@ impl WasmPage {
             .map_err(|error| error.to_string())
     }
 }
-
-/// Largest per-page response budget a host may request.
-const MAX_RESPONSE_BYTES: usize = 8 * 1024 * 1024;
 
 /// Limites padrão do motor, compartilhados com a camada de transporte do Worker.
 #[wasm_bindgen]
