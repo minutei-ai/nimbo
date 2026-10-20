@@ -446,6 +446,31 @@ fn variant_source(url: &str) -> Option<&'static str> {
     }
 }
 
+fn serve_module_sources(request: Request) -> io::Result<()> {
+    let body = match request.url() {
+        "/modules/root.js" => {
+            "import value, {bump,count} from './shared.js'; import {again} from './reexport.js'; globalThis.moduleReady = new Promise(resolve => setTimeout(resolve, 12)); await moduleReady; bump(); globalThis.moduleLoads++; globalThis.moduleResult = {value:value.n,identity:value === again,count,meta:import.meta.url.endsWith('/modules/root.js')};".into()
+        }
+        "/modules/shared.js" => {
+            "export let count = 0; export function bump() {count++;} export default {n:42};".into()
+        }
+        "/modules/page-oom.js" => {
+            "throw new Error('out of memory');".into()
+        }
+        "/modules/evaluation-heap.js" => {
+            "globalThis.values=[];while(true)values.push('x'.repeat(65536));".into()
+        }
+        "/modules/heap.js" => {
+            format!("export const values=[{}0];", "1,".repeat(100_000))
+        }
+        "/modules/reexport.js" => {
+            "export {default as again} from './shared.js';".into()
+        }
+        _ => return respond(request, "Not found".into(), 404, "text/plain", Vec::new()),
+    };
+    respond(request, body, 200, "text/javascript", Vec::new())
+}
+
 fn serve_classic_scripts(request: Request) -> io::Result<()> {
     if request.url() == "/classic-script-import-map" {
         return respond(request, r#"<script>globalThis.classicBeforeMap=true;globalThis.beforeMap=import('later').then(()=>false,()=>true)</script><script type="importmap">{"imports":{"later":"/mapped/value.js"}}</script><script type="module">import {value} from 'later';globalThis.afterMap=Promise.resolve(beforeMap).then(prior=>({value,prior,classic:classicBeforeMap}));</script>"#.into(), 200, "text/html", Vec::new());
@@ -496,6 +521,9 @@ fn serve_classic_scripts(request: Request) -> io::Result<()> {
 }
 
 fn serve(request: Request) -> io::Result<()> {
+    if request.url().starts_with("/modules/") {
+        return serve_module_sources(request);
+    }
     if request.url().starts_with("/classic-script-") {
         return serve_classic_scripts(request);
     }
@@ -650,30 +678,6 @@ fn serve_page(mut request: Request) -> io::Result<()> {
         "/import-map-late" => r#"<script type="module">export {}</script><script type="importmap">{}</script>"#.into(),
         "/import-map-cross" => r#"<script type="importmap">{"imports":{"value":"https://example.test/blocked.js"}}</script><script type="module">import 'value';</script>"#.into(),
         "/module-main" => "<script>globalThis.moduleLoads = 0;</script><script type='module' src='/modules/root.js'></script><script type='module' src='/modules/root.js'></script>".into(),
-        "/modules/root.js" => {
-            content_type = "text/javascript";
-            "import value, {bump,count} from './shared.js'; import {again} from './reexport.js'; globalThis.moduleReady = new Promise(resolve => setTimeout(resolve, 12)); await moduleReady; bump(); globalThis.moduleLoads++; globalThis.moduleResult = {value:value.n,identity:value === again,count,meta:import.meta.url.endsWith('/modules/root.js')};".into()
-        }
-        "/modules/shared.js" => {
-            content_type = "text/javascript";
-            "export let count = 0; export function bump() {count++;} export default {n:42};".into()
-        }
-        "/modules/page-oom.js" => {
-            content_type = "text/javascript";
-            "throw new Error('out of memory');".into()
-        }
-        "/modules/evaluation-heap.js" => {
-            content_type = "text/javascript";
-            "globalThis.values=[];while(true)values.push('x'.repeat(65536));".into()
-        }
-        "/modules/heap.js" => {
-            content_type = "text/javascript";
-            format!("export const values=[{}0];", "1,".repeat(100_000))
-        }
-        "/modules/reexport.js" => {
-            content_type = "text/javascript";
-            "export {default as again} from './shared.js';".into()
-        }
         "/async-module" => "<script type='module' async src='/assets/app.js'></script>".into(),
         "/iframe" => "<iframe src='/static'></iframe>".into(),
         "/base" => "<base href='/other/'><script src='app.js'></script>".into(),
