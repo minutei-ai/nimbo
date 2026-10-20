@@ -6769,3 +6769,36 @@ fn html_element_interfaces_preserve_identity_and_reflected_attributes() -> TestR
         Ok(())
     })
 }
+
+#[test]
+fn expression_evaluation_uses_intrinsic_promises_after_page_polyfills() -> TestResult {
+    let fixture = Fixture::new()?;
+    for mode in ["global", "then"] {
+        each_variant(&fixture, |browser, _| {
+            let page = browser.navigate(&fixture.path("/static"))?;
+            page.evaluate(&format!(
+                "(()=>{{globalThis.promisePatchMode={}; {}; return true;}})()",
+                serde_json::to_string(mode)?,
+                include_str!("fixtures/promise-evaluation.txt")
+            ))?;
+            let result = page.evaluate("comparison")?;
+            let fields = result
+                .as_object()
+                .ok_or("missing promise evaluation checks")?;
+            assert_eq!(fields.len(), 8);
+            assert!(
+                fields.values().all(|value| *value == json!(true)),
+                "{result}"
+            );
+            let error = page
+                .evaluate("Promise.reject(new Error('synthetic-extraction-rejection'))")
+                .err()
+                .ok_or("expected extraction rejection")?;
+            assert!(
+                matches!(error, Error::JavaScript(ref reason) if reason.contains("synthetic-extraction-rejection"))
+            );
+            Ok(())
+        })?;
+    }
+    Ok(())
+}
