@@ -518,7 +518,9 @@ there is no separate 64-selector restriction. Worker input
 `maxStylesheetSelectors` selects 1 through 32,768 selectors, with a default of
 4,096. Native and real Worker cases cover exact and exceeded budgets within one
 rule and across two sheets, fresh-page recovery and invalid settings rejected
-before navigation. Byte, nesting and DOM-operation budgets still apply.
+before navigation. Per-sheet rule buffering grows with a larger configured selector
+budget, while the aggregate selector check still covers all sheets. Default
+limits remain unchanged. Byte, nesting and DOM-operation budgets still apply.
 
 Native CSS nesting uses Lightning CSS's nesting transform before the existing
 cascade parser. The transformation preserves selector-list specificity, nested

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { Failure, Success } from "@nimbo/client/schema";
+import { Failure, Input, Success } from "@nimbo/client/schema";
 import { Schema } from "effect";
 import { join } from "node:path";
 import { Miniflare } from "miniflare";
@@ -2003,3 +2003,44 @@ test("explicit cookie state carries API-issued HttpOnly cookies across fresh pag
     },
   );
 });
+
+test.each([
+  [4096, 4096, 200],
+  [4097, 4096, 422],
+  [4097, 8192, 200],
+  [8192, 8192, 200],
+  [8193, 8192, 422],
+] as const)(
+  "stylesheet rules %i with selector budget %i return %i",
+  async (count, maximum, status) => {
+    await fixture(
+      () => {
+        const rules = Array.from(
+          { length: count },
+          (_, index) => `.fixture${index}{width:17px}`,
+        ).join("");
+        return html(`<style>${rules}</style><div class="fixture${count - 1}"></div>`);
+      },
+      async (worker) => {
+        const response = await worker.dispatchFetch("https://nimbo.test/scrape", {
+          method: "POST",
+          headers: { authorization: "Bearer test-secret" },
+          body: Schema.encodeSync(Schema.fromJsonString(Input))({
+            url: originFor(worker),
+            expression: "getComputedStyle(document.querySelector('div')).width",
+            maxStylesheetBytes: 2 * 1024 * 1024,
+            maxStylesheetSelectors: maximum,
+            maxDomOperations: 1_000_000,
+          }),
+        });
+        const body: unknown = await response.json();
+        expect(response.status).toBe(status);
+        if (status === 200) {
+          expect(Schema.decodeUnknownSync(Success)(body).value).toBe("17px");
+        } else {
+          expect(Schema.decodeUnknownSync(Failure)(body).error).toContain("stylesheet");
+        }
+      },
+    );
+  },
+);
