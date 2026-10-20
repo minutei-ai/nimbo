@@ -1089,7 +1089,7 @@ impl Machine {
             return Err(Error::Limit("expression bytes"));
         }
         let source =
-            format!("Promise.resolve(({expression})).then(value => JSON.stringify(value ?? null))");
+            format!("(async value => JSON.stringify((await value) ?? null))(({expression}))");
         let evaluation = self.context.with(|ctx| -> Result<_> {
             let mut options = rquickjs::context::EvalOptions::default();
             options.strict = false;

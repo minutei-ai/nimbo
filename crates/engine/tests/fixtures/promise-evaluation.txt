@@ -1,0 +1,42 @@
+(() => {
+  const NativePromise = Promise;
+  const nativeThen = NativePromise.prototype.then;
+  class PagePromise {
+    constructor(executor) { this.native = new NativePromise(executor); }
+    then(fulfilled, rejected) {
+      return new PagePromise((resolve, reject) => {
+        const next = nativeThen.call(this.native, fulfilled, rejected);
+        nativeThen.call(next, resolve, reject);
+      });
+    }
+    catch(rejected) { return this.then(undefined, rejected); }
+    static resolve(value) { return new PagePromise(resolve => resolve(value)); }
+    static reject(reason) { return new PagePromise((resolve, reject) => reject(reason)); }
+  }
+  if (globalThis.promisePatchMode === "global") globalThis.Promise = PagePromise;
+  else NativePromise.prototype.then = function(fulfilled, rejected) {
+    return new PagePromise((resolve, reject) => {
+      const next = nativeThen.call(this, fulfilled, rejected);
+      nativeThen.call(next, resolve, reject);
+    });
+  };
+  globalThis.comparison = (async () => {
+    const result = await Promise.resolve(21).then(value => value * 2);
+    const recovered = await Promise.reject(new Error("synthetic-rejection")).catch(error => error.message);
+    const thenable = await { then(resolve) { resolve(7); } };
+    const nested = await { then(resolve) { resolve(Promise.resolve(9)); } };
+    const native = await (async () => 11)();
+    const chained = await Promise.resolve(1).then(() => { throw new Error("synthetic-chain"); }).catch(error => error.message);
+    document.body.dataset.result = String(result);
+    return {
+      patched: globalThis.promisePatchMode === "global" ? Promise === PagePromise : NativePromise.prototype.then !== nativeThen,
+      fulfilled: result === 42,
+      recovered: recovered === "synthetic-rejection",
+      thenable: thenable === 7,
+      nested: nested === 9,
+      native: native === 11,
+      chained: chained === "synthetic-chain",
+      rendered: document.body.dataset.result === "42"
+    };
+  })();
+})()
