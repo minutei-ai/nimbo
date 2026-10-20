@@ -1,0 +1,25 @@
+async (mode) => {
+  const stringify = JSON.stringify;
+  if (mode === "array")
+    Object.defineProperty(Array.prototype, "toJSON", {
+      value: () => "page-owned-array",
+      configurable: true,
+    });
+  if (mode === "object")
+    Object.defineProperty(Object.prototype, "toJSON", {
+      value: () => "page-owned-object",
+      configurable: true,
+    });
+  if (mode === "stringify") JSON.stringify = () => "page-owned-json";
+  const pending = fetch("/fetch-json-echo", {
+    method: "POST",
+    headers: { "x-example": "value" },
+    body: "payload",
+  });
+  delete Array.prototype.toJSON;
+  delete Object.prototype.toJSON;
+  JSON.stringify = stringify;
+  const response = await pending;
+  if (!response.ok) return "unexpected-status";
+  return response.text();
+}

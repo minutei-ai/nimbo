@@ -38,6 +38,28 @@ pub(crate) struct FetchOptions {
     pub reject_redirects: bool,
 }
 
+impl FetchOptions {
+    fn from_headers(
+        ctx: &Ctx<'_>,
+        headers: Vec<rquickjs::prelude::List<(String, String)>>,
+        reject_redirects: bool,
+    ) -> rquickjs::Result<Self> {
+        let options = Self {
+            headers: headers
+                .into_iter()
+                .map(|rquickjs::prelude::List(pair)| pair)
+                .collect(),
+            reject_redirects,
+        };
+        let encoded_headers = serde_json::to_string(&options.headers)
+            .map_err(|error| Exception::throw_message(ctx, &error.to_string()))?;
+        if options.headers.len() > 64 || encoded_headers.encode_utf16().count() > 16_384 {
+            return Err(Exception::throw_message(ctx, "fetch header limit"));
+        }
+        Ok(options)
+    }
+}
+
 #[derive(Debug, Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub(crate) enum Action {
@@ -375,7 +397,12 @@ impl Machine {
             js(&ctx, globals.set("nimboDom", js(&ctx, dom_function)?))?;
             let request = Function::new(
                 ctx.clone(),
-                move |ctx: Ctx<'_>, url: String, method: String, body: String, options: String| {
+                move |ctx: Ctx<'_>,
+                      url: String,
+                      method: String,
+                      body: String,
+                      headers: Vec<rquickjs::prelude::List<(String, String)>>,
+                      reject_redirects: bool| {
                     let url = resolve_document(&request_base, &request_dom.borrow(), &url)
                         .map_err(|error| Exception::throw_message(&ctx, &error.to_string()))?;
                     if !matches!(method.as_str(), "GET" | "POST") {
@@ -384,14 +411,10 @@ impl Machine {
                     if body.len() > limits.max_response_bytes
                         || requests.get() >= limits.max_requests
                     {
-                        return Err(host_error(
-                            &ctx,
-                            &request_fatal,
-                            &Error::Limit("request budget"),
-                        ));
+                        let error = Error::Limit("request budget");
+                        return Err(host_error(&ctx, &request_fatal, &error));
                     }
-                    let options: FetchOptions = serde_json::from_str(&options)
-                        .map_err(|error| Exception::throw_message(&ctx, &error.to_string()))?;
+                    let options = FetchOptions::from_headers(&ctx, headers, reject_redirects)?;
                     requests.set(requests.get().saturating_add(1));
                     let (promise, resolve, reject) = ctx.promise()?;
                     pending.borrow_mut().push_back(Request {

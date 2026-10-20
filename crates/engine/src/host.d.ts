@@ -10,7 +10,8 @@ declare function nimboRequest(
   url: string,
   method: string,
   body: string,
-  options: string,
+  headers: [string, string][],
+  rejectRedirects: boolean,
 ): Promise<NimboResponse>;
 declare function nimboStorage(area: number, operation: string, key: string, value: string): string;
 declare function nimboCookie(write: boolean, value: string): string;

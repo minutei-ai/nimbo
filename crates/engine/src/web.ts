@@ -7205,15 +7205,15 @@
     const headers = [...new Headers(options.headers)].filter(
       ([name]) => !forbiddenHeaders.has(name) && !/^(proxy|sec)-/.test(name),
     );
-    if (headers.length > 64 || JSON.stringify(headers).length > 16_384)
-      throw new TypeError("fetch header limit");
+    if (headers.length > 64) throw new TypeError("fetch header limit");
     let state: Awaited<ReturnType<typeof nativeRequest>>;
     try {
       state = await nativeRequest(
         url,
         method,
         options.body ?? "",
-        JSON.stringify({ headers, rejectRedirects: options.redirect === "error" }),
+        headers,
+        options.redirect === "error",
       );
     } catch (error) {
       // Fetch reports network and policy failures as TypeError; keep the host detail.
@@ -7319,7 +7319,7 @@
         const url = linkValue("get", "href", resource.url, state.base) ?? resource.url;
         // Fallback sources must be requested in order, after the preceding source fails.
         // oxlint-disable-next-line eslint/no-await-in-loop
-        const response = await nativeRequest(url, "GET", "", "{}");
+        const response = await nativeRequest(url, "GET", "", [], false);
         if (response.status < 200 || response.status >= 300 || response.body === null) continue;
         const data = fontBytes(response.body);
         const fontId = nativeFontData(data);
