@@ -2035,6 +2035,17 @@ fn serve_image_resources(request: Request) -> io::Result<()> {
 }
 
 fn serve_image_bitmap(request: Request) -> io::Result<()> {
+    if matches!(
+        request.url(),
+        "/image-resources/untyped.png" | "/image-resources/untyped.jpeg"
+    ) {
+        let bytes: &[u8] = if request.url() == "/image-resources/untyped.jpeg" {
+            include_bytes!("fixtures/image-resources/small.jpeg")
+        } else {
+            include_bytes!("fixtures/image-resources/small.png")
+        };
+        return request.respond(Response::from_data(bytes));
+    }
     let path = request.url().split('?').next().unwrap_or_default();
     if matches!(
         path,
@@ -6624,12 +6635,18 @@ fn native_out_of_flow_candidates_preserve_static_positions_and_grid_areas() -> T
 #[test]
 fn image_document_navigation_preserves_native_document_identity() -> TestResult {
     let fixture = Fixture::new()?;
-    let url = fixture.path("/image-resources/small.png");
-    let page = fixture.browser()?.navigate(&url)?;
-    assert_eq!(page.url(), url);
-    assert_eq!(
-        page.evaluate("({type:document.contentType,src:document.querySelector('img').src,complete:document.querySelector('img').complete,width:document.querySelector('img').naturalWidth})")?,
-        json!({"type":"image/png","src":url,"complete":true,"width":32})
-    );
+    for (path, kind) in [
+        ("small.png", "image/png"),
+        ("untyped.png", "image/png"),
+        ("untyped.jpeg", "image/jpeg"),
+    ] {
+        let url = fixture.path(&format!("/image-resources/{path}"));
+        let page = fixture.browser()?.navigate(&url)?;
+        assert_eq!(page.url(), url);
+        assert_eq!(
+            page.evaluate("({type:document.contentType,src:document.querySelector('img').src,complete:document.querySelector('img').complete,width:document.querySelector('img').naturalWidth})")?,
+            json!({"type":kind,"src":url,"complete":true,"width":32})
+        );
+    }
     Ok(())
 }

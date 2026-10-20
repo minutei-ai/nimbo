@@ -40,10 +40,14 @@ async function fixture(
               name: "egress",
               modules: true,
               compatibilityDate: "2026-07-30",
-              script: `export default { fetch(request) {
+              script: `export default { async fetch(request) {
               const headers = new Headers(request.headers);
               headers.set('x-nimbo-test-egress', 'forwarded');
-              return fetch(new Request(request, { headers }));
+              const response = await fetch(new Request(request, { headers }));
+              const forwarded = new Response(response.body, response);
+              if (new URL(request.url).pathname.startsWith('/untyped'))
+                forwarded.headers.delete('content-type');
+              return forwarded;
             } };`,
             },
           ]
@@ -1643,11 +1647,16 @@ test("native document location shares the active window and excludes detached do
 test.each([
   ["icon.png", "image/png"],
   ["icon.ico", "image/x-icon"],
+  ["untyped.png", "image/png"],
+  ["untyped.jpeg", "image/jpeg"],
 ])(
   "image document navigation preserves MIME, source, cookies and same-origin fetch: %s",
   async (name, kind) => {
     const bytes = await Bun.file(
       join(root, "crates/engine/tests/fixtures/image-resources/small.png"),
+    ).bytes();
+    const jpeg = await Bun.file(
+      join(root, "crates/engine/tests/fixtures/image-resources/small.jpeg"),
     ).bytes();
     const icon = new Uint8Array(22 + 40 + 32 * 16 * 4 + 4 * 16);
     icon.set([0, 0, 1, 0, 1, 0, 32, 16, 0, 0, 1, 0, 32, 0]);
@@ -1663,6 +1672,12 @@ test.each([
     await fixture(
       (request) => {
         const url = new URL(request.url);
+        if (["/untyped.png", "/untyped.jpeg"].includes(url.pathname))
+          return new Response(url.pathname === "/untyped.jpeg" ? jpeg : bytes, {
+            headers: {
+              "set-cookie": "navigation=ready; HttpOnly; SameSite=Strict; Path=/",
+            },
+          });
         if (["/icon.png", "/icon.ico"].includes(url.pathname))
           return new Response(url.pathname === "/icon.ico" ? icon : bytes, {
             headers: {
@@ -1683,7 +1698,8 @@ test.each([
           `(async()=>{const image=document.querySelector('img');return {
             url:location.href,type:document.contentType,src:image.src,
             complete:image.complete,width:image.naturalWidth,
-            reply:await(await fetch('/echo')).json()
+            reply:await(await fetch('/echo')).json(),
+            declaredType:(await fetch(location.href)).headers.get('content-type')
           }})()`,
           url,
         );
@@ -1693,6 +1709,7 @@ test.each([
           value: {
             url,
             type: kind,
+            declaredType: name.startsWith("untyped") ? null : kind,
             src: url,
             complete: true,
             width: 32,
@@ -1709,6 +1726,7 @@ test.each([
         const unsupported = await scrape(worker, "true");
         expect(unsupported.status).toBe(422);
       },
+      name.startsWith("untyped"),
     );
   },
 );

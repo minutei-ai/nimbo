@@ -353,6 +353,13 @@ impl Transport {
             return Err(Error::Limit("total response bytes"));
         }
         self.bytes.set(self.bytes.get().saturating_add(bytes.len()));
+        let content_type = if let Some(kind) =
+            crate::navigation_document::sniff_image_type(&content_type, &bytes)
+        {
+            kind.to_owned()
+        } else {
+            content_type
+        };
         let (body, raw_body) = if binary {
             (String::new(), Some(bytes))
         } else {
