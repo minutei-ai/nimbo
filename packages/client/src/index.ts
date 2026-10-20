@@ -27,7 +27,11 @@ export class NimboError extends Data.TaggedError("NimboError")<{
   readonly reason: string;
   readonly diagnostics?: Readonly<Record<string, unknown>>;
   readonly console?: typeof ConsoleMessages.Type;
-}> {}
+}> {
+  override get message() {
+    return this.reason;
+  }
+}
 
 export class Nimbo extends Context.Service<
   Nimbo,
