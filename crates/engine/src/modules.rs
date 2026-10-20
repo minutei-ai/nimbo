@@ -21,17 +21,22 @@ pub(crate) struct Modules {
     sources: Rc<RefCell<HashMap<String, Source>>>,
     missing: Rc<RefCell<Option<String>>>,
     origin: url::Url,
-    import_map: crate::import_maps::ImportMap,
+    import_map: Rc<RefCell<crate::import_maps::ImportMap>>,
 }
 
 impl Modules {
-    pub(crate) fn new(origin: url::Url, import_map: crate::import_maps::ImportMap) -> Self {
+    pub(crate) fn new(origin: url::Url) -> Self {
         Self {
             sources: Rc::default(),
             missing: Rc::default(),
             origin,
-            import_map,
+            import_map: Rc::default(),
         }
+    }
+
+    pub(crate) fn register_import_map(&self, source: &str, base: &url::Url) -> Result<()> {
+        *self.import_map.borrow_mut() = crate::import_maps::ImportMap::parse(source, base)?;
+        Ok(())
     }
 
     pub(crate) fn install(&self, runtime: &Runtime) {
@@ -145,6 +150,7 @@ impl Resolver for Modules {
             .map_err(|error| Exception::throw_type(ctx, &error.to_string()))?;
         let resolved = self
             .import_map
+            .borrow()
             .resolve(name, &base)
             .map_err(|error| Exception::throw_type(ctx, &error.to_string()))?;
         resolve(&self.origin, resolved.as_str())

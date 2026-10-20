@@ -4,6 +4,6 @@ await compareCssContracts(
   importMapFixture,
   "import-maps",
   "tooling/import-map-fixture.ts",
-  6,
-  "64 fresh HTTP pages; parser-time import maps, scoped aliases, prefix resolution, cyclic live exports, cached dynamic imports, null blocking and prefix escape rejection; default limits",
+  8,
+  "64 fresh HTTP pages; classic script order, early dynamic-import rejection, parser-time import maps, scoped aliases, prefix resolution, cyclic live exports, cached dynamic imports, null blocking and prefix escape rejection; default limits",
 );
