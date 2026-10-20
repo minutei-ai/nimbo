@@ -220,6 +220,7 @@ fn main() {
     }
 
     for file in source_files.iter().chain(header_files.iter()) {
+        println!("cargo:rerun-if-changed={}", src_dir.join(file).display());
         fs::copy(src_dir.join(file), out_dir.join(file))
             .expect("Unable to copy source; try 'git submodule update --init'");
     }

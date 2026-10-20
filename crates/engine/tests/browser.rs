@@ -658,6 +658,18 @@ fn serve_page(mut request: Request) -> io::Result<()> {
             content_type = "text/javascript";
             "export let count = 0; export function bump() {count++;} export default {n:42};".into()
         }
+        "/modules/page-oom.js" => {
+            content_type = "text/javascript";
+            "throw new Error('out of memory');".into()
+        }
+        "/modules/evaluation-heap.js" => {
+            content_type = "text/javascript";
+            "globalThis.values=[];while(true)values.push('x'.repeat(65536));".into()
+        }
+        "/modules/heap.js" => {
+            content_type = "text/javascript";
+            format!("export const values=[{}0];", "1,".repeat(100_000))
+        }
         "/modules/reexport.js" => {
             content_type = "text/javascript";
             "export {default as again} from './shared.js';".into()
@@ -1335,6 +1347,59 @@ fn native_import_maps_resolve_scopes_and_cyclic_live_exports() -> TestResult {
         json!("undefined")
     );
     Ok(())
+}
+
+#[test]
+fn dynamic_module_compilation_cannot_swallow_heap_limits() -> TestResult {
+    let fixture = Fixture::new()?;
+    let browser = Browser::new(
+        &fixture.url,
+        Limits {
+            javascript_memory_bytes: 2 * 1024 * 1024,
+            ..Limits::default()
+        },
+    )?;
+    for source in ["heap", "evaluation-heap"] {
+        let page = browser.navigate(&fixture.path("/static"))?;
+        assert_eq!(page.evaluate("1")?, json!(1));
+        let result = page.evaluate(&format!("import('./modules/{source}.js').then(()=> 'loaded',error=>({{name:error.name,message:error.message}}))"));
+        assert!(result.is_err(), "{source}: {result:?}");
+        drop(page);
+        assert_eq!(
+            browser.navigate(&fixture.path("/static"))?.evaluate("1")?,
+            json!(1)
+        );
+    }
+    let page = browser.navigate(&fixture.path("/static"))?;
+    assert_eq!(
+        page.evaluate("import('./modules/page-oom.js').catch(error=>error.message)")?,
+        json!("out of memory")
+    );
+    Ok(())
+}
+
+#[test]
+fn dynamic_module_graphs_fetch_once_and_preserve_native_namespaces() -> TestResult {
+    let fixture = Fixture::new()?;
+    each_variant(&fixture, |browser, _| {
+        let page = browser.navigate(&fixture.path("/static"))?;
+        assert_eq!(
+            page.evaluate("(globalThis.moduleLoads=0,Promise.all([import('./modules/root.js'),import('./modules/root.js')]).then(([first,second])=>({identity:first===second,loads:moduleLoads,result:moduleResult,privateLoader:typeof globalThis.__quickjsSetModulePreload==='undefined'})))")?,
+            json!({"identity":true,"loads":1,"result":{"value":42,"identity":true,"count":1,"meta":true},"privateLoader":true})
+        );
+        assert_eq!(
+            page.evaluate("import('./modules/shared.js').then(module=>module.count)")?,
+            json!(1)
+        );
+        assert_eq!(
+            page.evaluate(
+                "import('./missing-dynamic.js').then(()=>false,error=>error instanceof TypeError)"
+            )?,
+            json!(true)
+        );
+        assert_eq!(page.evaluate("globalThis.moduleLoads")?, json!(1));
+        Ok(())
+    })
 }
 
 #[test]

@@ -170,8 +170,14 @@ The pinned comparator returns null for the completed graph fixture; the suite
 records that separately and requires a complete result from Nimbo.
 
 Scoped import maps resolve native module graphs and are covered by real HTTP
-browser tests. JSON modules and dynamic imports requiring new network sources
-remain missing and fail explicitly. Inline classic scripts ignore `async` and `defer`, execute in
+browser tests. Dynamic imports fetch runtime-selected same-origin module graphs
+through the existing bounded transport. Concurrent imports share their pending
+load and retain native namespace identity, live exports, top-level await and
+single execution. The native and Worker regressions cover new sources and failed
+HTTP/MIME loads; a separate comparison checks eight results across 64 fresh pages
+in both Nimbo and ordinary Chromium. The [embedding patch](quickjs-embedding-patches.md)
+keeps the original import Promise and normalizes its URL once. JSON modules remain
+missing and fail explicitly. Inline classic scripts ignore `async` and `defer`, execute in
 parser order with loading readyState, and are covered in native and Worker tests.
 External classic async scripts use concurrent host requests and execute as
 responses arrive. They do not block parser scripts or DOMContentLoaded; window
@@ -192,7 +198,7 @@ deferred and async scripts continue, and successfully fetched scripts still emit
 `load`. Native and Worker regressions cover this behavior, including primitive
 thrown values in the native engine. Module failures, unhandled Promise rejections,
 extraction-expression errors, resource exhaustion and cancellation remain fatal. Page error listeners cannot suppress native
-resource failures. The [QuickJS OOM patch](quickjs-oom-patch.md) keeps heap exhaustion distinguishable from a page throwing `null`. Native and Worker tests cover
+resource failures. The [QuickJS embedding patches](quickjs-embedding-patches.md) keeps heap exhaustion distinguishable from a page throwing `null`. Native and Worker tests cover
 HTTP failures, denied origins, recovery and event ordering against the
 [HTML script execution model](https://html.spec.whatwg.org/multipage/scripting.html#execute-the-script-element).
 
@@ -624,7 +630,7 @@ evidence cannot establish it.
 | Node/Text/Comment/Fragment, live collections         | Subset     | Live child collections and static selector lists; remaining Node APIs and full WPT                                                           |
 | Event dispatch and lifecycle                         | Subset     | Capture/bubble, cancellation, once/passive, native input ordering                                                                            |
 | Classic scripts and Promise jobs                     | Subset     | Source ordering, window exception reporting, fatal caller and resource failures                                                              |
-| Modules, import maps, JSON modules, dynamic import   | Subset     | Native graphs and scoped import maps tested; JSON modules and new dynamic fetching missing                                                   |
+| Modules, import maps, JSON modules, dynamic import   | Subset     | Native graphs, scoped import maps and bounded dynamic fetching tested; JSON modules and full HTML module lifecycle missing                   |
 | Timers, animation frames and scheduling              | Subset     | Real-clock timers and animation callback batches tested; multi-realm frames, idle and full event loop pending                                |
 | Custom elements autônomos                            | Subset     | Native upgrades, lifecycle and failed construction; scoped/built-in/form gaps                                                                |
 | Shadow DOM                                           | Subset     | Owned imperative roots, isolated queries, named slots and composed events; scoped styles, flat-tree geometry and declarative parsing pending |
