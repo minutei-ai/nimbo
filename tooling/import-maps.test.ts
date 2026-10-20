@@ -40,7 +40,7 @@ test.each(Array.from({ length: 64 }, (_, i) => i))(
     if (typeof body !== "object" || body === null) throw new Error("Missing response");
     const value: unknown = Reflect.get(body, "value");
     if (typeof value !== "object" || value === null) throw new Error("Missing checks");
-    expect(Object.keys(value)).toHaveLength(6);
+    expect(Object.keys(value)).toHaveLength(8);
     expect(Object.entries(value).filter(([, result]) => result !== true)).toEqual([]);
   },
 );

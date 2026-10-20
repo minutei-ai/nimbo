@@ -95,11 +95,18 @@ enum RequestPurpose {
     Module(String),
 }
 
+#[derive(Clone, Copy)]
+enum ScriptKind {
+    Classic,
+    Module,
+    ImportMap,
+}
+
 struct Script {
     node: dom_query::NodeId,
     src: Option<String>,
     source: String,
-    module: bool,
+    kind: ScriptKind,
     deferred: bool,
     asynchronous: bool,
 }
@@ -262,10 +269,7 @@ impl Machine {
         let dom = Rc::new(RefCell::new(dom));
         let scripts = collect_scripts(&dom.borrow(), execute_scripts)?;
         let runtime = Runtime::new().map_err(|error| Error::JavaScript(error.to_string()))?;
-        let modules = Modules::new(
-            base.clone(),
-            collect_import_map(&dom.borrow(), execute_scripts)?,
-        );
+        let modules = Modules::new(base.clone());
         modules.install(&runtime);
         runtime.set_memory_limit(limits.javascript_memory_bytes);
         runtime.set_max_stack_size(512 * 1024);
@@ -601,7 +605,12 @@ impl Machine {
                 })?;
                 self.parsed = true;
             }
-            if script.module {
+            if matches!(script.kind, ScriptKind::ImportMap) {
+                self.modules
+                    .register_import_map(&script.source, &document_base)?;
+                return Ok(None);
+            }
+            if matches!(script.kind, ScriptKind::Module) {
                 let root = if let Some(src) = script.src {
                     resolve(
                         &self.base,
@@ -1272,37 +1281,6 @@ fn js<T>(ctx: &Ctx<'_>, result: rquickjs::Result<T>) -> Result<T> {
     })
 }
 
-fn collect_import_map(dom: &Dom, execute_scripts: bool) -> Result<crate::import_maps::ImportMap> {
-    let mut map = None;
-    let mut seen_script = false;
-    if execute_scripts {
-        for node in dom.document.select("script").nodes() {
-            let kind = node
-                .null_attribute("type")
-                .unwrap_or_default()
-                .trim()
-                .to_ascii_lowercase();
-            if kind == "importmap" {
-                if map.is_some() || seen_script || node.null_attribute("src").is_some() {
-                    return Err(Error::Unsupported(
-                        "multiple, late or external import maps".into(),
-                    ));
-                }
-                let base =
-                    crate::links::base(dom.base_href()?.as_deref(), dom.document_url().as_str())
-                        .unwrap_or_else(|| dom.document_url().clone());
-                map = Some(crate::import_maps::ImportMap::parse(&node.text(), &base)?);
-            } else if matches!(
-                kind.as_str(),
-                "" | "text/javascript" | "application/javascript" | "module"
-            ) {
-                seen_script = true;
-            }
-        }
-    }
-    Ok(map.unwrap_or_default())
-}
-
 fn collect_scripts(dom: &Dom, execute_scripts: bool) -> Result<VecDeque<Script>> {
     if dom.document.select("iframe, frame").exists() {
         return Err(Error::Unsupported("frames".into()));
@@ -1312,6 +1290,8 @@ fn collect_scripts(dom: &Dom, execute_scripts: bool) -> Result<VecDeque<Script>>
     if !execute_scripts {
         return Ok(scripts);
     }
+    let mut seen_map = false;
+    let mut seen_module = false;
     for node in dom.document.select("script").nodes() {
         let kind = node
             .null_attribute("type")
@@ -1320,11 +1300,24 @@ fn collect_scripts(dom: &Dom, execute_scripts: bool) -> Result<VecDeque<Script>>
             .to_ascii_lowercase();
         if !matches!(
             kind.as_str(),
-            "" | "text/javascript" | "application/javascript" | "module"
+            "" | "text/javascript" | "application/javascript" | "module" | "importmap"
         ) {
             continue;
         }
-        if kind != "module" && node.null_attribute("nomodule").is_some() {
+        if kind == "importmap" {
+            if seen_map || seen_module || node.null_attribute("src").is_some() {
+                return Err(Error::Unsupported(
+                    "multiple, late or external import maps".into(),
+                ));
+            }
+            seen_map = true;
+        }
+        if kind == "module" {
+            seen_module = true;
+        }
+        if !matches!(kind.as_str(), "module" | "importmap")
+            && node.null_attribute("nomodule").is_some()
+        {
             continue;
         }
         if node.null_attribute("async").is_some() && kind == "module" {
@@ -1340,7 +1333,11 @@ fn collect_scripts(dom: &Dom, execute_scripts: bool) -> Result<VecDeque<Script>>
             node: node.id,
             src: node.null_attribute("src"),
             source: node.text().to_string(),
-            module: kind == "module",
+            kind: match kind.as_str() {
+                "module" => ScriptKind::Module,
+                "importmap" => ScriptKind::ImportMap,
+                _ => ScriptKind::Classic,
+            },
             deferred,
             asynchronous,
         };

@@ -1,13 +1,15 @@
 {
-  "date": "2026-10-13",
+  "date": "2026-10-20",
   "fixture": "tooling/import-map-fixture.ts",
-  "scope": "64 fresh HTTP pages; parser-time import maps, scoped aliases, prefix resolution, cyclic live exports, cached dynamic imports, null blocking and prefix escape rejection; default limits",
+  "scope": "64 fresh HTTP pages; classic script order, early dynamic-import rejection, parser-time import maps, scoped aliases, prefix resolution, cyclic live exports, cached dynamic imports, null blocking and prefix escape rejection; default limits",
   "results": [
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 0,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -17,10 +19,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 1,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -30,10 +34,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 2,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -43,10 +49,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 3,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -56,10 +64,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 4,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -69,10 +79,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 5,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -82,10 +94,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 6,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -95,10 +109,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 7,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -108,10 +124,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 8,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -121,10 +139,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 9,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -134,10 +154,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 10,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -147,10 +169,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 11,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -160,10 +184,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 12,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -173,10 +199,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 13,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -186,10 +214,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 14,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -199,10 +229,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 15,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -212,10 +244,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 16,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -225,10 +259,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 17,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -238,10 +274,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 18,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -251,10 +289,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 19,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -264,10 +304,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 20,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -277,10 +319,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 21,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -290,10 +334,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 22,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -303,10 +349,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 23,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -316,10 +364,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 24,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -329,10 +379,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 25,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -342,10 +394,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 26,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -355,10 +409,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 27,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -368,10 +424,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 28,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -381,10 +439,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 29,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -394,10 +454,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 30,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -407,10 +469,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 31,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -420,10 +484,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 32,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -433,10 +499,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 33,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -446,10 +514,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 34,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -459,10 +529,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 35,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -472,10 +544,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 36,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -485,10 +559,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 37,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -498,10 +574,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 38,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -511,10 +589,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 39,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -524,10 +604,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 40,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -537,10 +619,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 41,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -550,10 +634,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 42,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -563,10 +649,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 43,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -576,10 +664,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 44,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -589,10 +679,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 45,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -602,10 +694,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 46,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -615,10 +709,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 47,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -628,10 +724,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 48,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -641,10 +739,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 49,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -654,10 +754,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 50,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -667,10 +769,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 51,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -680,10 +784,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 52,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -693,10 +799,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 53,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -706,10 +814,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 54,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -719,10 +829,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 55,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -732,10 +844,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 56,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -745,10 +859,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 57,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -758,10 +874,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 58,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -771,10 +889,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 59,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -784,10 +904,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 60,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -797,10 +919,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 61,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -810,10 +934,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 62,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -823,10 +949,12 @@
       }
     },
     {
-      "runtime": "Google Chrome 155.0.8059.39",
+      "runtime": "Google Chrome for Testing 156.0.8078.4",
       "variant": 63,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -840,6 +968,8 @@
       "variant": 0,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -853,6 +983,8 @@
       "variant": 1,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -866,6 +998,8 @@
       "variant": 2,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -879,6 +1013,8 @@
       "variant": 3,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -892,6 +1028,8 @@
       "variant": 4,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -905,6 +1043,8 @@
       "variant": 5,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -918,6 +1058,8 @@
       "variant": 6,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -931,6 +1073,8 @@
       "variant": 7,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -944,6 +1088,8 @@
       "variant": 8,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -957,6 +1103,8 @@
       "variant": 9,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -970,6 +1118,8 @@
       "variant": 10,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -983,6 +1133,8 @@
       "variant": 11,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -996,6 +1148,8 @@
       "variant": 12,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1009,6 +1163,8 @@
       "variant": 13,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1022,6 +1178,8 @@
       "variant": 14,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1035,6 +1193,8 @@
       "variant": 15,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1048,6 +1208,8 @@
       "variant": 16,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1061,6 +1223,8 @@
       "variant": 17,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1074,6 +1238,8 @@
       "variant": 18,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1087,6 +1253,8 @@
       "variant": 19,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1100,6 +1268,8 @@
       "variant": 20,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1113,6 +1283,8 @@
       "variant": 21,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1126,6 +1298,8 @@
       "variant": 22,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1139,6 +1313,8 @@
       "variant": 23,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1152,6 +1328,8 @@
       "variant": 24,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1165,6 +1343,8 @@
       "variant": 25,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1178,6 +1358,8 @@
       "variant": 26,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1191,6 +1373,8 @@
       "variant": 27,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1204,6 +1388,8 @@
       "variant": 28,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1217,6 +1403,8 @@
       "variant": 29,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1230,6 +1418,8 @@
       "variant": 30,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1243,6 +1433,8 @@
       "variant": 31,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1256,6 +1448,8 @@
       "variant": 32,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1269,6 +1463,8 @@
       "variant": 33,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1282,6 +1478,8 @@
       "variant": 34,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1295,6 +1493,8 @@
       "variant": 35,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1308,6 +1508,8 @@
       "variant": 36,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1321,6 +1523,8 @@
       "variant": 37,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1334,6 +1538,8 @@
       "variant": 38,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1347,6 +1553,8 @@
       "variant": 39,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1360,6 +1568,8 @@
       "variant": 40,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1373,6 +1583,8 @@
       "variant": 41,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1386,6 +1598,8 @@
       "variant": 42,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1399,6 +1613,8 @@
       "variant": 43,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1412,6 +1628,8 @@
       "variant": 44,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1425,6 +1643,8 @@
       "variant": 45,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1438,6 +1658,8 @@
       "variant": 46,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1451,6 +1673,8 @@
       "variant": 47,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1464,6 +1688,8 @@
       "variant": 48,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1477,6 +1703,8 @@
       "variant": 49,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1490,6 +1718,8 @@
       "variant": 50,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1503,6 +1733,8 @@
       "variant": 51,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1516,6 +1748,8 @@
       "variant": 52,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1529,6 +1763,8 @@
       "variant": 53,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1542,6 +1778,8 @@
       "variant": 54,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1555,6 +1793,8 @@
       "variant": 55,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1568,6 +1808,8 @@
       "variant": 56,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1581,6 +1823,8 @@
       "variant": 57,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1594,6 +1838,8 @@
       "variant": 58,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1607,6 +1853,8 @@
       "variant": 59,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1620,6 +1868,8 @@
       "variant": 60,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1633,6 +1883,8 @@
       "variant": 61,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1646,6 +1898,8 @@
       "variant": 62,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,
@@ -1659,6 +1913,8 @@
       "variant": 63,
       "status": "passed",
       "checks": {
+        "classic": true,
+        "prior": true,
         "ordered": true,
         "scoped": true,
         "cycle": true,

@@ -447,6 +447,9 @@ fn variant_source(url: &str) -> Option<&'static str> {
 }
 
 fn serve_classic_scripts(request: Request) -> io::Result<()> {
+    if request.url() == "/classic-script-import-map" {
+        return respond(request, r#"<script>globalThis.classicBeforeMap=true;globalThis.beforeMap=import('later').then(()=>false,()=>true)</script><script type="importmap">{"imports":{"later":"/mapped/value.js"}}</script><script type="module">import {value} from 'later';globalThis.afterMap=Promise.resolve(beforeMap).then(prior=>({value,prior,classic:classicBeforeMap}));</script>"#.into(), 200, "text/html", Vec::new());
+    }
     if request.url() == "/classic-script-values" {
         return respond(request, "<script>globalThis.values=[];addEventListener('error',event=>values.push([event.error,event.filename===location.href]));</script><script>throw 17;</script><script>throw null;</script><script>throw undefined;</script><script>throw 'value';</script><script>throw new Error('out of memory');</script><script>globalThis.afterValues=true;</script>".into(), 200, "text/html", Vec::new());
     }
@@ -644,7 +647,7 @@ fn serve_page(mut request: Request) -> io::Result<()> {
         "/mapped/value.js" => {content_type="text/javascript"; "export const value=73;".into()},
         "/mapped/a.js" => {content_type="text/javascript"; "import {readB} from './b.js'; export const a=3; export function readA(){return a+readB();}".into()},
         "/mapped/b.js" => {content_type="text/javascript"; "import {a} from './a.js'; export function readB(){return a+4;}".into()},
-        "/import-map-late" => r#"<script>globalThis.started=true</script><script type="importmap">{}</script>"#.into(),
+        "/import-map-late" => r#"<script type="module">export {}</script><script type="importmap">{}</script>"#.into(),
         "/import-map-cross" => r#"<script type="importmap">{"imports":{"value":"https://example.test/blocked.js"}}</script><script type="module">import 'value';</script>"#.into(),
         "/module-main" => "<script>globalThis.moduleLoads = 0;</script><script type='module' src='/modules/root.js'></script><script type='module' src='/modules/root.js'></script>".into(),
         "/modules/root.js" => {
@@ -1291,6 +1294,19 @@ fn timer_capacity_task_budget_and_deadline_are_enforced() -> TestResult {
         Err(Error::Limit("navigation deadline"))
     ));
     assert!(start.elapsed() < Duration::from_secs(2));
+    Ok(())
+}
+
+#[test]
+fn native_import_maps_register_in_classic_script_order() -> TestResult {
+    let fixture = Fixture::new()?;
+    let page = fixture
+        .browser()?
+        .navigate(&fixture.path("/classic-script-import-map"))?;
+    assert_eq!(
+        page.evaluate("afterMap")?,
+        json!({"value":73,"prior":true,"classic":true})
+    );
     Ok(())
 }
 
