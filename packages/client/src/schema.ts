@@ -70,6 +70,7 @@ export const Input = Schema.Struct({
   waitFor: Schema.optional(Readiness),
   /** Whole-scrape deadline; defaults to the engine's 10 seconds. */
   timeoutMs: Schema.optional(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 60_000 }))),
+  maxRequests: Schema.optional(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 128 }))),
   /** Response byte budget for the page and its requests; defaults to 2 MiB. */
   maxResponseBytes: Schema.optional(
     Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 4 * 1024 * 1024 })),

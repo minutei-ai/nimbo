@@ -121,6 +121,15 @@ exhausting a valid budget returns HTTP 422. The live suite repeats configured,
 default and exhausted-budget requests at 64 real HTTP URLs, plus eight invalid
 inputs.
 
+The optional `maxRequests` input selects 1 through 128 requests for one scrape;
+its default stays 32. Navigation, redirects, scripts, stylesheets, images and
+page fetches consume the same transport budget. The native page fetch guard
+receives the same setting. It does not increase byte, DOM, heap or deadline
+budgets. Invalid settings fail with HTTP 400 before origin traffic; exhaustion
+returns HTTP 422. Real HTTP/Worker cases retain the default limit, admit an
+explicit larger limit at its exact boundary, exercise more than 32 page fetches,
+and verify the minimum valid and invalid configurations.
+
 ## Attribute DOM validation
 
 `bun run test:worker` runs the live Attr/NamedNodeMap and attribute namespace

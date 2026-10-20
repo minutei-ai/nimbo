@@ -85,6 +85,7 @@ const scrape = (
           ...limits,
           timeoutMs: input.timeoutMs ?? limits.timeoutMs,
           maxResponseBytes: input.maxResponseBytes ?? limits.maxResponseBytes,
+          maxRequests: input.maxRequests ?? limits.maxRequests,
         };
         const transport = yield* Effect.acquireRelease(
           Effect.try({
@@ -135,6 +136,7 @@ const scrape = (
                 pageLimits.timeoutMs,
                 input.maxStylesheetSelectors,
                 response.content_type,
+                input.maxRequests,
               ),
             catch: (cause) => failure(cause),
           }),
