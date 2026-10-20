@@ -6008,6 +6008,10 @@
       if (key !== internal) throw new TypeError("Illegal constructor");
       implementationDocuments.set(this, owner);
     }
+    hasFeature(): boolean {
+      if (!implementationDocuments.has(this)) throw new TypeError("Illegal invocation");
+      return true;
+    }
     createHTMLDocument(title?: unknown): Document {
       const owner = implementationDocuments.get(this);
       if (!owner) throw new TypeError("Illegal invocation");
@@ -6280,7 +6284,7 @@
     [Document.prototype, ["firstElementChild", "lastElementChild", "currentScript"]],
     [HTMLScriptElement.prototype, ["src"]],
     [DocumentType.prototype, ["name", "publicId", "systemId"]],
-    [DOMImplementation.prototype, ["createHTMLDocument"]],
+    [DOMImplementation.prototype, ["createHTMLDocument", "hasFeature"]],
     [HTMLSlotElement.prototype, ["name", "assignedNodes", "assignedElements", "assign"]],
   ] as const) {
     for (const key of keys) {
