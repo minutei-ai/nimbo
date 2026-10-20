@@ -73,7 +73,7 @@ export const Input = Schema.Struct({
   maxRequests: Schema.optional(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 128 }))),
   /** Response byte budget for the page and its requests; defaults to 2 MiB. */
   maxResponseBytes: Schema.optional(
-    Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 4 * 1024 * 1024 })),
+    Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 8 * 1024 * 1024 })),
   ),
   /** Headers sent with every page request, such as `user-agent` or `accept-language`. */
   headers: Schema.optional(
