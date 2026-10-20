@@ -27,7 +27,8 @@ values under omitted keys, fails explicitly.
 `maxReceivedBytes` bounds the combined original bytes of all projected responses
 in the extraction, up to 32 MiB. `maxResponseBytes` continues to bound retained
 response bytes across the whole page, including projected output and all other
-responses. Original transfer and retained-byte limits are independent. The
+responses, up to the configured 8 MiB maximum. The native projector and page
+configuration share that ceiling. Original transfer and retained-byte limits are independent. The
 projection accepts at most 64 nonempty keys of at most 256 UTF-16 code units.
 Only one projected request may be active at a time; overlap fails with 429 to
 bound simultaneous native buffers. Sequential projected requests share the

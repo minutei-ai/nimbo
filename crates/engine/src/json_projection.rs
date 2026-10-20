@@ -2,7 +2,7 @@ use std::io::{self, Write};
 
 use serde::de::{DeserializeSeed, IgnoredAny, MapAccess, SeqAccess, Visitor};
 
-use crate::{Error, Result};
+use crate::{Error, MAX_RESPONSE_BYTES, Result};
 
 #[derive(Debug)]
 pub(crate) struct Projection {
@@ -26,7 +26,7 @@ impl Projection {
             || maximum_received == 0
             || maximum_received > 32 * 1024 * 1024
             || maximum_output == 0
-            || maximum_output > 4 * 1024 * 1024
+            || maximum_output > MAX_RESPONSE_BYTES
         {
             return Err(Error::Limit("invalid JSON projection configuration"));
         }
@@ -215,6 +215,41 @@ mod tests {
             String::from_utf8(projection.finish()?).map_err(std::io::Error::other)?,
             r#"{"keep":[true,null,-1,1.25,"Olá 😀",{"keep":7}]}"#
         );
+        Ok(())
+    }
+
+    #[test]
+    fn configured_projection_output_budgets_support_eight_mib() -> Result<()> {
+        let maximum = 8 * 1024 * 1024;
+        for (budget, retained, succeeds) in [
+            (4 * 1024 * 1024, 5 * 1024 * 1024, false),
+            (maximum, 5 * 1024 * 1024, true),
+            (maximum, maximum - 11, true),
+            (maximum, maximum - 10, false),
+        ] {
+            let keep = "x".repeat(retained);
+            let source = format!(r#"{{"keep":"{keep}","discard":"unused"}}"#);
+            let mut projection = Projection::new(vec!["discard".into()], 32 * 1024 * 1024, budget)?;
+            projection.feed(source.as_bytes())?;
+            if succeeds {
+                let output = projection.finish()?;
+                assert_eq!(output.len(), retained + 11);
+                let decoded: serde_json::Value = serde_json::from_slice(&output)?;
+                assert!(
+                    decoded.get("keep").and_then(serde_json::Value::as_str) == Some(keep.as_str())
+                );
+                assert!(decoded.get("discard").is_none());
+            } else {
+                assert!(matches!(
+                    projection.finish(),
+                    Err(Error::Limit("JSON projection output bytes"))
+                ));
+            }
+        }
+        assert!(matches!(
+            Projection::new(vec!["discard".into()], 32 * 1024 * 1024, maximum + 1),
+            Err(Error::Limit("invalid JSON projection configuration"))
+        ));
         Ok(())
     }
 
