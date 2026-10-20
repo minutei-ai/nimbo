@@ -127,8 +127,6 @@ fn initial_style(node: NodeRef<'_>, generated: bool) -> Style {
     style
 }
 
-// This first layout pass accepts real inline block/flex and auto-grid boxes. Unsupported
-// inputs must fail instead of silently providing manufactured measurements.
 fn overflow(value: &str) -> Result<Overflow> {
     match value {
         "visible" => Ok(Overflow::Visible),
@@ -233,7 +231,6 @@ fn non_layout(name: &str) -> bool {
     crate::transitions::property(name)
         || crate::background_layers::property(name)
         || name.starts_with("text-decoration-")
-        // These only affect legacy box layout or scrollIntoView, neither supported here.
         || name.starts_with("scroll-margin-")
         || matches!(name, "-webkit-box-orient" | "-webkit-line-clamp")
         || matches!(
@@ -250,7 +247,6 @@ fn non_layout(name: &str) -> bool {
                 | "background-position-y"
                 | "background-repeat"
                 | "background-size"
-                // CSS ink overflow does not change boxes or scrollable overflow.
                 | "text-overflow"
                 | "box-shadow"
                 | "opacity"
@@ -260,7 +256,6 @@ fn non_layout(name: &str) -> bool {
                 | "container-type"
                 | "font-size"
                 | "font-family"
-                // Text runs validate inherited typography before shaping.
                 | "font-weight"
                 | "letter-spacing"
                 | "font-style"
@@ -405,8 +400,6 @@ fn style_properties(
         {
             continue;
         }
-        // Atomic inline boxes validate vertical-align separately. It does not
-        // apply to the block outer boxes of the other supported modes.
         if name == "vertical-align" {
             continue;
         }
@@ -779,7 +772,10 @@ impl Tree<'_, '_> {
             self.work,
         )?;
         if crate::images::element(node) {
-            let info = self.images.borrow_mut().info(node, self.image_base, true)?;
+            let info = self
+                .images
+                .borrow_mut()
+                .info(node, self.image_base, true, self.work)?;
             intrinsic = Some(replaced::Intrinsic::image(node, &mut style, &info)?);
         }
         style.border = context.borders.geometry()?;
@@ -956,8 +952,6 @@ impl Tree<'_, '_> {
         } else {
             None
         };
-        // display:contents contributes no box; size containers alone do not
-        // establish positioning containing blocks in CSS Conditional Rules 5.
         if matches!(position, "relative" | "absolute" | "fixed" | "sticky") {
             self.positioned.insert(node.id);
         }
