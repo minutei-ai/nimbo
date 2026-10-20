@@ -717,7 +717,7 @@ fn sheet(
                 }
             }
         }
-        if rules.len() > RULE_LIMIT {
+        if rules.len() > RULE_LIMIT.max(source_context.max_selectors) {
             return Err(Error::Limit("stylesheet rules"));
         }
     }
@@ -1007,5 +1007,54 @@ impl Cascade {
         } else {
             crate::html_boxes::defaults(node, declarations)
         }
+    }
+}
+
+#[cfg(test)]
+mod rule_budget_tests {
+    use std::fmt::Write as _;
+
+    use super::{Definitions, SheetContext};
+    use crate::{Limits, MediaEnvironment, Result, stylesheets::Sheets};
+
+    fn parsed_rules(count: usize, maximum: usize) -> Result<usize> {
+        let mut source = String::new();
+        for index in 0..count {
+            write!(source, ".fixture{index}{{width:17px}}")
+                .map_err(|_| crate::Error::Dom("fixture CSS formatting".into()))?;
+        }
+        let origin = url::Url::parse("https://example.test/")
+            .map_err(|error| crate::Error::InvalidUrl(error.to_string()))?;
+        let resources = Sheets::new(origin, Limits::default().max_stylesheet_bytes);
+        let context = SheetContext {
+            flattened: false,
+            max_selectors: maximum,
+            resources: &resources,
+            owner: None,
+            base: "https://example.test/",
+            identity: "budget",
+            path: &[],
+        };
+        context
+            .parse(
+                &source,
+                &MediaEnvironment::default(),
+                &mut Definitions::default(),
+                &[],
+                &[],
+                true,
+            )
+            .map(|rules| rules.len())
+    }
+
+    #[test]
+    fn stylesheet_rule_count_honors_a_larger_configured_selector_budget() -> Result<()> {
+        let default = Limits::default().max_stylesheet_selectors;
+        assert_eq!(parsed_rules(default, default)?, default);
+        assert!(parsed_rules(default + 1, default).is_err());
+        assert_eq!(parsed_rules(default + 1, default * 2)?, default + 1);
+        assert_eq!(parsed_rules(default * 2, default * 2)?, default * 2);
+        assert!(parsed_rules(default * 2 + 1, default * 2).is_err());
+        Ok(())
     }
 }
