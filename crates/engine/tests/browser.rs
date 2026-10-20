@@ -6751,3 +6751,21 @@ fn dom_implementation_has_feature_retains_historical_web_idl_contract() -> TestR
         Ok(())
     })
 }
+
+#[test]
+fn html_element_interfaces_preserve_identity_and_reflected_attributes() -> TestResult {
+    let fixture = Fixture::new()?;
+    each_variant(&fixture, |browser, _| {
+        let page = browser.navigate(&fixture.path("/static"))?;
+        let result = page.evaluate(include_str!("fixtures/html-element-interfaces.txt"))?;
+        let fields = result
+            .as_object()
+            .ok_or("missing element interface checks")?;
+        assert_eq!(fields.len(), 35);
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "{result}"
+        );
+        Ok(())
+    })
+}
