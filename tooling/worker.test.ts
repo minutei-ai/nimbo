@@ -1088,10 +1088,49 @@ test("page headers, response budget and deadline are per-scrape inputs", async (
       const slow = new URL("/slow", originFor(worker)).href;
       const late = await send({ url: slow, expression: "document.title", timeoutMs: 20_000 });
       expect(await json(late)).toMatchObject({ value: "late" });
-      expect((await send({ maxResponseBytes: 5 * 1024 * 1024, expression: "1" })).status).toBe(400);
+      expect((await send({ maxResponseBytes: 8 * 1024 * 1024 + 1, expression: "1" })).status).toBe(
+        400,
+      );
     },
   );
 }, 30_000);
+
+test("configured response byte budgets retain exact cumulative limits and recover", async () => {
+  const page = "<!doctype html><title>budget</title>";
+  const maximum = 8 * 1024 * 1024;
+  const bodyBytes = maximum - new TextEncoder().encode(page).byteLength;
+  await fixture(
+    (request) => {
+      const url = new URL(request.url);
+      if (url.pathname === "/payload")
+        return new Response("x".repeat(Number(url.searchParams.get("bytes"))), {
+          headers: { "content-type": "text/plain; charset=utf-8" },
+        });
+      return html(page);
+    },
+    async (worker) => {
+      const run = (bytes: number, maxResponseBytes = maximum) =>
+        worker.dispatchFetch("https://nimbo.test/scrape", {
+          method: "POST",
+          headers: { authorization: "Bearer test-secret" },
+          body: JSON.stringify({
+            url: originFor(worker),
+            expression: `fetch('/payload?bytes=${bytes}').then(response=>response.text()).then(text=>text.length)`,
+            maxResponseBytes,
+          }),
+        });
+      const boundary = await run(bodyBytes);
+      expect(boundary.status).toBe(200);
+      expect(await json(boundary)).toMatchObject({ value: bodyBytes });
+      const over = await run(bodyBytes + 1);
+      expect(over.status).toBe(413);
+      expect(await json(over)).toMatchObject({ error: "response/input byte limit" });
+      expect((await run(3 * 1024 * 1024, 2 * 1024 * 1024)).status).toBe(413);
+      expect((await run(1, maximum + 1)).status).toBe(400);
+      expect(await json(await scrape(worker, "document.title"))).toMatchObject({ value: "budget" });
+    },
+  );
+});
 
 test("repeated pages have fresh cookies and guest globals", async () => {
   const cookies: (string | null)[] = [];

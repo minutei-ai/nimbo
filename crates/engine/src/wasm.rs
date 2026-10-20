@@ -462,7 +462,7 @@ impl WasmPage {
 }
 
 /// Largest per-page response budget a host may request.
-const MAX_RESPONSE_BYTES: usize = 4 * 1024 * 1024;
+const MAX_RESPONSE_BYTES: usize = 8 * 1024 * 1024;
 
 /// Limites padrão do motor, compartilhados com a camada de transporte do Worker.
 #[wasm_bindgen]
