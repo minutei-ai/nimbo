@@ -53,6 +53,7 @@ impl WasmPageLoader {
         timeout_ms: Option<u32>,
         max_stylesheet_selectors: Option<usize>,
         content_type: Option<String>,
+        max_requests: Option<usize>,
     ) -> Result<Self, String> {
         let content_type = content_type
             .map_or(Ok("text/html"), |kind| {
@@ -67,6 +68,12 @@ impl WasmPageLoader {
             .map_err(|error| error.to_string())?;
         media.validate().map_err(|error| error.to_string())?;
         let mut limits = Limits::default();
+        if let Some(requests) = max_requests {
+            if requests == 0 || requests > 128 {
+                return Err("resource limit: invalid request count configuration".into());
+            }
+            limits.max_requests = requests;
+        }
         if let Some(milliseconds) = timeout_ms {
             if milliseconds == 0 {
                 return Err("resource limit: invalid timeout configuration".into());
@@ -319,6 +326,7 @@ impl WasmPage {
         max_initial_dom_nodes: Option<usize>,
         max_dom_nodes: Option<usize>,
         max_stylesheet_selectors: Option<usize>,
+        max_requests: Option<usize>,
     ) -> Result<Self, String> {
         if html.len() > Limits::default().max_response_bytes {
             return Err("resource limit: HTML bytes".into());
@@ -337,6 +345,7 @@ impl WasmPage {
             None,
             max_stylesheet_selectors,
             None,
+            max_requests,
         )?;
         for bytes in html.as_bytes().chunks(8192) {
             loader.feed(bytes)?;

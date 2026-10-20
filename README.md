@@ -28,7 +28,7 @@ curl "$NIMBO_URL/scrape" \
 
 The response contains `url`, `value` and `engine: "rust-wasm-quickjs"`. Errors return an HTTP status and `error`. `GET /health` reports engine health.
 
-Page scripts execute by default. `"scripts":"skip"` parses received HTML and runs only the extraction expression. `maxStylesheetBytes`, `maxStylesheetSelectors` (1–32,768; default 4,096), `maxLayoutNodes` and `maxDomOperations` configure bounded CSS/DOM work. `timeoutMs` (up to 60 s), `maxResponseBytes` (up to 4 MiB) and `headers` (for example `user-agent` or `accept-language`, sent with every page request) are per-scrape inputs.
+Page scripts execute by default. `"scripts":"skip"` parses received HTML and runs only the extraction expression. `maxStylesheetBytes`, `maxStylesheetSelectors` (1–32,768; default 4,096), `maxLayoutNodes` and `maxDomOperations` configure bounded CSS/DOM work. `timeoutMs` (up to 60 s), `maxResponseBytes` (up to 4 MiB), `maxRequests` (1–128; default 32) and `headers` (for example `user-agent` or `accept-language`, sent with every page request) are per-scrape inputs.
 
 Set `captureConsole: true` to include the page's bounded `console` records in success or error responses. Records are omitted by default, including when `diagnostics` is enabled. The supported logging methods, buffer bounds and native inspection APIs are described in [console coverage](docs/browser-coverage.md#bounded-native-console).
 
