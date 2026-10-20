@@ -95,12 +95,18 @@ enum RequestPurpose {
     Module(String),
 }
 
+#[derive(Clone, Copy)]
+enum ScriptKind {
+    Classic,
+    Module,
+    ImportMap,
+}
+
 struct Script {
     node: dom_query::NodeId,
     src: Option<String>,
     source: String,
-    module: bool,
-    import_map: bool,
+    kind: ScriptKind,
     deferred: bool,
     asynchronous: bool,
 }
@@ -599,12 +605,12 @@ impl Machine {
                 })?;
                 self.parsed = true;
             }
-            if script.import_map {
+            if matches!(script.kind, ScriptKind::ImportMap) {
                 self.modules
                     .register_import_map(&script.source, &document_base)?;
                 return Ok(None);
             }
-            if script.module {
+            if matches!(script.kind, ScriptKind::Module) {
                 let root = if let Some(src) = script.src {
                     resolve(
                         &self.base,
@@ -1327,8 +1333,11 @@ fn collect_scripts(dom: &Dom, execute_scripts: bool) -> Result<VecDeque<Script>>
             node: node.id,
             src: node.null_attribute("src"),
             source: node.text().to_string(),
-            module: kind == "module",
-            import_map: kind == "importmap",
+            kind: match kind.as_str() {
+                "module" => ScriptKind::Module,
+                "importmap" => ScriptKind::ImportMap,
+                _ => ScriptKind::Classic,
+            },
             deferred,
             asynchronous,
         };
