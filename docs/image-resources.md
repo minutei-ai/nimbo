@@ -155,3 +155,9 @@ cases also cover viewport boundaries and retain source byte/width-descriptor
 failures. The native unit case uses the same media parser and candidate selection
 at both sides of a viewport threshold. `tooling/compare-pictures.ts` runs the same
 HTTP fixture against ordinary Chromium and the native Worker.
+
+The pinned Chromium comparison records one reference divergence: an explicit
+empty source `type` is treated as no hint there. Nimbo treats it as an unknown
+MIME type and falls back, following the HTML source-set algorithm. All sixteen
+checks remain required for Nimbo; Chromium must match the other fifteen and
+retain exactly this observed difference.
