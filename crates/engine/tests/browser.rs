@@ -6735,3 +6735,19 @@ fn image_document_navigation_preserves_native_document_identity() -> TestResult 
     }
     Ok(())
 }
+
+#[test]
+fn dom_implementation_has_feature_retains_historical_web_idl_contract() -> TestResult {
+    let fixture = Fixture::new()?;
+    each_variant(&fixture, |browser, _| {
+        let page = browser.navigate(&fixture.path("/static"))?;
+        let result = page.evaluate(include_str!("fixtures/dom-implementation-has-feature.txt"))?;
+        let fields = result.as_object().ok_or("missing feature checks")?;
+        assert_eq!(fields.len(), 16);
+        assert!(
+            fields.values().all(|value| *value == json!(true)),
+            "{result}"
+        );
+        Ok(())
+    })
+}

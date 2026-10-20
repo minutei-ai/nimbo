@@ -3521,12 +3521,18 @@ The factory uses cumulative operation, write and node budgets. The shared native
 and Worker fixture follows the [DOM factory contract](https://dom.spec.whatwg.org/#dom-domimplementation-createhtmldocument);
 its 17 checks also pass in the collaborative Chromium comparator.
 
+`DOMImplementation.hasFeature()` follows the [historical DOM contract](https://dom.spec.whatwg.org/#dom-domimplementation-hasfeature):
+it returns true without coercing supplied arguments. The method validates its
+implementation receiver and retains native prototype reflection. The shared
+16-check fixture exercises HTML/XML document ownership, ignored arguments,
+invalid receivers and recovery across 64 fresh pages.
+
 This is partial document support. XML parsing/serialization conformance,
 DOMParser, public Document construction, non-null doctype
 transfer, XML-specific selector case behavior and independent frame realms
 remain pending. Supplying a doctype currently raises NotSupportedError.
 Independent roots do not add a new JS realm, active stylesheet context or
-persistent browser session. Obscura remains a separate comparator.
+persistent browser session.
 
 The complete document build passes formatting, Worker/Wasm compilation,
 TypeScript/native/Wasm lint, 6103 Bun tests and Rust documentation. Debug and
