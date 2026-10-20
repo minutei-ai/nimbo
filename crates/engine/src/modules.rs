@@ -1,7 +1,11 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{
+    cell::RefCell,
+    collections::{HashMap, HashSet, VecDeque},
+    rc::Rc,
+};
 
 use rquickjs::{
-    Context, Ctx, Exception, Module, Runtime,
+    Context, Ctx, Exception, Function, Module, Persistent, Promise, Runtime,
     loader::{ImportAttributes, Loader, Resolver},
 };
 
@@ -16,12 +20,21 @@ struct Source {
     base: String,
 }
 
+struct Preload {
+    promise: Persistent<Promise<'static>>,
+    resolve: Persistent<Function<'static>>,
+    reject: Persistent<Function<'static>>,
+}
+
 #[derive(Clone)]
 pub(crate) struct Modules {
     sources: Rc<RefCell<HashMap<String, Source>>>,
     missing: Rc<RefCell<Option<String>>>,
     origin: url::Url,
     import_map: Rc<RefCell<crate::import_maps::ImportMap>>,
+    preloads: Rc<RefCell<HashMap<String, Preload>>>,
+    queue: Rc<RefCell<VecDeque<String>>>,
+    prepared: Rc<RefCell<HashSet<String>>>,
 }
 
 impl Modules {
@@ -31,6 +44,9 @@ impl Modules {
             missing: Rc::default(),
             origin,
             import_map: Rc::default(),
+            preloads: Rc::default(),
+            queue: Rc::default(),
+            prepared: Rc::default(),
         }
     }
 
@@ -41,6 +57,84 @@ impl Modules {
 
     pub(crate) fn install(&self, runtime: &Runtime) {
         runtime.set_loader(self.clone(), self.clone());
+    }
+
+    pub(crate) fn install_preload<'js>(
+        &self,
+        ctx: &Ctx<'js>,
+        max_pending: usize,
+        fatal: Rc<RefCell<Option<Persistent<Function<'static>>>>>,
+    ) -> rquickjs::Result<()> {
+        let setter: Function<'js> = ctx.globals().get("__quickjsSetModulePreload")?;
+        ctx.globals().remove("__quickjsSetModulePreload")?;
+        let modules = self.clone();
+        let callback = Function::new(ctx.clone(), move |ctx: Ctx<'js>, name: String| {
+            modules.preload(&ctx, name, max_pending, &fatal)
+        })?;
+        setter.call::<_, ()>((callback,))
+    }
+
+    fn preload<'js>(
+        &self,
+        ctx: &Ctx<'js>,
+        name: String,
+        max_pending: usize,
+        fatal: &RefCell<Option<Persistent<Function<'static>>>>,
+    ) -> rquickjs::Result<Promise<'js>> {
+        if let Some(preload) = self.preloads.borrow().get(&name) {
+            return preload.promise.clone().restore(ctx);
+        }
+        let (promise, resolve, reject) = Promise::new(ctx)?;
+        if self.prepared.borrow().contains(&name) {
+            resolve.call::<_, ()>(())?;
+            return Ok(promise);
+        }
+        if self.preloads.borrow().len() >= max_pending {
+            return Err(crate::machine::host_error(
+                ctx,
+                fatal,
+                &Error::Limit("module preload count"),
+            ));
+        }
+        self.queue.borrow_mut().push_back(name.clone());
+        self.preloads.borrow_mut().insert(
+            name,
+            Preload {
+                promise: Persistent::save(ctx, promise.clone()),
+                resolve: Persistent::save(ctx, resolve),
+                reject: Persistent::save(ctx, reject),
+            },
+        );
+        Ok(promise)
+    }
+
+    pub(crate) fn next_preload(&self) -> Option<String> {
+        self.queue.borrow().front().cloned()
+    }
+
+    pub(crate) fn finish_preload(
+        &self,
+        ctx: &Ctx<'_>,
+        root: &str,
+        error: Option<&str>,
+    ) -> rquickjs::Result<()> {
+        let preload = self.preloads.borrow_mut().remove(root);
+        self.queue.borrow_mut().retain(|name| name != root);
+        if let Some(preload) = preload {
+            if let Some(error) = error {
+                Exception::throw_type(ctx, error);
+                let reason = ctx.catch();
+                return preload.reject.restore(ctx)?.call((reason,));
+            }
+            self.prepared.borrow_mut().insert(root.to_owned());
+            return preload.resolve.restore(ctx)?.call(());
+        }
+        Ok(())
+    }
+
+    pub(crate) fn clear_preloads(&self) {
+        self.preloads.borrow_mut().clear();
+        self.queue.borrow_mut().clear();
     }
 
     pub(crate) fn inline(&self, name: String, body: String, base: String) {
@@ -95,26 +189,40 @@ impl Modules {
         let Some(source) = source else {
             return Ok(Some(root.to_owned()));
         };
-        let context =
-            Context::full(runtime).map_err(|error| Error::JavaScript(error.to_string()))?;
+        let context = Context::full(runtime).map_err(|error| match error {
+            rquickjs::Error::Allocation => Error::Limit("module compilation"),
+            error => Error::JavaScript(error.to_string()),
+        })?;
         let result = context.with(|ctx| {
             rquickjs::CaughtError::catch(&ctx, Module::declare(ctx.clone(), root, source.body))
                 .map(|_| ())
-                .map_err(|error| Error::JavaScript(error.to_string()))
+                .map_err(|error| match &error {
+                    rquickjs::CaughtError::Exception(exception)
+                        if exception.as_object().as_value().is_uncatchable_error() =>
+                    {
+                        Error::Limit("module compilation")
+                    }
+                    rquickjs::CaughtError::Error(rquickjs::Error::Allocation) => {
+                        Error::Limit("module compilation")
+                    }
+                    _ => Error::JavaScript(error.to_string()),
+                })
         });
         drop(context);
         runtime.run_gc();
-        if let Some(name) = self.missing.borrow_mut().take() {
-            return Ok(Some(name));
+        let missing = self.missing.borrow_mut().take();
+        match (result, missing) {
+            (Err(error @ Error::Limit(_)), _) => Err(error),
+            (_, Some(name)) => Ok(Some(name)),
+            (result, None) => result.map(|()| None),
         }
-        result.map(|()| None)
     }
 
     pub(crate) fn evaluate<'js>(
         &self,
         ctx: &Ctx<'js>,
         root: &str,
-    ) -> rquickjs::Result<rquickjs::Promise<'js>> {
+    ) -> rquickjs::Result<Promise<'js>> {
         let source = self
             .sources
             .borrow()

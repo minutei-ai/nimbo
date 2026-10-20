@@ -599,6 +599,7 @@ struct JSContext {
 
     JSValue global_obj; /* global object */
     JSValue global_var_obj; /* contains the global let/const definitions */
+    JSValue module_preload;
 
     double time_origin;
 
@@ -2877,6 +2878,7 @@ JSContext *JS_NewContextRaw(JSRuntime *rt)
     ctx->regexp_ctor = JS_NULL;
     ctx->promise_ctor = JS_NULL;
     ctx->error_ctor = JS_NULL;
+    ctx->module_preload = JS_UNDEFINED;
     ctx->out_of_memory_error = JS_UNDEFINED;
     ctx->error_back_trace = JS_UNDEFINED;
     ctx->error_prepare_stack = JS_UNDEFINED;
@@ -2999,6 +3001,7 @@ static void JS_MarkContext(JSRuntime *rt, JSContext *ctx,
 
     JS_MarkValue(rt, ctx->global_obj, mark_func);
     JS_MarkValue(rt, ctx->global_var_obj, mark_func);
+    JS_MarkValue(rt, ctx->module_preload, mark_func);
 
     JS_MarkValue(rt, ctx->throw_type_error, mark_func);
     JS_MarkValue(rt, ctx->eval_obj, mark_func);
@@ -3082,6 +3085,7 @@ void JS_FreeContext(JSContext *ctx)
 
     JS_FreeValue(ctx, ctx->global_obj);
     JS_FreeValue(ctx, ctx->global_var_obj);
+    JS_FreeValue(ctx, ctx->module_preload);
 
     JS_FreeValue(ctx, ctx->throw_type_error);
     JS_FreeValue(ctx, ctx->eval_obj);
@@ -30744,44 +30748,44 @@ static JSModuleDef *js_find_loaded_module_by_name(JSContext *ctx, JSAtom name)
 
 /* return NULL in case of exception (e.g. module could not be loaded) */
 /* `base_cname` and `cname1` may be pure ASCII or UTF-8 encoded */
-static JSModuleDef *js_host_resolve_imported_module(JSContext *ctx,
-                                                    const char *base_cname,
-                                                    const char *cname1,
-                                                    JSValueConst attributes)
+static char *js_host_normalize_imported_module(JSContext *ctx,
+                                                const char *base_cname,
+                                                const char *cname1,
+                                                JSValueConst attributes)
 {
     JSRuntime *rt = ctx->rt;
-    JSModuleDef *m;
-    char *cname;
-    JSAtom module_name;
-
     if (!rt->normalize_u.module_normalize_func && !rt->normalize_u.module_normalize_func2) {
-        cname = js_default_module_normalize_name(ctx, base_cname, cname1);
+        return js_default_module_normalize_name(ctx, base_cname, cname1);
     } else if (rt->module_normalize_has_attr) {
-        cname = rt->normalize_u.module_normalize_func2(ctx, base_cname, cname1,
+        return rt->normalize_u.module_normalize_func2(ctx, base_cname, cname1,
                                                        attributes,
                                                        rt->module_loader_opaque);
     } else {
-        cname = rt->normalize_u.module_normalize_func(ctx, base_cname, cname1,
+        return rt->normalize_u.module_normalize_func(ctx, base_cname, cname1,
                                                       rt->module_loader_opaque);
     }
-    if (!cname)
-        return NULL;
+}
+
+static JSModuleDef *js_host_load_imported_module(JSContext *ctx,
+                                                 const char *cname,
+                                                 JSValueConst attributes)
+{
+    JSRuntime *rt = ctx->rt;
+    JSModuleDef *m;
+    JSAtom module_name;
 
     module_name = JS_NewAtom(ctx, cname);
     if (module_name == JS_ATOM_NULL) {
-        js_free(ctx, cname);
         return NULL;
     }
 
     /* first look at the loaded modules */
     m = js_find_loaded_module(ctx, module_name, attributes);
     if (m) {
-        js_free(ctx, cname);
         JS_FreeAtom(ctx, module_name);
         return m;
     }
     if (JS_HasException(ctx)) {
-        js_free(ctx, cname);
         JS_FreeAtom(ctx, module_name);
         return NULL;
     }
@@ -30794,7 +30798,6 @@ static JSModuleDef *js_host_resolve_imported_module(JSContext *ctx,
         // XXX: update JS_DetectModule when you change this
         JS_ThrowReferenceError(ctx, "could not load module '%s'",
                                cname);
-        js_free(ctx, cname);
         return NULL;
     }
 
@@ -30808,6 +30811,19 @@ static JSModuleDef *js_host_resolve_imported_module(JSContext *ctx,
        JS module with the same name */
     if (m && JS_IsObject(attributes) && JS_IsUndefined(m->attributes))
         m->attributes = js_dup(attributes);
+    return m;
+}
+
+static JSModuleDef *js_host_resolve_imported_module(JSContext *ctx,
+                                                    const char *base_cname,
+                                                    const char *cname1,
+                                                    JSValueConst attributes)
+{
+    char *cname = js_host_normalize_imported_module(ctx, base_cname, cname1, attributes);
+    JSModuleDef *m;
+    if (!cname)
+        return NULL;
+    m = js_host_load_imported_module(ctx, cname, attributes);
     js_free(ctx, cname);
     return m;
 }
@@ -31798,9 +31814,10 @@ static JSValue js_load_module_rejected(JSContext *ctx, JSValueConst this_val,
         error = argv[0];
     else
         error = JS_UNDEFINED;
+    if (JS_IsUncatchableError(error))
+        return JS_Throw(ctx, JS_DupValue(ctx, error));
     ret = JS_Call(ctx, resolving_funcs[1], JS_UNDEFINED, 1, &error);
-    JS_FreeValue(ctx, ret);
-    return JS_UNDEFINED;
+    return ret;
 }
 
 static JSValue js_load_module_fulfilled(JSContext *ctx, JSValueConst this_val,
@@ -31815,26 +31832,31 @@ static JSValue js_load_module_fulfilled(JSContext *ctx, JSValueConst this_val,
     ns = JS_GetModuleNamespace(ctx, m);
     if (JS_IsException(ns)) {
         JSValue err = JS_GetException(ctx);
-        js_load_module_rejected(ctx, JS_UNDEFINED, 1, vc(&err), 0, func_data);
-        return JS_UNDEFINED;
+        ret = js_load_module_rejected(ctx, JS_UNDEFINED, 1, vc(&err), 0, func_data);
+        JS_FreeValue(ctx, err);
+        return ret;
     }
     ret = JS_Call(ctx, resolving_funcs[0], JS_UNDEFINED, 1, vc(&ns));
-    JS_FreeValue(ctx, ret);
     JS_FreeValue(ctx, ns);
-    return JS_UNDEFINED;
+    return ret;
 }
 
-static void JS_LoadModuleInternal(JSContext *ctx, const char *basename,
+static int JS_LoadModuleInternal(JSContext *ctx, const char *basename,
                                   const char *filename,
                                   JSValueConst *resolving_funcs,
-                                  JSValueConst attributes)
+                                  JSValueConst attributes, bool normalized)
 {
     JSValue evaluate_promise;
     JSModuleDef *m;
     JSValue ret, err, func_obj, evaluate_resolving_funcs[2];
     JSValueConst func_data[3];
+    JSValueConst discarded_capability[2] = { JS_UNDEFINED, JS_UNDEFINED };
+    int result;
 
-    m = js_host_resolve_imported_module(ctx, basename, filename, attributes);
+    if (normalized)
+        m = js_host_load_imported_module(ctx, filename, attributes);
+    else
+        m = js_host_resolve_imported_module(ctx, basename, filename, attributes);
     if (!m)
         goto fail;
 
@@ -31849,10 +31871,16 @@ static void JS_LoadModuleInternal(JSContext *ctx, const char *basename,
     if (JS_IsException(evaluate_promise)) {
     fail:
         err = JS_GetException(ctx);
+        if (JS_IsUncatchableError(err)) {
+            JS_Throw(ctx, err);
+            return -1;
+        }
         ret = JS_Call(ctx, resolving_funcs[1], JS_UNDEFINED, 1, vc(&err));
-        JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
         JS_FreeValue(ctx, err);
-        return;
+        if (JS_IsException(ret))
+            return -1;
+        JS_FreeValue(ctx, ret);
+        return 0;
     }
 
     func_obj = JS_NewModuleValue(ctx, m);
@@ -31860,13 +31888,25 @@ static void JS_LoadModuleInternal(JSContext *ctx, const char *basename,
     func_data[1] = resolving_funcs[1];
     func_data[2] = func_obj;
     evaluate_resolving_funcs[0] = JS_NewCFunctionData(ctx, js_load_module_fulfilled, 0, 0, 3, func_data);
+    if (JS_IsException(evaluate_resolving_funcs[0])) {
+        JS_FreeValue(ctx, func_obj);
+        JS_FreeValue(ctx, evaluate_promise);
+        goto fail;
+    }
     evaluate_resolving_funcs[1] = JS_NewCFunctionData(ctx, js_load_module_rejected, 0, 0, 3, func_data);
     JS_FreeValue(ctx, func_obj);
-    ret = js_promise_then(ctx, evaluate_promise, 2, vc(evaluate_resolving_funcs));
-    JS_FreeValue(ctx, ret);
+    if (JS_IsException(evaluate_resolving_funcs[1])) {
+        JS_FreeValue(ctx, evaluate_resolving_funcs[0]);
+        JS_FreeValue(ctx, evaluate_promise);
+        goto fail;
+    }
+    result = perform_promise_then(ctx, evaluate_promise, vc(evaluate_resolving_funcs), discarded_capability);
     JS_FreeValue(ctx, evaluate_resolving_funcs[0]);
     JS_FreeValue(ctx, evaluate_resolving_funcs[1]);
     JS_FreeValue(ctx, evaluate_promise);
+    if (result < 0)
+        goto fail;
+    return 0;
 }
 
 /* Return a promise or an exception in case of memory error. Used by
@@ -31879,10 +31919,92 @@ JSValue JS_LoadModule(JSContext *ctx, const char *basename,
     promise = JS_NewPromiseCapability(ctx, resolving_funcs);
     if (JS_IsException(promise))
         return JS_EXCEPTION;
-    JS_LoadModuleInternal(ctx, basename, filename, vc(resolving_funcs), JS_UNDEFINED);
+    if (JS_LoadModuleInternal(ctx, basename, filename, vc(resolving_funcs), JS_UNDEFINED, false) < 0) {
+        JS_FreeValue(ctx, promise);
+        promise = JS_EXCEPTION;
+    }
     JS_FreeValue(ctx, resolving_funcs[0]);
     JS_FreeValue(ctx, resolving_funcs[1]);
     return promise;
+}
+
+static JSValue js_set_module_preload(JSContext *ctx, JSValueConst this_val,
+                                      int argc, JSValueConst *argv)
+{
+    if (!JS_IsUndefined(ctx->module_preload) || argc != 1 || !JS_IsFunction(ctx, argv[0]))
+        return JS_ThrowTypeError(ctx, "module preload is already configured or invalid");
+    ctx->module_preload = JS_DupValue(ctx, argv[0]);
+    return JS_UNDEFINED;
+}
+
+static JSValue js_dynamic_import_preloaded(JSContext *ctx, JSValueConst this_val,
+                                           int argc, JSValueConst *argv, int magic,
+                                           JSValueConst *func_data)
+{
+    const char *filename = JS_ToCString(ctx, func_data[2]);
+    if (!filename) {
+        JSValue err = JS_GetException(ctx);
+        JSValue result = js_load_module_rejected(ctx, JS_UNDEFINED, 1, vc(&err), 0, func_data);
+        JS_FreeValue(ctx, err);
+        return result;
+    }
+    int result = JS_LoadModuleInternal(ctx, NULL, filename, func_data, func_data[3], true);
+    JS_FreeCString(ctx, filename);
+    if (result < 0)
+        return JS_EXCEPTION;
+    return JS_UNDEFINED;
+}
+
+static int js_dynamic_import_preload(JSContext *ctx, const char *base,
+                                     const char *filename, JSValueConst attributes,
+                                     JSValueConst *resolving_funcs)
+{
+    char *normalized = js_host_normalize_imported_module(ctx, base, filename, attributes);
+    JSValue name, promise, fulfilled, rejected;
+    JSValueConst data[4];
+    JSValueConst discarded_capability[2] = { JS_UNDEFINED, JS_UNDEFINED };
+    JSValue handlers[2];
+    int result;
+    if (!normalized)
+        return -1;
+    name = JS_NewString(ctx, normalized);
+    js_free(ctx, normalized);
+    if (JS_IsException(name))
+        return -1;
+    promise = JS_Call(ctx, ctx->module_preload, JS_UNDEFINED, 1, vc(&name));
+    if (JS_IsException(promise)) {
+        JS_FreeValue(ctx, name);
+        return -1;
+    }
+    if (!JS_GetOpaque2(ctx, promise, JS_CLASS_PROMISE)) {
+        JS_FreeValue(ctx, promise);
+        JS_FreeValue(ctx, name);
+        return -1;
+    }
+    data[0] = resolving_funcs[0];
+    data[1] = resolving_funcs[1];
+    data[2] = name;
+    data[3] = attributes;
+    fulfilled = JS_NewCFunctionData(ctx, js_dynamic_import_preloaded, 0, 0, 4, data);
+    if (JS_IsException(fulfilled)) {
+        JS_FreeValue(ctx, promise);
+        JS_FreeValue(ctx, name);
+        return -1;
+    }
+    rejected = JS_NewCFunctionData(ctx, js_load_module_rejected, 0, 0, 4, data);
+    JS_FreeValue(ctx, name);
+    if (JS_IsException(rejected)) {
+        JS_FreeValue(ctx, fulfilled);
+        JS_FreeValue(ctx, promise);
+        return -1;
+    }
+    handlers[0] = fulfilled;
+    handlers[1] = rejected;
+    result = perform_promise_then(ctx, promise, vc(handlers), discarded_capability);
+    JS_FreeValue(ctx, promise);
+    JS_FreeValue(ctx, fulfilled);
+    JS_FreeValue(ctx, rejected);
+    return result;
 }
 
 static JSValue js_dynamic_import_job(JSContext *ctx,
@@ -31907,12 +32029,25 @@ static JSValue js_dynamic_import_job(JSContext *ctx,
     if (!filename)
         goto exception;
 
-    JS_LoadModuleInternal(ctx, basename, filename, resolving_funcs, attributes);
+    if (JS_IsUndefined(ctx->module_preload)) {
+        if (JS_LoadModuleInternal(ctx, basename, filename, resolving_funcs, attributes, false) < 0) {
+            JS_FreeCString(ctx, filename);
+            JS_FreeCString(ctx, basename);
+            return JS_EXCEPTION;
+        }
+    } else if (js_dynamic_import_preload(ctx, basename, filename, attributes, resolving_funcs) < 0) {
+        JS_FreeCString(ctx, filename);
+        goto exception;
+    }
     JS_FreeCString(ctx, filename);
     JS_FreeCString(ctx, basename);
     return JS_UNDEFINED;
  exception:
     err = JS_GetException(ctx);
+    if (JS_IsUncatchableError(err)) {
+        JS_FreeCString(ctx, basename);
+        return JS_Throw(ctx, err);
+    }
     ret = JS_Call(ctx, resolving_funcs[1], JS_UNDEFINED, 1, vc(&err));
     JS_FreeValue(ctx, ret); /* XXX: what to do if exception ? */
     JS_FreeValue(ctx, err);
@@ -32007,7 +32142,8 @@ static JSValue js_dynamic_import(JSContext *ctx, JSValueConst specifier,
 
     /* cannot run JS_LoadModuleInternal synchronously because it would
        cause an unexpected recursion in js_evaluate_module() */
-    JS_EnqueueJob(ctx, js_dynamic_import_job, 5, vc(args));
+    if (JS_EnqueueJob(ctx, js_dynamic_import_job, 5, vc(args)) < 0)
+        goto exception;
 done:
     JS_FreeValue(ctx, basename_val);
     JS_FreeValue(ctx, resolving_funcs[0]);
@@ -32018,6 +32154,11 @@ done:
  exception:
     JS_FreeValue(ctx, attributes_obj);
     err = JS_GetException(ctx);
+    if (JS_IsUncatchableError(err)) {
+        JS_FreeValue(ctx, promise);
+        promise = JS_Throw(ctx, err);
+        goto done;
+    }
     ret = JS_Call(ctx, resolving_funcs[1], JS_UNDEFINED, 1, vc(&err));
     JS_FreeValue(ctx, ret);
     JS_FreeValue(ctx, err);
@@ -58761,6 +58902,13 @@ int JS_AddIntrinsicBaseObjects(JSContext *ctx)
 {
     JSValue obj1, obj2;
     JSCFunctionType ft;
+
+    obj1 = JS_NewCFunction(ctx, js_set_module_preload, NULL, 1);
+    if (JS_IsException(obj1))
+        return -1;
+    if (JS_DefinePropertyValueStr(ctx, ctx->global_obj, "__quickjsSetModulePreload",
+                                 obj1, JS_PROP_CONFIGURABLE) < 0)
+        return -1;
 
     ctx->throw_type_error = JS_NewCFunction(ctx, js_throw_type_error, NULL, 0);
     if (JS_IsException(ctx->throw_type_error))

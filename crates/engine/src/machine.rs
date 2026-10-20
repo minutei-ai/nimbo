@@ -89,6 +89,7 @@ enum RequestPurpose {
     Stylesheet(usize),
     Image(usize),
     Module(String),
+    DynamicModule { root: String, name: String },
 }
 
 #[derive(Clone, Copy)]
@@ -147,6 +148,7 @@ impl Drop for Machine {
         self.fatal.borrow_mut().take();
         self.runtime.set_host_promise_rejection_tracker(None);
         self.pending.borrow_mut().clear();
+        self.modules.clear_preloads();
         self.rejections.borrow_mut().clear();
     }
 }
@@ -352,6 +354,11 @@ impl Machine {
         let clock = Rc::clone(&self.clock);
         self.context.with(|ctx| -> Result<()> {
             let globals = ctx.globals();
+            js(
+                &ctx,
+                self.modules
+                    .install_preload(&ctx, limits.max_requests, Rc::clone(&self.fatal)),
+            )?;
             install_clock(&ctx, clock, limits)?;
             js(&ctx, session.cookies.install(&ctx, self.base.clone()))?;
             let dom_function = Function::new(
@@ -636,6 +643,32 @@ impl Machine {
         Ok(None)
     }
 
+    fn next_dynamic_module(&mut self, root: &str) -> Result<Option<Action>> {
+        match self.modules.prepare(&self.runtime, root) {
+            Ok(Some(name)) => {
+                resolve(&self.base, &name)?;
+                Ok(Some(self.activate(
+                    Request {
+                        url: name.clone(),
+                        method: "GET".into(),
+                        body: String::new(),
+                        purpose: RequestPurpose::DynamicModule {
+                            root: root.to_owned(),
+                            name,
+                        },
+                    },
+                    false,
+                )))
+            }
+            Ok(None) | Err(Error::JavaScript(_)) => {
+                self.context
+                    .with(|ctx| js(&ctx, self.modules.finish_preload(&ctx, root, None)))?;
+                Ok(None)
+            }
+            Err(error) => Err(error),
+        }
+    }
+
     fn external_script(
         &mut self,
         src: &str,
@@ -715,6 +748,14 @@ impl Machine {
                 continue;
             }
             self.timer_step(false)?;
+            if self.blocked.is_none()
+                && let Some(root) = self.modules.next_preload()
+            {
+                if let Some(action) = self.next_dynamic_module(&root)? {
+                    return Ok(action);
+                }
+                continue;
+            }
             for promise in self.module_evaluations.values() {
                 self.context.with(|ctx| -> Result<()> {
                     let promise = js(&ctx, promise.clone().restore(&ctx))?;
@@ -950,6 +991,17 @@ impl Machine {
                 }
             }
             RequestPurpose::Module(name) => self.modules.respond(name, &response)?,
+            RequestPurpose::DynamicModule { root, name } => {
+                if let Err(error) = self.modules.respond(name, &response) {
+                    self.context.with(|ctx| {
+                        js(
+                            &ctx,
+                            self.modules
+                                .finish_preload(&ctx, &root, Some(&error.to_string())),
+                        )
+                    })?;
+                }
+            }
             RequestPurpose::Fetch(resolver, _) => {
                 self.context.with(|ctx| {
                     let payload = js(&ctx, rquickjs::Object::new(ctx.clone()))?;
@@ -994,6 +1046,14 @@ impl Machine {
             .ok_or_else(|| Error::Unsupported("no pending request".into()))?;
         if self.blocked == Some(id) {
             self.blocked = None;
+        }
+        if let RequestPurpose::DynamicModule { root, .. } = request.purpose {
+            return self.context.with(|ctx| {
+                js(
+                    &ctx,
+                    self.modules.finish_preload(&ctx, &root, Some(message)),
+                )
+            });
         }
         if let RequestPurpose::Stylesheet(handle) = request.purpose {
             return self.sheet_response(handle, request.url, None);
@@ -1224,7 +1284,7 @@ fn install_media(ctx: &Ctx<'_>, media: MediaEnvironment) -> Result<()> {
     Ok(())
 }
 
-fn host_error(
+pub(crate) fn host_error(
     ctx: &Ctx<'_>,
     fatal: &RefCell<Option<Persistent<Function<'static>>>>,
     error: &Error,
