@@ -58,6 +58,9 @@ impl selectors::parser::NonTSPseudoClass for BrowserPseudo {
 }
 impl selectors::parser::PseudoElement for BrowserPseudoElement {
     type Impl = NativeImpl;
+    fn accepts_state_pseudo_classes(&self) -> bool {
+        self.is_before_or_after()
+    }
     fn is_before_or_after(&self) -> bool {
         matches!(self.0.as_str(), "::before" | "::after")
     }
@@ -190,6 +193,7 @@ pub(crate) enum Key {
 #[derive(Clone)]
 pub(crate) struct Matcher {
     list: SelectorList<NativeImpl>,
+    generated: bool,
 }
 impl Matcher {
     pub(crate) fn new(source: &str) -> Result<Self, ()> {
@@ -200,7 +204,14 @@ impl Matcher {
             ParseRelative::No,
         )
         .map_err(|_error| ())?;
-        Ok(Self { list })
+        Ok(Self {
+            list,
+            generated: false,
+        })
+    }
+    pub(crate) fn for_generated_box(mut self) -> Self {
+        self.generated = true;
+        self
     }
     // Every positive branch must have a required predicate. Alternatives
     // contribute a union; negation and relational predicates stay unindexed.
@@ -216,7 +227,7 @@ impl Matcher {
             return None;
         };
         let mut ancestor = false;
-        for component in selector.iter_raw_match_order() {
+        for component in subject_components(selector) {
             match component {
                 Component::Combinator(Combinator::Child | Combinator::Descendant) => {
                     ancestor = true;
@@ -251,6 +262,15 @@ impl Matcher {
         if view.is_some_and(|view| !view.checkpoint()) {
             return false;
         }
+        let pseudo = if self.generated {
+            self.list
+                .slice()
+                .first()
+                .and_then(|selector| selector.pseudo_element())
+                .map(|kind| (&node, kind))
+        } else {
+            None
+        };
         let mut context = MatchingContext::new(
             MatchingMode::Normal,
             None,
@@ -259,7 +279,8 @@ impl Matcher {
             NeedsSelectorFlags::No,
             MatchingForInvalidation::No,
         );
-        let matched = matches_selector_list(&self.list, &NativeElement(node, view), &mut context);
+        let matched =
+            matches_selector_list(&self.list, &NativeElement(node, view, pseudo), &mut context);
         matched && view.is_none_or(|view| !view.failed())
     }
 }
@@ -371,12 +392,30 @@ impl Key {
         }
     }
 }
+fn subject_components(
+    selector: &selectors::parser::Selector<NativeImpl>,
+) -> impl Iterator<Item = &selectors::parser::Component<NativeImpl>> {
+    let offset = if selector.has_pseudo_element() {
+        selector
+            .iter_raw_match_order()
+            .position(|component| {
+                matches!(
+                    component,
+                    selectors::parser::Component::Combinator(
+                        selectors::parser::Combinator::PseudoElement
+                    )
+                )
+            })
+            .map_or(0, |position| position.saturating_add(1))
+    } else {
+        0
+    };
+    selector.iter_raw_match_order().skip(offset)
+}
 fn selector_key(selector: &selectors::parser::Selector<NativeImpl>) -> Option<Key> {
     use selectors::parser::Component;
     let mut key: Option<Key> = None;
-    for component in selector
-        .iter_raw_match_order()
-        .take_while(|component| !component.is_combinator())
+    for component in subject_components(selector).take_while(|component| !component.is_combinator())
     {
         let next = match component {
             Component::ID(name) => Some(Key::Id(name.to_string())),
@@ -414,19 +453,29 @@ fn selector_key(selector: &selectors::parser::Selector<NativeImpl>) -> Option<Ke
     key
 }
 #[derive(Clone, Copy, Debug)]
-struct NativeElement<'a>(NodeRef<'a>, Option<&'a View<'a>>);
-impl Element for NativeElement<'_> {
+struct NativeElement<'a, 'p>(
+    NodeRef<'a>,
+    Option<&'a View<'a>>,
+    Option<(&'p NodeRef<'a>, &'p BrowserPseudoElement)>,
+);
+impl Element for NativeElement<'_, '_> {
     type Impl = NativeImpl;
     fn opaque(&self) -> OpaqueElement {
+        if let Some((identity, _)) = self.2 {
+            return OpaqueElement::new(identity);
+        }
         self.0
             .query_or(OpaqueElement::new(&self.0), OpaqueElement::new)
     }
     fn parent_element(&self) -> Option<Self> {
+        if self.2.is_some() {
+            return Some(Self(self.0, self.1, None));
+        }
         self.0
             .ancestors_it(None)
             .take_while(|_| self.1.is_none_or(View::checkpoint))
             .find(NodeRef::is_element)
-            .map(|node| Self(node, self.1))
+            .map(|node| Self(node, self.1, None))
     }
     fn parent_node_is_shadow_root(&self) -> bool {
         false
@@ -435,26 +484,38 @@ impl Element for NativeElement<'_> {
         None
     }
     fn is_pseudo_element(&self) -> bool {
-        false
+        self.2.is_some()
     }
     fn prev_sibling_element(&self) -> Option<Self> {
+        if self.2.is_some() {
+            return None;
+        }
         std::iter::successors(self.0.prev_sibling(), NodeRef::prev_sibling)
             .take_while(|_| self.1.is_none_or(View::checkpoint))
             .find(NodeRef::is_element)
-            .map(|node| Self(node, self.1))
+            .map(|node| Self(node, self.1, None))
     }
     fn next_sibling_element(&self) -> Option<Self> {
+        if self.2.is_some() {
+            return None;
+        }
         std::iter::successors(self.0.next_sibling(), NodeRef::next_sibling)
             .take_while(|_| self.1.is_none_or(View::checkpoint))
             .find(NodeRef::is_element)
-            .map(|node| Self(node, self.1))
+            .map(|node| Self(node, self.1, None))
     }
     fn is_html_element_in_html_document(&self) -> bool {
+        if self.2.is_some() {
+            return false;
+        }
         self.0
             .qual_name_ref()
             .is_some_and(|name| name.ns.as_ref() == "http://www.w3.org/1999/xhtml")
     }
     fn has_local_name(&self, name: &<Self::Impl as SelectorImpl>::BorrowedLocalName) -> bool {
+        if self.2.is_some() {
+            return false;
+        }
         self.0
             .qual_name_ref()
             .is_some_and(|actual| actual.local.as_ref() == &**name)
@@ -463,11 +524,17 @@ impl Element for NativeElement<'_> {
         &self,
         namespace: &<Self::Impl as SelectorImpl>::BorrowedNamespaceUrl,
     ) -> bool {
+        if self.2.is_some() {
+            return false;
+        }
         self.0
             .qual_name_ref()
             .is_some_and(|actual| actual.ns.as_ref() == &**namespace)
     }
     fn is_same_type(&self, other: &Self) -> bool {
+        if self.2.is_some() || other.2.is_some() {
+            return false;
+        }
         self.0
             .qual_name_ref()
             .zip(other.0.qual_name_ref())
@@ -479,6 +546,9 @@ impl Element for NativeElement<'_> {
         name: &<Self::Impl as SelectorImpl>::LocalName,
         operation: &AttrSelectorOperation<&<Self::Impl as SelectorImpl>::AttrValue>,
     ) -> bool {
+        if self.2.is_some() {
+            return false;
+        }
         self.0.query_or(false, |node| {
             let NodeData::Element(element) = &node.data else {
                 return false;
@@ -499,6 +569,9 @@ impl Element for NativeElement<'_> {
         pseudo: &BrowserPseudo,
         _context: &mut MatchingContext<'_, Self::Impl>,
     ) -> bool {
+        if self.2.is_some() {
+            return false;
+        }
         if let Some(view) = self.1
             && let Some(value) = view.matches(self.0, pseudo.0.as_str())
         {
@@ -513,18 +586,21 @@ impl Element for NativeElement<'_> {
     }
     fn match_pseudo_element(
         &self,
-        _pseudo: &BrowserPseudoElement,
+        pseudo: &BrowserPseudoElement,
         _context: &mut MatchingContext<'_, Self::Impl>,
     ) -> bool {
-        false
+        self.2.is_some_and(|(_, kind)| kind == pseudo)
     }
     fn apply_selector_flags(&self, _flags: ElementSelectorFlags) {}
     fn first_element_child(&self) -> Option<Self> {
+        if self.2.is_some() {
+            return None;
+        }
         self.0
             .children_it(false)
             .take_while(|_| self.1.is_none_or(View::checkpoint))
             .find(NodeRef::is_element)
-            .map(|node| Self(node, self.1))
+            .map(|node| Self(node, self.1, None))
     }
     fn has_custom_state(&self, _name: &<Self::Impl as SelectorImpl>::Identifier) -> bool {
         false
@@ -545,6 +621,9 @@ impl Element for NativeElement<'_> {
         name: &<Self::Impl as SelectorImpl>::Identifier,
         case: CaseSensitivity,
     ) -> bool {
+        if self.2.is_some() {
+            return false;
+        }
         self.0
             .null_attribute_matches("id", |value| case.eq(name.as_bytes(), value.as_bytes()))
     }
@@ -553,6 +632,9 @@ impl Element for NativeElement<'_> {
         name: &<Self::Impl as SelectorImpl>::Identifier,
         case: CaseSensitivity,
     ) -> bool {
+        if self.2.is_some() {
+            return false;
+        }
         self.0.null_attribute_matches("class", |value| {
             value
                 .split([' ', '\t', '\n', '\r', '\u{c}'])
@@ -569,6 +651,9 @@ impl Element for NativeElement<'_> {
         false
     }
     fn is_empty(&self) -> bool {
+        if self.2.is_some() {
+            return false;
+        }
         self.0.is_element()
             && !self
                 .0
@@ -583,6 +668,38 @@ impl Element for NativeElement<'_> {
                 })
     }
     fn is_root(&self) -> bool {
+        if self.2.is_some() {
+            return false;
+        }
         self.0.parent().is_some_and(|node| node.is_document())
+    }
+}
+
+#[cfg(test)]
+mod generated_tests {
+    use super::Matcher;
+    use crate::{Error, Result};
+    use dom_query::Document;
+
+    #[test]
+    fn generated_state_logic_preserves_selector_list_negation() -> Result<()> {
+        let document = Document::from("<div class='box'></div>");
+        let node = document
+            .root()
+            .descendants_it()
+            .find(|node| node.has_name("div"))
+            .ok_or_else(|| Error::Dom("missing fixture element".into()))?;
+        for (source, expected) in [
+            (".box::before:focus", false),
+            (".box::before:not(:focus)", true),
+            (".box::before:is(:hover,:not(:focus))", true),
+            (".box::before:not(:hover,:not(:focus))", false),
+        ] {
+            let matcher = Matcher::new(source)
+                .map_err(|()| Error::Dom("invalid fixture selector".into()))?
+                .for_generated_box();
+            assert_eq!(matcher.matches(node, None), expected, "{source}");
+        }
+        Ok(())
     }
 }

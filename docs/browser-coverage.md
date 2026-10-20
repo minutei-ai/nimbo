@@ -897,6 +897,12 @@ No Obscura runtime dependency or fallback is involved.
 
 ### Nested stylesheet failure diagnostics
 
+Decoded stylesheets discard late or repeated `@charset` rules through the native
+parser's invalid-rule recovery, including declarations nested in groups and
+invalid blocks. The byte-level encoding declaration is distinct from a CSS rule,
+as specified by [CSS Syntax](https://www.w3.org/TR/css-syntax-3/#charset-rule).
+This recovery does not change response decoding or admit unsupported at-rules.
+
 Active layer, media and support groups preserve the original engine failure,
 including resource-limit categories. Previously, recursive parsing replaced
 most failures with a generic stylesheet-group error. The parser now carries
@@ -1028,14 +1034,26 @@ initial paused sample, not complete animation conformance.
 
 ### Native before and after generated boxes
 
-Terminal ::before and ::after selectors, including their legacy single-colon
-notation, now participate in a separate native cascade for the originating
+The ::before and ::after selectors, including their legacy single-colon
+notation, participate in a separate native cascade for the originating
 element's pseudo-element. Origin matching preserves selector specificity,
 layer ordering and importance. Empty-string content creates actual Taffy boxes
 before and after the owner's source children; it does not create DOM nodes.
 The boxes inherit custom properties from their owner and share the layout-tree
 and DOM-operation budgets. Each measurement rebuilds the scene from current
 stylesheets and native DOM state.
+
+[State qualifiers](https://www.w3.org/TR/selectors-4/#pseudo-element-states)
+after these pseudo-elements use a temporary generated subject
+with its own matching identity and the native selector matcher. They apply to
+the pseudo-element, while predicates before it select the originating element.
+Logical combinations keep their native matching and specificity rules; the origin supplies index keys,
+attribute dependencies and dynamic control-state matching. This does not add
+focus or pointer state to generated boxes, or sub-pseudo-element layout.
+The generated-states fixture checks inactive qualifiers,
+ordinary element isolation, origin specificity, class changes and checked-state
+changes at 64 distinct fractional sizes; separate cases cover positive logical
+combinations and recovery after a rejected sub-pseudo-element selector.
 
 The native content grammar retains strings, ordinary attribute/counter
 functions, quote keywords, typed images and alternative text. Geometry currently
