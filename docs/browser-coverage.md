@@ -121,6 +121,9 @@ Encoding streams, exhaustive label/vector coverage, all Web IDL descriptors,
 resizable/shared-buffer races and the complete pinned WPT suite remain unverified.
 HTML, scripts and stylesheet parsing still require UTF-8. Fetch body bytes are
 now preserved independently of text decoding, as described below.
+Native fetch passes header pairs and redirect policy directly to the Rust
+boundary. Page-defined JSON serialization hooks do not encode those internal
+options. The header count and serialized UTF-16 size limits still apply.
 Public references: [WHATWG Encoding](https://encoding.spec.whatwg.org/),
 [encoding_rs decoder](https://docs.rs/encoding_rs/0.8.42/encoding_rs/struct.Decoder.html).
 

@@ -520,7 +520,24 @@ fn serve_classic_scripts(request: Request) -> io::Result<()> {
     respond(request, String::new(), 404, "text/html", Vec::new())
 }
 
-fn serve(request: Request) -> io::Result<()> {
+fn serve(mut request: Request) -> io::Result<()> {
+    if request.url() == "/fetch-json-echo" {
+        let value = request
+            .headers()
+            .iter()
+            .find(|header| header.field.equiv("x-example"))
+            .map_or("", |header| header.value.as_str())
+            .to_owned();
+        let mut body = String::new();
+        request.as_reader().read_to_string(&mut body)?;
+        return respond(
+            request,
+            format!("{value}|{body}"),
+            200,
+            "text/plain",
+            Vec::new(),
+        );
+    }
     if request.url().starts_with("/modules/") {
         return serve_module_sources(request);
     }
@@ -6799,6 +6816,21 @@ fn expression_evaluation_uses_intrinsic_promises_after_page_polyfills() -> TestR
             );
             Ok(())
         })?;
+    }
+    Ok(())
+}
+
+#[test]
+fn native_fetch_options_ignore_page_json_serialization_hooks() -> TestResult {
+    let fixture = Fixture::new()?;
+    for mode in ["baseline", "array", "object", "stringify"] {
+        let page = fixture.browser()?.navigate(&fixture.path("/static"))?;
+        let expression = format!(
+            "({})({})",
+            include_str!("fixtures/fetch-json-hooks.txt"),
+            serde_json::to_string(mode)?
+        );
+        assert_eq!(page.evaluate(&expression)?, json!("value|payload"));
     }
     Ok(())
 }
