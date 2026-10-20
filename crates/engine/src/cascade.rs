@@ -292,6 +292,9 @@ impl<'i> AtRuleParser<'i> for Rules<'_> {
         name: CowRcStr<'i>,
         input: &mut Parser<'i, 't>,
     ) -> std::result::Result<Prelude, ParseError<'i, Self::Error>> {
+        if name.eq_ignore_ascii_case("charset") {
+            return Err(input.new_error(cssparser::BasicParseErrorKind::AtRuleInvalid(name)));
+        }
         if name.eq_ignore_ascii_case("import") {
             if !self.imports_allowed {
                 return Err(input.new_error(cssparser::BasicParseErrorKind::AtRuleInvalid(name)));
@@ -520,27 +523,21 @@ impl<'i> QualifiedRuleParser<'i> for Rules<'_> {
                             }
                             _ => None,
                         });
-                let origin = if let Some(generated) = generated {
-                    let (double, single) = match generated {
-                        Generated::Before => ("::before", ":before"),
-                        Generated::After => ("::after", ":after"),
-                    };
-                    let origin = source
-                        .strip_suffix(double)
-                        .or_else(|| source.strip_suffix(single))
-                        .ok_or_else(|| input.new_custom_error("generated selector"))?;
-                    if origin.is_empty() {
-                        "*".to_owned()
-                    } else if origin.ends_with([' ', '\t', '\n', '\r', '\u{c}', '>', '+', '~']) {
-                        format!("{origin}*")
-                    } else {
-                        origin.to_owned()
-                    }
-                } else {
-                    source
-                };
-                let matcher = Matcher::new(&origin)
+                let matcher = Matcher::new(&source)
                     .map_err(|_error| input.new_custom_error("stylesheet selector"))?;
+                let matcher = if generated.is_some() {
+                    if selector
+                        .iter_raw_match_order()
+                        .filter(|component| matches!(component, Component::PseudoElement(_)))
+                        .count()
+                        != 1
+                    {
+                        return Err(input.new_custom_error("generated selector"));
+                    }
+                    matcher.for_generated_box()
+                } else {
+                    matcher
+                };
                 Ok(Selector {
                     dynamic: matcher.references_dynamic(),
                     matcher,
