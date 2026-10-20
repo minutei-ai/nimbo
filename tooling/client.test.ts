@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { Effect, Exit, Option, type Layer } from "effect";
+import { Cause, Effect, Exit, Option, type Layer } from "effect";
 import { Miniflare } from "miniflare";
 import { join } from "node:path";
 import {
@@ -177,4 +177,11 @@ test("HTTP layer reads health and is refused for scrapes on a binding-only engin
   expect(Exit.isSuccess(health)).toBe(true);
   const error = failure(await run(layer, scrape({ url: origin.url.href, expression: "1" })));
   expect(error.status).toBe(503);
+});
+
+test("engine failure reasons survive native Error and Cause rendering", () => {
+  const error = new NimboError({ status: 422, reason: "stylesheet total bytes" });
+  expect(error.message).toBe(error.reason);
+  expect(String(Cause.fail(error))).toContain(error.reason);
+  expect(Cause.pretty(Cause.fail(error))).toContain(error.reason);
 });
