@@ -22,8 +22,18 @@ inline image events are delivered, and source changes invalidate queued events.
 
 Density descriptors use the pinned `parse-srcset` parser and the engine's fixed
 `devicePixelRatio` of 1. Density correction also applies to natural dimensions.
-A valid `src` supplies the 1x fallback when the candidate list does not contain one.
+A valid `src` supplies the 1x fallback when the image's own candidate list does not contain one.
 The reflected URL and selected `currentSrc` have separate ownership.
+
+Within HTML `picture`, the first eligible preceding HTML `source` supplies the
+candidate list, following the [HTML source-selection algorithm](https://html.spec.whatwg.org/multipage/images.html). Selection uses the page's native media environment and the codecs
+enabled in the pinned decoder. Empty candidate lists, nonmatching media and
+unsupported type hints continue to the next source; sources after the image are
+ignored. With no eligible source, selection uses the image's own attributes.
+A selected source never merges the image's `src` into its density candidates.
+Source attribute changes, insertion, movement and removal use the same image
+queue, pending-source checks and event generations as image mutations. Sibling
+scans consume the page's existing DOM-operation budget.
 
 Initial markup, detached elements, inserted markup, deep clones and supported
 imperative shadow roots enter the same page queue. Nodes owned by inactive
@@ -70,7 +80,7 @@ pixels. The codec also receives that byte budget as its best-effort allocation
 limit; this is not a strict bound on peak process memory. A quota failure ends
 extraction with a resource-limit error rather than becoming an image error.
 
-Width descriptors, responsive `sizes`, `picture`, CORS attributes, lazy loading,
+Width descriptors, responsive `sizes`, CORS attributes, lazy loading,
 zero-density candidates and unsupported URL schemes fail explicitly. This subset
 does not implement image painting, `decode()`, loading priorities, a decoded image
 cache, configurable DPR or complete HTMLImageElement conformance. Reassigning an
@@ -138,3 +148,16 @@ overflow/wrapping, error-handler delivery, unsourced images and ratio-only SVG b
 regressions. Separate negative tests preserve
 the explicit alternate-text layout boundary. Each scenario removes its completed
 fixture nodes, keeping the test within the normal page budgets.
+
+The picture fixture checks fallback, source order, media/type filtering, density,
+source attribute changes, insertion, movement and removal over real HTTP. Worker
+cases also cover viewport boundaries and retain source byte/width-descriptor
+failures. The native unit case uses the same media parser and candidate selection
+at both sides of a viewport threshold. `tooling/compare-pictures.ts` runs the same
+HTTP fixture against ordinary Chromium and the native Worker.
+
+The pinned Chromium comparison records one reference divergence: an explicit
+empty source `type` is treated as no hint there. Nimbo treats it as an unknown
+MIME type and falls back, following the HTML source-set algorithm. All sixteen
+checks remain required for Nimbo; Chromium must match the other fifteen and
+retain exactly this observed difference.

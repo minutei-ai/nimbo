@@ -47,7 +47,6 @@ pub(crate) struct Dom {
     pub fonts: std::rc::Rc<std::cell::RefCell<crate::font_data::Arena>>,
     handles: Vec<Handle>,
     ids: HashMap<NodeId, usize>,
-    // Cache compiled selectors only; DOM results must always reflect mutations.
     matchers: HashMap<String, Matcher>,
     named: Option<NamedProperties>,
     pub(crate) current_script: Option<usize>,
@@ -75,7 +74,6 @@ pub(crate) struct Dom {
     layout: Option<(usize, crate::layout::Snapshot)>,
     scroll: crate::layout::ScrollState,
     sheet_scan: Option<usize>,
-    // Conservative presence guard: HTML parsing and element creation are the only name producers.
     may_have_links: bool,
     may_have_images: bool,
     images: std::cell::RefCell<crate::images::Images>,
@@ -85,7 +83,7 @@ pub(crate) struct Dom {
     cssom: crate::cssom::Arena,
     writes: usize,
     limits: Limits,
-    media: crate::MediaEnvironment,
+    media: std::rc::Rc<crate::MediaEnvironment>,
 }
 
 impl Dom {
@@ -112,6 +110,7 @@ impl Dom {
         base: url::Url,
         check: crate::BudgetCheck,
     ) -> Self {
+        let media = std::rc::Rc::new(media);
         let document = parsed.document;
         let allocated_nodes = parsed.nodes;
         let root = document.root().id;
@@ -153,6 +152,7 @@ impl Dom {
                 root,
                 base.clone(),
                 limits.max_response_bytes,
+                std::rc::Rc::clone(&media),
             )),
             may_have_bases: parsed.bases,
             may_have_controls: parsed.controls,
@@ -319,7 +319,6 @@ impl Dom {
         {
             self.images.borrow_mut().tree_changed();
         }
-        // Preserve work caches for identical writes; mutation callbacks still run.
         if matches!(
             operation,
             "setAttr" | "removeAttr" | "setAttrNS" | "removeAttrNS"
@@ -725,10 +724,16 @@ impl Dom {
             images.observe(id);
             self.may_have_images = true;
         }
+        let mut work = crate::layout::Work::new(
+            &mut self.operations,
+            self.limits.max_dom_operations,
+            self.limits.max_layout_nodes,
+        );
         Ok(serde_json::to_value(images.info(
             node,
             base.as_deref(),
             active,
+            &mut work,
         )?)?)
     }
     pub(crate) fn next_image(&mut self) -> Result<Option<crate::images::Action>> {
@@ -753,7 +758,7 @@ impl Dom {
         };
         Ok(request)
     }
-    pub(crate) fn image_event_current(&self, handle: usize, generation: usize) -> Result<bool> {
+    pub(crate) fn image_event_current(&mut self, handle: usize, generation: usize) -> Result<bool> {
         let id = self.node_id(handle)?;
         let base = self.base_href()?;
         let node = self
@@ -761,12 +766,19 @@ impl Dom {
             .tree
             .get(&id)
             .ok_or_else(|| Error::Dom("missing image owner".into()))?;
+        let mut work = crate::layout::Work::new(
+            &mut self.operations,
+            self.limits.max_dom_operations,
+            self.limits.max_layout_nodes,
+        );
         Ok(
             self.documents.owner(&self.document, id) == self.document.root().id
-                && self
-                    .images
-                    .borrow()
-                    .event_current(node, base.as_deref(), generation)?,
+                && self.images.borrow().event_current(
+                    node,
+                    base.as_deref(),
+                    generation,
+                    &mut work,
+                )?,
         )
     }
     pub(crate) fn image_response(
@@ -782,10 +794,15 @@ impl Dom {
             .get(&id)
             .ok_or_else(|| Error::Dom("missing image owner".into()))?;
         let active = self.documents.owner(&self.document, id) == self.document.root().id;
-        let success = self
-            .images
-            .borrow_mut()
-            .respond(node, base.as_deref(), response, active)?;
+        let mut work = crate::layout::Work::new(
+            &mut self.operations,
+            self.limits.max_dom_operations,
+            self.limits.max_layout_nodes,
+        );
+        let success =
+            self.images
+                .borrow_mut()
+                .respond(node, base.as_deref(), response, active, &mut work)?;
         self.layout_version = self.layout_version.saturating_add(1);
         self.computed_styles.clear();
         Ok(success)
@@ -1004,7 +1021,6 @@ impl Dom {
         if !target.is_element() {
             return Err(Error::Dom("geometry requires an element".into()));
         }
-        // Viewport scrolling has a separate owner and cannot use element state.
         if target.has_name("html") {
             return Err(Error::Dom("layout unsupported: viewport geometry".into()));
         }
@@ -1069,7 +1085,6 @@ impl Dom {
         {
             return Ok(());
         }
-        // Drop an invalidated scene before allocating its replacement.
         self.layout = None;
         let cascade = self.ensure_cascade()?;
         let image_base = self.base_href()?;
@@ -1907,7 +1922,6 @@ impl Dom {
             return Ok(matcher.clone());
         }
         let matcher = Matcher::new(selector)?;
-        // Bound retained keys and parser structures without restricting valid selectors.
         if self.matchers.len() < 64 && selector.len() <= 512 {
             self.matchers.insert(selector.to_owned(), matcher.clone());
         }
@@ -2019,7 +2033,6 @@ impl Dom {
             self.document.tree.remove_children_of(&parent);
             return self.mutation_replaced_children(parent, observed);
         }
-        // HTML elements are their own parsing context; other parents parse as body content.
         let context = self
             .document
             .tree
@@ -2228,8 +2241,6 @@ fn qualified_name(element: &dom_query::Element) -> String {
     )
 }
 
-// Tag names do not decode HTML character references. False positives (comments,
-// raw-text scripts, longer names) only retain the regular bounded discovery scan.
 fn contains_tag<const N: usize>(html: &str, tag: [u8; N]) -> bool {
     html.as_bytes()
         .windows(N)

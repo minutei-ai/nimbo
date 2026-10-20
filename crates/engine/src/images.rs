@@ -1,7 +1,7 @@
-//! Image source selection, bounded decoding and request state owned by the page.
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     io::Cursor,
+    rc::Rc,
 };
 
 use dom_query::{Document, NodeId, NodeRef};
@@ -18,6 +18,23 @@ pub(crate) fn element(node: NodeRef<'_>) -> bool {
         && node
             .qual_name_ref()
             .is_some_and(|name| name.ns.as_ref() == "http://www.w3.org/1999/xhtml")
+}
+
+fn candidates(node: NodeRef<'_>) -> Result<Vec<parse_srcset::ImageCandidate>> {
+    let srcset = node.null_attribute("srcset").unwrap_or_default();
+    if srcset.len() > 65_536 {
+        return Err(Error::Limit("image srcset bytes"));
+    }
+    let candidates = parse_srcset::parse_srcset(&srcset);
+    if candidates
+        .iter()
+        .any(|candidate| candidate.width.is_some() || candidate.height.is_some())
+    {
+        return Err(Error::Unsupported(
+            "image width descriptors and sizes".into(),
+        ));
+    }
+    Ok(candidates)
 }
 
 #[derive(PartialEq)]
@@ -64,6 +81,7 @@ struct Pending {
 
 pub(crate) struct Images {
     origin: Url,
+    media: Rc<crate::MediaEnvironment>,
     nodes: HashSet<NodeId>,
     roots: HashSet<NodeId>,
     settled: HashMap<NodeId, Settled>,
@@ -75,9 +93,15 @@ pub(crate) struct Images {
 }
 
 impl Images {
-    pub(crate) fn new(root: NodeId, origin: Url, maximum: usize) -> Self {
+    pub(crate) fn new(
+        root: NodeId,
+        origin: Url,
+        maximum: usize,
+        media: Rc<crate::MediaEnvironment>,
+    ) -> Self {
         Self {
             origin,
+            media,
             nodes: HashSet::new(),
             roots: HashSet::from([root]),
             settled: HashMap::new(),
@@ -116,7 +140,17 @@ impl Images {
         if !namespace.is_empty() {
             return;
         }
-        if ["src", "srcset", "sizes", "crossorigin", "loading"].contains(&name) {
+        if [
+            "src",
+            "srcset",
+            "sizes",
+            "crossorigin",
+            "loading",
+            "media",
+            "type",
+        ]
+        .contains(&name)
+        {
             self.dirty = true;
             if matches!(self.settled.get(&id), Some(Settled::Empty(_))) {
                 self.settled.remove(&id);
@@ -136,13 +170,66 @@ impl Images {
         self.dirty = true;
     }
 
-    fn source(&self, node: NodeRef<'_>, base: Option<&str>) -> Result<Option<Source>> {
-        if node
-            .parent()
-            .is_some_and(|parent| parent.has_name("picture"))
-        {
-            return Err(Error::Unsupported("picture source selection".into()));
+    fn picture_candidates(
+        &self,
+        node: NodeRef<'_>,
+        work: &mut Work<'_>,
+    ) -> Result<Option<Vec<parse_srcset::ImageCandidate>>> {
+        let Some(parent) = node.parent().filter(|parent| {
+            parent.has_name("picture")
+                && parent
+                    .qual_name_ref()
+                    .is_some_and(|name| name.ns.as_ref() == "http://www.w3.org/1999/xhtml")
+        }) else {
+            return Ok(None);
+        };
+        for source in parent.children_it(false) {
+            work.charge()?;
+            if source.id == node.id {
+                break;
+            }
+            if !source.has_name("source")
+                || source
+                    .qual_name_ref()
+                    .is_none_or(|name| name.ns.as_ref() != "http://www.w3.org/1999/xhtml")
+            {
+                continue;
+            }
+            if !self.media.matches(
+                source
+                    .null_attribute("media")
+                    .as_deref()
+                    .unwrap_or_default(),
+            )? {
+                continue;
+            }
+            if let Some(kind) = source.null_attribute("type") {
+                let mime = kind
+                    .split(';')
+                    .next()
+                    .unwrap_or_default()
+                    .trim()
+                    .to_ascii_lowercase();
+                if !image::ImageFormat::from_mime_type(mime)
+                    .is_some_and(|format| format.reading_enabled())
+                {
+                    continue;
+                }
+            }
+            let candidates = candidates(source)?;
+            if !candidates.is_empty() {
+                return Ok(Some(candidates));
+            }
         }
+        Ok(None)
+    }
+
+    fn source(
+        &self,
+        node: NodeRef<'_>,
+        base: Option<&str>,
+        work: &mut Work<'_>,
+    ) -> Result<Option<Source>> {
         if node.null_attribute("crossorigin").is_some() {
             return Err(Error::Unsupported("image CORS mode".into()));
         }
@@ -152,22 +239,16 @@ impl Images {
         {
             return Err(Error::Unsupported("lazy image loading".into()));
         }
-        let srcset = node.null_attribute("srcset").unwrap_or_default();
-        if srcset.len() > 65_536 {
-            return Err(Error::Limit("image srcset bytes"));
-        }
-        let mut candidates = parse_srcset::parse_srcset(&srcset);
-        if candidates
-            .iter()
-            .any(|candidate| candidate.width.is_some() || candidate.height.is_some())
-        {
-            return Err(Error::Unsupported(
-                "image width descriptors and sizes".into(),
-            ));
-        }
-        if !candidates
-            .iter()
-            .any(|candidate| candidate.density.unwrap_or(1.0).total_cmp(&1.0).is_eq())
+        let picture = self.picture_candidates(node, work)?;
+        let from_picture = picture.is_some();
+        let mut candidates = match picture {
+            Some(candidates) => candidates,
+            None => candidates(node)?,
+        };
+        if !from_picture
+            && !candidates
+                .iter()
+                .any(|candidate| candidate.density.unwrap_or(1.0).total_cmp(&1.0).is_eq())
             && let Some(src) = node
                 .null_attribute("src")
                 .filter(|src| !src.trim().is_empty())
@@ -257,7 +338,7 @@ impl Images {
             let Some(node) = document.tree.get(&id) else {
                 continue;
             };
-            let Some(source) = self.source(node, base)? else {
+            let Some(source) = self.source(node, base, work)? else {
                 if matches!(self.settled.get(&id), Some(Settled::Empty(_))) {
                     continue;
                 }
@@ -306,6 +387,7 @@ impl Images {
         base: Option<&str>,
         response: Option<&Response>,
         active_document: bool,
+        work: &mut Work<'_>,
     ) -> Result<Option<bool>> {
         let Some(Pending {
             owner: id,
@@ -319,7 +401,7 @@ impl Images {
         if !active_document
             || !current
             || id != node.id
-            || self.source(node, base)?.as_ref() != Some(&source)
+            || self.source(node, base, work)?.as_ref() != Some(&source)
         {
             return Ok(None);
         }
@@ -371,8 +453,9 @@ impl Images {
         node: NodeRef<'_>,
         base: Option<&str>,
         generation: usize,
+        work: &mut Work<'_>,
     ) -> Result<bool> {
-        let source = self.source(node, base)?;
+        let source = self.source(node, base, work)?;
         Ok(match self.settled.get(&node.id) {
             Some(Settled::Empty(current)) => *current == generation && source.is_none(),
             Some(Settled::Current(loaded)) => {
@@ -387,6 +470,7 @@ impl Images {
         node: NodeRef<'_>,
         base: Option<&str>,
         active_document: bool,
+        work: &mut Work<'_>,
     ) -> Result<Info> {
         if !active_document {
             self.settled.remove(&node.id);
@@ -398,7 +482,7 @@ impl Images {
                 natural_height: 0,
             });
         }
-        let source = self.source(node, base)?;
+        let source = self.source(node, base, work)?;
         let loaded = self
             .settled
             .get(&node.id)
@@ -485,5 +569,63 @@ fn decode(bytes: &[u8], maximum: usize) -> Result<Option<Size<f64>>> {
         Ok(size) => Ok(Some(size)),
         Err(image::ImageError::Limits(_)) => Err(Error::Limit("decoded image bytes")),
         Err(_) => Ok(None),
+    }
+}
+
+#[cfg(test)]
+mod picture_tests {
+    use super::{Images, element};
+    use crate::{Error, Limits, MediaEnvironment, Result};
+    use dom_query::Document;
+    use std::rc::Rc;
+
+    #[test]
+    fn picture_selection_uses_page_media_and_preceding_supported_sources() -> Result<()> {
+        let document = Document::from(
+            "<picture><source media='(max-width:1px)' srcset='/ignored.png 320w'><source type='image/x-unavailable' srcset='/ignored.png'><source media='(max-width:8.25em)' srcset='/narrow.png'><source type='IMAGE/PNG; charset=utf-8' srcset='/wide.png 2x'><img src='/fallback.png'><source srcset='/ignored.png'></picture>",
+        );
+        let node = document
+            .root()
+            .descendants_it()
+            .find(|node| element(*node))
+            .ok_or_else(|| Error::Dom("missing fixture image".into()))?;
+        for (width, path, density) in [
+            (131, "/narrow.png", 1.0),
+            (132, "/narrow.png", 1.0),
+            (133, "/wide.png", 2.0),
+        ] {
+            let media = Rc::new(MediaEnvironment {
+                width,
+                ..MediaEnvironment::default()
+            });
+            let origin = url::Url::parse("https://example.test/")
+                .map_err(|error| Error::InvalidUrl(error.to_string()))?;
+            let images = Images::new(
+                document.root().id,
+                origin,
+                Limits::default().max_response_bytes,
+                media,
+            );
+            let limits = Limits::default();
+            let mut operations = 0;
+            let mut work = crate::layout::Work::new(
+                &mut operations,
+                limits.max_dom_operations,
+                limits.max_layout_nodes,
+            );
+            let source = images
+                .source(node, None, &mut work)?
+                .ok_or_else(|| Error::Dom("missing selected source".into()))?;
+            assert_eq!(source.url, format!("https://example.test{path}"));
+            assert!(source.density.total_cmp(&density).is_eq());
+            let mut bounded_operations = 0;
+            let mut bounded =
+                crate::layout::Work::new(&mut bounded_operations, 1, limits.max_layout_nodes);
+            assert!(matches!(
+                images.source(node, None, &mut bounded),
+                Err(Error::Limit("DOM operations"))
+            ));
+        }
+        Ok(())
     }
 }
