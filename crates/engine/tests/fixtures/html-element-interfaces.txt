@@ -1,0 +1,111 @@
+(() => {
+  const pairs = [["HTMLAudioElement", "audio"], ["HTMLVideoElement", "video"], ["HTMLBodyElement", "body"], ["HTMLFrameSetElement", "frameset"], ["HTMLFrameElement", "frame"]];
+  const names = ["HTMLMediaElement", ...pairs.map(([name]) => name)];
+  const constructors = names.map(name => globalThis[name]);
+  const prototypes = constructors.map(type => type.prototype);
+  const audio = document.createElement("audio");
+  const video = document.createElement("video");
+  const body = document.createElement("body");
+  const frame = document.createElement("frame");
+  const frameset = document.createElement("frameset");
+  const fails = operation => { try { operation(); return false; } catch (error) { return error instanceof TypeError; } };
+  audio.src = "sound.ogg";
+  audio.autoplay = true;
+  audio.loop = true;
+  audio.controls = true;
+  audio.defaultMuted = true;
+  const mediaFlags = ["autoplay", "loop", "controls", "muted"].every(name => audio.hasAttribute(name));
+  audio.autoplay = false;
+  audio.loop = false;
+  audio.controls = false;
+  audio.defaultMuted = false;
+  const mediaFlagsRemoved = ["autoplay", "loop", "controls", "muted"].every(name => !audio.hasAttribute(name));
+  video.width = 320;
+  video.height = 180;
+  video.poster = "poster.png";
+  frame.name = "target";
+  frame.scrolling = "no";
+  frame.frameBorder = "0";
+  frame.src = "frame.html";
+  frame.longDesc = "description.html";
+  frame.noResize = true;
+  const frameNoResize = frame.hasAttribute("noresize") && frame.noResize;
+  frame.noResize = false;
+  frame.marginHeight = null;
+  frame.marginWidth = null;
+  frameset.cols = "25%,75%";
+  frameset.rows = "*";
+  body.text = "red";
+  body.link = "blue";
+  body.vLink = "purple";
+  body.aLink = "green";
+  body.bgColor = "white";
+  body.background = "background.png";
+  for (const prototype of prototypes) Object.defineProperty(prototype, "syntheticProbe", { value: prototype.constructor.name, configurable: true });
+  const patched = pairs.every(([name, tag]) => document.createElement(tag).syntheticProbe === name);
+  for (const prototype of prototypes) delete prototype.syntheticProbe;
+  const mediaGetter = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, "src").get;
+  const frameGetter = Object.getOwnPropertyDescriptor(HTMLFrameElement.prototype, "src").get;
+  const bodyGetter = Object.getOwnPropertyDescriptor(HTMLBodyElement.prototype, "background").get;
+  const framesetGetter = Object.getOwnPropertyDescriptor(HTMLFrameSetElement.prototype, "cols").get;
+  const originalSrc = audio.src;
+  audio.removeAttribute("src");
+  const fresh = document.implementation.createHTMLDocument("elements");
+  const propertyCases = [[-1, 0], [2147483647, 2147483647], [2147483648, 0], [4294967295, 0], [4294967296, 0], [-2147483649, 2147483647], [NaN, 0], [Infinity, 0], ["+320", 320], ["\u00a0320", 320]];
+  const attributeCases = [["2147483647", 2147483647], ["2147483648", 0], ["4294967295", 0], ["\u00a0320", 0], ["\u202f320", 0], ["\v320", 0], [" \t\n320", 320], ["320px", 320], ["+320", 320], ["-1", 0], ["", 0], ["0x20", 0]];
+  const propertyBounds = ["width", "height"].every(property => propertyCases.every(([input, expected]) => {
+    const element = document.createElement("video");
+    element[property] = input;
+    return element[property] === expected && element.getAttribute(property) === String(expected);
+  }));
+  const attributeBounds = ["width", "height"].every(property => attributeCases.every(([input, expected]) => {
+    const element = document.createElement("video");
+    element.setAttribute(property, input);
+    return element[property] === expected && element.getAttribute(property) === input;
+  }));
+  const urlNamespaces = [["audio", "src", "src"], ["video", "poster", "poster"], ["frame", "src", "src"], ["frame", "longdesc", "longDesc"]].every(([tag, attribute, property]) => {
+    const element = document.createElement(tag);
+    element.setAttributeNS("urn:synthetic", attribute, "foreign");
+    if (element[property] !== "") return false;
+    element.setAttributeNS(null, attribute, "own");
+    return element[property] === new URL("own", document.baseURI).href;
+  });
+  const checks = {
+    videoPropertyBounds: propertyBounds,
+    videoAttributeBounds: attributeBounds,
+    reflectedURLNamespaces: urlNamespaces,
+    exposed: constructors.every(type => typeof type === "function"),
+    unique: new Set(constructors).size === constructors.length,
+    names: names.every((name, index) => prototypes[index].constructor.name === name),
+    created: pairs.every(([name, tag]) => document.createElement(tag).constructor === globalThis[name]),
+    tags: pairs.every(([name, tag]) => Object.prototype.toString.call(document.createElement(tag)) === "[object " + name + "]"),
+    parsedBody: document.body instanceof HTMLBodyElement,
+    inheritance: Object.getPrototypeOf(HTMLAudioElement.prototype) === HTMLMediaElement.prototype && Object.getPrototypeOf(HTMLVideoElement.prototype) === HTMLMediaElement.prototype,
+    htmlInheritance: [HTMLMediaElement, HTMLBodyElement, HTMLFrameSetElement, HTMLFrameElement].every(type => Object.getPrototypeOf(type.prototype) === HTMLElement.prototype),
+    mediaInstances: audio instanceof HTMLMediaElement && video instanceof HTMLMediaElement,
+    illegalConstructors: constructors.every(type => fails(() => new type())),
+    clones: pairs.every(([name, tag]) => document.createElement(tag).cloneNode().constructor === globalThis[name]),
+    freshDocument: pairs.every(([name, tag]) => fresh.createElement(tag).constructor === globalThis[name]) && fresh.body instanceof HTMLBodyElement,
+    foreignNamespace: !(document.createElementNS("urn:synthetic", "audio") instanceof HTMLMediaElement),
+    mediaURL: originalSrc === new URL("sound.ogg", document.baseURI).href,
+    mediaFlags,
+    mediaFlagsRemoved,
+    removedURL: audio.src === "",
+    videoDimensions: video.width === 320 && video.height === 180 && video.getAttribute("width") === "320" && video.getAttribute("height") === "180",
+    videoPoster: video.poster === new URL("poster.png", document.baseURI).href,
+    frameStrings: frame.name === "target" && frame.scrolling === "no" && frame.frameBorder === "0" && frame.getAttribute("frameborder") === "0",
+    frameURLs: frame.src === new URL("frame.html", document.baseURI).href && frame.longDesc === new URL("description.html", document.baseURI).href,
+    frameNoResize,
+    frameNoResizeRemoved: !frame.noResize && !frame.hasAttribute("noresize"),
+    frameMargins: frame.marginHeight === "" && frame.marginWidth === "" && frame.getAttribute("marginheight") === "" && frame.getAttribute("marginwidth") === "",
+    framesetStrings: frameset.cols === "25%,75%" && frameset.rows === "*" && frameset.getAttribute("cols") === "25%,75%",
+    bodyStrings: body.text === "red" && body.link === "blue" && body.vLink === "purple" && body.aLink === "green" && body.bgColor === "white" && body.getAttribute("bgcolor") === "white",
+    bodyBackground: body.background === "background.png",
+    mediaReceiver: fails(() => mediaGetter.call(frame)),
+    frameReceiver: fails(() => frameGetter.call(audio)),
+    bodyReceiver: fails(() => bodyGetter.call(frameset)) && fails(() => framesetGetter.call(body)),
+    descriptors: [[HTMLMediaElement, "src"], [HTMLVideoElement, "poster"], [HTMLBodyElement, "background"], [HTMLFrameSetElement, "cols"], [HTMLFrameElement, "src"]].every(([type, name]) => { const descriptor = Object.getOwnPropertyDescriptor(type.prototype, name); return descriptor.enumerable && descriptor.configurable; }),
+    prototypePatching: patched
+  };
+  return checks;
+})()

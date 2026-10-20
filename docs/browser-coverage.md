@@ -248,7 +248,7 @@ until-found keyword. Attribute writes retain the shared native write budget.
 This implements part of the [HTMLElement interface](https://html.spec.whatwg.org/multipage/dom.html#htmlelement)
 and the [hidden IDL contract](https://html.spec.whatwg.org/multipage/interaction.html#dom-hidden).
 It does not implement rendering, inert input suppression, find-in-page revealing,
-HTMLUnknownElement or specialized tag interfaces. Bare and unregistered subclass
+HTMLUnknownElement or every specialized tag interface. Bare and unregistered subclass
 construction throw TypeError. Exposing HTMLElement alone does not prove
 application hydration.
 
@@ -257,6 +257,23 @@ direction, detached writes and custom-name inheritance checks pass. Its composit
 identity, foreign-namespace, inert, hidden and receiver-guard checks return false.
 The comparison records those results separately and keeps every Nimbo check true;
 these grouped checks do not identify every individual upstream divergence.
+
+## Native HTML element interfaces
+
+HTML `audio`, `video`, `body`, `frameset` and `frame` elements have distinct native
+interfaces, including the shared `HTMLMediaElement` inheritance of audio and video.
+Creation, parsing and cloning preserve those interfaces. Reflected content attributes
+use the native DOM, with branded receivers and Web IDL property descriptors.
+
+This covers media source URLs, autoplay/loop/controls/default-muted attributes,
+video width/height/poster, legacy body color/background attributes, frameset rows/cols
+and frame URLs/names/borders/margins/no-resize. Video dimensions retain unsigned-long reflection limits and ASCII whitespace rules. URL reflection reads null-namespace attributes, including when another namespace uses the same qualified name. These follow the [HTML reflection contract](https://html.spec.whatwg.org/multipage/common-dom-interfaces.html#reflecting-content-attributes-in-idl-attributes). Legacy body `background` reflects its
+literal string, as required by the [HTML standard](https://html.spec.whatwg.org/multipage/obsolete.html#other-elements,-attributes-and-apis).
+
+Media decoding/playback and independent frame browsing contexts remain unsupported.
+Connected frame context access raises `NotSupportedError`, matching the existing
+iframe limitation. The synthetic fixture checks these DOM contracts against ordinary
+Chromium independently of Nimbo.
 
 The page's own CustomElementRegistry implements autonomous definitions,
 get/getName, whenDefined and explicit upgrade. Native candidate traversal filters

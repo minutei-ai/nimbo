@@ -4925,6 +4925,244 @@
     value: "HTMLScriptElement",
     configurable: true,
   });
+  const mediaElements = new WeakSet<object>();
+  function mediaId(owner: object): number {
+    if (!mediaElements.has(owner)) throw new TypeError("Illegal invocation");
+    return idOf(owner);
+  }
+  class HTMLMediaElement extends HTMLElement {
+    constructor(key?: symbol, id?: number) {
+      if (key !== internal || id === undefined) throw new TypeError("Illegal constructor");
+      super(internal, id);
+      mediaElements.add(this);
+    }
+    get src(): string {
+      mediaId(this);
+      const value = htmlAttribute(this, "src");
+      return linkValue("get", "href", value, documentBase()) ?? "";
+    }
+    set src(value: unknown) {
+      mediaId(this);
+      reflectString(this, "src", usvString(value));
+    }
+  }
+  for (const [property, attribute] of [
+    ["autoplay", "autoplay"],
+    ["loop", "loop"],
+    ["controls", "controls"],
+    ["defaultMuted", "muted"],
+  ] as const) {
+    Object.defineProperty(HTMLMediaElement.prototype, property, {
+      get(this: HTMLMediaElement): boolean {
+        mediaId(this);
+        return hasHtmlAttribute(this, attribute);
+      },
+      set(this: HTMLMediaElement, value: unknown): void {
+        mediaId(this);
+        reflectBoolean(this, attribute, value);
+      },
+      enumerable: true,
+      configurable: true,
+    });
+  }
+  class HTMLAudioElement extends HTMLMediaElement {}
+  const videoElements = new WeakSet<object>();
+  function videoId(owner: object): number {
+    if (!videoElements.has(owner)) throw new TypeError("Illegal invocation");
+    return idOf(owner);
+  }
+  class HTMLVideoElement extends HTMLMediaElement {
+    constructor(key?: symbol, id?: number) {
+      super(key, id);
+      videoElements.add(this);
+    }
+    get poster(): string {
+      videoId(this);
+      const value = htmlAttribute(this, "poster");
+      return linkValue("get", "href", value, documentBase()) ?? "";
+    }
+    set poster(value: unknown) {
+      videoId(this);
+      reflectString(this, "poster", usvString(value));
+    }
+  }
+  for (const attribute of ["width", "height"]) {
+    Object.defineProperty(HTMLVideoElement.prototype, attribute, {
+      get(this: HTMLVideoElement): number {
+        videoId(this);
+        const value = (htmlAttribute(this, attribute) ?? "").replace(/^[\t\n\f\r ]+/u, "");
+        const number = Number.parseInt(value, 10);
+        if (!/^\+?\d/u.test(value) || !Number.isFinite(number) || number > 2147483647) return 0;
+        return number;
+      },
+      set(this: HTMLVideoElement, value: unknown): void {
+        videoId(this);
+        const number = idlNumber(value) >>> 0;
+        if (number > 2147483647) {
+          reflectString(this, attribute, "0");
+          return;
+        }
+        reflectString(this, attribute, String(number));
+      },
+      enumerable: true,
+      configurable: true,
+    });
+  }
+  const bodyElements = new WeakSet<object>();
+  function bodyId(owner: object): number {
+    if (!bodyElements.has(owner)) throw new TypeError("Illegal invocation");
+    return idOf(owner);
+  }
+  class HTMLBodyElement extends HTMLElement {
+    constructor(key?: symbol, id?: number) {
+      if (key !== internal || id === undefined) throw new TypeError("Illegal constructor");
+      super(internal, id);
+      bodyElements.add(this);
+    }
+    get background(): string {
+      bodyId(this);
+      return htmlAttribute(this, "background") ?? "";
+    }
+    set background(value: unknown) {
+      bodyId(this);
+      reflectString(this, "background", value);
+    }
+  }
+  for (const [property, attribute] of [
+    ["text", "text"],
+    ["link", "link"],
+    ["vLink", "vlink"],
+    ["aLink", "alink"],
+    ["bgColor", "bgcolor"],
+  ] as const) {
+    Object.defineProperty(HTMLBodyElement.prototype, property, {
+      get(this: HTMLBodyElement): string {
+        bodyId(this);
+        return htmlAttribute(this, attribute) ?? "";
+      },
+      set(this: HTMLBodyElement, value: unknown): void {
+        bodyId(this);
+        reflectString(this, attribute, value === null ? "" : value);
+      },
+      enumerable: true,
+      configurable: true,
+    });
+  }
+  const framesetElements = new WeakSet<object>();
+  function framesetId(owner: object): number {
+    if (!framesetElements.has(owner)) throw new TypeError("Illegal invocation");
+    return idOf(owner);
+  }
+  class HTMLFrameSetElement extends HTMLElement {
+    constructor(key?: symbol, id?: number) {
+      if (key !== internal || id === undefined) throw new TypeError("Illegal constructor");
+      super(internal, id);
+      framesetElements.add(this);
+    }
+  }
+  for (const attribute of ["cols", "rows"]) {
+    Object.defineProperty(HTMLFrameSetElement.prototype, attribute, {
+      get(this: HTMLFrameSetElement): string {
+        framesetId(this);
+        return htmlAttribute(this, attribute) ?? "";
+      },
+      set(this: HTMLFrameSetElement, value: unknown): void {
+        framesetId(this);
+        reflectString(this, attribute, value);
+      },
+      enumerable: true,
+      configurable: true,
+    });
+  }
+  const frameElements = new WeakSet<object>();
+  function frameId(owner: object): number {
+    if (!frameElements.has(owner)) throw new TypeError("Illegal invocation");
+    return idOf(owner);
+  }
+  class HTMLFrameElement extends HTMLElement {
+    constructor(key?: symbol, id?: number) {
+      if (key !== internal || id === undefined) throw new TypeError("Illegal constructor");
+      super(internal, id);
+      frameElements.add(this);
+    }
+    get noResize(): boolean {
+      frameId(this);
+      return hasHtmlAttribute(this, "noresize");
+    }
+    set noResize(value: unknown) {
+      frameId(this);
+      reflectBoolean(this, "noresize", value);
+    }
+    get contentWindow(): null {
+      if (call<boolean>("get", frameId(this), "isConnected"))
+        throw new DOMException(
+          "Independent frame contexts are not implemented",
+          "NotSupportedError",
+        );
+      return null;
+    }
+    get contentDocument(): null {
+      frameId(this);
+      return this.contentWindow;
+    }
+  }
+  for (const [property, attribute, nullToEmpty] of [
+    ["name", "name", false],
+    ["scrolling", "scrolling", false],
+    ["frameBorder", "frameborder", false],
+    ["marginHeight", "marginheight", true],
+    ["marginWidth", "marginwidth", true],
+  ] as const) {
+    Object.defineProperty(HTMLFrameElement.prototype, property, {
+      get(this: HTMLFrameElement): string {
+        frameId(this);
+        return htmlAttribute(this, attribute) ?? "";
+      },
+      set(this: HTMLFrameElement, value: unknown): void {
+        frameId(this);
+        reflectString(this, attribute, nullToEmpty && value === null ? "" : value);
+      },
+      enumerable: true,
+      configurable: true,
+    });
+  }
+  for (const [property, attribute] of [
+    ["src", "src"],
+    ["longDesc", "longdesc"],
+  ] as const) {
+    Object.defineProperty(HTMLFrameElement.prototype, property, {
+      get(this: HTMLFrameElement): string {
+        frameId(this);
+        const value = htmlAttribute(this, attribute);
+        return linkValue("get", "href", value, documentBase()) ?? "";
+      },
+      set(this: HTMLFrameElement, value: unknown): void {
+        frameId(this);
+        reflectString(this, attribute, usvString(value));
+      },
+      enumerable: true,
+      configurable: true,
+    });
+  }
+  for (const constructor of [
+    HTMLMediaElement,
+    HTMLAudioElement,
+    HTMLVideoElement,
+    HTMLBodyElement,
+    HTMLFrameSetElement,
+    HTMLFrameElement,
+  ]) {
+    Object.defineProperty(constructor.prototype, Symbol.toStringTag, {
+      value: constructor.name,
+      configurable: true,
+    });
+    for (const property of Object.getOwnPropertyNames(constructor.prototype)) {
+      if (property === "constructor") continue;
+      const descriptor = Object.getOwnPropertyDescriptor(constructor.prototype, property);
+      if (descriptor)
+        Object.defineProperty(constructor.prototype, property, { ...descriptor, enumerable: true });
+    }
+  }
   const iframes = new WeakSet<object>();
   function iframeId(owner: object): number {
     if (!iframes.has(owner)) throw new TypeError("Illegal invocation");
@@ -5661,6 +5899,11 @@
           if (name === "style") return new HTMLStyleElement(internal, id);
           if (name === "a") return new HTMLAnchorElement(internal, id);
           if (name === "link") return new HTMLLinkElement(internal, id);
+          if (name === "audio") return new HTMLAudioElement(internal, id);
+          if (name === "video") return new HTMLVideoElement(internal, id);
+          if (name === "body") return new HTMLBodyElement(internal, id);
+          if (name === "frameset") return new HTMLFrameSetElement(internal, id);
+          if (name === "frame") return new HTMLFrameElement(internal, id);
           if (name === "iframe") return new HTMLIFrameElement(internal, id);
           if (name === "script") return new HTMLScriptElement(internal, id);
           if (name === "img") return new HTMLImageElement(internal, id);
@@ -8515,6 +8758,12 @@
     HTMLAnchorElement,
     HTMLStyleElement,
     HTMLLinkElement,
+    HTMLMediaElement,
+    HTMLAudioElement,
+    HTMLVideoElement,
+    HTMLBodyElement,
+    HTMLFrameSetElement,
+    HTMLFrameElement,
     HTMLIFrameElement,
     HTMLScriptElement,
     HTMLImageElement,
