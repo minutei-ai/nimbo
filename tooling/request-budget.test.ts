@@ -83,7 +83,7 @@ test.each([
 
 const UncheckedRequestBudget = Input.mapFields((fields) => ({
   ...fields,
-  maxRequests: Schema.Number,
+  maxRequests: Schema.Finite,
 }));
 test.each([0, 129, 1.5])("invalid request budget %s fails before HTTP", async (maximum) => {
   const before = served.length;
