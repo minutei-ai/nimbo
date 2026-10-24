@@ -60,6 +60,21 @@ fn family(value: &FontFamily<'_>) -> Result<Option<usize>> {
     }
 }
 pub(crate) fn select(source: &str) -> Result<Font> {
+    let index = face_index(source)?;
+    let cache = FONTS
+        .get(index)
+        .ok_or_else(|| unsupported("builtin font cache index"))?;
+    let bytes = SOURCES
+        .get(index)
+        .ok_or_else(|| unsupported("builtin font source index"))?;
+    cache
+        .get_or_init(|| Font::new(bytes.to_vec(), 0).ok_or("invalid pinned public font"))
+        .as_ref()
+        .cloned()
+        .map_err(|message| unsupported(message))
+}
+
+fn face_index(source: &str) -> Result<usize> {
     let request =
         CssFont::parse_string(source).map_err(|_error| unsupported("builtin font syntax"))?;
     let weight = match request.weight {
@@ -93,19 +108,21 @@ pub(crate) fn select(source: &str) -> Result<Font> {
         (false, true) => 2,
         (true, true) => 3,
     };
-    let index = selected
+    selected
         .unwrap_or(0)
         .checked_add(offset)
-        .ok_or_else(|| unsupported("builtin font index"))?;
-    let cache = FONTS
+        .ok_or_else(|| unsupported("builtin font index"))
+}
+
+/// Bytes of the builtin face [`select`] would measure for this CSS `font` shorthand.
+///
+/// # Errors
+/// Returns an error when the shorthand or the face index is not one of the pinned faces.
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) fn source(css: &str) -> Result<&'static [u8]> {
+    let index = face_index(css)?;
+    SOURCES
         .get(index)
-        .ok_or_else(|| unsupported("builtin font cache index"))?;
-    let bytes = SOURCES
-        .get(index)
-        .ok_or_else(|| unsupported("builtin font source index"))?;
-    cache
-        .get_or_init(|| Font::new(bytes.to_vec(), 0).ok_or("invalid pinned public font"))
-        .as_ref()
-        .cloned()
-        .map_err(|message| unsupported(message))
+        .copied()
+        .ok_or_else(|| unsupported("builtin font source index"))
 }

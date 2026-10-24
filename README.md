@@ -68,7 +68,7 @@ contains the same Worker assets as the standalone release archive.
 - Software OffscreenCanvas operations and native font metrics.
 - Bounded [native image resources](docs/image-resources.md), source selection and intrinsic metadata.
 
-[Coverage](docs/browser-coverage.md) records supported contracts and divergences. Full CSS/DOM conformance, frames, painting, screenshots/PDF, WebGL, video and persistent browser sessions remain incomplete. Unsupported operations fail explicitly.
+[Coverage](docs/browser-coverage.md) records supported contracts and divergences. Full CSS/DOM conformance, frames, WebGL, video, screencasts and browser profiles remain incomplete. A viewport screenshot paints laid-out background colors, including body-to-canvas propagation, plus glyph ink, replaced-image pixels, solid borders and zero-blur outset shadows. A later stacking order covers an earlier overlap, `visibility: hidden` does not cover a visible sibling, and a shadow-tree background is drawn when the host is visible. A page taller than the viewport becomes a `%PDF-1.4` of at least two pages, and page one matches that screenshot. One session keeps a non-HttpOnly cookie across two navigations. Unmodified Playwright 1.64 connects over CDP, opens a fixture and reads a value the page set; a command after the session closes fails. This is not a Chrome debugger. Unsupported operations fail explicitly.
 
 ## Transport and isolation
 

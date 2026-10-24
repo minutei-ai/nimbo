@@ -1,4 +1,4 @@
-//! Primeiro núcleo de scraping do Nimbo: HTTP, DOM e JavaScript sem renderização.
+//! Primeiro núcleo de scraping do Nimbo: HTTP, DOM, JavaScript, um `PNG` do viewport (cores, glifos, imagens, bordas e sombras), um `PDF` de várias páginas e uma sessão `CDP` que o `Playwright` dirige.
 
 pub(crate) const USER_AGENT: &str = "Mozilla/5.0 (compatible; Nimbo/0.1; like Gecko)";
 
@@ -17,6 +17,8 @@ mod builtin_fonts;
 mod cancellation;
 mod canvas;
 mod cascade;
+#[cfg(not(target_arch = "wasm32"))]
+mod cdp;
 mod computed_style;
 mod console;
 mod containers;
@@ -63,6 +65,8 @@ mod network;
 mod outlines;
 #[cfg(not(target_arch = "wasm32"))]
 mod page;
+#[cfg(not(target_arch = "wasm32"))]
+mod paint;
 mod position_math;
 mod position_value;
 mod readiness;
@@ -95,11 +99,15 @@ pub use diagnostics::{Diagnostics, ExecutionPhase, PhaseTimings};
 #[cfg(not(target_arch = "wasm32"))]
 pub use cancellation::CancellationToken;
 #[cfg(not(target_arch = "wasm32"))]
+pub use cdp::Session;
+#[cfg(not(target_arch = "wasm32"))]
 pub use navigation::{NavigationFailure, NavigationStage};
 #[cfg(not(target_arch = "wasm32"))]
 pub use network::{Browser, Host};
 #[cfg(not(target_arch = "wasm32"))]
 pub use page::Page;
+#[cfg(not(target_arch = "wasm32"))]
+pub use paint::Screenshot;
 pub use readiness::{Readiness, ReadyCondition};
 
 /// Orçamento de uma navegação, incluindo scripts, fetch e extração.

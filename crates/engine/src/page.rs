@@ -227,4 +227,33 @@ impl Page {
         }
         Ok(())
     }
+
+    /// Paints the viewport and returns a `PNG`.
+    ///
+    /// The bitmap matches the page's logical viewport. It draws laid-out background
+    /// colors, glyph ink, replaced-image pixels, solid borders and zero-blur outset
+    /// shadows, in `z-index` order. `visibility: hidden` boxes are skipped. A
+    /// background on an element inside a shadow tree is drawn when its host is
+    /// visible. Features this bitmap does not contain are named on
+    /// [`crate::Screenshot::omitted`]. The call spends the page's `DOM` operation budget.
+    ///
+    /// # Errors
+    /// Returns an error when layout, a background color, the pixel budget or encoding fails.
+    pub fn screenshot(&self) -> Result<crate::Screenshot> {
+        self.transport.check_deadline()?;
+        self.machine.borrow_mut().screenshot()
+    }
+
+    /// Paints the page into a PDF, one viewport height per page.
+    ///
+    /// Page one is the same bitmap as [`Self::screenshot`]. Later pages hold the
+    /// boxes that start below that viewport. The file is a `%PDF-1.4` document
+    /// with a `DeviceRGB` image on each page.
+    ///
+    /// # Errors
+    /// Returns an error when layout, paint, the pixel budget or encoding fails.
+    pub fn pdf(&self) -> Result<Vec<u8>> {
+        self.transport.check_deadline()?;
+        self.machine.borrow_mut().pdf()
+    }
 }
