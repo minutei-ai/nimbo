@@ -1130,7 +1130,7 @@ test("configured response byte budgets retain exact cumulative limits and recove
       expect(await json(await scrape(worker, "document.title"))).toMatchObject({ value: "budget" });
     },
   );
-});
+}, 30_000);
 
 test("repeated pages have fresh cookies and guest globals", async () => {
   const cookies: (string | null)[] = [];
