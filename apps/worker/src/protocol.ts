@@ -36,7 +36,7 @@ export const Action = Schema.Union([
 export interface FetchOptions {
   readonly headers: ReadonlyArray<readonly [string, string]>;
   readonly rejectRedirects: boolean;
-  readonly allowCrossOrigin?: boolean;
+  readonly allowCrossOrigin?: boolean | undefined;
 }
 export const Limits = Schema.Struct({
   timeoutMs: Schema.Finite,
