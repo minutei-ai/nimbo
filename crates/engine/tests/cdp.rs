@@ -21,8 +21,15 @@ const SET: &str = "<!doctype html><title>set</title>";
 const READ: &str = "<!doctype html><title>read</title>";
 const PAGE: &str = "<!doctype html><script>window.nimboValue=\"nimbo-live\"</script>";
 const SCRIPT: &str = r#"
-const { chromium } = require("playwright");
 const fs = require("fs");
+function client() {
+  try {
+    return require("playwright-core");
+  } catch (missing) {
+    return require("playwright");
+  }
+}
+const { chromium } = client();
 const endpoint = process.argv[2];
 const pageUrl = process.argv[3];
 function out(text) { fs.writeSync(1, text); }
@@ -51,6 +58,21 @@ function out(text) { fs.writeSync(1, text); }
 "#;
 
 type TestResult = Result<(), Box<dyn std::error::Error>>;
+
+fn node_path() -> String {
+    let mut paths = Vec::new();
+    let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    if let Some(root) = manifest.parent().and_then(|engine| engine.parent()) {
+        paths.push(root.join("node_modules").display().to_string());
+    }
+    paths.push("/usr/lib/node_modules".to_owned());
+    if let Ok(existing) = std::env::var("NODE_PATH")
+        && !existing.is_empty()
+    {
+        paths.push(existing);
+    }
+    paths.join(":")
+}
 
 struct Seen {
     value: String,
@@ -120,7 +142,7 @@ impl Playwright {
         let script = std::env::temp_dir().join(format!("nimbo-cdp-{}.js", std::process::id()));
         std::fs::write(&script, SCRIPT)?;
         let mut child = match Command::new("node")
-            .env("NODE_PATH", "/usr/lib/node_modules")
+            .env("NODE_PATH", node_path())
             .arg(&script)
             .arg(endpoint)
             .arg(url)
