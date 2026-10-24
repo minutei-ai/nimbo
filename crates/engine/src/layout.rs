@@ -64,6 +64,25 @@ pub(crate) struct Bounds {
     height: f64,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+impl Bounds {
+    pub(crate) const fn x(&self) -> f64 {
+        self.x
+    }
+
+    pub(crate) const fn y(&self) -> f64 {
+        self.y
+    }
+
+    pub(crate) const fn width(&self) -> f64 {
+        self.width
+    }
+
+    pub(crate) const fn height(&self) -> f64 {
+        self.height
+    }
+}
+
 fn non_rendered(node: NodeRef<'_>) -> bool {
     [
         "head", "script", "style", "link", "meta", "title", "noscript",

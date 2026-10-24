@@ -68,7 +68,7 @@ contains the same Worker assets as the standalone release archive.
 - Software OffscreenCanvas operations and native font metrics.
 - Bounded [native image resources](docs/image-resources.md), source selection and intrinsic metadata.
 
-[Coverage](docs/browser-coverage.md) records supported contracts and divergences. Full CSS/DOM conformance, frames, painting, screenshots/PDF, WebGL, video and persistent browser sessions remain incomplete. Unsupported operations fail explicitly.
+[Coverage](docs/browser-coverage.md) records supported contracts and divergences. Full CSS/DOM conformance, frames, glyph and image painting, PDF, WebGL, video and persistent browser sessions remain incomplete. A viewport screenshot paints laid-out background colors and names everything it leaves out. Unsupported operations fail explicitly.
 
 ## Transport and isolation
 

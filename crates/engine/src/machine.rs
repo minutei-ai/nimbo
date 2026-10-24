@@ -241,6 +241,11 @@ impl Machine {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn screenshot(&mut self) -> Result<crate::Screenshot> {
+        self.dom.borrow_mut().screenshot()
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn new(
         response: &Response,
         limits: Limits,

@@ -1,4 +1,4 @@
-//! Primeiro núcleo de scraping do Nimbo: HTTP, DOM e JavaScript sem renderização.
+//! Primeiro núcleo de scraping do Nimbo: HTTP, DOM, JavaScript e um `PNG` do viewport com as cores de fundo do layout.
 
 pub(crate) const USER_AGENT: &str = "Mozilla/5.0 (compatible; Nimbo/0.1; like Gecko)";
 
@@ -63,6 +63,8 @@ mod network;
 mod outlines;
 #[cfg(not(target_arch = "wasm32"))]
 mod page;
+#[cfg(not(target_arch = "wasm32"))]
+mod paint;
 mod position_math;
 mod position_value;
 mod readiness;
@@ -100,6 +102,8 @@ pub use navigation::{NavigationFailure, NavigationStage};
 pub use network::{Browser, Host};
 #[cfg(not(target_arch = "wasm32"))]
 pub use page::Page;
+#[cfg(not(target_arch = "wasm32"))]
+pub use paint::Screenshot;
 pub use readiness::{Readiness, ReadyCondition};
 
 /// Orçamento de uma navegação, incluindo scripts, fetch e extração.

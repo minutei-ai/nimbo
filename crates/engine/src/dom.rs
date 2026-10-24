@@ -86,6 +86,15 @@ pub(crate) struct Dom {
     media: std::rc::Rc<crate::MediaEnvironment>,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+fn paints_background(node: &NodeRef<'_>) -> bool {
+    ![
+        "head", "script", "style", "link", "meta", "title", "noscript", "template",
+    ]
+    .iter()
+    .any(|name| node.has_name(name))
+}
+
 impl Dom {
     #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn new(
@@ -1149,6 +1158,81 @@ impl Dom {
             .1
             .bounds(target)?;
         Ok(serde_json::to_value(rect)?)
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn screenshot(&mut self) -> Result<crate::Screenshot> {
+        (self.check)()?;
+        self.ensure_layout()?;
+        let layers = self.paint_layers()?;
+        crate::paint::encode(self.media.width, self.media.height, &layers)
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn paint_layers(&mut self) -> Result<Vec<crate::paint::Layer>> {
+        let ids = self
+            .document
+            .root()
+            .descendants_it()
+            .filter(|node| node.is_element() && paints_background(node))
+            .map(|node| node.id)
+            .collect::<Vec<_>>();
+        let mut layers = Vec::new();
+        for id in ids {
+            layers.push(self.paint_layer(id)?);
+        }
+        Ok(layers)
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn paint_layer(&mut self, id: NodeId) -> Result<crate::paint::Layer> {
+        let role = self.paint_role(id)?;
+        let color = crate::paint::parse_color(&self.computed_value(id, "background-color")?)?;
+        let bounds = self.paint_bounds(id)?;
+        Ok(crate::paint::Layer::new(
+            role,
+            color,
+            bounds.x(),
+            bounds.y(),
+            bounds.width(),
+            bounds.height(),
+        ))
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn paint_role(&self, id: NodeId) -> Result<crate::paint::Role> {
+        let node = self
+            .document
+            .tree
+            .get(&id)
+            .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
+        if !node
+            .ancestors_it(None)
+            .any(|ancestor| ancestor.is_document())
+        {
+            return Err(Error::Dom("detached paint target".into()));
+        }
+        Ok(if node.has_name("html") {
+            crate::paint::Role::Root
+        } else if node.has_name("body") {
+            crate::paint::Role::Body
+        } else {
+            crate::paint::Role::Box
+        })
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn paint_bounds(&self, id: NodeId) -> Result<crate::layout::Bounds> {
+        let node = self
+            .document
+            .tree
+            .get(&id)
+            .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
+        self.layout
+            .as_ref()
+            .ok_or_else(|| Error::Dom("missing layout snapshot".into()))?
+            .1
+            .bounds(node)
     }
 
     fn invalidate_sheet(

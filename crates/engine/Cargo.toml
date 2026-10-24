@@ -71,6 +71,7 @@ cookie_store = { version = "=0.22.1", default-features = false, features = ["was
 getrandom = { version = "=0.3.4", features = ["wasm_js"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+image = { version = "=0.25.10", default-features = false, features = ["png"] }
 tiny_http = "=0.12.0"
 
 [lints]

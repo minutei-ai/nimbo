@@ -678,7 +678,7 @@ evidence cannot establish it.
 | Binary FontFace parsing                              | Partial    | Native TrueType and lazy URL/CSS loads tested; rendering, compressed formats and full WPT missing                                            |
 | Font shaping, images and SVG                         | Partial    | Native font metrics, bounded text layout and intrinsic image boxes; image painting, full font fallback and SVG paint remain missing          |
 | OffscreenCanvas and Canvas 2D                        | Partial    | Native RGBA8 rectangle pixels/readback tested below; full Canvas 2D and HTML canvas missing                                                  |
-| Screenshots, PDF and screencasts                     | Missing    | Real paint output, pagination, frame changes and backpressure                                                                                |
+| Screenshots, PDF and screencasts                     | Partial    | Viewport PNG paints laid-out background colors, including body-to-canvas propagation. Glyphs, images, borders, shadows, PDF and screencasts remain missing |
 | Accessibility tree and snapshots                     | Missing    | Roles, names, hidden nodes, state changes and stable references                                                                              |
 | Mouse, keyboard, focus, selection and scrolling      | Partial    | Element hidden-overflow scroll offsets are implemented; hit-testing, trusted host input, scroll events and complete scrolling remain pending |
 | Browser/target/context lifecycle and CDP             | Missing    | Real client connections, objects, events and context isolation                                                                               |

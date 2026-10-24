@@ -227,4 +227,17 @@ impl Page {
         }
         Ok(())
     }
+
+    /// Paints the viewport background colors and returns a `PNG`.
+    ///
+    /// The bitmap matches the page's logical viewport. Glyphs, replaced images,
+    /// borders, shadows and stacking contexts are named on [`crate::Screenshot::omitted`]
+    /// and are not drawn. The call spends the page's `DOM` operation budget.
+    ///
+    /// # Errors
+    /// Returns an error when layout, a background color, the pixel budget or encoding fails.
+    pub fn screenshot(&self) -> Result<crate::Screenshot> {
+        self.transport.check_deadline()?;
+        self.machine.borrow_mut().screenshot()
+    }
 }

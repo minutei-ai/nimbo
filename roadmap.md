@@ -256,4 +256,4 @@ Exit: all 0.9 gates pass on the exact release artifacts. Supported workflows run
 
 Stealth work improves observable API consistency and isolation. It does not promise anti-bot challenge success, Chromium identity or TLS fingerprint parity.
 
-Full browser conformance, general frame support, painting, screenshots/PDF, WebGL and media playback are outside the required 1.0 scope. Promote any of these only with a concrete extraction need, a bounded design and independent validation. Chromium and Obscura remain test comparators.
+Full browser conformance, general frame support, glyph and image painting, PDF, WebGL and media playback are outside the required 1.0 scope. A viewport screenshot of laid-out background colors is implemented and checked by a pixel test; it does not paint glyphs, replaced images, borders or shadows. Promote the remaining items only with a concrete extraction need, a bounded design and independent validation. Chromium and Obscura remain test comparators.
