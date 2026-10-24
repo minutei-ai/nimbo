@@ -97,7 +97,7 @@ pub use cancellation::CancellationToken;
 #[cfg(not(target_arch = "wasm32"))]
 pub use navigation::{NavigationFailure, NavigationStage};
 #[cfg(not(target_arch = "wasm32"))]
-pub use network::Browser;
+pub use network::{Browser, Host};
 #[cfg(not(target_arch = "wasm32"))]
 pub use page::Page;
 pub use readiness::{Readiness, ReadyCondition};

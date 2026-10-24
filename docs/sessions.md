@@ -3,12 +3,16 @@
 ## Model
 
 On native hosts a session is one `Browser`. It owns one authorized origin, one
-optional explicit proxy, one HTTP client pool, one cookie jar and one Web
-Storage area pair (local and session storage). Every navigation and page
-subrequest from that `Browser` reads and writes the same jar and storage. Two
-`Browser` values never share state, even with the same origin. A tenant is
-isolated by giving it its own `Browser`, and a `Browser` must not be shared
-across tenants.
+optional explicit proxy, one cookie jar and one Web Storage area pair (local
+and session storage). A `Browser` from `Browser::new` or `Browser::with_proxy`
+also owns its HTTP client and Tokio runtime. A `Browser` opened from a `Host`
+keeps its own cookies, storage, DOM and JavaScript, and reuses the host client
+pool and runtime. That client reads the current session's proxy when a request
+starts, so one host drives one navigation at a time. Every navigation and page
+subrequest from a `Browser` reads and writes that session's jar and storage.
+Two `Browser` values never share cookies, storage, DOM or JavaScript, even
+with the same origin. A tenant is isolated by giving it its own `Browser`, and
+a `Browser` must not be shared across tenants.
 
 `Browser` and `Page` are neither `Send` nor `Sync`. One session runs on one
 thread, so its operations cannot overlap in parallel. Several live `Page`s
@@ -55,6 +59,8 @@ their host phase through the [diagnostics flag](diagnostics.md).
 
 - persistence across navigations, with no leakage to another `Browser`
   (tenant isolation);
+- a reused `Host` keeps cookies inside the `Browser` that set them
+  (`reused_host_isolates_cookies_between_sessions` in `tests/browser.rs`);
 - interleaved pages on one session;
 - `clear_session` seen by a live page and by later requests;
 - cookie deletion;
