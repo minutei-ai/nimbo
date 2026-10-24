@@ -246,6 +246,11 @@ impl Machine {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn pdf(&mut self) -> Result<Vec<u8>> {
+        self.dom.borrow_mut().pdf()
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn new(
         response: &Response,
         limits: Limits,

@@ -80,6 +80,25 @@ impl Snapshot {
     pub(crate) fn bounds(&self, target: NodeRef<'_>) -> Result<Bounds> {
         self.view().rect(target)
     }
+    /// Border and padding used by layout, in CSS pixels. Missing boxes are zero.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn paint_edges(&self, target: NodeRef<'_>) -> Result<crate::paint::Edges> {
+        let view = self.view();
+        let Some(id) = view.ids.get(&target.id) else {
+            return Ok(crate::paint::Edges::default());
+        };
+        let layout = view.measured(*id)?;
+        Ok(crate::paint::Edges {
+            top: f64::from(layout.border.top),
+            right: f64::from(layout.border.right),
+            bottom: f64::from(layout.border.bottom),
+            left: f64::from(layout.border.left),
+            pad_top: f64::from(layout.padding.top),
+            pad_right: f64::from(layout.padding.right),
+            pad_bottom: f64::from(layout.padding.bottom),
+            pad_left: f64::from(layout.padding.left),
+        })
+    }
     pub(crate) fn measurement(&self, target: NodeRef<'_>) -> Result<Measurement> {
         super::svg_viewport::geometry(target)?;
         measure(&self.view(), target)

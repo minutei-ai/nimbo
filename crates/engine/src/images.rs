@@ -47,7 +47,22 @@ struct Loaded {
     source: Source,
     generation: usize,
     dimensions: Option<Size<f64>>,
+    #[cfg(not(target_arch = "wasm32"))]
+    pixels: Option<Pixels>,
     retry: bool,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) struct Pixels {
+    pub(crate) width: u32,
+    pub(crate) height: u32,
+    pub(crate) rgba: Vec<u8>,
+}
+
+struct Decoded {
+    size: Size<f64>,
+    #[cfg(not(target_arch = "wasm32"))]
+    pixels: Pixels,
 }
 
 enum Settled {
@@ -410,7 +425,7 @@ impl Images {
         } else {
             None
         };
-        let dimensions = match (
+        let decoded = match (
             inline.as_deref(),
             response.filter(|response| (200..300).contains(&response.status)),
         ) {
@@ -423,9 +438,10 @@ impl Images {
             )?,
             (None, None) => None,
         };
-        let dimensions = dimensions
-            .map(|size| {
-                let corrected = size.map(|value| value / source.density);
+        let dimensions = decoded
+            .as_ref()
+            .map(|decoded| {
+                let corrected = decoded.size.map(|value| value / source.density);
                 corrected.width.to_u32().ok_or_else(|| {
                     Error::Unsupported("image density-corrected width range".into())
                 })?;
@@ -435,6 +451,8 @@ impl Images {
                 Ok::<_, Error>(corrected)
             })
             .transpose()?;
+        #[cfg(not(target_arch = "wasm32"))]
+        let pixels = decoded.map(|decoded| decoded.pixels);
         let success = dimensions.is_some();
         self.settled.insert(
             id,
@@ -442,6 +460,8 @@ impl Images {
                 source,
                 generation,
                 dimensions,
+                #[cfg(not(target_arch = "wasm32"))]
+                pixels,
                 retry: false,
             }),
         );
@@ -510,6 +530,19 @@ impl Images {
             })?,
         })
     }
+
+    /// Decoded RGBA of a settled image, at its natural pixel size.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn bitmap(&self, id: NodeId) -> Option<Pixels> {
+        match self.settled.get(&id)? {
+            Settled::Current(loaded) => loaded.pixels.as_ref().map(|pixels| Pixels {
+                width: pixels.width,
+                height: pixels.height,
+                rgba: pixels.rgba.clone(),
+            }),
+            Settled::Empty(_) => None,
+        }
+    }
 }
 
 fn decode_data(url: &str, maximum: usize) -> Result<Option<Vec<u8>>> {
@@ -531,7 +564,7 @@ fn decode_data(url: &str, maximum: usize) -> Result<Option<Vec<u8>>> {
     }
 }
 
-fn decode(bytes: &[u8], maximum: usize) -> Result<Option<Size<f64>>> {
+fn decode(bytes: &[u8], maximum: usize) -> Result<Option<Decoded>> {
     let reader = ImageReader::new(Cursor::new(bytes))
         .with_guessed_format()
         .map_err(|error| Error::Unsupported(error.to_string()))?;
@@ -555,18 +588,50 @@ fn decode(bytes: &[u8], maximum: usize) -> Result<Option<Size<f64>>> {
             ));
         }
         let orientation = decoder.orientation()?;
-        let bitmap = image::DynamicImage::from_decoder(decoder)?;
-        let (width, height) = match orientation.to_exif() {
-            5..=8 => (bitmap.height(), bitmap.width()),
-            _ => (bitmap.width(), bitmap.height()),
-        };
-        Ok(Size {
-            width: f64::from(width),
-            height: f64::from(height),
+        let mut bitmap = image::DynamicImage::from_decoder(decoder)?;
+        bitmap.apply_orientation(orientation);
+        let rgba = bitmap.into_rgba8();
+        let (width, height) = rgba.dimensions();
+        let samples = u64::from(width)
+            .checked_mul(u64::from(height))
+            .and_then(|pixels| pixels.checked_mul(4))
+            .ok_or_else(|| {
+                image::ImageError::Limits(image::error::LimitError::from_kind(
+                    image::error::LimitErrorKind::InsufficientMemory,
+                ))
+            })?;
+        if samples > maximum {
+            return Err(image::ImageError::Limits(
+                image::error::LimitError::from_kind(
+                    image::error::LimitErrorKind::InsufficientMemory,
+                ),
+            ));
+        }
+        let raw = rgba.into_raw();
+        if u64::try_from(raw.len()).ok() != Some(samples) {
+            return Err(image::ImageError::Limits(
+                image::error::LimitError::from_kind(
+                    image::error::LimitErrorKind::InsufficientMemory,
+                ),
+            ));
+        }
+        #[cfg(target_arch = "wasm32")]
+        let _samples = raw.len();
+        Ok(Decoded {
+            size: Size {
+                width: f64::from(width),
+                height: f64::from(height),
+            },
+            #[cfg(not(target_arch = "wasm32"))]
+            pixels: Pixels {
+                width,
+                height,
+                rgba: raw,
+            },
         })
     })();
     match decoded {
-        Ok(size) => Ok(Some(size)),
+        Ok(image) => Ok(Some(image)),
         Err(image::ImageError::Limits(_)) => Err(Error::Limit("decoded image bytes")),
         Err(_) => Ok(None),
     }

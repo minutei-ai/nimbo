@@ -95,6 +95,13 @@ fn paints_background(node: &NodeRef<'_>) -> bool {
     .any(|name| node.has_name(name))
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+fn css_px(value: &str) -> Option<f64> {
+    let number = value.trim().strip_suffix("px")?;
+    let parsed = number.trim().parse::<f64>().ok()?;
+    parsed.is_finite().then_some(parsed)
+}
+
 impl Dom {
     #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn new(
@@ -1076,15 +1083,21 @@ impl Dom {
     }
 
     fn ensure_layout(&mut self) -> Result<()> {
-        for root in self.shadow.roots.keys() {
-            let root = self.tree_root(*root, true)?;
-            if self
-                .document
-                .tree
-                .get(&root)
-                .is_some_and(|node| node.is_document())
-            {
-                return Err(Error::Unsupported("shadow style and geometry".into()));
+        self.rebuild_layout(true)
+    }
+
+    fn rebuild_layout(&mut self, reject_shadow: bool) -> Result<()> {
+        if reject_shadow {
+            for root in self.shadow.roots.keys() {
+                let root = self.tree_root(*root, true)?;
+                if self
+                    .document
+                    .tree
+                    .get(&root)
+                    .is_some_and(|node| node.is_document())
+                {
+                    return Err(Error::Unsupported("shadow style and geometry".into()));
+                }
             }
         }
         if self
@@ -1163,9 +1176,17 @@ impl Dom {
     #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn screenshot(&mut self) -> Result<crate::Screenshot> {
         (self.check)()?;
-        self.ensure_layout()?;
+        self.rebuild_layout(false)?;
         let layers = self.paint_layers()?;
         crate::paint::encode(self.media.width, self.media.height, &layers)
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn pdf(&mut self) -> Result<Vec<u8>> {
+        (self.check)()?;
+        self.rebuild_layout(false)?;
+        let layers = self.paint_layers()?;
+        crate::paint::pdf(self.media.width, self.media.height, &layers)
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -1178,8 +1199,20 @@ impl Dom {
             .map(|node| node.id)
             .collect::<Vec<_>>();
         let mut layers = Vec::new();
+        let mut order = 0_u32;
         for id in ids {
-            layers.push(self.paint_layer(id)?);
+            let hidden = self.visibility_hidden(id)?;
+            let stack = self.paint_stack(id)?;
+            let mut layer = self.paint_layer(id)?;
+            layer = layer.with_order(order).with_stack(stack, hidden);
+            order = order
+                .checked_add(1)
+                .ok_or_else(|| Error::Limit("screenshot layers"))?;
+            let host = self.shadow.hosts.contains_key(&id);
+            layers.push(layer);
+            if host && !hidden {
+                self.paint_shadow_children(id, stack, &mut order, &mut layers)?;
+            }
         }
         Ok(layers)
     }
@@ -1189,6 +1222,11 @@ impl Dom {
         let role = self.paint_role(id)?;
         let color = crate::paint::parse_color(&self.computed_value(id, "background-color")?)?;
         let bounds = self.paint_bounds(id)?;
+        let edges = self.paint_edges(id)?;
+        let border_color = self.paint_border_color(id)?;
+        let shadow = self.paint_shadow_value(id)?;
+        let image = self.paint_image(id);
+        let text = self.paint_text(id)?;
         Ok(crate::paint::Layer::new(
             role,
             color,
@@ -1196,7 +1234,223 @@ impl Dom {
             bounds.y(),
             bounds.width(),
             bounds.height(),
-        ))
+        )
+        .with_border(edges, border_color)
+        .with_shadow(shadow)
+        .with_image(image)
+        .with_text(text))
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn paint_edges(&self, id: NodeId) -> Result<crate::paint::Edges> {
+        let node = self
+            .document
+            .tree
+            .get(&id)
+            .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
+        self.layout
+            .as_ref()
+            .ok_or_else(|| Error::Dom("missing layout snapshot".into()))?
+            .1
+            .paint_edges(node)
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn paint_stack(&mut self, id: NodeId) -> Result<i32> {
+        if self.computed_value(id, "position")? == "static" {
+            return Ok(0);
+        }
+        let value = self.computed_value(id, "z-index")?;
+        if value == "auto" {
+            return Ok(0);
+        }
+        value
+            .parse::<i32>()
+            .map_err(|_error| Error::Dom("paint stack level".into()))
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn visibility_hidden(&mut self, id: NodeId) -> Result<bool> {
+        let node = self
+            .document
+            .tree
+            .get(&id)
+            .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
+        let mut chain = node
+            .ancestors_it(None)
+            .filter(NodeRef::is_element)
+            .map(|node| node.id)
+            .collect::<Vec<_>>();
+        chain.reverse();
+        chain.push(id);
+        let mut hidden = false;
+        for id in chain {
+            match self.specified(id, "visibility")?.as_str() {
+                "" | "visible" | "initial" | "unset" | "revert" => hidden = false,
+                "inherit" => {}
+                "hidden" => hidden = true,
+                _ => return Err(Error::Dom("paint visibility".into())),
+            }
+        }
+        Ok(hidden)
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn paint_border_color(&mut self, id: NodeId) -> Result<crate::paint::Color> {
+        let current = crate::paint::parse_color(&self.computed_value(id, "color")?)?;
+        crate::paint::color_from_css(&self.specified(id, "border-top-color")?, current)
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn paint_shadow_value(&mut self, id: NodeId) -> Result<Option<crate::paint::ShadowPaint>> {
+        let current = crate::paint::parse_color(&self.computed_value(id, "color")?)?;
+        crate::paint::shadow_from_css(&self.specified(id, "box-shadow")?, current)
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn paint_image(&self, id: NodeId) -> Option<crate::paint::ImagePaint> {
+        let pixels = self.images.borrow().bitmap(id)?;
+        Some(crate::paint::ImagePaint {
+            width: pixels.width,
+            height: pixels.height,
+            rgba: pixels.rgba,
+        })
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn paint_text(&mut self, id: NodeId) -> Result<Option<crate::paint::TextPaint>> {
+        let node = self
+            .document
+            .tree
+            .get(&id)
+            .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
+        let mut text = String::new();
+        for child in node.children_it(false) {
+            if child.is_text() {
+                text.push_str(&child.text());
+            }
+        }
+        let text = text.trim();
+        if text.is_empty() {
+            return Ok(None);
+        }
+        let size = self.computed_value(id, "font-size")?;
+        let Some(size_px) = css_px(&size) else {
+            return Ok(None);
+        };
+        let family = self.computed_value(id, "font-family")?;
+        let color = crate::paint::parse_color(&self.computed_value(id, "color")?)?;
+        Ok(Some(crate::paint::TextPaint {
+            text: text.to_owned(),
+            size: size_px,
+            color,
+            font: format!("{size} {family}"),
+        }))
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn paint_shadow_children(
+        &mut self,
+        host: NodeId,
+        stack: i32,
+        order: &mut u32,
+        layers: &mut Vec<crate::paint::Layer>,
+    ) -> Result<()> {
+        let Some(root) = self.shadow.hosts.get(&host).copied() else {
+            return Ok(());
+        };
+        let bounds = self.paint_bounds(host)?;
+        let edges = self.paint_edges(host)?;
+        let x = bounds.x() + edges.left + edges.pad_left;
+        let mut y = bounds.y() + edges.top + edges.pad_top;
+        let children = self
+            .document
+            .tree
+            .get(&root)
+            .ok_or_else(|| Error::Dom("invalid shadow root".into()))?
+            .children_it(false)
+            .filter(NodeRef::is_element)
+            .map(|node| node.id)
+            .collect::<Vec<_>>();
+        for child in children {
+            if self.operations >= self.limits.max_dom_operations {
+                return Err(Error::Limit("DOM operations"));
+            }
+            self.operations = self.operations.saturating_add(1);
+            let node = self
+                .document
+                .tree
+                .get(&child)
+                .ok_or_else(|| Error::Dom("invalid shadow child".into()))?;
+            let declarations = crate::styles::Declarations::parse(
+                node.null_attribute("style").as_deref().unwrap_or_default(),
+            )
+            .map_err(|error| Error::Dom(error.into()))?;
+            let (Some(width), Some(height)) = (
+                css_px(&declarations.value("width").0),
+                css_px(&declarations.value("height").0),
+            ) else {
+                continue;
+            };
+            let color = crate::paint::color_from_css(
+                &declarations.value("background-color").0,
+                crate::paint::parse_color("rgba(0, 0, 0, 0)")?,
+            )?;
+            let hidden = declarations.value("visibility").0 == "hidden";
+            let layer =
+                crate::paint::Layer::new(crate::paint::Role::Box, color, x, y, width, height)
+                    .with_order(*order)
+                    .with_stack(stack, hidden);
+            *order = order
+                .checked_add(1)
+                .ok_or_else(|| Error::Limit("screenshot layers"))?;
+            y += height;
+            layers.push(layer);
+        }
+        Ok(())
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn specified(&mut self, id: NodeId, name: &str) -> Result<String> {
+        let cascade = self.ensure_cascade()?;
+        let node = self
+            .document
+            .tree
+            .get(&id)
+            .ok_or_else(|| Error::Dom("invalid node handle".into()))?;
+        let inline = self.styles.get(&id).cloned().map_or_else(
+            || {
+                crate::styles::Declarations::parse(
+                    node.null_attribute("style").as_deref().unwrap_or_default(),
+                )
+                .map_err(|error| Error::Dom(error.into()))
+            },
+            Ok,
+        )?;
+        let mut work = crate::layout::Work::new(
+            &mut self.operations,
+            self.limits.max_dom_operations,
+            self.limits.max_layout_nodes,
+        );
+        let declarations = cascade.resolve(
+            node,
+            &inline,
+            None,
+            &crate::containers::Snapshot::new(),
+            Some(&control_selectors::View {
+                arena: &self.checkedness,
+                selection: &self.selection,
+                document: &self.document,
+                shadow: &self.shadow,
+                work: &self.selector_work,
+                steps: &self.selector_steps,
+                error: &self.selector_error,
+                limit: self.limits.max_dom_operations,
+                check: &self.check,
+            }),
+            &mut work,
+        )?;
+        Ok(declarations.value(name).0)
     }
 
     #[cfg(not(target_arch = "wasm32"))]
