@@ -210,7 +210,7 @@ impl Page {
         Ok(serde_json::from_str(&json)?)
     }
 
-    /// Wait for a selector, synchronous boolean predicate or quiet network interval.
+    /// Wait for a selector, predicate, quiet network interval, or settled page.
     /// Timers, microtasks and HTTP continue under the original page budgets.
     ///
     /// # Errors

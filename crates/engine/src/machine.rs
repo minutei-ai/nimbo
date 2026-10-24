@@ -36,6 +36,8 @@ pub(crate) struct Response {
 pub(crate) struct FetchOptions {
     pub headers: Vec<(String, String)>,
     pub reject_redirects: bool,
+    /// Classic scripts may load another http(s) origin. Fetch stays same-origin.
+    pub allow_cross_origin: bool,
 }
 
 impl FetchOptions {
@@ -50,6 +52,7 @@ impl FetchOptions {
                 .map(|rquickjs::prelude::List(pair)| pair)
                 .collect(),
             reject_redirects,
+            allow_cross_origin: false,
         };
         let encoded_headers = serde_json::to_string(&options.headers)
             .map_err(|error| Exception::throw_message(ctx, &error.to_string()))?;
@@ -530,6 +533,19 @@ impl Machine {
         })
     }
 
+    fn timer_delay(&self) -> Result<Option<f64>> {
+        let callback = self
+            .timer
+            .as_ref()
+            .ok_or_else(|| Error::JavaScript("missing timer scheduler".into()))?;
+        self.context.with(|ctx| {
+            js(
+                &ctx,
+                js(&ctx, callback.clone().restore(&ctx))?.call::<_, Option<f64>>((false, true)),
+            )
+        })
+    }
+
     fn check_budget(&self) -> Result<()> {
         if self
             .waiting
@@ -703,7 +719,7 @@ impl Machine {
         let url = document_base
             .join(src)
             .map_err(|error| Error::InvalidUrl(error.to_string()))
-            .and_then(|url| resolve(&self.base, url.as_str()));
+            .and_then(|url| parse_url(url.as_str()));
         match url {
             Ok(url) => Ok(Some(self.activate(
                 Request {
@@ -714,7 +730,7 @@ impl Machine {
                 },
                 asynchronous,
             ))),
-            Err(Error::Origin(_) | Error::InvalidUrl(_)) => {
+            Err(Error::InvalidUrl(_)) => {
                 self.script_events.push_back((handle, false));
                 Ok(None)
             }
@@ -972,6 +988,11 @@ impl Machine {
             ),
             options: match &request.purpose {
                 RequestPurpose::Fetch(_, options) => options.clone(),
+                // Browsers execute classic `script src` from other origins without CORS.
+                RequestPurpose::ClassicScript(_) => FetchOptions {
+                    allow_cross_origin: true,
+                    ..FetchOptions::default()
+                },
                 _ => FetchOptions::default(),
             },
         };
@@ -991,7 +1012,11 @@ impl Machine {
         if self.blocked == Some(id) {
             self.blocked = None;
         }
-        resolve(&self.base, &response.url)?;
+        if matches!(&request.purpose, RequestPurpose::ClassicScript(_)) {
+            parse_url(&response.url)?;
+        } else {
+            resolve(&self.base, &response.url)?;
+        }
         if response
             .body
             .len()
@@ -1149,16 +1174,19 @@ impl Machine {
                 )
             }
             crate::ReadyCondition::Predicate { expression } => expression.clone(),
-            crate::ReadyCondition::NetworkIdle { .. } => String::new(),
+            crate::ReadyCondition::NetworkIdle { .. } | crate::ReadyCondition::Settled { .. } => {
+                String::new()
+            }
         };
         if source.len() > self.limits.max_expression_bytes {
             return Err(Error::Limit("readiness expression bytes"));
         }
-        let quiet = match options.condition {
-            crate::ReadyCondition::NetworkIdle { quiet_ms } => Some(f64::from(quiet_ms)),
-            _ => None,
+        let (quiet, horizon) = match options.condition {
+            crate::ReadyCondition::NetworkIdle { quiet_ms } => (Some(f64::from(quiet_ms)), None),
+            crate::ReadyCondition::Settled { horizon_ms } => (None, Some(f64::from(horizon_ms))),
+            _ => (None, None),
         };
-        let test = if quiet.is_some() {
+        let test = if quiet.is_some() || horizon.is_some() {
             None
         } else {
             Some(self.context.with(|ctx| -> Result<_> {
@@ -1181,6 +1209,8 @@ impl Machine {
             interval: f64::from(options.poll_interval_ms),
             quiet,
             idle_since: None,
+            horizon,
+            timer_budget: horizon.unwrap_or(0.0),
         });
         self.phase = Phase::Waiting;
         Ok(())
@@ -1207,14 +1237,40 @@ impl Machine {
     }
 
     fn readiness_step(&mut self) -> Result<Option<f64>> {
+        let now = self.clock.get();
+        let settled = {
+            let waiting = self
+                .waiting
+                .as_ref()
+                .ok_or_else(|| Error::Unsupported("missing readiness state".into()))?;
+            if now >= waiting.deadline {
+                return Err(Error::Limit("readiness deadline"));
+            }
+            waiting
+                .horizon
+                .map(|horizon| (horizon, waiting.timer_budget, waiting.deadline))
+        };
+        if let Some((horizon, budget, deadline)) = settled {
+            let next = self.timer_delay()?;
+            let waiting = self
+                .waiting
+                .as_mut()
+                .ok_or_else(|| Error::Unsupported("missing readiness state".into()))?;
+            if let Some(delay) = next
+                && delay.is_finite()
+                && delay > 0.0
+                && delay <= horizon
+                && delay <= budget
+            {
+                waiting.timer_budget = budget - delay;
+                return Ok(Some(delay.min(deadline - now)));
+            }
+            return Ok(None);
+        }
         let waiting = self
             .waiting
             .as_mut()
             .ok_or_else(|| Error::Unsupported("missing readiness state".into()))?;
-        let now = self.clock.get();
-        if now >= waiting.deadline {
-            return Err(Error::Limit("readiness deadline"));
-        }
         let delay = if let Some(quiet) = waiting.quiet {
             let idle_since = *waiting.idle_since.get_or_insert(now);
             let remaining = quiet - (now - idle_since);

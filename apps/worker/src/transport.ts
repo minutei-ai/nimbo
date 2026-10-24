@@ -101,7 +101,7 @@ export class Transport {
     }
   }
 
-  private resolve(value: string): URL {
+  private resolve(value: string, allowCrossOrigin = false): URL {
     const url = new URL(value);
     if (!["http:", "https:"].includes(url.protocol) || url.username || url.password)
       throw new ScrapeError({
@@ -109,7 +109,7 @@ export class Transport {
         reason: "only HTTP(S) without URL credentials",
         code: "url-policy",
       });
-    if (this.origin && this.origin !== url.origin)
+    if (!allowCrossOrigin && this.origin && this.origin !== url.origin)
       throw new ScrapeError({
         status: 422,
         reason: "cross-origin request blocked",
@@ -176,7 +176,8 @@ export class Transport {
     binary = false,
     fetch: FetchOptions = { headers: [], rejectRedirects: false },
   ) {
-    let url = this.resolve(value);
+    const allowCrossOrigin = fetch.allowCrossOrigin === true;
+    let url = this.resolve(value, allowCrossOrigin);
     if (this.encode.encode(body).byteLength > this.limits.maxResponseBytes)
       throw new ScrapeError({ status: 413, reason: "request body limit" });
     for (let redirect = 0; redirect <= 10; redirect++) {
@@ -230,7 +231,7 @@ export class Transport {
             const location = response.headers.get("location");
             if (!location)
               throw new ScrapeError({ status: 502, reason: "redirect without location" });
-            url = this.resolve(new URL(location, url).href);
+            url = this.resolve(new URL(location, url).href, allowCrossOrigin);
             if (
               response.status === 303 ||
               ([301, 302].includes(response.status) && method === "POST")

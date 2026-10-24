@@ -86,16 +86,17 @@ inline-module dependencies and fetch responses through 64 document bases. It
 also rejects fetch after changing the base to another origin. The eighteenth set
 compares nine URL forms and nine mutations at 64 variants with Bun's real URL
 parser (5,760 snapshots of eleven components). Other cases check link parser
-limits, fresh-page recovery and denied classic/module loads via a cross-origin
-base. Denied classic loads dispatch an element error event; module graph failures
-remain explicit extraction errors. The same native fixture passes in the native
-HTTP adapter.
+limits, fresh-page recovery and failed classic/module loads via a cross-origin
+base. A classic script follows that base and a dead destination dispatches an
+element error event. Module graph failures remain explicit extraction errors.
+The same native fixture passes in the native HTTP adapter.
 
 The parser is the existing pinned Rust url crate and its WHATWG component API.
 The first connected HTML base[href] determines Node.baseURI and relative link,
 script and fetch resolution; mutation/removal recomputes it against the unchanged
 document URL. Invalid, data and javascript bases fall back to that document URL.
-A base does not authorize another network origin. Scripts still execute after
+A base can send a classic script to another HTTP(S) origin. Fetch and modules
+stay on the session origin. Scripts still execute after
 complete parsing; preparation timing, CSP base-uri, history changes, adoption,
 about:blank/srcdoc documents and full upstream WPT are not covered.
 
@@ -191,9 +192,10 @@ remain incomplete. These tests do not prove application hydration
 or production compatibility.
 
 Classic external scripts dispatch trusted, non-bubbling `load` or `error` events
-at the original element. HTTP and transport failures, invalid URLs and policy-denied
-origins report resource errors without aborting the document. The same-origin
-restriction still prevents those requests and their code from executing. Success
+at the original element. HTTP and transport failures and invalid URLs report
+resource errors without aborting the document. A classic script may load another
+HTTP(S) origin and run when that response succeeds. Document navigation, `fetch`
+and modules stay on the session origin. Success
 events follow the script's microtask checkpoint; window load follows pending
 resource events. Classic script syntax and runtime exceptions dispatch a window
 `error` event with the original thrown value and script URL. Subsequent parser,
@@ -660,7 +662,7 @@ evidence cannot establish it.
 | Frames and independent execution worlds              | Missing    | Same/cross-origin frames, navigation, world isolation                                                                                        |
 | Fetch and HTTP navigation                            | Subset     | Real GET/POST, cookies, redirects, bodies; full headers/abort/streams                                                                        |
 | XMLHttpRequest, forms, files and binary responses    | Partial    | Binary fetch body reads verified below; uploads, XHR, files, progress and cancellation remain                                                |
-| CORS, CSP, mixed content and origin policy           | Subset     | Current same-origin restriction is not a browser policy implementation                                                                       |
+| CORS, CSP, mixed content and origin policy           | Subset     | Classic scripts load other HTTP(S) origins. Fetch, modules and navigation stay on the session origin. CORS and CSP are not implemented.      |
 | Network interception, response fulfillment, blocking | Missing    | Actual request pause/continue/fail/fulfill and event/body correlation                                                                        |
 | Cookies and per-navigation isolation                 | Subset     | Shared HTTP/JS jar, attributes and budgets; cross-site semantics and full cookie WPT pending                                                 |
 | Persistent sessions, cookies and storage             | Missing    | Restart/eviction recovery and tenant isolation via durable state                                                                             |

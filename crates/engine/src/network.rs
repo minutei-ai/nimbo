@@ -21,7 +21,8 @@ pub struct Browser {
 }
 
 impl Browser {
-    /// Cria uma sessão; a origem também limita redirects, scripts e fetch.
+    /// Cria uma sessão. A origem limita o documento, módulos e `fetch`.
+    /// Um script clássico pode carregar outro destino HTTP(S).
     ///
     /// # Errors
     /// Retorna erro para URL inválida, limites inválidos ou falha no cliente TLS.
@@ -208,12 +209,12 @@ impl Transport {
         Ok(())
     }
 
-    pub(crate) fn resolve(&self, base: &Url, value: &str) -> Result<Url> {
+    pub(crate) fn resolve(&self, base: &Url, value: &str, allow_cross_origin: bool) -> Result<Url> {
         let url = base
             .join(value)
             .map_err(|error| Error::InvalidUrl(error.to_string()))?;
         let url = parse_url(url.as_str())?;
-        if url.origin() != self.origin.origin() {
+        if !allow_cross_origin && url.origin() != self.origin.origin() {
             return Err(Error::Origin(url.to_string()));
         }
         Ok(url)
@@ -259,7 +260,7 @@ impl Transport {
         binary: bool,
         options: &FetchOptions,
     ) -> Result<Response> {
-        let mut url = self.resolve(base, value)?;
+        let mut url = self.resolve(base, value, options.allow_cross_origin)?;
         let mut method = match method {
             "GET" => reqwest::Method::GET,
             "POST" => reqwest::Method::POST,
@@ -304,7 +305,7 @@ impl Transport {
                     .get(LOCATION)
                     .and_then(|header| header.to_str().ok())
                     .ok_or_else(|| Error::InvalidUrl("redirect without valid Location".into()))?;
-                url = self.resolve(&url, location)?;
+                url = self.resolve(&url, location, options.allow_cross_origin)?;
                 if status.as_u16() == 303
                     || (matches!(status.as_u16(), 301 | 302) && method == reqwest::Method::POST)
                 {

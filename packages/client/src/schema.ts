@@ -10,6 +10,10 @@ export const Readiness = Schema.Struct({
       type: Schema.Literal("networkIdle"),
       quietMs: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 10000 })),
     }),
+    Schema.Struct({
+      type: Schema.Literal("settled"),
+      horizonMs: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 10000 })),
+    }),
   ]),
   timeoutMs: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 10000 })),
   pollIntervalMs: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 1000 })),
