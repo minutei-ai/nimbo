@@ -1,4 +1,10 @@
-use std::{cell::Cell, rc::Rc, sync::Arc, time::Instant};
+use std::{
+    cell::Cell,
+    marker::PhantomData,
+    rc::Rc,
+    sync::{Arc, Mutex},
+    time::Instant,
+};
 
 use crate::machine::{FetchOptions, Response, parse_url};
 use reqwest::{
@@ -18,6 +24,24 @@ pub struct Browser {
     limits: Limits,
     media: MediaEnvironment,
     session: Session,
+    /// Proxy installed on a shared client for the duration of this session's requests.
+    proxy_url: Option<Url>,
+    proxy_slot: Option<Arc<Mutex<Option<Url>>>>,
+}
+
+/// Process-wide Tokio runtime and HTTP client shared by many isolated sessions.
+///
+/// Each [`Browser`] opened from a host keeps its own cookies and Web Storage.
+/// The host reuses the client pool and runtime, which is the expensive part of
+/// `Browser::new`. One host must drive one navigation at a time: the shared
+/// client reads the current session's proxy when a request starts.
+#[derive(Debug)]
+pub struct Host {
+    runtime: Arc<tokio::runtime::Runtime>,
+    client: Client,
+    proxy: Arc<Mutex<Option<Url>>>,
+    /// Current-thread runtime: a host stays on the thread that drives it.
+    _thread: PhantomData<Cell<()>>,
 }
 
 impl Browser {
@@ -61,25 +85,7 @@ impl Browser {
     ) -> Result<Self> {
         media.validate()?;
         let origin = parse_url(origin)?;
-        if limits.max_javascript_ticks == 0
-            || limits.max_microtasks == 0
-            || limits.max_timers == 0
-            || limits.max_timer_tasks == 0
-            || limits.max_expression_bytes == 0
-            || limits.timeout.is_zero()
-            || limits.max_response_bytes == 0
-            || limits.max_initial_dom_nodes == 0
-            || limits.max_dom_nodes == 0
-            || limits.max_stylesheet_bytes == 0
-            || limits.max_requests == 0
-            || limits.max_layout_nodes == 0
-            || limits.max_dom_operations == 0
-            || limits.max_dom_write_bytes == 0
-            || limits.max_storage_bytes == 0
-            || limits.javascript_memory_bytes < 1024 * 1024
-        {
-            return Err(Error::Limit("invalid configuration"));
-        }
+        validate_limits(&limits)?;
         let mut builder = Client::builder()
             .redirect(Policy::none())
             .no_proxy()
@@ -100,9 +106,77 @@ impl Browser {
             limits,
             media,
             session: Session::default(),
+            proxy_url: None,
+            proxy_slot: None,
         })
     }
 
+    fn install_proxy(&self) -> Result<()> {
+        let Some(slot) = &self.proxy_slot else {
+            return Ok(());
+        };
+        let mut guard = slot
+            .lock()
+            .map_err(|_error| Error::Unsupported("proxy lock poisoned".into()))?;
+        (*guard).clone_from(&self.proxy_url);
+        drop(guard);
+        Ok(())
+    }
+}
+
+impl Host {
+    /// Builds one runtime and one HTTP client. Ambient proxy variables are ignored.
+    ///
+    /// # Errors
+    /// Returns an error when the runtime or TLS client cannot be created.
+    pub fn new() -> Result<Self> {
+        let proxy = Arc::new(Mutex::new(None));
+        let slot = Arc::clone(&proxy);
+        let client = Client::builder()
+            .redirect(Policy::none())
+            .no_proxy()
+            .user_agent(crate::USER_AGENT)
+            .proxy(reqwest::Proxy::custom(move |_url: &Url| {
+                locked_proxy(&slot)
+            }))
+            .build()?;
+        let runtime = Arc::new(
+            tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()?,
+        );
+        Ok(Self {
+            runtime,
+            client,
+            proxy,
+            _thread: PhantomData,
+        })
+    }
+
+    /// Opens an isolated session. `proxy` is an explicit HTTP or SOCKS URL, or direct.
+    ///
+    /// # Errors
+    /// Rejects an invalid origin, limits or proxy configuration.
+    pub fn open(&self, origin: &str, limits: Limits, proxy: Option<&str>) -> Result<Browser> {
+        let media = MediaEnvironment::default();
+        media.validate()?;
+        let origin = parse_url(origin)?;
+        validate_limits(&limits)?;
+        let proxy_url = proxy.map(checked_proxy_url).transpose()?;
+        Ok(Browser {
+            client: self.client.clone(),
+            runtime: Arc::clone(&self.runtime),
+            origin,
+            limits,
+            media,
+            session: Session::default(),
+            proxy_url,
+            proxy_slot: Some(Arc::clone(&self.proxy)),
+        })
+    }
+}
+
+impl Browser {
     /// Ends this browser's session by discarding its cookies and Web Storage.
     /// Pages already returned keep running and observe the empty session.
     pub fn clear_session(&self) {
@@ -143,6 +217,8 @@ impl Browser {
         use crate::{NavigationFailure as Failure, NavigationStage as Stage};
         cancellation
             .check()
+            .map_err(|error| Failure::new(Stage::Validation, error))?;
+        self.install_proxy()
             .map_err(|error| Failure::new(Stage::Validation, error))?;
         let deadline = Instant::now()
             .checked_add(self.limits.timeout)
@@ -384,7 +460,16 @@ impl Transport {
     }
 }
 
-fn explicit_proxy(value: &str) -> Result<reqwest::Proxy> {
+fn locked_proxy(slot: &Mutex<Option<Url>>) -> Option<Url> {
+    let guard = slot
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let proxy = guard.clone();
+    drop(guard);
+    proxy
+}
+
+fn checked_proxy_url(value: &str) -> Result<Url> {
     let invalid = || Error::Unsupported("invalid proxy configuration".into());
     if value.len() > 8192 {
         return Err(invalid());
@@ -398,5 +483,33 @@ fn explicit_proxy(value: &str) -> Result<reqwest::Proxy> {
     {
         return Err(invalid());
     }
-    reqwest::Proxy::all(url).map_err(|_error| invalid())
+    Ok(url)
+}
+
+fn explicit_proxy(value: &str) -> Result<reqwest::Proxy> {
+    reqwest::Proxy::all(checked_proxy_url(value)?)
+        .map_err(|_error| Error::Unsupported("invalid proxy configuration".into()))
+}
+
+fn validate_limits(limits: &Limits) -> Result<()> {
+    if limits.max_javascript_ticks == 0
+        || limits.max_microtasks == 0
+        || limits.max_timers == 0
+        || limits.max_timer_tasks == 0
+        || limits.max_expression_bytes == 0
+        || limits.timeout.is_zero()
+        || limits.max_response_bytes == 0
+        || limits.max_initial_dom_nodes == 0
+        || limits.max_dom_nodes == 0
+        || limits.max_stylesheet_bytes == 0
+        || limits.max_requests == 0
+        || limits.max_layout_nodes == 0
+        || limits.max_dom_operations == 0
+        || limits.max_dom_write_bytes == 0
+        || limits.max_storage_bytes == 0
+        || limits.javascript_memory_bytes < 1024 * 1024
+    {
+        return Err(Error::Limit("invalid configuration"));
+    }
+    Ok(())
 }

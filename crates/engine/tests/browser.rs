@@ -11,7 +11,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use nimbo_engine::{Browser, Error, Limits, MediaEnvironment, Readiness, ReadyCondition};
+use nimbo_engine::{Browser, Error, Host, Limits, MediaEnvironment, Readiness, ReadyCondition};
 use serde_json::json;
 use tiny_http::{Header, Request, Response, Server};
 
@@ -820,6 +820,29 @@ fn cookies_persist_only_in_their_session() -> TestResult {
     assert_eq!(
         isolated.evaluate("document.querySelector('main').textContent")?,
         json!("")
+    );
+    Ok(())
+}
+
+#[test]
+fn reused_host_isolates_cookies_between_sessions() -> TestResult {
+    let fixture = Fixture::new()?;
+    let host = Host::new()?;
+    let first = host.open(&fixture.url, Limits::default(), None)?;
+    drop(first.navigate(&fixture.path("/cookie-set"))?);
+    drop(first);
+    let second = host.open(&fixture.url, Limits::default(), None)?;
+    let isolated = second.navigate(&fixture.path("/cookie"))?;
+    assert_eq!(
+        isolated.evaluate("document.querySelector('main').textContent")?,
+        json!("")
+    );
+    drop(isolated);
+    drop(second.navigate(&fixture.path("/cookie-set"))?);
+    let same = second.navigate(&fixture.path("/cookie"))?;
+    assert_eq!(
+        same.evaluate("document.querySelector('main').textContent")?,
+        json!("sid=alpha")
     );
     Ok(())
 }
