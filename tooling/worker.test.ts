@@ -705,8 +705,8 @@ test("guest JS cannot access Worker credentials or host bindings", async () => {
 test.each([
   ["classic HTTP failure", "", "/missing.js"],
   ["async HTTP failure", "async", "/missing.js"],
-  ["classic origin denial", "", "https://blocked.test/blocked.js"],
-  ["async origin denial", "async", "https://blocked.test/blocked.js"],
+  ["classic origin denial", "", "http://127.0.0.1:1/blocked.js"],
+  ["async origin denial", "async", "http://127.0.0.1:1/blocked.js"],
   ["classic invalid URL", "", "javascript:globalThis.ran=false"],
   ["async invalid URL", "async", "javascript:globalThis.ran=false"],
   ["classic redirect denial", "", "/redirect.js"],
@@ -723,7 +723,7 @@ test.each([
       if (path === "/redirect.js")
         return new Response(null, {
           status: 302,
-          headers: { location: "https://blocked.test/redirected.js" },
+          headers: { location: "http://127.0.0.1:1/redirected.js" },
         });
       if (path === "/redirect-scheme.js")
         return new Response(null, {

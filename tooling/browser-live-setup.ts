@@ -756,7 +756,7 @@ export const origin = Bun.serve({
           ? '<script src="blocked.js"></script>'
           : '<script type="module">import "./blocked.js";</script>';
       return new Response(
-        `<base href="https://external.example.com/"><script>globalThis.denied=0;document.addEventListener('error',()=>denied++,true)</script>${script}`,
+        `<base href="http://127.0.0.1:1/"><script>globalThis.denied=0;document.addEventListener('error',()=>denied++,true)</script>${script}`,
         {
           headers: { "content-type": "text/html; charset=utf-8" },
         },

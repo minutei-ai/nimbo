@@ -1,6 +1,6 @@
 # Bounded page readiness
 
-The Rust machine supports three readiness conditions on native and Worker hosts.
+The Rust machine supports four readiness conditions on native and Worker hosts.
 Readiness begins after navigation/lifecycle and before the extraction expression.
 Timers, microtasks, modules, fetch and stylesheet loading continue in the owned
 engine. Waiting does not reset the original navigation deadline, JavaScript fuel,
@@ -30,6 +30,10 @@ The other conditions are:
 { "type": "networkIdle", "quietMs": 100 }
 ```
 
+```json
+{ "type": "settled", "horizonMs": 50 }
+```
+
 Selectors check existence in the current document, without a visibility test.
 Predicates are synchronous expressions returning a boolean. Exceptions,
 non-booleans and Promises fail explicitly; predicates run in the page context
@@ -43,6 +47,12 @@ scripts. It does not predict requests
 from future timers or establish that an application has finished rendering.
 The polling interval applies to selectors and predicates; network idle sleeps
 until the next timer, quiet-window boundary or waiting deadline.
+
+Settled returns as soon as no HTTP request is in flight. A timer due inside
+`horizonMs` still runs, and the wait may follow several of those timers until
+their delays add up to `horizonMs`. A timer further out does not delay
+extraction, so a repeating timer cannot hold the page for the whole timeout.
+`horizonMs` must be positive and no greater than `timeoutMs`.
 
 `timeoutMs` must be 1–10,000; `pollIntervalMs` must be 1–1,000. Both are required.
 `quietMs` must be positive and no greater than `timeoutMs`. The original page

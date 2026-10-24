@@ -622,7 +622,40 @@ fn serve(mut request: Request) -> io::Result<()> {
         return serve_resource(request);
     }
 
-    serve_page(request)
+    serve_settle(request)
+}
+
+fn serve_settle(request: Request) -> io::Result<()> {
+    let url = request.url().to_owned();
+    if let Some(host) = url.strip_prefix("/foreign-page/") {
+        let body =
+            format!("<main>Loading</main><script src=\"http://{host}/foreign.js\"></script>");
+        return respond(request, body, 200, "text/html; charset=utf-8", Vec::new());
+    }
+    let (content_type, body) = match url.as_str() {
+        "/foreign.js" => (
+            "text/javascript",
+            "document.querySelector('main').textContent='Cross origin script ready';",
+        ),
+        "/settle-soon" => (
+            "text/html; charset=utf-8",
+            "<main>Loading</main><script>setTimeout(() => { document.querySelector('main').textContent = 'Soon'; }, 30);</script>",
+        ),
+        "/settle-late" => (
+            "text/html; charset=utf-8",
+            "<main>Loading</main><script>setTimeout(() => { document.querySelector('main').textContent = 'Late'; }, 2000);</script>",
+        ),
+        "/settle-interval" => (
+            "text/html; charset=utf-8",
+            "<main>0</main><script>let n=0;setInterval(()=>{n+=1;document.querySelector('main').textContent=String(n);},5);</script>",
+        ),
+        "/settle-fetch" => (
+            "text/html; charset=utf-8",
+            "<main>Loading</main><script>fetch('/api').then(r=>r.json()).then(data=>{document.querySelector('main').textContent=data.value;});</script>",
+        ),
+        _ => return serve_page(request),
+    };
+    respond(request, body.into(), 200, content_type, Vec::new())
 }
 
 fn serve_page(mut request: Request) -> io::Result<()> {
@@ -805,6 +838,110 @@ fn globals_and_dom_are_fresh_on_every_navigation() -> TestResult {
         json!({"secret":"undefined", "title":"Página estática", "host":"undefined"})
     );
     assert_eq!(first.evaluate("secret")?, json!(123));
+    Ok(())
+}
+
+fn settled(horizon_ms: u32) -> Readiness {
+    Readiness {
+        condition: ReadyCondition::Settled { horizon_ms },
+        timeout_ms: 1000,
+        poll_interval_ms: 5,
+    }
+}
+
+#[test]
+fn fast_settled_readiness_runs_near_work_and_skips_far_timers() -> TestResult {
+    let _permit = PagePermit::acquire();
+    let fixture = Fixture::new()?;
+    let browser = fixture.browser()?;
+    let static_page = browser.navigate(&fixture.path("/static"))?;
+    let started = Instant::now();
+    static_page.wait_for(&settled(50))?;
+    assert!(
+        started.elapsed() < Duration::from_millis(250),
+        "static settle took {:?}",
+        started.elapsed()
+    );
+
+    let soon = browser.navigate(&fixture.path("/settle-soon"))?;
+    let started = Instant::now();
+    soon.wait_for(&settled(50))?;
+    assert_eq!(
+        soon.evaluate("document.querySelector('main').textContent")?,
+        json!("Soon")
+    );
+    assert!(
+        started.elapsed() < Duration::from_millis(400),
+        "near timer took {:?}",
+        started.elapsed()
+    );
+
+    let late = browser.navigate(&fixture.path("/settle-late"))?;
+    let started = Instant::now();
+    late.wait_for(&settled(40))?;
+    assert_eq!(
+        late.evaluate("document.querySelector('main').textContent")?,
+        json!("Loading")
+    );
+    assert!(
+        started.elapsed() < Duration::from_millis(250),
+        "far timer took {:?}",
+        started.elapsed()
+    );
+
+    let interval = browser.navigate(&fixture.path("/settle-interval"))?;
+    let started = Instant::now();
+    interval.wait_for(&settled(40))?;
+    let ticks: u64 = interval
+        .evaluate("Number(document.querySelector('main').textContent)")?
+        .as_u64()
+        .ok_or("missing interval count")?;
+    assert!((1..40).contains(&ticks), "interval ticks {ticks}");
+    assert!(
+        started.elapsed() < Duration::from_millis(400),
+        "interval settle took {:?}",
+        started.elapsed()
+    );
+
+    let fetched = browser.navigate(&fixture.path("/settle-fetch"))?;
+    fetched.wait_for(&settled(40))?;
+    assert_eq!(
+        fetched.evaluate("document.querySelector('main').textContent")?,
+        json!("Carregado")
+    );
+
+    let page = browser.navigate(&fixture.path("/static"))?;
+    assert!(matches!(
+        page.wait_for(&Readiness {
+            condition: ReadyCondition::Settled { horizon_ms: 0 },
+            timeout_ms: 100,
+            poll_interval_ms: 5,
+        }),
+        Err(Error::Limit("invalid settled horizon"))
+    ));
+    Ok(())
+}
+
+#[test]
+fn fast_classic_scripts_run_from_another_origin() -> TestResult {
+    let _permit = PagePermit::acquire();
+    let pages = Fixture::new()?;
+    let assets = Fixture::new()?;
+    let host = assets.url.trim_start_matches("http://");
+    let page = pages
+        .browser()?
+        .navigate(&pages.path(&format!("/foreign-page/{host}")))?;
+    let started = Instant::now();
+    page.wait_for(&settled(40))?;
+    assert_eq!(
+        page.evaluate("document.querySelector('main').textContent")?,
+        json!("Cross origin script ready")
+    );
+    assert!(
+        started.elapsed() < Duration::from_millis(400),
+        "cross-origin script took {:?}",
+        started.elapsed()
+    );
     Ok(())
 }
 

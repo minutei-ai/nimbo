@@ -26,6 +26,7 @@ export const Action = Schema.Union([
     binary: Schema.Boolean,
     headers: Schema.Array(Schema.Tuple([Schema.String, Schema.String])),
     rejectRedirects: Schema.Boolean,
+    allowCrossOrigin: Schema.optional(Schema.Boolean),
   }),
   Schema.Struct({ type: Schema.Literal("ready") }),
   Schema.Struct({ type: Schema.Literal("await"), milliseconds: Schema.NullOr(Schema.Finite) }),
@@ -35,6 +36,7 @@ export const Action = Schema.Union([
 export interface FetchOptions {
   readonly headers: ReadonlyArray<readonly [string, string]>;
   readonly rejectRedirects: boolean;
+  readonly allowCrossOrigin?: boolean;
 }
 export const Limits = Schema.Struct({
   timeoutMs: Schema.Finite,

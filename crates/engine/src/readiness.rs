@@ -20,6 +20,15 @@ pub enum ReadyCondition {
         #[serde(rename = "quietMs")]
         quiet_ms: u32,
     },
+    /// Return once in-flight HTTP is done and no near timer remains.
+    ///
+    /// Timers due within `horizon_ms` still run, up to that much timer delay in
+    /// total. A later timer, including a repeating one, does not hold extraction.
+    Settled {
+        /// How far ahead, in milliseconds, a pending timer is still worth running.
+        #[serde(rename = "horizonMs")]
+        horizon_ms: u32,
+    },
 }
 
 /// Readiness options share the page's original deadline and resource budgets.
@@ -45,6 +54,11 @@ impl Readiness {
         {
             return Err(crate::Error::Limit("invalid network idle interval"));
         }
+        if let ReadyCondition::Settled { horizon_ms } = self.condition
+            && (horizon_ms == 0 || horizon_ms > self.timeout_ms)
+        {
+            return Err(crate::Error::Limit("invalid settled horizon"));
+        }
         Ok(())
     }
 }
@@ -56,4 +70,6 @@ pub(crate) struct Waiting {
     pub interval: f64,
     pub quiet: Option<f64>,
     pub idle_since: Option<f64>,
+    pub horizon: Option<f64>,
+    pub timer_budget: f64,
 }

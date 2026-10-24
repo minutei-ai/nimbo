@@ -52,7 +52,7 @@ test.each(Array.from({ length: 64 }, (_, variant) => variant))(
 );
 
 test.each(["classic", "module"])(
-  "real HTTP → workerd → Wasm: cross-origin base cannot authorize %s requests",
+  "real HTTP → workerd → Wasm: cross-origin base fails a %s load",
   async (mode) => {
     const url = new URL(`base-origin/${mode}`, origin.url).href;
     const response = await worker.dispatchFetch("https://nimbo.test/scrape", {

@@ -6649,7 +6649,16 @@
       }
     });
   }
-  function timer(run: boolean): number | null {
+  function nextTimerDelay(): number | null {
+    let due = Number.POSITIVE_INFINITY;
+    for (const task of timers.values()) if (task.due < due) due = task.due;
+    if (animationFrames.size > 0 && frameDue < due) due = frameDue;
+    if (!Number.isFinite(due)) return null;
+    return Math.max(0, due - now());
+  }
+  function timer(run: boolean, peek = false): number | null {
+    // Peek reports the next wake without resetting nesting or running a callback.
+    if (peek) return nextTimerDelay();
     if (!run) {
       timerLevel = 0;
       return null;
