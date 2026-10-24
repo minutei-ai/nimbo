@@ -133,6 +133,21 @@ struct Script {
     asynchronous: bool,
 }
 
+fn ordered_classic(script: &Script) -> bool {
+    matches!(script.kind, ScriptKind::Classic) && script.src.is_some() && !script.asynchronous
+}
+
+enum ClassicBody {
+    Loaded { url: String, source: String },
+    Failed,
+}
+
+struct OrderedScript {
+    handle: usize,
+    deferred: bool,
+    body: Option<ClassicBody>,
+}
+
 pub(crate) struct Machine {
     pub(crate) console: crate::console::Console,
     ready: Option<Persistent<Function<'static>>>,
@@ -151,6 +166,9 @@ pub(crate) struct Machine {
     pending: Rc<RefCell<VecDeque<Request>>>,
     scripts: VecDeque<Script>,
     script_events: VecDeque<(usize, bool)>,
+    /// Parser-blocking classic scripts fetched ahead of execution. Each slot
+    /// stays empty until its response arrives, then runs in document order.
+    script_order: VecDeque<OrderedScript>,
     image_events: VecDeque<(usize, usize, bool)>,
     modules: Modules,
     module_root: Option<String>,
@@ -348,6 +366,7 @@ impl Machine {
             pending: Rc::default(),
             scripts,
             script_events: VecDeque::new(),
+            script_order: VecDeque::new(),
             image_events: VecDeque::new(),
             modules,
             module_root: None,
@@ -607,6 +626,50 @@ impl Machine {
         result
     }
 
+    fn document_base(&self) -> Result<Url> {
+        Ok(crate::links::base(
+            self.dom.borrow().base_href()?.as_deref(),
+            self.dom.borrow().document_url().as_str(),
+        )
+        .unwrap_or_else(|| self.dom.borrow().document_url().clone()))
+    }
+
+    fn note_deferred(&mut self, script: &Script) -> Result<()> {
+        if script.deferred && !self.parsed {
+            self.context.with(|ctx| -> Result<()> {
+                let callback = self
+                    .ready
+                    .as_ref()
+                    .ok_or_else(|| Error::JavaScript("missing lifecycle callback".into()))?;
+                js(
+                    &ctx,
+                    js(&ctx, callback.clone().restore(&ctx))?.call::<_, ()>(("interactive",)),
+                )
+            })?;
+            self.parsed = true;
+        }
+        Ok(())
+    }
+
+    fn execute_ordered_front(&mut self) -> Result<()> {
+        let Some(slot) = self.script_order.pop_front() else {
+            return Ok(());
+        };
+        let success = match slot.body {
+            Some(ClassicBody::Loaded { url, source }) => {
+                self.execute(&source, &url, slot.handle)?;
+                true
+            }
+            Some(ClassicBody::Failed) => false,
+            None => {
+                self.script_order.push_front(slot);
+                return Ok(());
+            }
+        };
+        self.script_events.push_back((slot.handle, success));
+        Ok(())
+    }
+
     fn next_script(&mut self) -> Result<Option<Action>> {
         if let Some(root) = self.module_root.clone() {
             if let Some(url) = self.modules.prepare(&self.runtime, &root)? {
@@ -633,25 +696,43 @@ impl Machine {
             self.module_root = None;
             return Ok(None);
         }
+        // Issue every consecutive parser-blocking classic script before running
+        // any of them. An inline, async, module, or defer-boundary script closes
+        // the wave so it cannot run ahead of the scripts it follows.
+        if self.scripts.front().is_some_and(|script| {
+            ordered_classic(script)
+                && self
+                    .script_order
+                    .front()
+                    .is_none_or(|slot| slot.deferred == script.deferred)
+        }) {
+            let script = self
+                .scripts
+                .pop_front()
+                .ok_or_else(|| Error::Unsupported("missing ordered classic script".into()))?;
+            self.note_deferred(&script)?;
+            let src = script.src.clone().ok_or_else(|| {
+                Error::Unsupported("ordered classic script is missing src".into())
+            })?;
+            let document_base = self.document_base()?;
+            return self.external_script(&src, script.node, false, script.deferred, &document_base);
+        }
+        if self
+            .script_order
+            .front()
+            .is_some_and(|slot| slot.body.is_some())
+        {
+            self.execute_ordered_front()?;
+            return Ok(None);
+        }
+        if !self.script_order.is_empty() {
+            return Ok(Some(Action::Await {
+                milliseconds: self.timer_step(true)?,
+            }));
+        }
         if let Some(script) = self.scripts.pop_front() {
-            let document_base = crate::links::base(
-                self.dom.borrow().base_href()?.as_deref(),
-                self.dom.borrow().document_url().as_str(),
-            )
-            .unwrap_or_else(|| self.dom.borrow().document_url().clone());
-            if script.deferred && !self.parsed {
-                self.context.with(|ctx| -> Result<()> {
-                    let callback = self
-                        .ready
-                        .as_ref()
-                        .ok_or_else(|| Error::JavaScript("missing lifecycle callback".into()))?;
-                    js(
-                        &ctx,
-                        js(&ctx, callback.clone().restore(&ctx))?.call::<_, ()>(("interactive",)),
-                    )
-                })?;
-                self.parsed = true;
-            }
+            let document_base = self.document_base()?;
+            self.note_deferred(&script)?;
             if matches!(script.kind, ScriptKind::ImportMap) {
                 self.modules
                     .register_import_map(&script.source, &document_base)?;
@@ -681,6 +762,7 @@ impl Machine {
                     &src,
                     script.node,
                     script.asynchronous,
+                    script.deferred,
                     &document_base,
                 );
             }
@@ -723,6 +805,7 @@ impl Machine {
         src: &str,
         node: dom_query::NodeId,
         asynchronous: bool,
+        deferred: bool,
         document_base: &Url,
     ) -> Result<Option<Action>> {
         let handle = self.dom.borrow_mut().handle(node);
@@ -730,18 +813,39 @@ impl Machine {
             .join(src)
             .map_err(|error| Error::InvalidUrl(error.to_string()))
             .and_then(|url| parse_url(url.as_str()));
+        // Parser-blocking scripts are fetched together. The request therefore
+        // sees the cookie jar from fetch start, not cookies an earlier script
+        // in the same wave sets while it runs.
+        let ordered = !asynchronous;
         match url {
-            Ok(url) => Ok(Some(self.activate(
-                Request {
-                    url: url.to_string(),
-                    method: "GET".into(),
-                    body: String::new(),
-                    purpose: RequestPurpose::ClassicScript(handle),
-                },
-                asynchronous,
-            ))),
+            Ok(url) => {
+                if ordered {
+                    self.script_order.push_back(OrderedScript {
+                        handle,
+                        deferred,
+                        body: None,
+                    });
+                }
+                Ok(Some(self.activate(
+                    Request {
+                        url: url.to_string(),
+                        method: "GET".into(),
+                        body: String::new(),
+                        purpose: RequestPurpose::ClassicScript(handle),
+                    },
+                    asynchronous || ordered,
+                )))
+            }
             Err(Error::InvalidUrl(_)) => {
-                self.script_events.push_back((handle, false));
+                if ordered {
+                    self.script_order.push_back(OrderedScript {
+                        handle,
+                        deferred,
+                        body: Some(ClassicBody::Failed),
+                    });
+                } else {
+                    self.script_events.push_back((handle, false));
+                }
                 Ok(None)
             }
             Err(error) => Err(error),
@@ -1013,6 +1117,37 @@ impl Machine {
         action
     }
 
+    fn store_classic_script(&mut self, handle: usize, response: Response) -> Result<()> {
+        let pipelined = self
+            .script_order
+            .iter()
+            .any(|slot| slot.handle == handle && slot.body.is_none());
+        if pipelined {
+            let body = if (200..300).contains(&response.status) {
+                ClassicBody::Loaded {
+                    url: response.url,
+                    source: response.body,
+                }
+            } else {
+                ClassicBody::Failed
+            };
+            if let Some(slot) = self
+                .script_order
+                .iter_mut()
+                .find(|slot| slot.handle == handle && slot.body.is_none())
+            {
+                slot.body = Some(body);
+            }
+            return Ok(());
+        }
+        let success = (200..300).contains(&response.status);
+        if success {
+            self.execute(&response.body, &response.url, handle)?;
+        }
+        self.script_events.push_back((handle, success));
+        Ok(())
+    }
+
     pub(crate) fn respond(&mut self, id: usize, response: Response) -> Result<()> {
         self.check_budget()?;
         let request = self
@@ -1086,13 +1221,7 @@ impl Machine {
                     )
                 })?;
             }
-            RequestPurpose::ClassicScript(handle) => {
-                let success = (200..300).contains(&response.status);
-                if success {
-                    self.execute(&response.body, &response.url, handle)?;
-                }
-                self.script_events.push_back((handle, success));
-            }
+            RequestPurpose::ClassicScript(handle) => self.store_classic_script(handle, response)?,
         }
         Ok(())
     }
@@ -1124,7 +1253,15 @@ impl Machine {
             return Ok(());
         }
         if let RequestPurpose::ClassicScript(handle) = request.purpose {
-            self.script_events.push_back((handle, false));
+            if let Some(slot) = self
+                .script_order
+                .iter_mut()
+                .find(|slot| slot.handle == handle && slot.body.is_none())
+            {
+                slot.body = Some(ClassicBody::Failed);
+            } else {
+                self.script_events.push_back((handle, false));
+            }
             return Ok(());
         }
         let RequestPurpose::Fetch(resolver, _) = request.purpose else {
