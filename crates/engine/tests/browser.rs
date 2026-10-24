@@ -6994,3 +6994,169 @@ fn native_fetch_options_ignore_page_json_serialization_hooks() -> TestResult {
     }
     Ok(())
 }
+
+struct ScriptOrderServer {
+    origin: String,
+    stop: Arc<AtomicBool>,
+    thread: Option<JoinHandle<()>>,
+    fast_during_slow: Arc<AtomicBool>,
+    third_during_slow: Arc<AtomicBool>,
+    fast_cookie: Arc<std::sync::Mutex<String>>,
+}
+
+impl ScriptOrderServer {
+    fn spawn() -> io::Result<Self> {
+        let server = Server::http("127.0.0.1:0").map_err(io::Error::other)?;
+        let address = server
+            .server_addr()
+            .to_ip()
+            .ok_or_else(|| io::Error::other("missing listener address"))?;
+        let stop = Arc::new(AtomicBool::new(false));
+        let fast_during_slow = Arc::new(AtomicBool::new(false));
+        let third_during_slow = Arc::new(AtomicBool::new(false));
+        let fast_cookie = Arc::new(std::sync::Mutex::new(String::new()));
+        let slow_pending = Arc::new(AtomicBool::new(false));
+        let worker_stop = Arc::clone(&stop);
+        let overlapped = Arc::clone(&fast_during_slow);
+        let third_overlapped = Arc::clone(&third_during_slow);
+        let recorded_cookie = Arc::clone(&fast_cookie);
+        let pending = Arc::clone(&slow_pending);
+        let thread = thread::spawn(move || {
+            while !worker_stop.load(Ordering::Relaxed) {
+                let request = match server.recv_timeout(Duration::from_millis(20)) {
+                    Ok(Some(request)) => request,
+                    Ok(None) => continue,
+                    Err(_) => break,
+                };
+                let path = request.url().to_owned();
+                if path == "/slow.js" {
+                    pending.store(true, Ordering::SeqCst);
+                    let pending = Arc::clone(&pending);
+                    thread::spawn(move || {
+                        thread::sleep(Duration::from_millis(300));
+                        let body = "document.cookie='wave=on';document.querySelector('main').textContent+='one ';";
+                        if let Ok(content_type) = header("Content-Type", "text/javascript")
+                            && request
+                                .respond(Response::from_string(body).with_header(content_type))
+                                .is_err()
+                        {
+                            pending.store(false, Ordering::SeqCst);
+                            return;
+                        }
+                        pending.store(false, Ordering::SeqCst);
+                    });
+                    continue;
+                }
+                if path == "/fast.js" || path == "/third.js" {
+                    let during = pending.load(Ordering::SeqCst);
+                    if path == "/fast.js" {
+                        if during {
+                            overlapped.store(true, Ordering::SeqCst);
+                        }
+                        if let Ok(mut cookie) = recorded_cookie.lock() {
+                            request_cookie(&request).clone_into(&mut cookie);
+                        }
+                    } else if during {
+                        third_overlapped.store(true, Ordering::SeqCst);
+                    }
+                    let word = if path == "/fast.js" { "two " } else { "three " };
+                    if let Ok(content_type) = header("Content-Type", "text/javascript")
+                        && request
+                            .respond(
+                                Response::from_string(format!(
+                                    "document.querySelector('main').textContent+='{word}';"
+                                ))
+                                .with_header(content_type),
+                            )
+                            .is_err()
+                    {
+                        break;
+                    }
+                    continue;
+                }
+                let html = if path == "/inline" {
+                    "<!doctype html><body><main></main><script src=\"/slow.js\"></script><script>document.querySelector('main').textContent+='inline ';</script><script src=\"/fast.js\"></script></body></html>"
+                } else {
+                    "<!doctype html><body><main></main><script src=\"/slow.js\"></script><script src=\"/fast.js\"></script><script src=\"/third.js\"></script></body></html>"
+                };
+                if let Ok(content_type) = header("Content-Type", "text/html; charset=utf-8")
+                    && request
+                        .respond(Response::from_string(html).with_header(content_type))
+                        .is_err()
+                {
+                    break;
+                }
+            }
+        });
+        Ok(Self {
+            origin: format!("http://{address}"),
+            stop,
+            thread: Some(thread),
+            fast_during_slow,
+            third_during_slow,
+            fast_cookie,
+        })
+    }
+}
+
+impl Drop for ScriptOrderServer {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::Relaxed);
+        if let Some(thread) = self.thread.take() {
+            #[expect(
+                clippy::expect_used,
+                reason = "A server thread panic must fail the test during fixture cleanup"
+            )]
+            thread
+                .join()
+                .expect("script order server thread must not panic");
+        }
+    }
+}
+
+#[test]
+fn blocking_classic_scripts_prefetch_and_run_in_order() -> TestResult {
+    let _permit = PagePermit::acquire();
+    let server = ScriptOrderServer::spawn()?;
+    let page = Browser::new(&server.origin, Limits::default())?
+        .navigate(&format!("{}/order", server.origin))?;
+    assert_eq!(
+        page.evaluate("document.querySelector('main').textContent")?,
+        json!("one two three ")
+    );
+    assert!(
+        server.fast_during_slow.load(Ordering::SeqCst),
+        "fast.js was requested only after slow.js had already responded"
+    );
+    assert!(
+        server.third_during_slow.load(Ordering::SeqCst),
+        "third.js was requested only after slow.js had already responded"
+    );
+    let cookie = server
+        .fast_cookie
+        .lock()
+        .map_err(|error| io::Error::other(format!("cookie record lock poisoned: {error}")))?
+        .clone();
+    assert!(
+        !cookie.contains("wave=on"),
+        "prefetched fast.js observed the cookie set by slow.js: {cookie}"
+    );
+    Ok(())
+}
+
+#[test]
+fn inline_script_runs_between_classic_waves() -> TestResult {
+    let _permit = PagePermit::acquire();
+    let server = ScriptOrderServer::spawn()?;
+    let page = Browser::new(&server.origin, Limits::default())?
+        .navigate(&format!("{}/inline", server.origin))?;
+    assert_eq!(
+        page.evaluate("document.querySelector('main').textContent")?,
+        json!("one inline two ")
+    );
+    assert!(
+        !server.fast_during_slow.load(Ordering::SeqCst),
+        "fast.js was prefetched across the inline script"
+    );
+    Ok(())
+}
