@@ -1,4 +1,4 @@
-//! Paginate the viewport bitmap into a real PDF, one viewport height per page.
+//! Paginate laid-out layers into a real PDF, one viewport-sized bitmap per page.
 use std::fmt::Write;
 
 use super::{Layer, raster};
@@ -6,18 +6,15 @@ use crate::{Error, Result};
 
 /// Encode `layers` as a PDF whose first page is the viewport bitmap.
 ///
-/// Each later page is the next viewport-height slice, including boxes that sit
-/// below the fold. Image samples are `DeviceRGB`, top row first.
+/// Each page is rastered on its own at `viewport_height`, so the pixel budget
+/// is one viewport and not the whole document. Later pages include boxes that
+/// sit below the fold. Image samples are `DeviceRGB`, top row first.
 pub(super) fn pdf(width: u32, viewport_height: u32, layers: &[Layer]) -> Result<Vec<u8>> {
     if viewport_height == 0 {
         return Err(Error::Limit("screenshot pixels"));
     }
     let pages = page_count(viewport_height, layers)?;
-    let height = viewport_height
-        .checked_mul(pages)
-        .ok_or(Error::Limit("screenshot pixels"))?;
-    let buffer = raster(width, height, layers)?;
-    write_document(width, viewport_height, pages, &buffer)
+    write_document(width, viewport_height, pages, layers)
 }
 
 fn page_count(viewport_height: u32, layers: &[Layer]) -> Result<u32> {
@@ -57,7 +54,7 @@ fn painted_bottom(layers: &[Layer]) -> Result<f64> {
     Ok(bottom)
 }
 
-fn write_document(width: u32, page_height: u32, pages: u32, pixels: &[[u8; 4]]) -> Result<Vec<u8>> {
+fn write_document(width: u32, page_height: u32, pages: u32, layers: &[Layer]) -> Result<Vec<u8>> {
     let mut file = Vec::new();
     file.extend(b"%PDF-1.4\n");
     let mut offsets = vec![0_u64];
@@ -88,7 +85,12 @@ fn write_document(width: u32, page_height: u32, pages: u32, pixels: &[[u8; 4]]) 
         )?;
         let content = format!("q\n{width} 0 0 -{page_height} 0 {page_height} cm\n/Im0 Do\nQ");
         push_stream(&mut file, &mut offsets, content_id, content.as_bytes())?;
-        let image = image_stream(width, page_height, page, pixels)?;
+        let origin = f64::from(
+            page.checked_mul(page_height)
+                .ok_or(Error::Limit("screenshot pixels"))?,
+        );
+        let buffer = raster(width, page_height, origin, layers)?;
+        let image = image_stream(width, page_height, &buffer)?;
         push_image(
             &mut file,
             &mut offsets,
@@ -154,17 +156,11 @@ fn push_image(
     Ok(())
 }
 
-fn image_stream(width: u32, page_height: u32, page: u32, pixels: &[[u8; 4]]) -> Result<Vec<u8>> {
-    let origin = page
-        .checked_mul(page_height)
-        .ok_or(Error::Limit("screenshot pixels"))?;
+fn image_stream(width: u32, page_height: u32, pixels: &[[u8; 4]]) -> Result<Vec<u8>> {
     let mut stream = Vec::new();
     for y in 0..page_height {
-        let row = origin
-            .checked_add(y)
-            .ok_or(Error::Limit("screenshot pixels"))?;
         for x in 0..width {
-            let index = super::pixel_index(x, row, width)?;
+            let index = super::pixel_index(x, y, width)?;
             let pixel = pixels.get(index).ok_or(Error::Limit("screenshot pixels"))?;
             stream.extend(format!("{:02X}{:02X}{:02X}", pixel[0], pixel[1], pixel[2]).into_bytes());
         }

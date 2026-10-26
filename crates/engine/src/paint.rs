@@ -290,7 +290,7 @@ pub(crate) fn parse_color(value: &str) -> Result<Color> {
 }
 
 pub(crate) fn encode(width: u32, height: u32, layers: &[Layer]) -> Result<Screenshot> {
-    let buffer = raster(width, height, layers)?;
+    let buffer = raster(width, height, 0.0, layers)?;
     Ok(Screenshot {
         png: encode_png(width, height, &buffer)?,
         width,
@@ -299,7 +299,7 @@ pub(crate) fn encode(width: u32, height: u32, layers: &[Layer]) -> Result<Screen
     })
 }
 
-fn raster(width: u32, height: u32, layers: &[Layer]) -> Result<Vec<[u8; 4]>> {
+fn raster(width: u32, height: u32, origin_y: f64, layers: &[Layer]) -> Result<Vec<[u8; 4]>> {
     let count = pixel_count(width, height)?;
     let canvas = flatten(canvas_color(layers))?;
     let mut buffer = vec![canvas; count];
@@ -320,9 +320,24 @@ fn raster(width: u32, height: u32, layers: &[Layer]) -> Result<Vec<[u8; 4]>> {
         if layer.hidden {
             continue;
         }
-        paint_layer(&mut buffer, width, height, layer, root_transparent)?;
+        paint_layer(
+            &mut buffer,
+            width,
+            height,
+            layer,
+            root_transparent,
+            origin_y,
+        )?;
     }
     Ok(buffer)
+}
+
+fn translate_y(y: f64, origin_y: f64) -> Result<f64> {
+    let shifted = y - origin_y;
+    if !shifted.is_finite() {
+        return Err(Error::Dom("non-finite paint box".into()));
+    }
+    Ok(shifted)
 }
 
 fn paint_layer(
@@ -331,7 +346,9 @@ fn paint_layer(
     height: u32,
     layer: &Layer,
     root_transparent: bool,
+    origin_y: f64,
 ) -> Result<()> {
+    let y = translate_y(layer.y, origin_y)?;
     if let Some(shadow) = layer.shadow {
         fill_rect(
             buffer,
@@ -339,7 +356,7 @@ fn paint_layer(
             height,
             Rect {
                 x: layer.x + shadow.x - shadow.spread,
-                y: layer.y + shadow.y - shadow.spread,
+                y: y + shadow.y - shadow.spread,
                 width: layer.width + shadow.spread + shadow.spread,
                 height: layer.height + shadow.spread + shadow.spread,
             },
@@ -353,15 +370,15 @@ fn paint_layer(
             height,
             Rect {
                 x: layer.x,
-                y: layer.y,
+                y,
                 width: layer.width,
                 height: layer.height,
             },
             layer.color,
         )?;
     }
-    paint_border(buffer, width, height, layer)?;
-    let content = content_box(layer);
+    paint_border(buffer, width, height, layer, y)?;
+    let content = content_box(layer, y);
     if let Some(image) = &layer.image {
         blit_image(buffer, width, height, image, content)?;
     }
@@ -381,10 +398,10 @@ fn paint_layer(
     Ok(())
 }
 
-fn content_box(layer: &Layer) -> Rect {
+fn content_box(layer: &Layer, y: f64) -> Rect {
     Rect {
         x: layer.x + layer.edges.left + layer.edges.pad_left,
-        y: layer.y + layer.edges.top + layer.edges.pad_top,
+        y: y + layer.edges.top + layer.edges.pad_top,
         width: layer.width
             - layer.edges.left
             - layer.edges.right
@@ -398,23 +415,29 @@ fn content_box(layer: &Layer) -> Rect {
     }
 }
 
-fn paint_border(buffer: &mut [[u8; 4]], width: u32, height: u32, layer: &Layer) -> Result<()> {
+fn paint_border(
+    buffer: &mut [[u8; 4]],
+    width: u32,
+    height: u32,
+    layer: &Layer,
+    y: f64,
+) -> Result<()> {
     let color = layer.border_color;
     if color.alpha == 0 {
         return Ok(());
     }
     let edges = [
-        (layer.x, layer.y, layer.width, layer.edges.top),
+        (layer.x, y, layer.width, layer.edges.top),
         (
             layer.x,
-            layer.y + layer.height - layer.edges.bottom,
+            y + layer.height - layer.edges.bottom,
             layer.width,
             layer.edges.bottom,
         ),
-        (layer.x, layer.y, layer.edges.left, layer.height),
+        (layer.x, y, layer.edges.left, layer.height),
         (
             layer.x + layer.width - layer.edges.right,
-            layer.y,
+            y,
             layer.edges.right,
             layer.height,
         ),
@@ -881,6 +904,108 @@ mod tests {
         assert_eq!(second.first().copied(), Some([0, 255, 0]));
         assert_eq!(second.get(4).copied(), Some([0, 0, 255]));
         Ok(())
+    }
+
+    #[test]
+    fn pdf_encodes_a_second_page_at_the_default_viewport() -> Result<()> {
+        let layers = [
+            Layer::new(
+                Role::Root,
+                parse_color("rgb(0, 255, 0)")?,
+                0.0,
+                0.0,
+                1024.0,
+                768.0,
+            ),
+            Layer::new(
+                Role::Box,
+                parse_color("rgb(255, 0, 0)")?,
+                0.0,
+                0.0,
+                8.0,
+                8.0,
+            ),
+            Layer::new(
+                Role::Box,
+                parse_color("rgb(255, 255, 0)")?,
+                20.0,
+                766.0,
+                4.0,
+                4.0,
+            ),
+            Layer::new(
+                Role::Box,
+                parse_color("rgb(0, 0, 255)")?,
+                0.0,
+                900.0,
+                8.0,
+                8.0,
+            ),
+        ];
+        let shot = encode(1024, 768, &layers)?;
+        let document = super::pdf(1024, 768, &layers)?;
+        assert!(document.starts_with(b"%PDF-1.4"));
+        let images = pdf_images(&document)?;
+        assert_eq!(images.len(), 2);
+        let count = 1024_usize
+            .checked_mul(768)
+            .ok_or_else(|| crate::Error::Limit("pdf pages"))?;
+        let first = images
+            .first()
+            .ok_or_else(|| crate::Error::Limit("pdf pages"))?;
+        let second = images
+            .get(1)
+            .ok_or_else(|| crate::Error::Limit("pdf pages"))?;
+        assert_eq!(first.len(), count);
+        assert_eq!(second.len(), count);
+        for (x, y) in [(1_u32, 1_u32), (40, 30), (21, 766), (1, 132)] {
+            let png = pixel(&shot.png, x, y)?;
+            assert_eq!(pdf_rgb(first, 1024, x, y)?, [png[0], png[1], png[2]]);
+        }
+        assert_eq!(pdf_rgb(first, 1024, 1, 1)?, [255, 0, 0]);
+        assert_eq!(pdf_rgb(first, 1024, 21, 766)?, [255, 255, 0]);
+        assert_eq!(pdf_rgb(second, 1024, 21, 0)?, [255, 255, 0]);
+        assert_eq!(pdf_rgb(second, 1024, 21, 2)?, [0, 255, 0]);
+        assert_eq!(pdf_rgb(second, 1024, 1, 132)?, [0, 0, 255]);
+        assert_eq!(pdf_rgb(first, 1024, 1, 132)?, [0, 255, 0]);
+        Ok(())
+    }
+
+    #[test]
+    fn pdf_rejects_a_viewport_past_the_pixel_budget() -> Result<()> {
+        let layers = [Layer::new(
+            Role::Box,
+            parse_color("rgb(255, 0, 0)")?,
+            0.0,
+            0.0,
+            1.0,
+            1.0,
+        )];
+        match super::pdf(2048, 768, &layers) {
+            Err(crate::Error::Limit("screenshot pixels")) => Ok(()),
+            Err(error) => Err(error),
+            Ok(_document) => Err(crate::Error::Limit("screenshot pixels")),
+        }
+    }
+
+    fn pdf_rgb(pixels: &[[u8; 3]], width: u32, x: u32, y: u32) -> Result<[u8; 3]> {
+        let index = usize::try_from(y)
+            .ok()
+            .and_then(|row| {
+                usize::try_from(width)
+                    .ok()
+                    .and_then(|row_width| row.checked_mul(row_width))
+            })
+            .and_then(|row| {
+                usize::try_from(x)
+                    .ok()
+                    .and_then(|column| row.checked_add(column))
+            })
+            .ok_or_else(|| crate::Error::Limit("pdf pages"))?;
+        pixels
+            .get(index)
+            .copied()
+            .ok_or_else(|| crate::Error::Limit("pdf pages"))
     }
 
     fn pdf_images(document: &[u8]) -> Result<Vec<Vec<[u8; 3]>>> {

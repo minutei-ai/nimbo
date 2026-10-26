@@ -247,8 +247,9 @@ impl Page {
     /// Paints the page into a PDF, one viewport height per page.
     ///
     /// Page one is the same bitmap as [`Self::screenshot`]. Later pages hold the
-    /// boxes that start below that viewport. The file is a `%PDF-1.4` document
-    /// with a `DeviceRGB` image on each page.
+    /// boxes that continue below that viewport. Each page is rastered at the
+    /// viewport size, so the pixel budget is one viewport. The file is a
+    /// `%PDF-1.4` document with a `DeviceRGB` image on each page.
     ///
     /// # Errors
     /// Returns an error when layout, paint, the pixel budget or encoding fails.
